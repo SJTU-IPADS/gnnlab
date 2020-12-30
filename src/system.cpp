@@ -4,7 +4,7 @@
 
 #include <cuda_runtime.h>
 
-#include "vectorAdd.h"
+#include "sampling/vectorAdd.hpp"
 
 int main() {
     cudaError_t err = cudaSuccess;

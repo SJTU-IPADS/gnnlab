@@ -1,4 +1,4 @@
-#include "vectorAdd.h"
+#include "sampling/vectorAdd.hpp"
 
 __global__ void vectorAdd(const float *A, const float *B, float *C,
                           int numElements) {

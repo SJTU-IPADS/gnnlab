@@ -2,9 +2,15 @@ cmake_minimum_required(VERSION 3.9)
 
 project(gpu-sampling C CXX CUDA)
 
+set(CMAKE_CXX_FLAGS "-O2")
+
 include_directories(src)
+include_directories(third_party/parallel-hashmap/)
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-file(GLOB SOURCES "src/*.cc" "src/*.hpp" "src/*.cu")
+file(GLOB_RECURSE SOURCES
+     "src/sampling/*.cpp" "src/sampling/*.hpp" "src/sampling/*.cu"
+     "src/train/*.cpp" "src/train/*.hpp" "src/train/*.cu")
 
-add_executable(gpu-sampling ${SOURCES})
+add_executable(gpu-system "src/system.cpp" ${SOURCES})
+add_executable(sampling-cpu-eval "eval/sampling_eval.cpp" ${SOURCES})
