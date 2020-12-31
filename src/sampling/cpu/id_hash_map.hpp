@@ -42,7 +42,7 @@ class IdHashMap {
 
   // Return the new id of each id in the given array.
   uint32_t* Map(uint32_t *ids, uint32_t len, uint32_t default_val) const {
-    uint32_t *values = (uint32_t *)malloc(len * sizeof(uint32_t *));
+    uint32_t *values = (uint32_t *)malloc(len * sizeof(uint32_t));
     for (int64_t i = 0; i < len; ++i)
       values[i] = Map(ids[i], default_val);
     return values;
@@ -50,7 +50,7 @@ class IdHashMap {
 
   // Return all the old ids collected so far, ordered by new id.
   uint32_t* Values() const {
-    uint32_t *values = (uint32_t *)malloc(oldv2newv_.size() * sizeof(uint32_t *));
+    uint32_t *values = (uint32_t *)malloc(oldv2newv_.size() * sizeof(uint32_t));
     for (auto pair : oldv2newv_)
       values[pair.second] = pair.first;
     return values;

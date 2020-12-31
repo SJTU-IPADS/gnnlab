@@ -120,18 +120,24 @@ int main() {
         blocks[i].coo_ptr = coo;
         auto toc1 = std::chrono::system_clock::now();
 
-        // Construct CSR and CSC formats
-        
+        // Construct CSR formats
         auto tic2 = std::chrono::system_clock::now();
+        blocks[i].csr_ptr = COOToCSR(coo);
         auto toc2 = std::chrono::system_clock::now();
+
+        // Construct CSC formats
+        auto tic3 = std::chrono::system_clock::now();
+        blocks[i].csr_ptr = TransposeCSR(blocks[i].csr_ptr);
+        auto toc3 = std::chrono::system_clock::now();
 
         std::chrono::duration<double> duration_mapping = toc0 - tic0;
         std::chrono::duration<double> duration_coo = toc1 - tic1;
         std::chrono::duration<double> duration_csr = toc2 - tic2;
-        std::chrono::duration<double> duration_total = toc2 - tic0;
+        std::chrono::duration<double> duration_csc = toc3 - tic3;
+        std::chrono::duration<double> duration_total = toc3 - tic0;
 
-        printf("Block %d, mapping: %.4f, coo: %.4f, csr&csc: %.4f, total: %4f, src %u, dst %u\n", i,
-               duration_mapping.count(), duration_coo.count(), duration_csr.count(),
+        printf("Block %d, mapping: %.4f, coo: %.4f, csr: %.4f, csc: %.4f, total: %4f, src %u, dst %u\n",
+               i, duration_mapping.count(), duration_coo.count(), duration_csr.count(), duration_csc.count(),
                duration_total.count(), num_src_nodes, num_dst_nodes);
     }
 
