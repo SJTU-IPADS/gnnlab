@@ -25,7 +25,7 @@ struct Block {
     uint32_t seeds_len;
     uint32_t *seeds_ptr;
     COO *coo_ptr;
-    CSR *csr_ptr, csc_ptr;
+    CSR *csr_ptr, *csc_ptr;
 };
 int main() {
     std::vector<int> fds;
@@ -127,7 +127,7 @@ int main() {
 
         // Construct CSC formats
         auto tic3 = std::chrono::system_clock::now();
-        blocks[i].csr_ptr = TransposeCSR(blocks[i].csr_ptr);
+        blocks[i].csc_ptr = TransposeCSR(blocks[i].csr_ptr);
         auto toc3 = std::chrono::system_clock::now();
 
         std::chrono::duration<double> duration_mapping = toc0 - tic0;

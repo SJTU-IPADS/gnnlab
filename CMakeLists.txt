@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.9)
 
 project(gpu-sampling C CXX CUDA)
 
-set(CMAKE_CXX_FLAGS "-O2")
+set(CMAKE_CXX_FLAGS "-O2 -fopenmp")
 
 include_directories(src)
 include_directories(third_party/parallel-hashmap/)
