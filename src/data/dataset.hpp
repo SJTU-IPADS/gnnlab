@@ -18,10 +18,10 @@
 #define PAGE_SIZE 4096
 class Dataset {
 public:
-    Dataset(std::string name, std::string folder) {
+    const std::string key;
+    const std::string folder;
+    Dataset(std::string name, std::string folder) : key(name), folder(folder) {
         auto tic = std::chrono::system_clock::now();
-
-        key = name;
 
         if (folder.back() != '/') {
             folder.append("/");
@@ -35,10 +35,11 @@ public:
 
         this->num_nodes = j["num_nodes"];
         this->num_edges = j["num_edges"];
+        this->feature_dim = j["feat_dim"];
+        this->num_classes = j["num_classes"];
         this->num_train_ids = j["num_train_ids"];
         this->num_valid_ids = j["num_valid_ids"];
         this->num_test_ids = j["num_test_ids"];
-
 
         // Load data files
         std::string indptr_filename = folder + "indptr.bin";
@@ -58,7 +59,7 @@ public:
 
         indptr = (uint32_t *) mmap(NULL, (num_nodes + 1) * sizeof(uint32_t), PROT_READ, MAP_SHARED|MAP_FILE, indptr_fd, 0);
         indices = (uint32_t *) mmap(NULL, num_edges * sizeof(uint32_t), PROT_READ, MAP_SHARED|MAP_FILE, indices_fd, 0);
-        features = (float *) mmap(NULL, num_nodes * feature_dim * sizeof(float), PROT_READ, MAP_SHARED|MAP_FILE, feature_dim, 0);
+        features = (float *) mmap(NULL, num_nodes * feature_dim * sizeof(float), PROT_READ, MAP_SHARED|MAP_FILE, features_fd, 0);
         labels = (uint32_t *) mmap(NULL, num_nodes * sizeof(uint32_t), PROT_READ, MAP_SHARED|MAP_FILE, labels_fd, 0);
         train_ids = (uint32_t *) mmap(NULL, num_train_ids * sizeof(uint32_t), PROT_READ, MAP_SHARED|MAP_FILE, train_ids_fd, 0);
         valid_ids = (uint32_t *) mmap(NULL, num_valid_ids * sizeof(uint32_t), PROT_READ, MAP_SHARED|MAP_FILE, valid_ids_fd, 0);
@@ -79,47 +80,58 @@ public:
         close(train_ids_fd);
         close(valid_ids_fd);
         close(test_ids_fd);
-        
+
+        uint32_t sum = 0;
+
         // Make sure all data are loaded into memory
+#pragma omp parallel for reduction(+:sum)
         for (uint32_t i = 0; i < (num_nodes + 1); i += PAGE_SIZE) {
-            magic_num += indptr[i];
+            sum += indptr[i];
         }
-        magic_num += indptr[num_nodes];
+        sum += indptr[num_nodes];
 
+#pragma omp parallel for reduction(+:sum)
         for (uint32_t i = 0; i < num_edges; i += PAGE_SIZE) {
-            magic_num += indices[i];
+            sum += indices[i];
         }
-        magic_num += indices[num_edges - 1];
+        sum += indices[num_edges - 1];
 
+#pragma omp parallel for reduction(+:sum)
         for (uint32_t i = 0; i < num_nodes * feature_dim; i += PAGE_SIZE) {
-            magic_num += (uint32_t)features[i];
+            sum += (uint32_t)features[i];
         }
-        magic_num += (uint32_t)features[num_nodes * feature_dim - 1];
+        sum += (uint32_t)features[num_nodes * feature_dim - 1];
 
+#pragma omp parallel for reduction(+:sum)
         for (uint32_t i = 0; i < num_nodes; i += PAGE_SIZE) {
-            magic_num += labels[i];
+            sum += labels[i];
         }
-        magic_num += labels[num_nodes - 1];
+        sum += labels[num_nodes - 1];
 
+#pragma omp parallel for reduction(+:sum)
         for (uint32_t i = 0; i < num_train_ids; i += PAGE_SIZE) {
-            magic_num += train_ids[i];
+            sum += train_ids[i];
         }
-        magic_num += train_ids[num_train_ids - 1];
+        sum += train_ids[num_train_ids - 1];
 
+#pragma omp parallel for reduction(+:magic_num)
         for (uint32_t i = 0; i < num_valid_ids; i += PAGE_SIZE) {
             magic_num += valid_ids[i];
         }
         magic_num += valid_ids[num_valid_ids - 1];
 
+#pragma omp parallel for reduction(+:sum)
         for (uint32_t i = 0; i < num_test_ids; i += PAGE_SIZE) {
-            magic_num += test_ids[i];
+            sum += test_ids[i];
         }
-        magic_num += test_ids[num_test_ids - 1];
+        sum += test_ids[num_test_ids - 1];
+
+        magic_num = sum;
 
         auto toc = std::chrono::system_clock::now();
         std::chrono::duration<double> duration = toc - tic;
 
-        printf("Loading %s dataset using %.4f secs.", key.c_str(), duration.count());
+        printf("Loading %s dataset using %.4f secs.\n", key.c_str(), duration.count());
     }
 
     ~Dataset() {
@@ -133,7 +145,6 @@ public:
     }
 
 private:
-    std::string key;
     uint32_t *indptr = nullptr;
     uint32_t *indices = nullptr;
     
@@ -147,9 +158,11 @@ private:
     uint32_t num_nodes;
     uint32_t num_edges;
     uint32_t feature_dim;
+    
+    uint32_t num_classes;
     uint32_t num_train_ids;
     uint32_t num_valid_ids;
     uint32_t num_test_ids;
 
-    uint32_t magic_num = 0; 
+    uint32_t magic_num; 
 };
