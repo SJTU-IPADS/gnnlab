@@ -43,8 +43,8 @@ int main() {
             std::cout << err.message << std::endl;
         } else if (command.find("remove") == 0) {
             std::vector<std::string> tokens = split_string(command);
-            if (tokens.size() < 3) {
-                std::cout << "usage: load key /path/to/folder" << std::endl;
+            if (tokens.size() < 2) {
+                std::cout << "usage: remove key" << std::endl;
                 continue;
             }
             datastore.Remove(tokens[1]);

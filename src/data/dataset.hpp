@@ -12,6 +12,7 @@
 #include <chrono>
 #include <fstream>
 #include <string>
+#include <iostream>
 
 #include <nlohmann/json.hpp>
 
@@ -20,7 +21,8 @@ class Dataset {
 public:
     const std::string key;
     const std::string folder;
-    Dataset(std::string name, std::string folder) : key(name), folder(folder) {
+
+    Dataset(std::string name, std::string folder, bool lock=true) : key(name), folder(folder) {
         auto tic = std::chrono::system_clock::now();
 
         if (folder.back() != '/') {
@@ -73,6 +75,23 @@ public:
         assert(valid_ids);
         assert(test_ids);
 
+        // Make sure all data are loaded into memory
+        if (lock) {
+            mlock(indptr, (num_nodes + 1) * sizeof(uint32_t));
+            mlock(indices, num_edges * sizeof(uint32_t));
+            mlock(features, num_nodes * feature_dim * sizeof(float));
+            mlock(labels, num_nodes * sizeof(uint32_t));
+            mlock(train_ids, num_train_ids * sizeof(uint32_t));
+            mlock(valid_ids, num_valid_ids * sizeof(uint32_t));
+            mlock(test_ids, num_test_ids * sizeof(uint32_t));
+        }
+
+        auto toc = std::chrono::system_clock::now();
+        std::chrono::duration<double> duration = toc - tic;
+
+        printf("Loaded %s dataset with num_nodes: %lu, num_edges: %lu, feat_dims: %lu, num_classes: %lu using %.4f secs.\n", 
+               key.c_str(), num_nodes, num_edges, feature_dim, num_classes, duration.count());
+
         close(indptr_fd);
         close(indices_fd);
         close(features_fd);
@@ -80,58 +99,6 @@ public:
         close(train_ids_fd);
         close(valid_ids_fd);
         close(test_ids_fd);
-
-        uint32_t sum = 0;
-
-        // Make sure all data are loaded into memory
-#pragma omp parallel for reduction(+:sum)
-        for (uint32_t i = 0; i < (num_nodes + 1); i += PAGE_SIZE) {
-            sum += indptr[i];
-        }
-        sum += indptr[num_nodes];
-
-#pragma omp parallel for reduction(+:sum)
-        for (uint32_t i = 0; i < num_edges; i += PAGE_SIZE) {
-            sum += indices[i];
-        }
-        sum += indices[num_edges - 1];
-
-#pragma omp parallel for reduction(+:sum)
-        for (uint32_t i = 0; i < num_nodes * feature_dim; i += PAGE_SIZE) {
-            sum += (uint32_t)features[i];
-        }
-        sum += (uint32_t)features[num_nodes * feature_dim - 1];
-
-#pragma omp parallel for reduction(+:sum)
-        for (uint32_t i = 0; i < num_nodes; i += PAGE_SIZE) {
-            sum += labels[i];
-        }
-        sum += labels[num_nodes - 1];
-
-#pragma omp parallel for reduction(+:sum)
-        for (uint32_t i = 0; i < num_train_ids; i += PAGE_SIZE) {
-            sum += train_ids[i];
-        }
-        sum += train_ids[num_train_ids - 1];
-
-#pragma omp parallel for reduction(+:magic_num)
-        for (uint32_t i = 0; i < num_valid_ids; i += PAGE_SIZE) {
-            magic_num += valid_ids[i];
-        }
-        magic_num += valid_ids[num_valid_ids - 1];
-
-#pragma omp parallel for reduction(+:sum)
-        for (uint32_t i = 0; i < num_test_ids; i += PAGE_SIZE) {
-            sum += test_ids[i];
-        }
-        sum += test_ids[num_test_ids - 1];
-
-        magic_num = sum;
-
-        auto toc = std::chrono::system_clock::now();
-        std::chrono::duration<double> duration = toc - tic;
-
-        printf("Loading %s dataset using %.4f secs.\n", key.c_str(), duration.count());
     }
 
     ~Dataset() {
@@ -155,14 +122,11 @@ private:
     uint32_t *valid_ids = nullptr;
     uint32_t *test_ids = nullptr;
 
-    uint32_t num_nodes;
-    uint32_t num_edges;
-    uint32_t feature_dim;
-    
-    uint32_t num_classes;
-    uint32_t num_train_ids;
-    uint32_t num_valid_ids;
-    uint32_t num_test_ids;
-
-    uint32_t magic_num; 
+    size_t num_nodes;
+    size_t num_edges;
+    size_t feature_dim;
+    size_t num_classes;
+    size_t num_train_ids;
+    size_t num_valid_ids;
+    size_t num_test_ids;
 };
