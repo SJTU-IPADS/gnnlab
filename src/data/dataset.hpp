@@ -16,13 +16,15 @@
 
 #include <nlohmann/json.hpp>
 
+#include "sampling/cpu/graph_storage.hpp"
+
 #define PAGE_SIZE 4096
 class Dataset {
 public:
     const std::string key;
     const std::string folder;
 
-    Dataset(std::string name, std::string folder, bool lock=true) : key(name), folder(folder) {
+    Dataset(std::string name, std::string folder) : key(name), folder(folder) {
         auto tic = std::chrono::system_clock::now();
 
         if (folder.back() != '/') {
@@ -76,15 +78,13 @@ public:
         assert(test_ids);
 
         // Make sure all data are loaded into memory
-        if (lock) {
-            mlock(indptr, (num_nodes + 1) * sizeof(uint32_t));
-            mlock(indices, num_edges * sizeof(uint32_t));
-            mlock(features, num_nodes * feature_dim * sizeof(float));
-            mlock(labels, num_nodes * sizeof(uint32_t));
-            mlock(train_ids, num_train_ids * sizeof(uint32_t));
-            mlock(valid_ids, num_valid_ids * sizeof(uint32_t));
-            mlock(test_ids, num_test_ids * sizeof(uint32_t));
-        }
+        mlock(indptr, (num_nodes + 1) * sizeof(uint32_t));
+        mlock(indices, num_edges * sizeof(uint32_t));
+        mlock(features, num_nodes * feature_dim * sizeof(float));
+        mlock(labels, num_nodes * sizeof(uint32_t));
+        mlock(train_ids, num_train_ids * sizeof(uint32_t));
+        mlock(valid_ids, num_valid_ids * sizeof(uint32_t));
+        mlock(test_ids, num_test_ids * sizeof(uint32_t));
 
         auto toc = std::chrono::system_clock::now();
         std::chrono::duration<double> duration = toc - tic;
@@ -109,6 +109,19 @@ public:
         munmap(train_ids, num_train_ids * sizeof(uint32_t));
         munmap(valid_ids, num_valid_ids * sizeof(uint32_t));
         munmap(test_ids, num_test_ids * sizeof(uint32_t));
+    }
+
+    std::shared_ptr<CSR> GetCSR() {
+        std::shared_ptr<CSR> csr = std::make_shared<CSR>();
+        csr->num_rows = num_nodes;
+        csr->num_cols = num_nodes;
+        csr->num_edges = num_edges;
+        csr->indptr = indptr;
+        csr->indices = indices;
+        csr->sorted = true;
+        csr->need_free = false;
+
+        return csr;
     }
 
 private:

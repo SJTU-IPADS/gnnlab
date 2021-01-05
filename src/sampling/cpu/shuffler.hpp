@@ -14,7 +14,7 @@ struct NodesBatch {
 
 class Shuffler {
 public:
-    Shuffler(uint32_t *train_ids, size_t num_ids, size_t batch_size) : samples_ids(train_ids, train_ids + num_ids), batch_size(batch_size) {
+    Shuffler(const uint32_t *train_ids, size_t num_ids, size_t batch_size) : samples_ids(train_ids, train_ids + num_ids), batch_size(batch_size) {
         size_t num_batches = (num_ids - 1) / batch_size + 1;
         max_batch_id = num_batches - 1;
         last_batch_size = num_ids - num_batches * batch_size;

@@ -4,6 +4,7 @@
 
 #include <string>
 #include <iostream>
+#include <memory>
 #include <unordered_map>
 
 #include "data/dataset.hpp"
@@ -39,8 +40,7 @@ public:
             return {kDuplicateKey, "duplicate key"};
         }
 
-        Dataset *dataset = new Dataset(key, folder);
-        store[key] = dataset;
+        store[key] = std::make_shared<Dataset>(key, folder);
         folder2key[folder] = key;
 
         return {kSuccess, "success"};
@@ -49,12 +49,9 @@ public:
     void Remove(std::string key) {
         auto store_it = store.find(key);
         if (store_it != store.end()) {
-            Dataset *dataset = store_it->second;
-            std::string folder = dataset->folder;
+            std::string folder = store_it->second->folder;
             store.erase(store_it);
             folder2key.erase(folder);
-
-            delete dataset;
         }
     }
 
@@ -64,13 +61,7 @@ public:
         }
     }
 
-    ~DataStore() {
-        for(auto it : store) {
-            delete it.second;
-        }
-    }
-
 private:
-    std::unordered_map<std::string, Dataset *> store;
+    std::unordered_map<std::string, std::shared_ptr<Dataset>> store;
     std::unordered_map<std::string, std::string> folder2key;
 };

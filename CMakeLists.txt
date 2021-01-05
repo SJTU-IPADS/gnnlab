@@ -9,10 +9,8 @@ include_directories(third_party/parallel-hashmap)
 include_directories(third_party/json/single_include)
 include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
-file(GLOB_RECURSE SOURCES
-     "src/sampling/*.cpp" "src/sampling/*.hpp" "src/sampling/*.cu"
-     "src/train/*.cpp" "src/train/*.hpp" "src/train/*.cu")
+file(GLOB_RECURSE SOURCES "src/*.cu")
 
 add_executable(gpu-system "src/system.cpp" ${SOURCES})
-add_executable(sampling-cpu-eval "eval/sampling_eval.cpp" ${SOURCES})
+add_executable(sampling-cpu-eval "eval/sampling_cpu_eval.cpp" ${SOURCES})
 add_executable(data-server "src/data_server.cpp" ${SOURCES})

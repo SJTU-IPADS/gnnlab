@@ -5,22 +5,45 @@
 #include <cstring>
 
 #include <algorithm>
+#include <memory>
 
 struct COO {
-    uint32_t num_rows, num_cols;
-    uint32_t num_edges;
-    uint32_t *row_ptr, *col_ptr;
+    uint32_t num_rows = 0, num_cols = 0;
+    uint32_t num_edges = 0;
+    uint32_t *row_ptr = nullptr, *col_ptr = nullptr;
     bool row_sorted = false, col_sorted = false;
+    bool need_free = true;
+
+    ~COO() {
+        if (need_free && row_ptr) {
+            free(row_ptr);
+        }
+
+        if (need_free && col_ptr) {
+            free(col_ptr);
+        }
+    }
 };
 
 struct CSR {
-    uint32_t num_rows, num_cols;
-    uint32_t num_edges;
-    uint32_t *indptr, *indices;
+    uint32_t num_rows = 0, num_cols = 0;
+    uint32_t num_edges = 0;
+    uint32_t *indptr = nullptr, *indices = nullptr;
     bool sorted = false;
+    bool need_free = true;
+
+    ~CSR() {
+        if (need_free && indptr) {
+            free(indptr);
+        }
+
+        if (need_free && indices) {
+            free(indices);
+        }
+    }
 };
 
-CSR* COOToCSR(COO *coo) {
+std::shared_ptr<CSR> COOToCSR(std::shared_ptr<COO> coo) {
     const int64_t N = coo->num_rows;
     const int64_t NNZ = coo->num_edges;
     const uint32_t* row_data = coo->row_ptr;
@@ -69,7 +92,7 @@ CSR* COOToCSR(COO *coo) {
         }
     }
 
-    CSR *csr = new CSR();
+    std::shared_ptr<CSR> csr = std::make_shared<CSR>();
     csr->num_rows = coo->num_rows;
     csr->num_cols = coo->num_cols;
     csr->indptr = indptr;
@@ -79,7 +102,7 @@ CSR* COOToCSR(COO *coo) {
     return csr;
 }
 
-CSR* TransposeCSR(CSR *csr) {
+std::shared_ptr<CSR> TransposeCSR(std::shared_ptr<CSR> csr) {
     const uint32_t N = csr->num_rows;
     const uint32_t M = csr->num_cols;
     const uint32_t nnz = csr->num_edges;
@@ -119,7 +142,7 @@ CSR* TransposeCSR(CSR *csr) {
         last = temp;
     }
 
-    CSR *csc = new CSR();
+    std::shared_ptr<CSR> csc = std::make_shared<CSR>();
     csc->num_rows = csr->num_rows;
     csc->num_cols = csr->num_cols;
     csc->indptr = ret_indptr;
