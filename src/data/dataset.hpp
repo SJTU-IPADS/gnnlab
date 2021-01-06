@@ -19,6 +19,28 @@
 #include "sampling/cpu/graph_storage.hpp"
 
 #define PAGE_SIZE 4096
+
+struct Feature {
+    const float *data;
+    const size_t dim;
+
+    Feature(float *feature, size_t dim) : data(feature), dim(dim) {}
+};
+
+struct Label {
+    const uint32_t *data;
+    const size_t num_classes;
+
+    Label(uint32_t *label, size_t num_classes) : data(label), num_classes(num_classes) {}
+};
+
+struct NodeSet {
+    const uint32_t *ids;
+    const size_t len;
+
+    NodeSet(uint32_t *ids, size_t len) : ids(ids), len(len) {}
+};
+
 class Dataset {
 public:
     const std::string key;
@@ -122,6 +144,26 @@ public:
         csr->need_free = false;
 
         return csr;
+    }
+
+    inline Feature GetFeature() {
+        return {features, feature_dim};
+    }
+
+    inline Label GetLabel() {
+        return {labels, num_classes};
+    }
+
+    inline NodeSet GetTrainSet() {
+        return {train_ids, num_train_ids};
+    }
+
+    inline NodeSet GetTestSet() {
+        return {test_ids, num_test_ids};
+    }
+
+    inline NodeSet GetValidSet() {
+        return {valid_ids, num_valid_ids};
     }
 
 private:

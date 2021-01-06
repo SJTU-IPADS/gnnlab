@@ -9,9 +9,19 @@
 class IdHashMap {
  public:
   IdHashMap() : filter_(kFilterSize, false) {}
-  explicit IdHashMap(uint32_t *ids, size_t len): filter_(kFilterSize, false) {
-    oldv2newv_.reserve(len);
-    Update(ids, len);
+  explicit IdHashMap(const std::vector<uint32_t> &ids): filter_(kFilterSize, false) {
+    oldv2newv_.reserve(ids.size());
+    Update(ids);
+  }
+
+  void Update(const std::vector<uint32_t> &ids) {
+    for (size_t i = 0; i < ids.size(); ++i) {
+      const uint32_t id = ids[i];
+      // phmap::flat_hash_map::insert assures that an insertion will not happen if the
+      // key already exists.
+      oldv2newv_.insert({id, oldv2newv_.size()});
+      filter_[id & kFilterMask] = true;
+    }
   }
 
   void Update(uint32_t *ids, size_t len) {
@@ -31,7 +41,7 @@ class IdHashMap {
 
   // Return the new id of the given id. If the given id is not contained
   // in the hash map, returns the default_val instead.
-  uint32_t Map(uint32_t id, uint32_t default_val) const {
+  inline uint32_t Map(uint32_t id, uint32_t default_val) const {
     if (filter_[id & kFilterMask]) {
       auto it = oldv2newv_.find(id);
       return (it == oldv2newv_.end()) ? default_val : it->second;
@@ -45,15 +55,14 @@ class IdHashMap {
     uint32_t *values = (uint32_t *)malloc(len * sizeof(uint32_t));
     for (int64_t i = 0; i < len; ++i)
       values[i] = Map(ids[i], default_val);
-    return values;
   }
 
   // Return all the old ids collected so far, ordered by new id.
-  uint32_t* Values() const {
-    uint32_t *values = (uint32_t *)malloc(oldv2newv_.size() * sizeof(uint32_t));
+  void Values(std::vector<uint32_t> &values) const {
+    values.resize(oldv2newv_.size());
     for (auto pair : oldv2newv_)
       values[pair.second] = pair.first;
-    return values;
+    return ;
   }
 
   inline size_t Size() const {

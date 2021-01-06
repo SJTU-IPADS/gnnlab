@@ -7,14 +7,16 @@
 #include "sampling/cpu/graph_storage.hpp"
 
 struct Block {
-    uint32_t num_src_nodes = 0;
-    uint32_t num_dst_nodes = 0;
     int num_picks = 0;
-    uint32_t num_nodes = 0;
     int feat_dim = 0;
 
-    std::vector<uint32_t> seeds;
-    std::vector<uint32_t> block_nodes;
+    size_t num_src_nodes = 0;
+    size_t num_dst_nodes = 0;
+
+    std::shared_ptr<COO> raw_block;
+
+    std::vector<uint32_t> seeds2oid;
+    std::vector<uint32_t> nodes2oid;
 
     uint32_t *block_features = nullptr;
     uint32_t *block_label = nullptr;
