@@ -15,10 +15,10 @@ struct Block {
 
     std::shared_ptr<COO> raw_block;
 
-    std::vector<uint32_t> seeds2oid;
-    std::vector<uint32_t> nodes2oid;
+    std::vector<uint32_t> seed_index;
+    std::vector<uint32_t> node_index;
 
-    uint32_t *block_features = nullptr;
+    float *block_features = nullptr;
     uint32_t *block_label = nullptr;
 
     std::shared_ptr<COO> coo_ptr;

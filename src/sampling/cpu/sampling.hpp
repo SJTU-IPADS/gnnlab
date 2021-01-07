@@ -74,7 +74,7 @@ std::shared_ptr<Block> SampleBlock(std::shared_ptr<CSR> csr, std::vector<uint32_
     }
 
     std::shared_ptr<Block> block = std::make_shared<Block>();
-    block->seeds = std::move(rows);
+    block->seed_index = std::move(rows);
 
     // Exchange row and col
     block->raw_block = std::make_shared<COO>();
