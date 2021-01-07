@@ -55,6 +55,7 @@ class IdHashMap {
     uint32_t *values = (uint32_t *)malloc(len * sizeof(uint32_t));
     for (int64_t i = 0; i < len; ++i)
       values[i] = Map(ids[i], default_val);
+    return values;
   }
 
   // Return all the old ids collected so far, ordered by new id.
@@ -62,7 +63,6 @@ class IdHashMap {
     values.resize(oldv2newv_.size());
     for (auto pair : oldv2newv_)
       values[pair.second] = pair.first;
-    return ;
   }
 
   inline size_t Size() const {

@@ -45,6 +45,9 @@ int main(int argc, char *argv[]) {
             std::chrono::duration<double> duration = toc - tic;
 
             printf("Epoch %d, step %d, time %.4f\n", epoch, step, duration.count());
+            for (int bid = 0; bid < task.num_blocks; bid++) {
+                printf("  bid %d, num_src_nodes: %lu, num_dst_nodes %lu\n", bid, blocks[bid]->num_src_nodes, blocks[bid]->num_dst_nodes);
+            }
         }
     }
 

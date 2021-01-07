@@ -70,6 +70,7 @@ std::shared_ptr<CSR> COOToCSR(std::shared_ptr<COO> coo) {
         // compute indptr
         uint32_t *Bp = indptr;
         *(Bp) = 0;
+        Bp++;
         std::fill(Bp, Bp + N, 0);
         for (int64_t i = 0; i < NNZ; ++i) {
             Bp[row_data[i]]++;
@@ -95,6 +96,7 @@ std::shared_ptr<CSR> COOToCSR(std::shared_ptr<COO> coo) {
     std::shared_ptr<CSR> csr = std::make_shared<CSR>();
     csr->num_rows = coo->num_rows;
     csr->num_cols = coo->num_cols;
+    csr->num_edges = coo->num_edges;
     csr->indptr = indptr;
     csr->indices = indices;
     csr->sorted = coo->col_sorted;
@@ -145,6 +147,7 @@ std::shared_ptr<CSR> TransposeCSR(std::shared_ptr<CSR> csr) {
     std::shared_ptr<CSR> csc = std::make_shared<CSR>();
     csc->num_rows = csr->num_rows;
     csc->num_cols = csr->num_cols;
+    csc->num_edges = csr->num_edges;
     csc->indptr = ret_indptr;
     csc->indices = ret_indices;
     csc->sorted = true;
