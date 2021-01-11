@@ -48,10 +48,10 @@ std::shared_ptr<CSR> COOToCSR(std::shared_ptr<COO> coo) {
     const size_t NNZ = coo->num_edges;
     const uint32_t* row_data = coo->row_ptr;
     const uint32_t* col_data = coo->col_ptr;
-    
+
     uint32_t *indptr = (uint32_t *)malloc((N + 1) * sizeof(uint32_t));
     uint32_t *indices = (uint32_t *)malloc((NNZ * sizeof(uint32_t)));
-    
+
     bool row_sorted = coo->row_sorted;
     bool col_sorted = coo->col_sorted;
 

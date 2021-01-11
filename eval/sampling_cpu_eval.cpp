@@ -10,6 +10,8 @@
 #include "sampling/cpu/sampler.hpp"
 #include "sampling/cpu/block.hpp"
 #include "sampling/cpu/shuffler.hpp"
+#include "util/performance.hpp"
+#include "util/tictoc.hpp"
 
 DEFINE_string(dataset_key, "papers100M","");
 DEFINE_string(dataset_folder, "/graph-learning/preprocess/papers100M", "");
@@ -33,22 +35,25 @@ int main(int argc, char *argv[]) {
     }
     task.num_blocks = task.fanout.size();
 
+    TicToc t;
+    Performance &p = Performance::Instance();
+    p.SetMeta(task.num_blocks);
     Shuffler shuffler(dataset->GetTrainSet().ids, dataset->GetTrainSet().len, FLAGS_batch_size);
     for (int epoch = 0; epoch < FLAGS_num_epoch; epoch++) {
+        t.Tic(0);
         shuffler.Shuffle();
+        p.shuffles.Log(t.Toc(0));
+
         for (int step = 0; shuffler.HasNext(); step++) {
-            auto tic = std::chrono::system_clock::now();
+            t.Tic(1);
             NodesBatch batch = shuffler.GetNextBatch();
             std::vector<std::shared_ptr<Block>> blocks = SampleMultiHops(dataset, batch, task);
-            auto toc = std::chrono::system_clock::now();
-
-            std::chrono::duration<double> duration = toc - tic;
-
-            printf("Epoch %d, step %d, time %.4f\n", epoch, step, duration.count());
-            for (int bid = 0; bid < task.num_blocks; bid++) {
-                printf("  bid %d, num_src_nodes: %lu, num_dst_nodes %lu\n", bid, blocks[bid]->num_src_nodes, blocks[bid]->num_dst_nodes);
-            }
+            p.steps.Log(t.Toc(1));
+            p.ReportStep(epoch, step);
         }
+
+        p.epochs.Log(t.Toc(0));
+        p.ReportEpoch();
     }
 
     gflags::ShutDownCommandLineFlags();
