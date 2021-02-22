@@ -15,7 +15,7 @@ class IdHashMap {
   }
 
   void Update(const std::vector<uint32_t> &ids) {
-    for (size_t i = 0; i < ids.size(); ++i) {
+    for (uint64_t i = 0; i < ids.size(); ++i) {
       const uint32_t id = ids[i];
       // phmap::flat_hash_map::insert assures that an insertion will not happen if the
       // key already exists.
@@ -24,8 +24,8 @@ class IdHashMap {
     }
   }
 
-  void Update(uint32_t *ids, size_t len) {
-    for (size_t i = 0; i < len; ++i) {
+  void Update(uint32_t *ids, uint64_t len) {
+    for (uint64_t i = 0; i < len; ++i) {
       const uint32_t id = ids[i];
       // phmap::flat_hash_map::insert assures that an insertion will not happen if the
       // key already exists.
@@ -65,7 +65,7 @@ class IdHashMap {
       values[pair.second] = pair.first;
   }
 
-  inline size_t Size() const {
+  inline uint64_t Size() const {
     return oldv2newv_.size();
   }
 

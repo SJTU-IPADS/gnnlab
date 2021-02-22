@@ -8,14 +8,14 @@
 struct NodesBatch {
     bool valid = false;
     bool is_last = false;
-    size_t num_samples = 0;
+    uint64_t num_samples = 0;
     const uint32_t *ids = nullptr;
 };
 
 class Shuffler {
 public:
-    Shuffler(const uint32_t *train_ids, size_t num_ids, size_t batch_size) : samples_ids(train_ids, train_ids + num_ids), batch_size(batch_size) {
-        size_t num_batches = (num_ids - 1) / batch_size + 1;
+    Shuffler(const uint32_t *train_ids, uint64_t num_ids, uint64_t batch_size) : samples_ids(train_ids, train_ids + num_ids), batch_size(batch_size) {
+        uint64_t num_batches = (num_ids - 1) / batch_size + 1;
         max_batch_id = num_batches - 1;
         last_batch_size = num_ids - num_batches * batch_size;
         if (last_batch_size == 0) {
@@ -51,8 +51,8 @@ public:
     
 private:
     std::vector<uint32_t> samples_ids;
-    size_t batch_size;
-    size_t last_batch_size;
-    size_t max_batch_id;
-    size_t cur_batch_id;
+    uint64_t batch_size;
+    uint64_t last_batch_size;
+    uint64_t max_batch_id;
+    uint64_t cur_batch_id;
 };

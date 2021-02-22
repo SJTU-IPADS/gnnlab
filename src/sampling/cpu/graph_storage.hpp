@@ -8,8 +8,8 @@
 #include <memory>
 
 struct COO {
-    size_t num_rows = 0, num_cols = 0;
-    size_t num_edges = 0;
+    uint64_t num_rows = 0, num_cols = 0;
+    uint64_t num_edges = 0;
     uint32_t *row_ptr = nullptr, *col_ptr = nullptr;
     bool row_sorted = false, col_sorted = false;
     bool need_free = true;
@@ -26,8 +26,8 @@ struct COO {
 };
 
 struct CSR {
-    size_t num_rows = 0, num_cols = 0;
-    size_t num_edges = 0;
+    uint64_t num_rows = 0, num_cols = 0;
+    uint64_t num_edges = 0;
     uint32_t *indptr = nullptr, *indices = nullptr;
     bool sorted = false;
     bool need_free = true;
@@ -44,8 +44,8 @@ struct CSR {
 };
 
 std::shared_ptr<CSR> COOToCSR(std::shared_ptr<COO> coo) {
-    const size_t N = coo->num_rows;
-    const size_t NNZ = coo->num_edges;
+    const uint64_t N = coo->num_rows;
+    const uint64_t NNZ = coo->num_edges;
     const uint32_t* row_data = coo->row_ptr;
     const uint32_t* col_data = coo->col_ptr;
 
@@ -105,9 +105,9 @@ std::shared_ptr<CSR> COOToCSR(std::shared_ptr<COO> coo) {
 }
 
 std::shared_ptr<CSR> TransposeCSR(std::shared_ptr<CSR> csr) {
-    const size_t N = csr->num_rows;
-    const size_t M = csr->num_cols;
-    const size_t nnz = csr->num_edges;
+    const uint64_t N = csr->num_rows;
+    const uint64_t M = csr->num_cols;
+    const uint64_t nnz = csr->num_edges;
     const uint32_t* Ap = csr->indptr;
     const uint32_t* Aj = csr->indices;
     uint32_t* ret_indptr = (uint32_t *)malloc((M + 1) * sizeof(uint32_t));

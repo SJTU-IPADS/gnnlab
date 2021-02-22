@@ -12,8 +12,8 @@ std::shared_ptr<Block> SampleBlock(std::shared_ptr<CSR> csr, std::vector<uint32_
     uint32_t *indptr = csr->indptr;
     uint32_t *indices = csr->indices;
 
-    size_t num_rows = rows.size();
-    size_t num_edges = num_rows * num_picks;
+    uint64_t num_rows = rows.size();
+    uint64_t num_edges = num_rows * num_picks;
 
     uint32_t *picked_row = (uint32_t *) malloc(num_rows * num_picks * sizeof(uint32_t));
     uint32_t *picked_col = (uint32_t *) malloc(num_rows * num_picks * sizeof(uint32_t));

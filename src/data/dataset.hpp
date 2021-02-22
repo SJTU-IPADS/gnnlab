@@ -22,23 +22,23 @@
 
 struct Feature {
     const float *data;
-    const size_t dim;
+    const uint64_t dim;
 
-    Feature(float *feature, size_t dim) : data(feature), dim(dim) {}
+    Feature(float *feature, uint64_t dim) : data(feature), dim(dim) {}
 };
 
 struct Label {
     const uint32_t *data;
-    const size_t num_classes;
+    const uint64_t num_classes;
 
-    Label(uint32_t *label, size_t num_classes) : data(label), num_classes(num_classes) {}
+    Label(uint32_t *label, uint64_t num_classes) : data(label), num_classes(num_classes) {}
 };
 
 struct NodeSet {
     const uint32_t *ids;
-    const size_t len;
+    const uint64_t len;
 
-    NodeSet(uint32_t *ids, size_t len) : ids(ids), len(len) {}
+    NodeSet(uint32_t *ids, uint64_t len) : ids(ids), len(len) {}
 };
 
 class Dataset {
@@ -177,11 +177,11 @@ private:
     uint32_t *valid_ids = nullptr;
     uint32_t *test_ids = nullptr;
 
-    size_t num_nodes;
-    size_t num_edges;
-    size_t feature_dim;
-    size_t num_classes;
-    size_t num_train_ids;
-    size_t num_valid_ids;
-    size_t num_test_ids;
+    uint64_t num_nodes;
+    uint64_t num_edges;
+    uint64_t feature_dim;
+    uint64_t num_classes;
+    uint64_t num_train_ids;
+    uint64_t num_valid_ids;
+    uint64_t num_test_ids;
 };

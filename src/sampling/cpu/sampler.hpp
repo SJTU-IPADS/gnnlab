@@ -76,6 +76,7 @@ std::vector<std::shared_ptr<Block>> SampleMultiHops(std::shared_ptr<Dataset> dat
     p.sampling.Log(t.Toc(0));
 
     t.Tic(6);
+    blocks[0]->feat_dim = dataset->GetFeature().dim;
     blocks[0]->block_features = IndexSelect<float>(dataset->GetFeature().data, dataset->GetFeature().dim, blocks[0]->node_index);
     blocks[task.num_blocks - 1]->block_label = IndexSelect<uint32_t>(dataset->GetLabel().data, 1, blocks[task.num_blocks - 1]->seed_index);
     p.index_select.Log(t.Toc(6));
