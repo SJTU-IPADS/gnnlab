@@ -6,6 +6,9 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
+#define BLOCK_SIZE 256;
+#define TILE_SIZE 1024;
+
 // Define some error checking macros.
 #define CUDA_CALL(stat) { cudaErrCheck_((stat), __FILE__, __LINE__); }
 void cudaErrCheck_(cudaError_t stat, const char *file, int line) {
