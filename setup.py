@@ -99,14 +99,7 @@ def test_compile(build_ext, name, code, libraries=None, include_dirs=None, libra
 def get_cpp_flags(build_ext):
     last_err = None
     default_flags = ['-std=c++11', '-fPIC', '-Ofast', '-Wall', '-fopenmp', '-march=native']
-    flags_to_try = []
-    if sys.platform == 'darwin':
-        # Darwin most likely will have Clang, which has libc++.
-        flags_to_try = [default_flags + ['-stdlib=libc++'],
-                        default_flags]
-    else:
-        flags_to_try = [default_flags ,
-                        default_flags + ['-stdlib=libc++']]
+    flags_to_try =  [default_flags, default_flags + ['-stdlib=libc++']]
     for cpp_flags in flags_to_try:
         try:
             test_compile(build_ext, 'test_cpp_flags', extra_compile_preargs=cpp_flags,
@@ -130,11 +123,7 @@ def get_link_flags(build_ext):
     last_err = None
     libtool_flags = ['-Wl,-exported_symbols_list,samgraph.exp']
     ld_flags = ['-Wl,--version-script=samgraph.lds', '-fopenmp']
-    flags_to_try = []
-    if sys.platform == 'darwin':
-        flags_to_try = [libtool_flags, ld_flags]
-    else:
-        flags_to_try = [ld_flags, libtool_flags]
+    flags_to_try = [ld_flags, libtool_flags]
     for link_flags in flags_to_try:
         try:
             test_compile(build_ext, 'test_link_flags', extra_link_preargs=link_flags,
@@ -158,7 +147,7 @@ def get_common_options(build_ext):
 
     MACROS = []
     INCLUDES = []
-    SOURCES = ['samgraph/common/test.cc']
+    SOURCES = ['samgraph/common/saikyo.cc']
     
     COMPILE_FLAGS = cpp_flags
     LINK_FLAGS = link_flags
@@ -182,7 +171,9 @@ def get_common_options(build_ext):
 def build_sampler(build_ext, options):
     sampler_lib.define_macros = options['MACROS']
     sampler_lib.include_dirs = options['INCLUDES']
-    sampler_lib.sources = ['samgraph/sampler/test.cc']
+    sampler_lib.sources = [
+        'samgraph/common/saikyo.cc',
+        'samgraph/sampler/test.cc']
     sampler_lib.extra_compile_args = options['COMPILE_FLAGS']
     sampler_lib.extra_link_args = options['LINK_FLAGS']
     sampler_lib.extra_objects = options['EXTRA_OBJECTS']
@@ -191,9 +182,60 @@ def build_sampler(build_ext, options):
     sampler_lib.libraries = []
     build_ext.build_extension(sampler_lib)
 
+def get_cuda_dirs():
+    cuda_include_dirs = []
+    cuda_lib_dirs = []
+    nvcc = None
+
+    cuda_include_dirs += ['/usr/local/cuda/include']
+    cuda_lib_dirs += ['/usr/local/cuda/lib', '/usr/local/cuda/lib64']
+    nvcc = ['/usr/local/cuda/bin/nvcc']
+
+    return nvcc, cuda_include_dirs, cuda_lib_dirs
+
+def customize_compiler_for_nvcc(self):
+    """
+    inject deep into distutils to customize how the dispatch
+    to gcc/nvcc works.
+    If you subclass UnixCCompiler, it's not trivial to get your subclass
+    injected in, and still have the right customizations (i.e.
+    distutils.sysconfig.customize_compiler) run on it. So instead of going
+    the OO route, I have this. Note, it's kindof like a wierd functional
+    subclassing going on.
+    """
+
+    # tell the compiler it can processes .cu
+    self.src_extensions.append('.cu')
+
+    # save references to the default compiler_so and _comple methods
+    default_compiler_so = self.compiler_so
+    super = self._compile
+
+    # now redefine the _compile method. This gets executed for each
+    # object but distutils doesn't have the ability to change compilers
+    # based on source extension: we add it.
+    def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+        if os.path.splitext(src)[1] == '.cu':
+            # use the cuda for .cu files
+            self.set_executable('compiler_so', get_cuda_dirs()[0])
+            # use only a subset of the extra_postargs, which are 1-1 translated
+            # from the extra_compile_args in the Extension class
+            # postargs = extra_postargs['nvcc']
+        else:
+            # postargs = extra_postargs['gcc']
+            pass
+
+        super(obj, src, ext, cc_args, extra_postargs, pp_opts)
+        # reset the default compiler_so, which we might have changed for cuda
+        self.compiler_so = default_compiler_so
+
+    # inject our redefined _compile method into the class
+    self._compile = _compile
+
 # run the customize_compiler
 class custom_build_ext(build_ext):
     def build_extensions(self):
+        # customize_compiler_for_nvcc(self.compiler)
         options = get_common_options(self)
         try:
             build_sampler(self, options)
