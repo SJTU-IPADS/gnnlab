@@ -1,13 +1,11 @@
-#pragma once
+#ifndef TEST
+#define TEST
 
 #include <cstdlib>
 #include <cstdio>
 
 #include <cuda_runtime.h>
 #include <cusparse.h>
-
-#define BLOCK_SIZE 256;
-#define TILE_SIZE 1024;
 
 // Define some error checking macros.
 #define CUDA_CALL(stat) { cudaErrCheck_((stat), __FILE__, __LINE__); }
@@ -36,3 +34,4 @@ cusparseHandle_t *cusparse_handle() {
    return &handle;
 }
 
+#endif

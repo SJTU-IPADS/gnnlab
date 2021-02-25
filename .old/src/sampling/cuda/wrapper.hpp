@@ -1,3 +1,5 @@
+#pragma once
+
 void sampleBlockWrapper(const unsigned int *indptr, const unsigned int *indices,
                         const unsigned int *input,
                         unsigned int *output,
