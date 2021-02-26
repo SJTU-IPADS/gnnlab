@@ -14,7 +14,6 @@ def get_ext_suffix():
 
     return '.so'
 
-
 def get_extension_full_path(pkg_path, *args):
     assert len(args) >= 1
     dir_path = os.path.join(os.path.dirname(pkg_path), *args[:-1])
