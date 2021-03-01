@@ -264,7 +264,7 @@ def get_common_options(build_ext):
     cuda_flags = get_cuda_flags(build_ext)
 
     MACROS = []
-    INCLUDES = []
+    INCLUDES = ['3rdparty/cub']
     SOURCES = ['samgraph/common/saikyo.cc']
     
     COMPILE_FLAGS = cpp_flags
