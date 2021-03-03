@@ -12,9 +12,7 @@
 #include <algorithm>
 #include <tuple>
 #include <numeric>
-#include <vector>
-
-#include <cuda_runtime.h>
+#include <functional>
 
 #include "types.h"
 #include "config.h"
@@ -23,48 +21,6 @@
 
 namespace samgraph{
 namespace common {
-
-namespace {
-
-std::tuple<void*, size_t> MmapData(std::string filepath) {
-    // Fetch the size of the file
-    struct stat st;
-    stat(filepath.c_str(), &st);
-    size_t size = st.st_size;
-
-    // Map the content of the file into memory
-    int fd = open(filepath.c_str(), O_RDONLY, 0);
-    void *data = mmap(NULL, size, PROT_READ, MAP_SHARED|MAP_FILE, fd, 0);
-    mlock(data, size);
-    close(fd);
-
-    return {data, size};
-}
-
-void FreeOrMunmapData(void *data, size_t size, int dev, bool inheap) {
-    if (!data) {
-        return;
-    }
-
-    if (dev == CPU_DEVICE_ID && inheap) {
-        free(data);
-    } else if (dev == CPU_DEVICE_ID && !inheap) {
-        munmap(data, size);
-    } else {
-        SAM_CHECK_GT(dev, 0);
-        CUDA_CALL(cudaFree(data));
-    }
-}
-
-inline void *GetDataPtr(std::tuple<void*, size_t> &data) {
-    return std::get<0>(data);
-}
-
-inline size_t GetDataSize(std::tuple<void*, size_t> &data) {
-    return std::get<1>(data);
-}
-
-}
 
 bool SamGraphEngine::_initialize = false;
 bool SamGraphEngine::_should_shutdown = false;
@@ -77,11 +33,17 @@ int SamGraphEngine::_batch_size = 0;
 std::vector<int> SamGraphEngine::_fanout;
 int SamGraphEngine::_num_epoch = 0;
 
+volatile SamGraphTaskQueue* SamGraphEngine::_queues[QueueNum] = {nullptr};
+std::mutex SamGraphEngine::_queues_mutex[QueueNum];
+static std::vector<std::thread*> SamGraphEngine_threads;
+
 cudaStream_t* SamGraphEngine::_sample_stream = nullptr;
 cudaStream_t* SamGraphEngine::_id_copy_host2device_stream = nullptr;
 cudaStream_t* SamGraphEngine::_graph_copy_device2device_stream = nullptr;
 cudaStream_t* SamGraphEngine::_id_copy_device2host_stream = nullptr;
 cudaStream_t* SamGraphEngine::_feat_copy_host2device_stream = nullptr;
+
+std::atomic_int SamGraphEngine::joined_thread_cnt;
 
 void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train_device,
                           int batch_size, std::vector<int> fanout, int num_epoch) {
@@ -119,13 +81,50 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     CUDA_CALL(cudaStreamSynchronize(*_id_copy_device2host_stream));
     CUDA_CALL(cudaStreamSynchronize(*_feat_copy_host2device_stream));
 
+    // Create queues
+    for (int i = 0; i < QueueNum; i++) {
+        SAM_LOG(DEBUG) << "Create task queue" << i;
+        auto type = static_cast<QueueType>(i);
+        SamGraphEngine::CreateTaskQueue(type);
+    }
+
+    joined_thread_cnt = 0;
+
     _initialize = true;
+}
+
+void SamGraphEngine::Start(const std::vector<LoopFunction> &func) {
+    // Start background threads
+    for (size_t i = 0; i < func.size(); i++) {
+        _threads.push_back(new std::thread(func[i]));
+    }
+    SAM_LOG(DEBUG) << "Started" << func.size() << " background threads.";
 }
 
 void SamGraphEngine::Shutdown() {
     _should_shutdown = true;
+    int total_thread_num = _threads.size();
 
-    RemoveGraphDataset();
+    while (!IsAllThreadFinish(total_thread_num)) {
+        // wait until all threads joined
+        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+    }
+
+    for (size_t i = 0; i < _threads.size(); i++) {
+        _threads[i]->join();
+        delete _threads[i];
+        _threads[i] = nullptr;
+    }
+
+    // free queue
+    for (size_t i = 0; i < QueueNum; i++) {
+        if (_queues[i]) {
+            delete _queues[i];
+            _queues[i] = nullptr;
+        }
+    }
+
+    delete _dataset;
 
     if (_sample_stream) {
         CUDA_CALL(cudaStreamDestroy(*_sample_stream));
@@ -156,9 +155,24 @@ void SamGraphEngine::Shutdown() {
         free(_feat_copy_host2device_stream);
         _feat_copy_host2device_stream = nullptr;
     }
+
+    _threads.clear();
+    joined_thread_cnt = 0;
+    _initialize = false;
+    _should_shutdown = false;
+}
+
+void SamGraphEngine::CreateTaskQueue(QueueType queueType) {
+    std::lock_guard<std::mutex> lock(_queues_mutex[queueType]);
+    if (!_queues[queueType]) {
+        _queues[queueType] = new SamGraphTaskQueue(queueType);
+    }
+    return;
 }
 
 void SamGraphEngine::LoadGraphDataset() {
+    // Load graph dataset from disk by mmap and copy the graph
+    // topology data into the target CUDA device. 
     _dataset = new SamGraphDataset();
     std::unordered_map<std::string, size_t> meta;
 
@@ -167,7 +181,7 @@ void SamGraphEngine::LoadGraphDataset() {
     }
 
     // Parse the meta data
-    std::ifstream meta_file(_dataset_path + SAMGRAPH_META_FILE);
+    std::ifstream meta_file(_dataset_path + kMetaFile);
     std::string line;
     while(std::getline(meta_file, line)) {
         std::istringstream iss(line);
@@ -180,132 +194,38 @@ void SamGraphEngine::LoadGraphDataset() {
         meta[kv[0]] = std::stoull(kv[1]);
     }
 
-    SAM_CHECK(meta.count(SAMGRAPH_META_NUM_NODE) > 0);
-    SAM_CHECK(meta.count(SAMGRAPH_META_NUM_EDGE) > 0);
-    SAM_CHECK(meta.count(SAMGRAPH_META_FEAT_DIM) > 0);
-    SAM_CHECK(meta.count(SAMGRAPH_META_NUM_CLASS) > 0);
-    SAM_CHECK(meta.count(SAMGRAPH_META_NUM_TRAIN_SET) > 0);
-    SAM_CHECK(meta.count(SAMGRAPH_META_NUM_TEST_SET) > 0);
-    SAM_CHECK(meta.count(SAMGRAPH_META_NUM_VALID_SET) > 0);
+    SAM_CHECK(meta.count(kMetaNumNode) > 0);
+    SAM_CHECK(meta.count(kMetaNumEdge) > 0);
+    SAM_CHECK(meta.count(kMetaFeatDim) > 0);
+    SAM_CHECK(meta.count(kMetaNumClass) > 0);
+    SAM_CHECK(meta.count(KMetaNumTrainSet) > 0);
+    SAM_CHECK(meta.count(kMetaNumTestSet) > 0);
+    SAM_CHECK(meta.count(kMetaNumValidSet) > 0);
 
-    _dataset->numNode = meta[SAMGRAPH_META_NUM_NODE];
-    _dataset->numEdge = meta[SAMGRAPH_META_NUM_EDGE];
-    _dataset->numClass = meta[SAMGRAPH_META_NUM_CLASS];
+    _dataset->num_node  = meta[kMetaNumNode];
+    _dataset->num_edge  = meta[kMetaNumEdge];
+    _dataset->num_class = meta[kMetaNumClass];
 
-    // Mmap the data
-    auto feat_data = MmapData(_dataset_path + SAMGRAPH_FEAT_FILE);
-    auto label_data = MmapData(_dataset_path + SAMGRAPH_LABEL_FILE);
-    auto indptr_data = MmapData(_dataset_path + SAMGRAPH_INDPTR_FILE);
-    auto indice_data = MmapData(_dataset_path + SAMGRAPH_INDICE_FILE);
-    auto train_set_data = MmapData(_dataset_path + SAMGRAPH_TRAIN_SET_FILE);
-    auto test_set_data = MmapData(_dataset_path + SAMGRAPH_TEST_SET_FILE);
-    auto valid_set_data = MmapData(_dataset_path + SAMGRAPH_VALID_SET_FILE);
-
-    int onedim = 1; 
-
-    SAM_CHECK_EQ(GetDataSize(feat_data), _dataset->numNode * meta[SAMGRAPH_META_FEAT_DIM] * sizeof(feat_t));
-    SAM_CHECK_EQ(GetDataSize(label_data), _dataset->numNode * onedim * sizeof(label_t));
-    SAM_CHECK_EQ(GetDataSize(indptr_data), (_dataset->numNode + 1) * sizeof(id_t));
-    SAM_CHECK_EQ(GetDataSize(indice_data), (_dataset->numEdge) * sizeof(id_t));
-    SAM_CHECK_EQ(GetDataSize(train_set_data), meta[SAMGRAPH_META_NUM_TRAIN_SET] * sizeof(id_t));
-    SAM_CHECK_EQ(GetDataSize(test_set_data), meta[SAMGRAPH_META_NUM_TEST_SET] * sizeof(id_t));
-    SAM_CHECK_EQ(GetDataSize(valid_set_data), meta[SAMGRAPH_META_NUM_VALID_SET] * sizeof(id_t));
-
-    // Copy graph topology data into the target device and unmap the addr
-    CUDA_CALL(cudaSetDevice(_sample_device));
-    void *dev_base_addr;
-    CUDA_CALL(cudaMalloc(&dev_base_addr, (_dataset->numNode + 1 + _dataset->numEdge) * sizeof(id_t)));
-    CUDA_CALL(cudaMemcpy(dev_base_addr, GetDataPtr(indptr_data),
-                         GetDataSize(indptr_data), cudaMemcpyHostToDevice));
-    CUDA_CALL(cudaMemcpy((char *)dev_base_addr + GetDataSize(indptr_data),
-                         GetDataPtr(indice_data), GetDataSize(indice_data), cudaMemcpyHostToDevice));
-
-    FreeOrMunmapData(GetDataPtr(indptr_data), GetDataSize(indptr_data), CPU_DEVICE_ID, false);
-    FreeOrMunmapData(GetDataPtr(indice_data), GetDataSize(indice_data), CPU_DEVICE_ID, false);
-
-
-    // These data is in device
-    _dataset->indptr.SetData(dev_base_addr,
-                             {_dataset->numNode + 1},
-                             DataType::SAM_INT32,
-                             _sample_device,
-                             GetDataSize(indptr_data));
-    _dataset->indice.SetData((char *)dev_base_addr + (_dataset->numNode + 1),
-                             {_dataset->numEdge},
-                             DataType::SAM_INT32,
-                             _sample_device,
-                             GetDataSize(indice_data));
-
-    // These data is in cpu but not in heap
-    _dataset->feat.SetData(GetDataPtr(feat_data),
-                           {_dataset->numNode, meta[SAMGRAPH_META_FEAT_DIM]},
-                           DataType::SAM_FLOAT32,
-                           CPU_DEVICE_ID,
-                           GetDataSize(feat_data),
-                           false);
-    _dataset->label.SetData(GetDataPtr(label_data),
-                            {_dataset->numNode},
-                            DataType::SAM_INT32,
-                            CPU_DEVICE_ID,
-                            GetDataSize(label_data),
-                            false);
-    _dataset->trainSet.SetData(GetDataPtr(train_set_data),
-                               {meta[SAMGRAPH_META_NUM_TRAIN_SET]},
-                               DataType::SAM_INT32,
-                               CPU_DEVICE_ID,
-                               GetDataSize(train_set_data),
-                               false);
-    _dataset->testSet.SetData(GetDataPtr(test_set_data),
-                              {meta[SAMGRAPH_META_NUM_TEST_SET]},
-                              DataType::SAM_INT32,
-                              CPU_DEVICE_ID,
-                              GetDataSize(test_set_data),
-                              false);
-    _dataset->validSet.SetData(GetDataPtr(valid_set_data),
-                               {meta[SAMGRAPH_META_NUM_VALID_SET]},
-                               DataType::SAM_INT32,
-                               CPU_DEVICE_ID,
-                               GetDataSize(test_set_data),
-                               false);
+    _dataset->indptr    = Tensor::FromMmap(_dataset_path + kInptrFile, DataType::kSamI32,
+                                           {meta[kMetaNumNode] + 1}, _sample_device);
+    _dataset->indices   = Tensor::FromMmap(_dataset_path + kIndicesFile, DataType::kSamI32,
+                                          {meta[kMetaNumEdge]}, _sample_device);
+    _dataset->feat      = Tensor::FromMmap(_dataset_path + kFeatFile, DataType::kSamF32,
+                                          {meta[kMetaNumNode], meta[kMetaFeatDim]}, CPU_DEVICE_ID);
+    _dataset->label     = Tensor::FromMmap(_dataset_path + kLabelFile, DataType::kSamI32,
+                                          {meta[kMetaNumNode]}, CPU_DEVICE_ID);
+    _dataset->train_set = Tensor::FromMmap(_dataset_path + kTrainSetFile, DataType::kSamI32,
+                                          {meta[KMetaNumTrainSet]}, CPU_DEVICE_ID);
+    _dataset->test_set  = Tensor::FromMmap(_dataset_path + kTestSetFile, DataType::kSamI32,
+                                          {meta[kMetaNumTestSet]}, CPU_DEVICE_ID);
+    _dataset->valid_set = Tensor::FromMmap(_dataset_path + kValidSetFile, DataType::kSamI32,
+                                          {meta[kMetaNumValidSet]}, CPU_DEVICE_ID);
 }
 
-void SamGraphEngine::RemoveGraphDataset() {
-    if (!_dataset) {
-        return;
-    }
-
-    SamTensor &feat = _dataset->feat;
-    FreeOrMunmapData(feat.data, feat.bytesize, feat.device, feat.inheap);
-    feat.ResetData();
-
-
-    SamTensor &label = _dataset->label;
-    FreeOrMunmapData(label.data, label.bytesize, label.device, label.inheap);
-    label.ResetData();
-
-    SamTensor &indptr = _dataset->indptr;
-    FreeOrMunmapData(indptr.data, indptr.bytesize, indptr.device, indptr.inheap);
-    indptr.ResetData();
-
-    SamTensor &indice = _dataset->indice;
-    FreeOrMunmapData(indice.data, indice.bytesize, indice.device, indice.inheap);
-    indice.ResetData();
-
-    SamTensor &trainSet = _dataset->trainSet;
-    FreeOrMunmapData(trainSet.data, trainSet.bytesize, trainSet.device, trainSet.inheap);
-    trainSet.ResetData();
-
-    SamTensor &testSet = _dataset->testSet;
-    FreeOrMunmapData(testSet.data, testSet.bytesize, testSet.device, testSet.inheap);
-    testSet.ResetData();
-    
-    SamTensor &validSet = _dataset->validSet;
-    FreeOrMunmapData(validSet.data, validSet.bytesize, validSet.device, validSet.inheap);
-    validSet.ResetData();
-
-    delete _dataset;
-    _dataset = nullptr;
-}
+bool SamGraphEngine::IsAllThreadFinish(int total_thread_num) {
+  int k = joined_thread_cnt.fetch_add(0);
+  return (k == total_thread_num);
+};
 
 } // namespace common
 } // namespace samgraph

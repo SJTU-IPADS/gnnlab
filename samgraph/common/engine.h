@@ -3,26 +3,39 @@
 
 #include <string>
 #include <vector>
+#include <thread>
+
+#include <cuda_runtime.h>
 
 #include "common.h"
 #include "logging.h"
+#include "task_queue.h"
 
 namespace samgraph {
 namespace common {
+
+typedef void (*LoopFunction)();
 
 class SamGraphEngine {
  public:
   static void Init(std::string dataset_path, int sample_device, int train_device,
                    int batch_size, std::vector<int> fanout, int num_epoch);
-  static void Start();
-  static void Stop();
+  static void Start(const std::vector<LoopFunction> &func);
+  static bool ShouldShutdown() { return _should_shutdown; }
   static void Shutdown();
+
+  static void CreateTaskQueue(QueueType queueType);
+  static void LoadGraphDataset();
 
   static cudaStream_t *GetSampleStream();
   static cudaStream_t *GetIdCopyHost2DeviceStream();
   static cudaStream_t *GetGraphCopyDevice2DeviceStream();
   static cudaStream_t *GetIdCopyDevice2HostStream();
   static cudaStream_t *GetFeatureCopyHost2DeviceStream();
+
+  static void ReportThreadFinish() { joined_thread_cnt.fetch_add(1); }
+  static bool IsAllThreadFinish(int total_thread_num);
+  static std::atomic_int joined_thread_cnt;
 
  private:
   // whether the server is initialized
@@ -43,17 +56,16 @@ class SamGraphEngine {
   static std::vector<int> _fanout;
   // sampling epoch
   static int _num_epoch;
-
+  // task queue
+  static volatile SamGraphTaskQueue* _queues[QueueNum];
+  static std::mutex _queues_mutex[QueueNum];
+  static std::vector<std::thread*> _threads;
+  // cuda streams
   static cudaStream_t* _sample_stream;
   static cudaStream_t* _id_copy_host2device_stream;
   static cudaStream_t* _graph_copy_device2device_stream;
   static cudaStream_t* _id_copy_device2host_stream;
   static cudaStream_t* _feat_copy_host2device_stream;
-
-  // Load graph dataset from disk by mmap and copy the graph
-  // topology data into the target CUDA device. 
-  static void LoadGraphDataset();
-  static void RemoveGraphDataset();
 };
 
 } // namespace common

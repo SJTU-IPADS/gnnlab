@@ -4,7 +4,7 @@
 namespace samgraph {
 namespace common {
 
-void HostShuffleLoop();
+void HostPermutationLoop();
 
 void IdCopyHost2Device();
 
@@ -14,9 +14,11 @@ void GraphCopyDevice2DeviceLoop();
 
 void IdCopyDevice2HostLoop();
 
-void FeatureHostIndexSelectLoop();
+void HostFeatureSelectLoop();
 
 void FeatureCopyHost2DeviceLoop();
+
+void SubmitLoop();
 
 } // namespace common
 } // namespace samgraph

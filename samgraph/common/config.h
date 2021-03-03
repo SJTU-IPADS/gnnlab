@@ -1,21 +1,31 @@
 #ifndef SAMGRAPH_CONFIG_H
 #define SAMGRAPH_CONFIG_H
 
-#define SAMGRAPH_META_FILE "meta.txt"
-#define SAMGRAPH_FEAT_FILE "feat.bin"
-#define SAMGRAPH_LABEL_FILE "label.bin"
-#define SAMGRAPH_INDPTR_FILE "indptr.bin"
-#define SAMGRAPH_INDICE_FILE "indice.bin"
-#define SAMGRAPH_TRAIN_SET_FILE "train_set.bin"
-#define SAMGRAPH_TEST_SET_FILE "test_set.bin"
-#define SAMGRAPH_VALID_SET_FILE "valid_set.bin"
+namespace samgraph {
+namespace common {
 
-#define SAMGRAPH_META_NUM_NODE "NUM_NODE"
-#define SAMGRAPH_META_NUM_EDGE "NUM_EDGE"
-#define SAMGRAPH_META_FEAT_DIM "FEAT_DIM"
-#define SAMGRAPH_META_NUM_CLASS "NUM_CLASS"
-#define SAMGRAPH_META_NUM_TRAIN_SET "NUM_TRAIN_SET"
-#define SAMGRAPH_META_NUM_TEST_SET "NUM_TEST_SET"
-#define SAMGRAPH_META_NUM_VALID_SET "NUM_VALID_SET"
+constexpr static const std::string kMetaFile     = "meta.txt";
+constexpr static const std::string kFeatFile     = "feat.bin";
+constexpr static const std::string kLabelFile    = "label.bin";
+constexpr static const std::string kInptrFile    = "indptr.bin";
+constexpr static const std::string kIndicesFile  = "indices.bin";
+constexpr static const std::string kTrainSetFile = "train_set.bin";
+constexpr static const std::string kTestSetFile  = "test_set.bin";
+constexpr static const std::string kValidSetFile = "valid_set.bin";
+
+constexpr static const std::string kMetaNumNode     = "NUM_NODE";
+constexpr static const std::string kMetaNumEdge     = "NUM_EDGE";
+constexpr static const std::string kMetaFeatDim     = "NUM_CLASS";
+constexpr static const std::string kMetaNumClass    = "NUM_CLASS";
+constexpr static const std::string KMetaNumTrainSet = "NUM_TRAIN_SET";
+constexpr static const std::string kMetaNumTestSet  = "NUM_TEST_SET"; 
+constexpr static const std::string kMetaNumValidSet = "NUM_VALID_SET";
+
+constexpr static const int kCudaBlockSize = 256;
+constexpr static const size_t kCudaTileSize = 1024;
+
+
+} // namespace common
+} // namespace samgraph
 
 #endif // SAMGRAPH_CONFIG_H
