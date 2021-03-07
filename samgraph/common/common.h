@@ -56,6 +56,9 @@ class Tensor {
   // Create view from a tensor, they share the same storage
   static std::shared_ptr<Tensor> CreateView(std::shared_ptr<Tensor> tensor, size_t offset,
                                             std::vector<size_t> dims);
+  // Deep slice a tensor
+  static std::shared_ptr<Tensor> DeepCopy(std::shared_ptr<Tensor> tensor, size_t offset,
+                                       std::vector<size_t> dims);
   // Consume the tensor, and we don't have to free the data.
   bool ConsumeData() { return _container->Consume(); }
 
@@ -90,12 +93,12 @@ struct SamGraphDataset {
     std::shared_ptr<IdTensor> indices;
     size_t num_node;
     size_t num_edge;
-    
+
     // Node feature and label
     size_t num_class;
     std::shared_ptr<Tensor> feat;
     std::shared_ptr<Tensor> label;
-    
+
     // Node set
     std::shared_ptr<IdTensor> train_set;
     std::shared_ptr<IdTensor> test_set;
@@ -112,8 +115,7 @@ struct TrainGraph {
 };
 
 enum QueueType {
-    PERMUTATION = 0,
-    ID_COPYH2D,
+    ID_COPYH2D = 0,
     DEV_SAMPLE,
     GRAPH_COPYD2D,
     ID_COPYD2H,
@@ -127,24 +129,22 @@ const int QueueNum =
     (int)QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST;
 
 struct TaskEntry {
-    // Key of the tensor
+    // Key of the task
     uint64_t key;
-    // Status
-    bool is_ready;
     // Input tensor
-    std::shared_ptr<IdTensor> seeds;
+    std::shared_ptr<IdTensor> train_nodes;
+    // Current input tensor
+    std::shared_ptr<IdTensor> cur_input;
     // Output graph tensor
     std::vector<TrainGraph> output_graph;
     // Output feature tensor
     std::shared_ptr<Tensor> output_feat;
     // Output label tensor
     std::shared_ptr<Tensor> output_label;
-    // The (deep copy of) queue list of this task
-    std::vector<QueueType> queue_list;
 };
 
+uint64_t encodeKey(int epoch_idx, size_t batch_idx);
 int getDataTypeLength(int dtype);
-
 
 } // namespace common
 } // namespace samgraph

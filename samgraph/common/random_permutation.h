@@ -1,6 +1,8 @@
 #ifndef SAMGRAPH_RANDOM_PERMUTATION_H
 #define SAMGRAPH_RANDOM_PERMUTATION_H
 
+#include <memory>
+
 #include "types.h"
 #include "common.h"
 
@@ -9,16 +11,29 @@ namespace common {
 
 class RandomPermutation {
  public:
-  RandomPermutation(std::shared_ptr<IdTensor> input, int batch_size)
-    : _tensor(input), _batch_size(batch_size) {}
+  RandomPermutation(std::shared_ptr<IdTensor> input, int num_epoch,
+                    size_t batch_size, bool drop_last=true);\
+  std::shared_ptr<IdTensor> GetBatch();
 
-  void Permutate();
+  inline int cur_epoch() { return _cur_epoch; }
+  inline int num_epoch() { return _num_epoch; }
+  inline size_t cur_batch() { return _cur_batch_idx; }
+  inline size_t num_batch() { return _num_batch; }
+  inline size_t num_element() { return _tensor->shape().front(); }
 
  private:
-  std::shared_ptr<IdTensor> _tensor;
-  int _batch_size;
-  int _max_num_batch;
-  int _next_batch_idx;
+  int _num_epoch;
+  int _cur_epoch;
+
+  std::shared_ptr<IdTensor> _input;
+  size_t _num_element;
+  bool _drop_last;
+  size_t _batch_size;
+  size_t _last_batch_size;
+  size_t _num_batch;
+  size_t _cur_batch_idx;
+
+  void Permutate();
 };
 
 } // namespace common

@@ -1,6 +1,8 @@
 #ifndef SAMGPRAH_CUDA_HASHTABLE_H
 #define SAMGRAPH_CUDA_HASHTABLE_H
 
+#include <cuda_runtime.h>
+
 #include "types.h"
 #include "logging.h"
 
@@ -57,12 +59,12 @@ class DeviceOrderedHashTable {
     // An entry in the hashtable.
     struct Mapping {
       // The ID of the item inserted.
-      id_t key;
+      nodeid_t key;
       // The index of the item in the unique list.
-      id_t local;
+      nodeid_t local;
       // The index of the item when inserted into the hashtable (e.g.,
       // the index within the array passed into FillWithDuplicates()).
-      id_t index;
+      nodeid_t index;
     };
 
     typedef const Mapping* ConstIterator;
@@ -82,14 +84,14 @@ class DeviceOrderedHashTable {
     *
     * \return An iterator to the mapping.
     */
-    inline __device__ ConstIterator Search(const id_t id) const {
-      const id_t pos = SearchForPosition(id);
+    inline __device__ ConstIterator Search(const nodeid_t id) const {
+      const nodeid_t pos = SearchForPosition(id);
       return &table_[pos];
     }
 
   protected:
     // Must be uniform bytes for memset to work
-    static constexpr id_t kEmptyKey = static_cast<id_t>(0xffffffff);
+    static constexpr nodeid_t kEmptyKey = -1;
 
     const Mapping * table_;
     size_t size_;
@@ -114,12 +116,12 @@ class DeviceOrderedHashTable {
     *
     * \return The the position of the item in the hashtable.
     */
-    inline __device__ id_t SearchForPosition(
-        const id_t id) const {
-      id_t pos = Hash(id);
+    inline __device__ nodeid_t SearchForPosition(
+        const nodeid_t id) const {
+      nodeid_t pos = Hash(id);
 
       // linearly scan for matching entry
-      id_t delta = 1;
+      nodeid_t delta = 1;
       while (table_[pos].key != id) {
         assert(table_[pos].key != kEmptyKey);
         pos = Hash(pos+delta);
@@ -138,7 +140,7 @@ class DeviceOrderedHashTable {
     * \return The hash.
     */
     inline __device__ size_t Hash(
-        const id_t id) const {
+        const nodeid_t id) const {
       return id % size_;
     }
 
@@ -216,9 +218,9 @@ class OrderedHashTable {
     * \param num_unique The number of unique IDs inserted.
     */
     void FillWithDuplicates(
-        const id_t * const input,
+        const nodeid_t * const input,
         const size_t num_input,
-        id_t * const unique,
+        nodeid_t * const unique,
         size_t * const num_unique,
         cudaStream_t stream);
 
@@ -229,7 +231,7 @@ class OrderedHashTable {
     * \param num_input The number of keys.
     */
     void FillWithUnique(
-        const id_t * const input,
+        const nodeid_t * const input,
         const size_t num_input
         cudaStream_t stream);
 
@@ -243,6 +245,7 @@ class OrderedHashTable {
   private:
     Mapping * table_;
     size_t size_;
+    int device_;
 };
 
 } // namespace cuda

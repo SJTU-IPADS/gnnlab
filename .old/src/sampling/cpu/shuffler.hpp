@@ -5,6 +5,7 @@
 #include <vector>
 #include <random>
 #include <chrono>
+
 struct NodesBatch {
     bool valid = false;
     bool is_last = false;

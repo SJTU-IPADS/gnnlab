@@ -20,7 +20,7 @@ void samgraph_init(const char *path, int sample_device, int train_device,
 
 void samgraph_start() {
     std::vector<LoopFunction> func;
-    func.push_back(HostPermutationLoop);
+    func.push_back(HostPermutateLoop);
     func.push_back(IdCopyHost2Device);
     func.push_back(DeviceSampleLoop);
     func.push_back(GraphCopyDevice2DeviceLoop);

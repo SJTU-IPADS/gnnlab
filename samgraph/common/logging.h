@@ -46,7 +46,7 @@ enum class LogLevel { TRACE, DEBUG, INFO, WARNING, ERROR, FATAL };
 #define CUSPARSE_CALL(func)                                      \
   {                                                              \
     cusparseStatus_t e = (func);                                 \
-    SAM_CHECK(e == CUSPARSE_STATUS_SUCCESS);                     \
+    SAM_CHECK(e == CUSPARSE_STATUS_SUCCESS)                      \
         << "CUSPARSE: " << cusparseGetErrorString(e);            \
   }
 

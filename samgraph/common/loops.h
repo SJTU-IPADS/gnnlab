@@ -4,7 +4,7 @@
 namespace samgraph {
 namespace common {
 
-void HostPermutationLoop();
+void HostPermutateLoop();
 
 void IdCopyHost2Device();
 
@@ -18,6 +18,8 @@ void HostFeatureSelectLoop();
 
 void FeatureCopyHost2DeviceLoop();
 
+// Submit loop will wait for the accomplishment of
+// GraphCopyDevice2DeviceLoop and HostFeatureSelectLoop
 void SubmitLoop();
 
 } // namespace common

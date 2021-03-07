@@ -3,6 +3,7 @@
 
 #include <mutex>
 #include <memory>
+#include <queue>
 
 #include "common.h"
 
@@ -11,16 +12,18 @@ namespace common {
 
 class SamGraphTaskQueue {
  public:
-  SamGraphTaskQueue(QueueType type);
+  SamGraphTaskQueue(QueueType type, size_t threshold);
   QueueType GetQueueType() { return _qt; }
   void AddTask(std::shared_ptr<TaskEntry>);
   std::shared_ptr<TaskEntry> GetTask();
-  std::shared_ptr<TaskEntry> GetTask(uint64_t key);
+  bool ExceedThreshold();
+  size_t PendingLength();
 
  private:
-  std::vector<std::shared_ptr<TaskEntry>> _q;
+  std::queue<std::shared_ptr<TaskEntry>> _q;
   std::mutex _mutex;
   QueueType _qt;
+  size_t _threshold;
 };
 
 } // namespace common

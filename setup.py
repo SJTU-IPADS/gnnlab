@@ -42,20 +42,6 @@ if not VERSION:
 else:
     about['__version__'] = VERSION
 
-def get_torch_lib():
-    return CUDAExtension(
-        name='samgraph.torch.c_lib',
-        sources=[
-            'samgraph/common/logging.cc',
-        ],
-        include_dirs=['3rdparty/cub'],
-        extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
-        extra_compile_args= {
-            'cxx': ['-std=c++11', '-fPIC', '-Ofast', '-Wall', '-fopenmp', '-march=native'],
-            'nvcc': ['-std=c++11', '-arch=sm_35', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
-        }
-    )
-
 # Where the magic happens:
 
 setup(
@@ -89,6 +75,7 @@ setup(
             'samgraph/torch/test.cu'
         ],
         include_dirs=['3rdparty/cub'],
+        libraries=['cusparse'],
         extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
         extra_compile_args= {
             'cxx': ['-std=c++11', '-fPIC', '-Ofast', '-Wall', '-fopenmp', '-march=native'],

@@ -34,7 +34,6 @@ std::vector<int> SamGraphEngine::_fanout;
 int SamGraphEngine::_num_epoch = 0;
 
 volatile SamGraphTaskQueue* SamGraphEngine::_queues[QueueNum] = {nullptr};
-std::mutex SamGraphEngine::_queues_mutex[QueueNum];
 static std::vector<std::thread*> SamGraphEngine_threads;
 
 cudaStream_t* SamGraphEngine::_sample_stream = nullptr;
@@ -42,6 +41,8 @@ cudaStream_t* SamGraphEngine::_id_copy_host2device_stream = nullptr;
 cudaStream_t* SamGraphEngine::_graph_copy_device2device_stream = nullptr;
 cudaStream_t* SamGraphEngine::_id_copy_device2host_stream = nullptr;
 cudaStream_t* SamGraphEngine::_feat_copy_host2device_stream = nullptr;
+
+RandomPermutation* SamGraphEngine::_permutation = nullptr;
 
 std::atomic_int SamGraphEngine::joined_thread_cnt;
 
@@ -87,6 +88,8 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
         auto type = static_cast<QueueType>(i);
         SamGraphEngine::CreateTaskQueue(type);
     }
+
+    _permutation = new RandomPermutation(_dataset->train_set, _batch_size, false);
 
     joined_thread_cnt = 0;
 
@@ -156,6 +159,9 @@ void SamGraphEngine::Shutdown() {
         _feat_copy_host2device_stream = nullptr;
     }
 
+    delete _permutation;
+    _permutation = nullptr;
+
     _threads.clear();
     joined_thread_cnt = 0;
     _initialize = false;
@@ -163,11 +169,9 @@ void SamGraphEngine::Shutdown() {
 }
 
 void SamGraphEngine::CreateTaskQueue(QueueType queueType) {
-    std::lock_guard<std::mutex> lock(_queues_mutex[queueType]);
     if (!_queues[queueType]) {
-        _queues[queueType] = new SamGraphTaskQueue(queueType);
+        _queues[queueType] = new SamGraphTaskQueue(queueType, kQueueThreshold[queueType]);
     }
-    return;
 }
 
 void SamGraphEngine::LoadGraphDataset() {

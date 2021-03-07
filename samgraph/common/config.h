@@ -1,6 +1,11 @@
 #ifndef SAMGRAPH_CONFIG_H
 #define SAMGRAPH_CONFIG_H
 
+#include <unordered_map>
+
+#include "common.h"
+#include "types.h"
+
 namespace samgraph {
 namespace common {
 
@@ -24,6 +29,17 @@ constexpr static const std::string kMetaNumValidSet = "NUM_VALID_SET";
 constexpr static const int kCudaBlockSize = 256;
 constexpr static const size_t kCudaTileSize = 1024;
 
+const std::unordered_map<QueueType, size_t> kQueueThreshold = {
+    { ID_COPYH2D,    5 }
+    { DEV_SAMPLE,    5 }
+    { GRAPH_COPYD2D, 5 }
+    { ID_COPYD2H,    5 }
+    { FEAT_SELECT,   5 }
+    { FEAT_COPYD2H,  5 }
+    { SUBMIT,        5 }
+};
+
+constexpr static const nodeid_t kNodeEmptyValue = -1;
 
 } // namespace common
 } // namespace samgraph

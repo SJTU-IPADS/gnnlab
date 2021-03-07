@@ -336,13 +336,13 @@ DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
 
 // OrderedHashTable implementation
 
-OrderedHashTable::OrderedHashTable(const size_t size, const int scale)
-    : table_(nullptr), size_(TableSize(size, scale)) {
+OrderedHashTable::OrderedHashTable(const size_t size, int device, cudaStream_t stream, const int scale)
+    : table_(nullptr), size_(TableSize(size, scale)), device_(device) {
   // make sure we will at least as many buckets as items.
   CUDA_CALL(cudaMalloc(&table_, sizeof(Mapping) * size_));
 
-  CUDA_CALL(cudaMemset(table_, DeviceOrderedHashTable::kEmptyKey,
-                        sizeof(Mapping) * size_));
+  CUDA_CALL(cudaMemsetAsync(table_, DeviceOrderedHashTable::kEmptyKey,
+                            sizeof(Mapping) * size_, stream));
 }
 
 OrderedHashTable::~OrderedHashTable() { CUDA_CALL(cudaFree(table_)); }
@@ -352,37 +352,37 @@ void OrderedHashTable::FillWithDuplicates(const uint32_t *const input,
                                           uint32_t *const unique,
                                           uint32_t *const num_unique,
                                           cudaStream_t stream) {
-  const uint32_t num_tiles = (num_input + SAM_CUDA_TILE_SIZE - 1) / SAM_CUDA_TILE_SIZE;
+  const uint32_t num_tiles = (num_input + kCudaTileSize - 1) / kCudaTileSize;
 
   const dim3 grid(num_tiles);
-  const dim3 block(SAM_CUDA_BLOCK_SIZE);
+  const dim3 block(kCudaBlockSize);
 
   auto device_table = MutableDeviceOrderedHashTable(this);
 
-  generate_hashmap_duplicates<SAM_CUDA_BLOCK_SIZE, SAM_CUDA_TILE_SIZE>
+  generate_hashmap_duplicates<kCudaBlockSize, kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table);
   CUDA_CALL(cudaGetLastError());
 
   uint32_t *item_prefix;
   CUDA_CALL(cudaMalloc(&item_prefix, sizeof(uint32_t) * (num_input + 1)));
 
-  count_hashmap<SAM_CUDA_BLOCK_SIZE, SAM_CUDA_TILE_SIZE>
+  count_hashmap<kCudaBlockSize, kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix);
   CUDA_CALL(cudaGetLastError());
 
   size_t workspace_bytes;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       nullptr, workspace_bytes, static_cast<uint32_t *>(nullptr),
-      static_cast<uint32_t *>(nullptr), grid.x + 1));
+      static_cast<uint32_t *>(nullptr), grid.x + 1, stream));
   void *workspace;
   CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      workspace, workspace_bytes, item_prefix, item_prefix, grid.x + 1));
+      workspace, workspace_bytes, item_prefix, item_prefix, grid.x + 1, stream));
 
   CUDA_CALL(cudaFree(workspace));
 
-  compact_hashmap<SAM_CUDA_BLOCK_SIZE, SAM_CUDA_TILE_SIZE><<<grid, block, 0, stream>>>(
+  compact_hashmap<kCudaBlockSize, kCudaTileSize><<<grid, block, 0, stream>>>(
       input, num_input, device_table, item_prefix, unique, num_unique);
   CUDA_CALL(cudaGetLastError());
   CUDA_CALL(cudaFree(item_prefix));
@@ -392,14 +392,14 @@ void OrderedHashTable::FillWithUnique(const uint32_t *const input,
                                       const size_t num_input,
                                       cudaStream_t stream) {
 
-  const uint32_t num_tiles = (num_input + SAM_CUDA_TILE_SIZE - 1) / SAM_CUDA_TILE_SIZE;
+  const uint32_t num_tiles = (num_input + kCudaTileSize - 1) / kCudaTileSize;
 
   const dim3 grid(num_tiles);
-  const dim3 block(SAM_CUDA_BLOCK_SIZE);
+  const dim3 block(kCudaBlockSize);
 
   auto device_table = MutableDeviceOrderedHashTable(this);
 
-  generate_hashmap_unique<SAM_CUDA_BLOCK_SIZE, SAM_CUDA_TILE_SIZE>
+  generate_hashmap_unique<kCudaBlockSize, kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table);
 
   CUDA_CALL(cudaGetLastError());
