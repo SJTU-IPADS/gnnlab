@@ -59,6 +59,8 @@ class Tensor {
   // Deep slice a tensor
   static std::shared_ptr<Tensor> DeepCopy(std::shared_ptr<Tensor> tensor, size_t offset,
                                        std::vector<size_t> dims);
+  // From blob
+  static std::shared_ptr<Tensor> FromBlob(const void * const data, DataType dtype, std::vector<size_t> dims, int device);
   // Consume the tensor, and we don't have to free the data.
   bool ConsumeData() { return _container->Consume(); }
 
@@ -136,12 +138,14 @@ struct TaskEntry {
     // Current input tensor
     std::shared_ptr<IdTensor> cur_input;
     // Output graph tensor
-    std::vector<TrainGraph> output_graph;
+    std::vector<std::shared_ptr<TrainGraph>> output_graph;
     // Output feature tensor
     std::shared_ptr<Tensor> output_feat;
     // Output label tensor
     std::shared_ptr<Tensor> output_label;
 };
+
+using GraphBatch = TaskEntry;
 
 uint64_t encodeKey(int epoch_idx, size_t batch_idx);
 int getDataTypeLength(int dtype);

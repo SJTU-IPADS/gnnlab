@@ -1,4 +1,4 @@
-#ifndef SAMGPRAH_CUDA_HASHTABLE_H
+#ifndef SAMGRAPH_CUDA_HASHTABLE_H
 #define SAMGRAPH_CUDA_HASHTABLE_H
 
 #include <cuda_runtime.h>

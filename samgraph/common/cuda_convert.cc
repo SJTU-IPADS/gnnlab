@@ -3,33 +3,35 @@
 #include "cuda_convert.h"
 #include "logging.h"
 
-namespace {
-
-void SortCoo() {
-
-}
-
-} // namespace
-
 namespace samgraph {
 namespace common {
 namespace cuda {
 
-void ConvertCoo2Csr() {
+void ConvertCoo2Csr(nodeid_t *src, nodeid_t *dst, int m, int n, int nnz, nodeid_t *indptr, int device, cudaStream_t stream) {
+    CUDA_CALL(cudaSetDevice(device));
+
     cusparseHandle_t handle;
-    cusparseMatDescr_t decsr_coo;
-    cusparseMatDescr_t decsr_csr;
-
-
     CUSPARSE_CALL(cusparseCreate(&handle));
+    CUSPARSE_CALL(cusparseSetStream(handle, stream));
 
-    CUSPARSE_CALL(cusparseCreateMatDescr(&decsr_coo));
-    CUSPARSE_CALL(cusparseSetMatType(decsr_coo, CUSPARSE_MATRIX_TYPE_GENERAL));
-    CUSPARSE_CALL(cusparseSetMatIndexBase(decsr_coo, CUSPARSE_INDEX_BASE_ZERO));
+    // Sort coo by row in place
+    size_t p_buffer_size;
+    void *p_buffer;
+    int *P;
 
-    // CUSPARSE_CALL(cusparseXcoosortByRow(handle, ));
+    CUSPARSE_CALL(cusparseXcoosort_bufferSizeExt(handle, m, n, nnz, src, dst, &p_buffer_size));
+    CUDA_CALL(cudaMalloc(&p_buffer, sizeof(char) * p_buffer_size));
 
-    // CUSPARSE_CALL(cusparseXcoo2csr(handle, CUSPARSE_INDEX_BASE_ZERO));
+    CUDA_CALL(cudaMalloc((void **)&P, sizeof(int) * nnz));
+    CUSPARSE_CALL(cusparseCreateIdentityPermutation(handle, nnz, P));
+
+    CUSPARSE_CALL(cusparseXcoosortByRow(handle, m, n , nnz, src, dst, P, p_buffer));
+
+    CUDA_CALL(cudaFree(p_buffer));
+    CUDA_CALL(cudaFree(P));
+
+    // Convert coo 2 csr
+    CUSPARSE_CALL(cusparseXcoo2csr(handle, src, nnz, m, indptr, CUSPARSE_INDEX_BASE_ZERO));
 }
 
 } // namespace cuda

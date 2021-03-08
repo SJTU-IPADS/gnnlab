@@ -1,11 +1,15 @@
 #include <thread>
 #include <chrono>
+#include <numeric>
 
 #include <cuda_runtime.h>
 
 #include "loops.h"
 #include "engine.h"
 #include "cuda_sampling.h"
+#include "cuda_hashtable.h"
+#include "cuda_mapping.h"
+#include "cuda_convert.h"
 
 namespace samgraph {
 namespace common {
@@ -48,7 +52,7 @@ bool RunIdCopyHost2DeviceLoopOnce() {
     auto this_op = ID_COPYH2D;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
-    
+
     if (task) {
         auto nodes = task->train_nodes;
         auto id_copy_h2d_stream = SamGraphEngine::GetIdCopyHost2DeviceStream();
@@ -64,6 +68,7 @@ bool RunIdCopyHost2DeviceLoopOnce() {
         CUDA_CALL(cudaStreamSynchronize((cudaStream_t)*id_copy_h2d_stream));
 
         task->train_nodes = d_nodes;
+        task->cur_input = d_nodes;
         next_q.AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -83,7 +88,15 @@ bool RunDeviceSampleLoopOnce() {
         auto last_layer_idx = num_layers - 1;
 
         auto dataset = SamGraphEngine::GetGraphDataset();
-        auto sample_stream = SamGraphEngine::GetSampleStream();
+        auto sample_device = SamGraphEngine::GetSampleDevice();
+        auto sample_stream = *SamGraphEngine::GetSampleStream();
+
+        auto train_nodes = task->train_nodes;
+        size_t predict_node_num = train_nodes->shape()[0] * std::accumulate(fanouts.begin(), fanouts.end(), 0);
+        cuda::OrderedHashTable hash_table(predict_node_num, sample_device, sample_stream);
+        
+        size_t num_train_node = train_nodes->shape()[0]
+        hash_table.FillWithUnique(static_cast<const nodeid_t *>(train_nodes->data()), num_train_node, sample_stream);
 
         task->output_graph.resize(num_layers);
         for (int i = last_layer_idx; i >= 0; i--) {
@@ -92,29 +105,86 @@ bool RunDeviceSampleLoopOnce() {
             const size_t num_node = dataset->num_node;
             const size_t num_edge = dataset->num_edge;
             const int fanout = fanouts[i];
+            const nodeid_t *input = static_cast<const nodeid_t *>(task->cur_input->data());
+            const size_t num_input = task->cur_input->shape()[0];
+
             nodeid_t *out_src;
             nodeid_t *out_dst;
             size_t *num_out;
-            nodeid_t *input;
-            size_t num_input;
+            size_t host_num_out;
             
-            if (i == last_layer_idx) {
-                input = static_cast<nodeid_t *>(task->train_nodes->mutable_data());
-                num_input = task->train_nodes->shape()[0];
-            } else {
-
-            }
 
             CUDA_CALL(cudaMalloc(&out_src, num_node * fanout * sizeof(nodeid_t)));
             CUDA_CALL(cudaMalloc(&out_dst, num_node * fanout * sizeof(nodeid_t)));
             CUDA_CALL(cudaMalloc(&num_out, sizeof(size_t)));
 
+            // Sample a compact coo graph
             cuda::DeviceSample((const nodeid_t *)indptr, (const nodeid_t *)indices,
                                (const size_t) num_node, (const size_t) num_edge,
                                (const nodeid_t *) input, (const size_t) num_input, (const int) fanout,
                                (nodeid_t *) out_src, (nodeid_t *) out_dst, (size_t *) num_out, 
                                (cudaStream_t) sample_stream);
+
+            // Get nnz
+            CUDA_CALL(cudaMemcpyAsync((void *)&host_num_out, (const void*)num_out, (size_t)sizeof(size_t), 
+                                      (cudaMemcpyKind)cudaMemcpyDeviceToHost, (cudaStream_t)sample_stream));
+            CUDA_CALL(cudaStreamSynchronize(sample_stream));
             
+            // Populate the hash table with newly sampled nodes
+            nodeid_t *unique;
+            size_t *num_unique;
+
+            std::swap(out_src, out_dst); // swap the src and dst
+            CUDA_CALL(cudaMalloc(&unique, host_num_out * sizeof(nodeid_t)));
+            CUDA_CALL(cudaMalloc(&num_unique, sizeof(size_t)));
+            hash_table.FillWithDuplicates(out_src, host_num_out, unique, num_unique, sample_stream);
+            CUDA_CALL(cudaGetLastError());
+
+            // Set the input of next sampling
+            size_t host_num_unique;
+            CUDA_CALL(cudaMemcpyAsync((void *)&host_num_unique, (const void*)num_unique, (size_t)sizeof(size_t), 
+                                      (cudaMemcpyKind)cudaMemcpyDeviceToHost, (cudaStream_t)sample_stream));
+            CUDA_CALL(cudaStreamSynchronize(sample_stream));
+            task->cur_input = Tensor::FromBlob((void *)unique, DataType::kSamI32, {host_num_unique}, sample_device);
+
+            // Mapping edges
+            nodeid_t *new_src;
+            nodeid_t *new_dst;
+
+            CUDA_CALL(cudaMalloc(&new_src, host_num_out * sizeof(size_t)));
+            CUDA_CALL(cudaMalloc(&new_dst, host_num_out * sizeof(size_t)));
+
+            cuda::MapEdges((const nodeid_t *) out_src,
+                           (nodeid_t * const) new_src,
+                           (const nodeid_t * const) out_dst,
+                           (nodeid_t * const) new_dst,
+                           (const size_t) host_num_out,
+                           (cuda::DeviceOrderedHashTable) hash_table.DeviceHandle(),
+                           (cudaStream_t) sample_stream);
+            CUDA_CALL(cudaGetLastError());
+
+            // Convert COO format to CSR format
+            nodeid_t *new_indptr;
+            CUDA_CALL(cudaMalloc(&new_indptr, (host_num_unique + 1) * sizeof(nodeid_t)));
+            cuda::ConvertCoo2Csr(new_src, new_dst, host_num_unique, num_input, host_num_out, new_indptr, sample_device, sample_stream);
+
+            // Construct TrainGraph
+            auto train_graph = std::make_shared<TrainGraph>();
+            train_graph->indptr = Tensor::FromBlob(new_indptr, DataType::kSamI32, {host_num_unique + 1}, sample_device);
+            train_graph->indices = Tensor::FromBlob(new_dst, DataType::kSamI32, {host_num_out}, sample_device);
+            train_graph->num_row = host_num_unique;
+            train_graph->num_column = num_input;
+            train_graph->num_edge = host_num_out;
+
+            task->output_graph[i] = train_graph;
+
+            // Do some clean jobs
+            CUDA_CALL(cudaFree(out_src));
+            CUDA_CALL(cudaFree(out_dst));
+            CUDA_CALL(cudaFree(num_out));
+            CUDA_CALL(cudaFree(unique));
+            CUDA_CALL(cudaFree(num_unique));
+            CUDA_CALL(cudaFree(new_src));
         }
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));

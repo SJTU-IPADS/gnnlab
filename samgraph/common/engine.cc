@@ -43,6 +43,7 @@ cudaStream_t* SamGraphEngine::_id_copy_device2host_stream = nullptr;
 cudaStream_t* SamGraphEngine::_feat_copy_host2device_stream = nullptr;
 
 RandomPermutation* SamGraphEngine::_permutation = nullptr;
+GraphPool* SamGraphEngine::_graph_pool = nullptr;
 
 std::atomic_int SamGraphEngine::joined_thread_cnt;
 
@@ -90,6 +91,7 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     }
 
     _permutation = new RandomPermutation(_dataset->train_set, _batch_size, false);
+    _graph_pool = new GraphPool();
 
     joined_thread_cnt = 0;
 
@@ -161,6 +163,8 @@ void SamGraphEngine::Shutdown() {
 
     delete _permutation;
     _permutation = nullptr;
+    delete _graph_pool;
+    _graph_pool = nullptr;
 
     _threads.clear();
     joined_thread_cnt = 0;

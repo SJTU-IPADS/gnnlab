@@ -11,6 +11,7 @@
 #include "logging.h"
 #include "task_queue.h"
 #include "random_permutation.h"
+#include "graph_pool.h"
 
 namespace samgraph {
 namespace common {
@@ -75,8 +76,10 @@ class SamGraphEngine {
   static cudaStream_t* _graph_copy_device2device_stream;
   static cudaStream_t* _id_copy_device2host_stream;
   static cudaStream_t* _feat_copy_host2device_stream;
-  //
+  // Random node batch genrator
   static RandomPermutation *_permutation;
+  // Ready graph batch pool
+  static GraphPool *_graph_pool;
 };
 
 } // namespace common

@@ -147,8 +147,21 @@ std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t off
     return tensor;
 }
 
+std::shared_ptr<Tensor> Tensor::FromBlob(const void * const data, DataType dtype, std::vector<size_t> dims, int device) {
+    auto tensor = std::make_shared<Tensor>();
+    size_t size = std::accumulate(dims.begin(), dims.end(), 0) * getDataTypeLength(dtype);
+    
+    tensor->_dtype = dtype;
+    tensor->_dims = dims;
+    tensor->_size = size;
+    tensor->_offset = 0;
+    tensor->_container = std::make_shared<DataContainer>(data, size, device);
+
+    return tensor;
+}
+
 uint64_t encodeKey(int epoch_idx, size_t batch_idx) {
-    return (epoch_idx << 32) + batch_idx;
+    return (epoch_idx << 31) + batch_idx;
 }
 
 int getDataTypeLength(int dtype) {
