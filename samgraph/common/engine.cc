@@ -42,6 +42,10 @@ cudaStream_t* SamGraphEngine::_graph_copy_device2device_stream = nullptr;
 cudaStream_t* SamGraphEngine::_id_copy_device2host_stream = nullptr;
 cudaStream_t* SamGraphEngine::_feat_copy_host2device_stream = nullptr;
 
+ReadyTable* SamGraphEngine::_submit_table = nullptr;
+
+CpuExtractor* SamGraphEngine::_cpu_extractor = nullptr;
+
 RandomPermutation* SamGraphEngine::_permutation = nullptr;
 GraphPool* SamGraphEngine::_graph_pool = nullptr;
 
@@ -83,6 +87,10 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     CUDA_CALL(cudaStreamSynchronize(*_id_copy_device2host_stream));
     CUDA_CALL(cudaStreamSynchronize(*_feat_copy_host2device_stream));
 
+    _submit_table = new ReadyTable(2, "SUBMIT");
+
+    _cpu_extractor = new CpuExtractor();
+
     // Create queues
     for (int i = 0; i < QueueNum; i++) {
         SAM_LOG(DEBUG) << "Create task queue" << i;
@@ -119,6 +127,16 @@ void SamGraphEngine::Shutdown() {
         _threads[i]->join();
         delete _threads[i];
         _threads[i] = nullptr;
+    }
+
+    if (_submit_table) {
+        delete _submit_table;
+        _submit_table = nullptr;
+    }
+
+    if (_cpu_extractor) {
+        delete _cpu_extractor;
+        _cpu_extractor = nullptr;
     }
 
     // free queue
@@ -161,10 +179,15 @@ void SamGraphEngine::Shutdown() {
         _feat_copy_host2device_stream = nullptr;
     }
 
-    delete _permutation;
-    _permutation = nullptr;
-    delete _graph_pool;
-    _graph_pool = nullptr;
+    if (_permutation) {
+        delete _permutation;
+        _permutation = nullptr;
+    }
+
+    if (_graph_pool) {
+        delete _graph_pool;
+        _graph_pool = nullptr;
+    }
 
     _threads.clear();
     joined_thread_cnt = 0;

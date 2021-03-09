@@ -79,7 +79,10 @@ setup(
             'samgraph/common/task_queue.cc',
             'samgraph/common/cuda_convert.cc',
             'samgraph/common/cuda_hashtable.cu',
-            'samgraph/common/cuda_mapping.cu'
+            'samgraph/common/cuda_mapping.cu',
+            'samgraph/common/cuda_sampling.cu',
+            'samgraph/torch/adapter.cc',
+            'samgraph/torch/ops.cc',
         ],
         include_dirs=['3rdparty/cub'],
         libraries=['cusparse'],

@@ -35,7 +35,7 @@ const std::unordered_map<QueueType, size_t> kQueueThreshold = {
     { GRAPH_COPYD2D, 5 }
     { ID_COPYD2H,    5 }
     { FEAT_SELECT,   5 }
-    { FEAT_COPYD2H,  5 }
+    { FEAT_COPYH2D,  5 }
     { SUBMIT,        5 }
 };
 

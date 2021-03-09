@@ -3,9 +3,10 @@
 
 #include <mutex>
 #include <memory>
-#include <queue>
+#include <vector>
 
 #include "common.h"
+#include "ready_table.h"
 
 namespace samgraph {
 namespace common {
@@ -20,10 +21,11 @@ class SamGraphTaskQueue {
   size_t PendingLength();
 
  private:
-  std::queue<std::shared_ptr<TaskEntry>> _q;
+  std::vector<std::shared_ptr<TaskEntry>> _q;
   std::mutex _mutex;
   QueueType _qt;
   size_t _threshold;
+  ReadyTable *_rt;
 };
 
 } // namespace common

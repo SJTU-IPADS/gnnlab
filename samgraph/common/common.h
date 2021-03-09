@@ -107,6 +107,20 @@ struct SamGraphDataset {
     std::shared_ptr<IdTensor> valid_set;
 };
 
+enum QueueType {
+    ID_COPYH2D = 0,
+    DEV_SAMPLE,
+    GRAPH_COPYD2D,
+    ID_COPYD2H,
+    FEAT_SELECT,
+    FEAT_COPYH2D,
+    SUBMIT,
+    QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST
+};
+
+const int QueueNum =
+    (int)QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST;
+
 // Train graph format that is compatible with the cuSparse method
 struct TrainGraph {
   std::shared_ptr<IdTensor> indptr;
@@ -115,20 +129,6 @@ struct TrainGraph {
   int num_column;
   int num_edge;
 };
-
-enum QueueType {
-    ID_COPYH2D = 0,
-    DEV_SAMPLE,
-    GRAPH_COPYD2D,
-    ID_COPYD2H,
-    FEAT_SELECT,
-    FEAT_COPYD2H,
-    SUBMIT,
-    QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST
-};
-
-const int QueueNum =
-    (int)QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST;
 
 struct TaskEntry {
     // Key of the task
@@ -139,6 +139,8 @@ struct TaskEntry {
     std::shared_ptr<IdTensor> cur_input;
     // Output graph tensor
     std::vector<std::shared_ptr<TrainGraph>> output_graph;
+    // Original node ids of the first train graph
+    std::shared_ptr<Tensor> output_nodes;
     // Output feature tensor
     std::shared_ptr<Tensor> output_feat;
     // Output label tensor

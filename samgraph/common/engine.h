@@ -12,6 +12,8 @@
 #include "task_queue.h"
 #include "random_permutation.h"
 #include "graph_pool.h"
+#include "ready_table.h"
+#include "cpu_extractor.h"
 
 namespace samgraph {
 namespace common {
@@ -38,11 +40,15 @@ class SamGraphEngine {
   static int GetSampleDevice() { return _sample_device; }
   static int GetTrainDevice() { return _train_device; }
 
-  static cudaStream_t *GetSampleStream() { return _sample_stream; }
-  static cudaStream_t *GetIdCopyHost2DeviceStream() { return _id_copy_host2device_stream; }
-  static cudaStream_t *GetGraphCopyDevice2DeviceStream() { return _graph_copy_device2device_stream; }
-  static cudaStream_t *GetIdCopyDevice2HostStream() { return _id_copy_device2host_stream; }
-  static cudaStream_t *GetFeatureCopyHost2DeviceStream() {  return _feat_copy_host2device_stream; }
+  static cudaStream_t* GetSampleStream() { return _sample_stream; }
+  static cudaStream_t* GetIdCopyHost2DeviceStream() { return _id_copy_host2device_stream; }
+  static cudaStream_t* GetGraphCopyDevice2DeviceStream() { return _graph_copy_device2device_stream; }
+  static cudaStream_t* GetIdCopyDevice2HostStream() { return _id_copy_device2host_stream; }
+  static cudaStream_t* GetFeatureCopyHost2DeviceStream() {  return _feat_copy_host2device_stream; }
+
+  static GraphPool* GetGraphPool() { return _graph_pool; }
+  static ReadyTable* GetSubmitTable() { return _submit_table; }
+  static CpuExtractor* GetCpuExtractor() { return _cpu_extractor; }
 
   static void ReportThreadFinish() { joined_thread_cnt.fetch_add(1); }
   static bool IsAllThreadFinish(int total_thread_num);
@@ -77,9 +83,13 @@ class SamGraphEngine {
   static cudaStream_t* _id_copy_device2host_stream;
   static cudaStream_t* _feat_copy_host2device_stream;
   // Random node batch genrator
-  static RandomPermutation *_permutation;
+  static RandomPermutation* _permutation;
   // Ready graph batch pool
-  static GraphPool *_graph_pool;
+  static GraphPool* _graph_pool;
+  // Ready table
+  static ReadyTable* _submit_table;
+  // CPU Extractor
+  static CpuExtractor* _cpu_extractor;
 };
 
 } // namespace common
