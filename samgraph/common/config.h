@@ -9,37 +9,32 @@
 namespace samgraph {
 namespace common {
 
-constexpr static const std::string kMetaFile     = "meta.txt";
-constexpr static const std::string kFeatFile     = "feat.bin";
-constexpr static const std::string kLabelFile    = "label.bin";
-constexpr static const std::string kInptrFile    = "indptr.bin";
-constexpr static const std::string kIndicesFile  = "indices.bin";
-constexpr static const std::string kTrainSetFile = "train_set.bin";
-constexpr static const std::string kTestSetFile  = "test_set.bin";
-constexpr static const std::string kValidSetFile = "valid_set.bin";
+class Config {
+ public:
+  static const std::string kMetaFile;
+  static const std::string kFeatFile;
+  static const std::string kLabelFile;
+  static const std::string kInptrFile;
+  static const std::string kIndicesFile;
+  static const std::string kTrainSetFile;
+  static const std::string kTestSetFile;
+  static const std::string kValidSetFile;
 
-constexpr static const std::string kMetaNumNode     = "NUM_NODE";
-constexpr static const std::string kMetaNumEdge     = "NUM_EDGE";
-constexpr static const std::string kMetaFeatDim     = "NUM_CLASS";
-constexpr static const std::string kMetaNumClass    = "NUM_CLASS";
-constexpr static const std::string KMetaNumTrainSet = "NUM_TRAIN_SET";
-constexpr static const std::string kMetaNumTestSet  = "NUM_TEST_SET"; 
-constexpr static const std::string kMetaNumValidSet = "NUM_VALID_SET";
+  static const std::string kMetaNumNode;
+  static const std::string kMetaNumEdge;
+  static const std::string kMetaFeatDim;
+  static const std::string kMetaNumClass;
+  static const std::string kMetaNumTrainSet;
+  static const std::string kMetaNumTestSet; 
+  static const std::string kMetaNumValidSet;
 
-constexpr static const int kCudaBlockSize = 256;
-constexpr static const size_t kCudaTileSize = 1024;
+  static constexpr int kCudaBlockSize = 256;
+  static constexpr size_t kCudaTileSize = 1024;
 
-const std::unordered_map<QueueType, size_t> kQueueThreshold = {
-    { ID_COPYH2D,    5 }
-    { DEV_SAMPLE,    5 }
-    { GRAPH_COPYD2D, 5 }
-    { ID_COPYD2H,    5 }
-    { FEAT_SELECT,   5 }
-    { FEAT_COPYH2D,  5 }
-    { SUBMIT,        5 }
+  static const std::unordered_map<int, size_t> kQueueThreshold;
+
+  static constexpr nodeid_t kEmptyKey = -1;
 };
-
-constexpr static const nodeid_t kNodeEmptyValue = -1;
 
 } // namespace common
 } // namespace samgraph

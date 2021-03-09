@@ -15,8 +15,10 @@ class GraphPool {
  public:
   GraphPool() : _stop(false) {}
   ~GraphPool();
+
   std::shared_ptr<GraphBatch> GetGraphBatch(uint64_t key);
   void AddGraphBatch(uint64_t key, std::shared_ptr<GraphBatch> batch);
+
  private:
   bool _stop;
   std::mutex _mutex;

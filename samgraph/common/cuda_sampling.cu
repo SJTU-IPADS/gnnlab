@@ -1,19 +1,25 @@
 #include <chrono>
+#include <cassert>
+
+#include <curand.h>
+#include <curand_kernel.h>
+#include <cub/cub.cuh>
 
 #include "cuda_sampling.h"
 #include "config.h"
+#include "logging.h"
 
 namespace {
 
-template <typename DType>
+template <typename T>
 struct BlockPrefixCallbackOp {
     uint32_t _running_total;
     
-    __device__ BlockPrefixCallbackOp(const DType running_total)
+    __device__ BlockPrefixCallbackOp(const T running_total)
         : _running_total(running_total) {}
     
-    __device__ DType operator()(const DType block_aggregate) {
-        const IdType old_prefix = _running_total;
+    __device__ T operator()(const T block_aggregate) {
+        const T old_prefix = _running_total;
         _running_total += block_aggregate;
         return old_prefix;
       }
@@ -47,14 +53,13 @@ sample(const nodeid_t *indptr, const nodeid_t *indices, const size_t num_node, c
             if (len <= fanout) {
                 size_t j = 0;
                 for (; j < len; ++j) {
-                    int 
                     tmp_src[index * fanout + j] = rid;
                     tmp_dst[index * fanout + j] = indices[off + j];
                 }
 
                 for (; j < fanout; ++j) {
-                    tmp_src[index * fanout + j] = kNodeEmptyValue;
-                    tmp_dst[index * fanout + j] = kNodeEmptyValue;
+                    tmp_src[index * fanout + j] = Config::kEmptyKey;
+                    tmp_dst[index * fanout + j] = Config::kEmptyKey;
                 }
             } else {
                 for (size_t j = 0; j < fanout; ++j) {
@@ -62,9 +67,9 @@ sample(const nodeid_t *indptr, const nodeid_t *indices, const size_t num_node, c
                     tmp_dst[index * fanout + j] = indices[off + j];
                 }
 
-                for (size_t j = num_picks; j < len; ++j) {
+                for (size_t j = fanout; j < len; ++j) {
                     size_t k = curand(&state) % (j + 1);
-                    if (k < num_picks) {
+                    if (k < fanout) {
                         tmp_dst[index * fanout + k] = indices[off + j];
                     }
                 } 
@@ -88,7 +93,7 @@ count_edge(nodeid_t *edge_src, nodeid_t *item_prefix, const size_t num_input, co
     for (size_t index = threadIdx.x + block_start; index < block_end; index += BLOCK_SIZE) {
         if (index < num_input) {
             for (int j = 0; j < fanout; j++) {
-                if (edge_src[index * fanout + j] != kNodeEmptyValue) {
+                if (edge_src[index * fanout + j] != Config::kEmptyKey) {
                     ++count;
                 }
             }
@@ -109,8 +114,8 @@ count_edge(nodeid_t *edge_src, nodeid_t *item_prefix, const size_t num_input, co
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void 
-compact_edge(const nodeid_t *tmp_src, const nodeid_t *tmp_dst, nodeid_t *out_src, nodeid_t *out_dst
-             nodeid_t *num_out, const nodeid_t *item_prefix, const size_t num_input, const int fanout) {
+compact_edge(const nodeid_t *tmp_src, nodeid_t *tmp_dst, nodeid_t *out_src, nodeid_t *out_dst,
+             size_t *num_out, const nodeid_t *item_prefix, const size_t num_input, const int fanout) {
     assert(BLOCK_SIZE == blockDim.x);
 
     using BlockScan = typename cub::BlockScan<uint32_t, BLOCK_SIZE>;
@@ -119,7 +124,7 @@ compact_edge(const nodeid_t *tmp_src, const nodeid_t *tmp_dst, nodeid_t *out_src
 
     __shared__ typename BlockScan::TempStorage temp_space;
 
-    const uint32_t offset = num_items_prefix[blockIdx.x];
+    const uint32_t offset = item_prefix[blockIdx.x];
 
     BlockPrefixCallbackOp<uint32_t> prefix_op(0);
 
@@ -130,7 +135,7 @@ compact_edge(const nodeid_t *tmp_src, const nodeid_t *tmp_dst, nodeid_t *out_src
         uint32_t item_per_thread = 0;
         if (index < num_input) {
             for (int j = 0; j < fanout; j++) {
-                if (tmp_src[index * fanout + j] != kNodeEmptyValue) {
+                if (tmp_src[index * fanout + j] != Config::kEmptyKey) {
                     item_per_thread++;
                 }
             }
@@ -157,9 +162,9 @@ compact_edge(const nodeid_t *tmp_src, const nodeid_t *tmp_dst, nodeid_t *out_src
 
 void DeviceSample(const nodeid_t *indptr, const nodeid_t *indices, const size_t num_node, const size_t num_edge, const nodeid_t *input,
                   const size_t num_input, const int fanout, nodeid_t *out_src, nodeid_t *out_dst, size_t *num_out, cudaStream_t stream) {
-    const uint32_t num_tiles = (num_node + kCudaTileSize - 1) / kCudaTileSize;
+    const uint32_t num_tiles = (num_node + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
     const dim3 grid(num_tiles);
-    const dim3 block(kCudaBlockSize);
+    const dim3 block(Config::kCudaBlockSize);
 
     unsigned long seed = std::chrono::system_clock::now().time_since_epoch().count();
 
@@ -168,15 +173,15 @@ void DeviceSample(const nodeid_t *indptr, const nodeid_t *indices, const size_t 
     CUDA_CALL(cudaMalloc(&tmp_src, sizeof(nodeid_t) * num_input * fanout));
     CUDA_CALL(cudaMalloc(&tmp_dst, sizeof(nodeid_t) * num_input * fanout));
 
-    sampling<kCudaBlockSize, kCudaTileSize>
+    sample<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(indptr, indices, num_node, num_edge, input,
                                      num_input, fanout, tmp_src, tmp_dst, num_out, seed);
     CUDA_CALL(cudaGetLastError());
 
-    uint32_t *item_prefix;
+    nodeid_t *item_prefix;
     CUDA_CALL(cudaMalloc(&item_prefix, sizeof(nodeid_t) * (num_input + 1)));
     
-    count_edge<kCudaBlockSize, kCudaTileSize>
+    count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, item_prefix, num_input, fanout);
     CUDA_CALL(cudaGetLastError());
 
@@ -192,7 +197,7 @@ void DeviceSample(const nodeid_t *indptr, const nodeid_t *indices, const size_t 
 
     CUDA_CALL(cudaFree(workspace));
 
-    compact_edge<kCudaBlockSize, kCudaTileSize>
+    compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, tmp_dst, out_src, out_dst, num_out,
                                      item_prefix, num_input, fanout);
     CUDA_CALL(cudaGetLastError());

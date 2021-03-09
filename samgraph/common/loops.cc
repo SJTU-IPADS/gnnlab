@@ -69,7 +69,7 @@ bool RunIdCopyHost2DeviceLoopOnce() {
 
         task->train_nodes = d_nodes;
         task->cur_input = d_nodes;
-        next_q.AddTask(task);
+        next_q->AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -95,7 +95,7 @@ bool RunDeviceSampleLoopOnce() {
         size_t predict_node_num = train_nodes->shape()[0] * std::accumulate(fanouts.begin(), fanouts.end(), 0);
         cuda::OrderedHashTable hash_table(predict_node_num, sample_device, sample_stream);
         
-        size_t num_train_node = train_nodes->shape()[0]
+        size_t num_train_node = train_nodes->shape()[0];
         hash_table.FillWithUnique(static_cast<const nodeid_t *>(train_nodes->data()), num_train_node, sample_stream);
 
         task->output_graph.resize(num_layers);
@@ -205,13 +205,12 @@ bool RunDeviceSampleLoopOnce() {
 }
 
 bool RunGraphCopyDevice2DeviceLoopOnce() {
-    auto this_op = GraphCopyDevice2DeviceLoop;
+    auto this_op = GRAPH_COPYD2D;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
         auto train_device = SamGraphEngine::GetTrainDevice();
-        auto sample_device = SamGraphEngine::GetSampleDevice();
 
         auto graph_copy_stream = *SamGraphEngine::GetGraphCopyDevice2DeviceStream();
 
@@ -250,16 +249,16 @@ bool RunIdCopyDevice2HostLoopOnce() {
         auto id_copy_d2h_stream = *SamGraphEngine::GetIdCopyDevice2HostStream();
         void *node_ids = malloc(task->output_nodes->size());
 
-        CUDA_CALL(cudaMemcpyAsync(node_ids, task->output_nodes->data(), task->output_nodes->size()
+        CUDA_CALL(cudaMemcpyAsync(node_ids, task->output_nodes->data(), task->output_nodes->size(),
                                   cudaMemcpyDeviceToHost, id_copy_d2h_stream));
         
         task->output_nodes = Tensor::FromBlob(node_ids, task->output_nodes->dtype(),
-                                              task->output_nodes->shpae(), CPU_DEVICE_ID);
+                                              task->output_nodes->shape(), CPU_DEVICE_ID);
 
         CUDA_CALL(cudaStreamSynchronize(id_copy_d2h_stream));
-        auto next_op = FEAT_SELECT;
+        auto next_op = FEAT_EXTRACT;
         auto q = SamGraphEngine::GetTaskQueue(next_op);
-        q.AddTask(task);
+        q->AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -267,8 +266,8 @@ bool RunIdCopyDevice2HostLoopOnce() {
     return true;
 }
 
-bool RunHostFeatureSelectLoopOnce() {
-    auto this_op = HostFeatureSelectLoop;
+bool RunHostFeatureExtractLoopOnce() {
+    auto this_op = FEAT_EXTRACT;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
 
@@ -296,7 +295,7 @@ bool RunHostFeatureSelectLoopOnce() {
 
         auto next_op = FEAT_COPYH2D;
         auto q = SamGraphEngine::GetTaskQueue(next_op);
-        q.AddTask(task);
+        q->AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -338,7 +337,7 @@ bool RunFeatureCopyHost2DeviceLoop() {
 
         auto next_op = SUBMIT;
         auto q = SamGraphEngine::GetTaskQueue(next_op);
-        q.AddTask(task);
+        q->AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -367,7 +366,7 @@ void HostPermutateLoop() {
     SamGraphEngine::ReportThreadFinish();
 }
 
-void IdCopyHost2Device() {
+void IdCopyHost2DeviceLoop() {
     CUDA_CALL(cudaSetDevice(SamGraphEngine::GetSampleDevice()));
     while(RunIdCopyHost2DeviceLoopOnce() && !SamGraphEngine::ShouldShutdown()) {        
     }
@@ -394,8 +393,8 @@ void IdCopyDevice2HostLoop() {
     SamGraphEngine::ReportThreadFinish();
 }
 
-void HostFeatureSelectLoop() {
-    while(RunHostFeatureSelectLoopOnce() && !SamGraphEngine::ShouldShutdown()) {
+void HostFeatureExtractLoop() {
+    while(RunHostFeatureExtractLoopOnce() && !SamGraphEngine::ShouldShutdown()) {
     }
     SamGraphEngine::ReportThreadFinish();
 }

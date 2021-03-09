@@ -1,11 +1,22 @@
 #include <cassert>
 
+#include "config.h"
 #include "cuda_mapping.h"
 #include "cuda_hashtable.h"
 
 namespace {
 
-using samgraph::common::cuda;
+inline size_t RoundUpDiv(
+    const size_t num,
+    const size_t divisor) {
+  return num / divisor + (num % divisor == 0 ? 0 : 1);
+}
+
+} // namespace
+
+namespace samgraph {
+namespace common {
+namespace cuda {
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __device__ void map_node_ids (
@@ -43,28 +54,16 @@ __global__ void map_edge_ids(
             new_global_src,
             num_edges,
             mapping
-        )
+        );
     } else {
         map_node_ids<BLOCK_SIZE, TILE_SIZE>(
             global_dst,
             new_global_dst,
             num_edges,
             mapping
-        )
+        );
     }
 }
-
-inline size_t RoundUpDiv(
-    const size_t num,
-    const size_t divisor) {
-  return num / divisor + (num % divisor == 0 ? 0 : 1);
-}
-
-} // namespace
-
-namespace samgraph {
-namespace common {
-namespace cuda {
 
 void MapEdges(const nodeid_t * const global_src,
               nodeid_t * const new_global_src,
@@ -74,10 +73,10 @@ void MapEdges(const nodeid_t * const global_src,
               DeviceOrderedHashTable mapping,
               cudaStream_t stream) {
     
-    const dim3 grid(RoundUpDiv(num_edges, kCudaTileSize), 2);
-    const dim3 block(kCudaBlockSize);
+    const dim3 grid(RoundUpDiv(num_edges, Config::kCudaTileSize), 2);
+    const dim3 block(Config::kCudaBlockSize);
     
-    map_edge_ids<kCudaBlockSize, kCudaTileSize><<<
+    map_edge_ids<Config::kCudaBlockSize, Config::kCudaTileSize><<<
         grid,
         block,
         0,
@@ -85,7 +84,7 @@ void MapEdges(const nodeid_t * const global_src,
         global_src,
         new_global_src,
         global_dst,
-        new_gloval_dst,
+        new_global_dst,
         num_edges,
         mapping);
 }

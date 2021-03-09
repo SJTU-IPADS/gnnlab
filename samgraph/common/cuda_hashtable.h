@@ -1,10 +1,13 @@
 #ifndef SAMGRAPH_CUDA_HASHTABLE_H
 #define SAMGRAPH_CUDA_HASHTABLE_H
 
+#include <cassert>
+
 #include <cuda_runtime.h>
 
 #include "types.h"
 #include "logging.h"
+#include "config.h"
 
 namespace samgraph {
 namespace common {
@@ -90,9 +93,6 @@ class DeviceOrderedHashTable {
     }
 
   protected:
-    // Must be uniform bytes for memset to work
-    static constexpr nodeid_t kEmptyKey = -1;
-
     const Mapping * table_;
     size_t size_;
 
@@ -123,7 +123,7 @@ class DeviceOrderedHashTable {
       // linearly scan for matching entry
       nodeid_t delta = 1;
       while (table_[pos].key != id) {
-        assert(table_[pos].key != kEmptyKey);
+        assert(table_[pos].key != Config::kEmptyKey);
         pos = Hash(pos+delta);
         delta +=1;
       }
@@ -232,7 +232,7 @@ class OrderedHashTable {
     */
     void FillWithUnique(
         const nodeid_t * const input,
-        const size_t num_input
+        const size_t num_input,
         cudaStream_t stream);
 
     /**

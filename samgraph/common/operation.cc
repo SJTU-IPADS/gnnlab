@@ -21,11 +21,11 @@ void samgraph_init(const char *path, int sample_device, int train_device,
 void samgraph_start() {
     std::vector<LoopFunction> func;
     func.push_back(HostPermutateLoop);
-    func.push_back(IdCopyHost2Device);
+    func.push_back(IdCopyHost2DeviceLoop);
     func.push_back(DeviceSampleLoop);
     func.push_back(GraphCopyDevice2DeviceLoop);
     func.push_back(IdCopyDevice2HostLoop);
-    func.push_back(HostFeatureSelectLoop);
+    func.push_back(HostFeatureExtractLoop);
     func.push_back(FeatureCopyHost2DeviceLoop);
     func.push_back(SubmitLoop);
 

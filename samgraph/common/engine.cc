@@ -33,7 +33,7 @@ int SamGraphEngine::_batch_size = 0;
 std::vector<int> SamGraphEngine::_fanout;
 int SamGraphEngine::_num_epoch = 0;
 
-volatile SamGraphTaskQueue* SamGraphEngine::_queues[QueueNum] = {nullptr};
+SamGraphTaskQueue* SamGraphEngine::_queues[QueueNum] = {nullptr};
 static std::vector<std::thread*> SamGraphEngine_threads;
 
 cudaStream_t* SamGraphEngine::_sample_stream = nullptr;
@@ -43,11 +43,10 @@ cudaStream_t* SamGraphEngine::_id_copy_device2host_stream = nullptr;
 cudaStream_t* SamGraphEngine::_feat_copy_host2device_stream = nullptr;
 
 ReadyTable* SamGraphEngine::_submit_table = nullptr;
-
 CpuExtractor* SamGraphEngine::_cpu_extractor = nullptr;
-
 RandomPermutation* SamGraphEngine::_permutation = nullptr;
 GraphPool* SamGraphEngine::_graph_pool = nullptr;
+std::shared_ptr<GraphBatch> SamGraphEngine::_cur_graph_batch = nullptr;
 
 std::atomic_int SamGraphEngine::joined_thread_cnt;
 
@@ -197,7 +196,7 @@ void SamGraphEngine::Shutdown() {
 
 void SamGraphEngine::CreateTaskQueue(QueueType queueType) {
     if (!_queues[queueType]) {
-        _queues[queueType] = new SamGraphTaskQueue(queueType, kQueueThreshold[queueType]);
+        _queues[queueType] = new SamGraphTaskQueue(queueType, Config::kQueueThreshold.at(queueType));
     }
 }
 
@@ -212,7 +211,7 @@ void SamGraphEngine::LoadGraphDataset() {
     }
 
     // Parse the meta data
-    std::ifstream meta_file(_dataset_path + kMetaFile);
+    std::ifstream meta_file(_dataset_path + Config::kMetaFile);
     std::string line;
     while(std::getline(meta_file, line)) {
         std::istringstream iss(line);
@@ -225,32 +224,32 @@ void SamGraphEngine::LoadGraphDataset() {
         meta[kv[0]] = std::stoull(kv[1]);
     }
 
-    SAM_CHECK(meta.count(kMetaNumNode) > 0);
-    SAM_CHECK(meta.count(kMetaNumEdge) > 0);
-    SAM_CHECK(meta.count(kMetaFeatDim) > 0);
-    SAM_CHECK(meta.count(kMetaNumClass) > 0);
-    SAM_CHECK(meta.count(KMetaNumTrainSet) > 0);
-    SAM_CHECK(meta.count(kMetaNumTestSet) > 0);
-    SAM_CHECK(meta.count(kMetaNumValidSet) > 0);
+    SAM_CHECK(meta.count(Config::kMetaNumNode) > 0);
+    SAM_CHECK(meta.count(Config::kMetaNumEdge) > 0);
+    SAM_CHECK(meta.count(Config::kMetaFeatDim) > 0);
+    SAM_CHECK(meta.count(Config::kMetaNumClass) > 0);
+    SAM_CHECK(meta.count(Config::kMetaNumTrainSet) > 0);
+    SAM_CHECK(meta.count(Config::kMetaNumTestSet) > 0);
+    SAM_CHECK(meta.count(Config::kMetaNumValidSet) > 0);
 
-    _dataset->num_node  = meta[kMetaNumNode];
-    _dataset->num_edge  = meta[kMetaNumEdge];
-    _dataset->num_class = meta[kMetaNumClass];
+    _dataset->num_node  = meta[Config::kMetaNumNode];
+    _dataset->num_edge  = meta[Config::kMetaNumEdge];
+    _dataset->num_class = meta[Config::kMetaNumClass];
 
-    _dataset->indptr    = Tensor::FromMmap(_dataset_path + kInptrFile, DataType::kSamI32,
-                                           {meta[kMetaNumNode] + 1}, _sample_device);
-    _dataset->indices   = Tensor::FromMmap(_dataset_path + kIndicesFile, DataType::kSamI32,
-                                          {meta[kMetaNumEdge]}, _sample_device);
-    _dataset->feat      = Tensor::FromMmap(_dataset_path + kFeatFile, DataType::kSamF32,
-                                          {meta[kMetaNumNode], meta[kMetaFeatDim]}, CPU_DEVICE_ID);
-    _dataset->label     = Tensor::FromMmap(_dataset_path + kLabelFile, DataType::kSamI32,
-                                          {meta[kMetaNumNode]}, CPU_DEVICE_ID);
-    _dataset->train_set = Tensor::FromMmap(_dataset_path + kTrainSetFile, DataType::kSamI32,
-                                          {meta[KMetaNumTrainSet]}, CPU_DEVICE_ID);
-    _dataset->test_set  = Tensor::FromMmap(_dataset_path + kTestSetFile, DataType::kSamI32,
-                                          {meta[kMetaNumTestSet]}, CPU_DEVICE_ID);
-    _dataset->valid_set = Tensor::FromMmap(_dataset_path + kValidSetFile, DataType::kSamI32,
-                                          {meta[kMetaNumValidSet]}, CPU_DEVICE_ID);
+    _dataset->indptr    = Tensor::FromMmap(_dataset_path + Config::kInptrFile, DataType::kSamI32,
+                                           {meta[Config::kMetaNumNode] + 1}, _sample_device);
+    _dataset->indices   = Tensor::FromMmap(_dataset_path + Config::kIndicesFile, DataType::kSamI32,
+                                          {meta[Config::kMetaNumEdge]}, _sample_device);
+    _dataset->feat      = Tensor::FromMmap(_dataset_path + Config::kFeatFile, DataType::kSamF32,
+                                          {meta[Config::kMetaNumNode], meta[Config::kMetaFeatDim]}, CPU_DEVICE_ID);
+    _dataset->label     = Tensor::FromMmap(_dataset_path + Config::kLabelFile, DataType::kSamI32,
+                                          {meta[Config::kMetaNumNode]}, CPU_DEVICE_ID);
+    _dataset->train_set = Tensor::FromMmap(_dataset_path + Config::kTrainSetFile, DataType::kSamI32,
+                                          {meta[Config::kMetaNumTrainSet]}, CPU_DEVICE_ID);
+    _dataset->test_set  = Tensor::FromMmap(_dataset_path + Config::kTestSetFile, DataType::kSamI32,
+                                          {meta[Config::kMetaNumTestSet]}, CPU_DEVICE_ID);
+    _dataset->valid_set = Tensor::FromMmap(_dataset_path + Config::kValidSetFile, DataType::kSamI32,
+                                          {meta[Config::kMetaNumValidSet]}, CPU_DEVICE_ID);
 }
 
 bool SamGraphEngine::IsAllThreadFinish(int total_thread_num) {

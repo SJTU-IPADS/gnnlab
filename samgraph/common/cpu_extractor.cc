@@ -31,7 +31,7 @@ int CpuExtractor::_extract(T* dst, const T* src, const nodeid_t *idx,
                             size_t num_idx, size_t dim) {
     #pragma omp parallel for num_threads(_num_threads)
     for (size_t i = 0; i < num_idx; ++i) {
-        #pragma omp for simd
+        #pragma omp simd
         for (size_t j = 0; j < dim; j++) {
             dst[i * dim + j] = src[idx[i] * dim + j];
         }

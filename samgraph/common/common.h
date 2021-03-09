@@ -60,7 +60,8 @@ class Tensor {
   static std::shared_ptr<Tensor> DeepCopy(std::shared_ptr<Tensor> tensor, size_t offset,
                                        std::vector<size_t> dims);
   // From blob
-  static std::shared_ptr<Tensor> FromBlob(const void * const data, DataType dtype, std::vector<size_t> dims, int device);
+  static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
+                                          std::vector<size_t> dims, int device);
   // Consume the tensor, and we don't have to free the data.
   bool ConsumeData() { return _container->Consume(); }
 
@@ -112,7 +113,7 @@ enum QueueType {
     DEV_SAMPLE,
     GRAPH_COPYD2D,
     ID_COPYD2H,
-    FEAT_SELECT,
+    FEAT_EXTRACT,
     FEAT_COPYH2D,
     SUBMIT,
     QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST

@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <cstring>
 #include <numeric>
 #include <cstdlib>
 
@@ -147,7 +148,7 @@ std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t off
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::FromBlob(const void * const data, DataType dtype, std::vector<size_t> dims, int device) {
+std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector<size_t> dims, int device) {
     auto tensor = std::make_shared<Tensor>();
     size_t size = std::accumulate(dims.begin(), dims.end(), 0) * getDataTypeLength(dtype);
     

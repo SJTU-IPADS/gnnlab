@@ -6,7 +6,7 @@ namespace common {
 
 void HostPermutateLoop();
 
-void IdCopyHost2Device();
+void IdCopyHost2DeviceLoop();
 
 void DeviceSampleLoop();
 
@@ -14,12 +14,12 @@ void GraphCopyDevice2DeviceLoop();
 
 void IdCopyDevice2HostLoop();
 
-void HostFeatureSelectLoop();
+void HostFeatureExtractLoop();
 
 void FeatureCopyHost2DeviceLoop();
 
 // Submit loop will wait for the accomplishment of
-// GraphCopyDevice2DeviceLoop and HostFeatureSelectLoop
+// GraphCopyDevice2DeviceLoop and HostFeatureExtractLoop
 void SubmitLoop();
 
 } // namespace common

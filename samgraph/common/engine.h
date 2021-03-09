@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <memory>
+#include <atomic>
 
 #include <cuda_runtime.h>
 
@@ -32,7 +34,7 @@ class SamGraphEngine {
 
   static RandomPermutation* GetRandomPermutation() { return _permutation; }
 
-  static TaskQueue* GetTaskQueue(QueueType queueType) { return (TaskQueue*)_queues[queueType]; }
+  static SamGraphTaskQueue* GetTaskQueue(QueueType queueType) { return _queues[queueType]; }
   static void CreateTaskQueue(QueueType queueType);
   static void LoadGraphDataset();
   static const SamGraphDataset* GetGraphDataset() { return _dataset; }
@@ -47,6 +49,9 @@ class SamGraphEngine {
   static cudaStream_t* GetFeatureCopyHost2DeviceStream() {  return _feat_copy_host2device_stream; }
 
   static GraphPool* GetGraphPool() { return _graph_pool; }
+  static void SetGraphBatch(std::shared_ptr<GraphBatch> batch) { _cur_graph_batch = batch; }
+  static std::shared_ptr<GraphBatch> GetGraphBatch() { return _cur_graph_batch; };
+
   static ReadyTable* GetSubmitTable() { return _submit_table; }
   static CpuExtractor* GetCpuExtractor() { return _cpu_extractor; }
 
@@ -74,7 +79,7 @@ class SamGraphEngine {
   // Sampling epoch
   static int _num_epoch;
   // Task queue
-  static volatile SamGraphTaskQueue* _queues[QueueNum];
+  static SamGraphTaskQueue* _queues[QueueNum];
   static std::vector<std::thread*> _threads;
   // Cuda streams
   static cudaStream_t* _sample_stream;
@@ -86,6 +91,8 @@ class SamGraphEngine {
   static RandomPermutation* _permutation;
   // Ready graph batch pool
   static GraphPool* _graph_pool;
+  // Current graph batch
+  static std::shared_ptr<GraphBatch> _cur_graph_batch;
   // Ready table
   static ReadyTable* _submit_table;
   // CPU Extractor

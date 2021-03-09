@@ -21,6 +21,7 @@ std::shared_ptr<GraphBatch> GraphPool::GetGraphBatch(uint64_t key) {
     if (_stop && this->_pool.find(key) == _pool.end()) return nullptr;
 
     auto it = _pool.find(key);
+    
     auto rst = it->second;
     _pool.erase(it);
 

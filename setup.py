@@ -71,25 +71,28 @@ setup(
         name='samgraph.torch.c_lib',
         sources=[
             'samgraph/common/common.cc',
+            'samgraph/common/cpu_extractor.cc',
             'samgraph/common/engine.cc',
+            'samgraph/common/graph_pool.cc',
             'samgraph/common/logging.cc',
             'samgraph/common/loops.cc',
             'samgraph/common/operation.cc',
             'samgraph/common/random_permutation.cc',
+            'samgraph/common/ready_table.cc',
             'samgraph/common/task_queue.cc',
             'samgraph/common/cuda_convert.cc',
             'samgraph/common/cuda_hashtable.cu',
             'samgraph/common/cuda_mapping.cu',
             'samgraph/common/cuda_sampling.cu',
-            'samgraph/torch/adapter.cc',
-            'samgraph/torch/ops.cc',
+            # 'samgraph/torch/adapter.cc',
+            # 'samgraph/torch/ops.cc',
         ],
-        include_dirs=['3rdparty/cub'],
+        include_dirs=[os.path.join(here, '3rdparty/cub')],
         libraries=['cusparse'],
         extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
         extra_compile_args= {
-            'cxx': ['-std=c++11', '-fPIC', '-Ofast', '-Wall', '-fopenmp', '-march=native'],
-            'nvcc': ['-std=c++11', '-arch=sm_35', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
+            'cxx': ['-std=c++14', '-fopt-info',  '-fPIC', '-Ofast', '-Wall', '-fopenmp', '-march=native'],
+            'nvcc': ['-std=c++14', '-arch=sm_35', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
         })
     ],
     # $ setup.py publish support.

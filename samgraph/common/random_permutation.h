@@ -19,7 +19,7 @@ class RandomPermutation {
   inline int num_epoch() { return _num_epoch; }
   inline size_t cur_batch() { return _cur_batch_idx; }
   inline size_t num_batch() { return _num_batch; }
-  inline size_t num_element() { return _tensor->shape().front(); }
+  inline size_t num_element() { return _input->shape().front(); }
 
  private:
   int _num_epoch;
