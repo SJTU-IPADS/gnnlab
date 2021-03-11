@@ -112,7 +112,7 @@ void SamGraphEngine::Start(const std::vector<LoopFunction> &func) {
     for (size_t i = 0; i < func.size(); i++) {
         _threads.push_back(new std::thread(func[i]));
     }
-    SAM_LOG(DEBUG) << "Started" << func.size() << " background threads.";
+    SAM_LOG(DEBUG) << "Started " << func.size() << " background threads.";
 }
 
 void SamGraphEngine::Shutdown() {
@@ -257,11 +257,11 @@ void SamGraphEngine::LoadGraphDataset() {
     _dataset->label     = Tensor::FromMmap(_dataset_path + Config::kLabelFile, DataType::kSamI32,
                                           {meta[Config::kMetaNumNode]}, CPU_DEVICE_MMAP_ID);
     _dataset->train_set = Tensor::FromMmap(_dataset_path + Config::kTrainSetFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumTrainSet]}, CPU_DEVICE_MMAP_ID);
+                                          {meta[Config::kMetaNumTrainSet]}, CPU_DEVICE_ID);
     _dataset->test_set  = Tensor::FromMmap(_dataset_path + Config::kTestSetFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumTestSet]}, CPU_DEVICE_MMAP_ID);
+                                          {meta[Config::kMetaNumTestSet]}, CPU_DEVICE_ID);
     _dataset->valid_set = Tensor::FromMmap(_dataset_path + Config::kValidSetFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumValidSet]}, CPU_DEVICE_MMAP_ID);
+                                          {meta[Config::kMetaNumValidSet]}, CPU_DEVICE_ID);
 
     SAM_LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path <<  ") successfully";
 }

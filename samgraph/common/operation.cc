@@ -23,14 +23,16 @@ void samgraph_start() {
     SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
 
     std::vector<LoopFunction> func;
-    func.push_back(HostPermutateLoop);
-    func.push_back(IdCopyHost2DeviceLoop);
-    func.push_back(DeviceSampleLoop);
-    func.push_back(GraphCopyDevice2DeviceLoop);
-    func.push_back(IdCopyDevice2HostLoop);
-    func.push_back(HostFeatureExtractLoop);
-    func.push_back(FeatureCopyHost2DeviceLoop);
-    func.push_back(SubmitLoop);
+    // func.push_back(HostPermutateLoop);
+    // func.push_back(IdCopyHost2DeviceLoop);
+    // func.push_back(DeviceSampleLoop);
+    // func.push_back(GraphCopyDevice2DeviceLoop);
+    // func.push_back(IdCopyDevice2HostLoop);
+    // func.push_back(HostFeatureExtractLoop);
+    // func.push_back(FeatureCopyHost2DeviceLoop);
+    // func.push_back(SubmitLoop);
+
+    func.push_back(SingleLoop);
 
     SamGraphEngine::Start(func);
     SAM_LOG(INFO) << "SamGraph has been started successfully";

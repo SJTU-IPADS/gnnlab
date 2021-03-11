@@ -39,6 +39,11 @@ class Config {
 
   static constexpr uint64_t kBatchMask = ~0xffff;
   static constexpr uint64_t kGraphMask = 0xffff;
+
+  static constexpr size_t kBufferSize = 64;
+  static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;
+  static constexpr size_t kMegabytes = 1 * 1024 * 1024;
+  static constexpr size_t kKilobytes = 1 * 1024;
 };
 
 } // namespace common

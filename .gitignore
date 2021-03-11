@@ -121,3 +121,7 @@ exps/
 # language server
 .ccls-cache/
 .ccls
+
+# tests
+tests/*.o
+tests/*.out

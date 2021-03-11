@@ -22,6 +22,9 @@ void FeatureCopyHost2DeviceLoop();
 // GraphCopyDevice2DeviceLoop and HostFeatureExtractLoop
 void SubmitLoop();
 
+// Single Loop for evaluation
+void SingleLoop();
+
 } // namespace common
 } // namespace samgraph
 

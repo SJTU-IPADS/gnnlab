@@ -34,11 +34,12 @@ void RandomPermutation::Permutate() {
 
     auto g = std::default_random_engine(seed);
 
-    for (size_t i = _num_element - 1; i >0; i++) {
+    for (size_t i = _num_element - 1; i > 0; i--) {
         std::uniform_int_distribution<size_t> d(0, i);
+        size_t candidate = d(g);
         switch(_input->dtype()) {
             case kSamI32:
-                std::swap((reinterpret_cast<int *>(data))[i], (reinterpret_cast<int *>(data))[d(g)]);
+                std::swap((reinterpret_cast<int *>(data))[i], (reinterpret_cast<int *>(data))[candidate]);
                 break;
             case kSamF32:
             case kSamI8:

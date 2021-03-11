@@ -161,6 +161,8 @@ size_t getDataTypeLength(int dtype);
 void cudaDataDeleter(void *data);
 void cpuDataDeleter(void *data);
 
+std::string toReadableSize(size_t size_in_bytes);
+
 } // namespace common
 } // namespace samgraph
 

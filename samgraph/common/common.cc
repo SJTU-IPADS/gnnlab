@@ -62,11 +62,18 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
         void *d_data;
         CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMalloc(&d_data, size));
+        SAM_LOG(DEBUG) << "FromMmap: cuda malloc " << toReadableSize(size);
         CUDA_CALL(cudaMemcpy(d_data, data, size, cudaMemcpyHostToDevice));
         munmap(data, size);
         data = d_data;
-    } else if (device != CPU_DEVICE_MMAP_ID){
-        SAM_CHECK(0) << "Invalid device ID";
+    } else if (device == CPU_DEVICE_ID){
+        SAM_LOG(DEBUG) << "FromMmap: cpu malloc " << toReadableSize(size);
+        void *new_data = malloc(size);
+        memcpy(new_data, data, size);
+        munmap(data, size);
+        data = new_data;
+    } else {
+        SAM_LOG(DEBUG) << "FromMmap: mmap " << toReadableSize(size);
     }
 
     tensor->_dtype = dtype;
@@ -86,8 +93,10 @@ std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, 
     if (device > CPU_DEVICE_ID) {
         CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMalloc(&data, size));
+        SAM_LOG(DEBUG) << "Empty: cuda malloc " << toReadableSize(size);
     } else if (device == CPU_DEVICE_ID) {
         data = malloc(size);
+        SAM_LOG(DEBUG) << "Empty: cpu malloc " << toReadableSize(size);
     } else {
         SAM_CHECK(0) << "Unvalid device ID";
     }
@@ -129,17 +138,19 @@ std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t off
     SAM_CHECK_LE(offset + size, src->_size);
 
     auto src_container = src->_container;
-    auto device = src_container->_device;
-    auto src_data = src_container->_data;
+    auto device = src->device();
+    auto src_data = src->data();
     void *data;
-    if (src_container->_device > CPU_DEVICE_ID) {
+    if (device > CPU_DEVICE_ID) {
         CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMalloc(&data, size));
         CUDA_CALL(cudaMemcpy(data, src_data, size, cudaMemcpyDeviceToDevice));
+        SAM_LOG(DEBUG) << "DeepCopy: cuda malloc " << toReadableSize(size);
     } else {
         data = malloc(tensor->_size);
         memcpy(data, src_data, size);
         device = CPU_DEVICE_ID;
+        SAM_LOG(DEBUG) << "DeepCopy: cpu malloc " << toReadableSize(size);
     }
 
     tensor->_container = std::make_shared<DataContainer>(data, size, device);
@@ -197,6 +208,27 @@ void cudaDataDeleter(void *data) {
 
 void cpuDataDeleter(void *data) {
     free(data);
+}
+
+std::string toReadableSize(size_t size_in_bytes) {
+    char buf[Config::kBufferSize];
+    if (size_in_bytes > Config::kGigabytes) {
+        double new_size = (float) size_in_bytes / Config::kGigabytes;
+        sprintf(buf, "%.2lf GB", new_size);
+        return std::string(buf);
+    } else if (size_in_bytes > Config::kMegabytes) {
+        double new_size = (float) size_in_bytes / Config::kMegabytes;
+        sprintf(buf, "%.2lf MB", new_size);
+        return std::string(buf);
+    } else if (size_in_bytes > Config::kKilobytes) {
+        double new_size = (float) size_in_bytes / Config::kKilobytes;
+        sprintf(buf, "%.2lf KB", new_size);
+        return std::string(buf);
+    } else {
+        double new_size = (float) size_in_bytes;
+        sprintf(buf, "%.2lf Bytes", new_size);
+        return std::string(buf);
+    }
 }
 
 
