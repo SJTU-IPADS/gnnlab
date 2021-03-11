@@ -1,7 +1,11 @@
-from torch import nn
-from samgraph.torch.ops import spmm
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
-class SageConv(nn.module):
+from torch import nn
+from samgraph.torch.ops import csrmm
+
+class SageConv(nn.Module):
     def __init__(self,
                  in_feats,
                  out_feats,
@@ -30,7 +34,7 @@ class SageConv(nn.module):
         feat_src = feat_dst = self.feat_drop(feat)
 
         h_self = feat_dst[graph.num_row]
-        h_neigh = spmm(graph.key, feat_src)
+        h_neigh = csrmm(graph.key, feat_src)
 
         rst = self.fc_self(h_self) + self.fc_neigh(h_neigh)
 

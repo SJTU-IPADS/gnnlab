@@ -101,7 +101,7 @@ bool RunDeviceSampleLoopOnce() {
         auto sample_stream = *SamGraphEngine::GetSampleStream();
 
         auto train_nodes = task->train_nodes;
-        size_t predict_node_num = train_nodes->shape()[0] * std::accumulate(fanouts.begin(), fanouts.end(), 0);
+        size_t predict_node_num = train_nodes->shape()[0] * std::accumulate(fanouts.begin(), fanouts.end(), 1ul, std::multiplies<size_t>());
         cuda::OrderedHashTable hash_table(predict_node_num, sample_device, sample_stream);
         
         size_t num_train_node = train_nodes->shape()[0];

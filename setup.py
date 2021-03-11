@@ -86,15 +86,17 @@ setup(
             'samgraph/common/cuda_mapping.cu',
             'samgraph/common/cuda_sampling.cu',
             'samgraph/common/cuda_util.cu',
-            # 'samgraph/torch/adapter.cc',
             'samgraph/torch/ops.cc',
         ],
         include_dirs=[os.path.join(here, '3rdparty/cub')],
         libraries=['cusparse'],
         extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
         extra_compile_args= {
-            'cxx': ['-std=c++14', '-fopt-info',  '-fPIC', '-Ofast', '-Wall', '-fopenmp', '-march=native'],
-            'nvcc': ['-std=c++14', '-arch=sm_35', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
+            'cxx': ['-std=c++14', '-g', '-fopt-info',  '-fPIC', 
+                    #  '-Ofast',
+                     '-O0',
+                     '-Wall', '-fopenmp', '-march=native'],
+            'nvcc': ['-std=c++14', '-g', '-arch=sm_35', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
         })
     ],
     # $ setup.py publish support.

@@ -30,7 +30,7 @@ RandomPermutation::RandomPermutation(std::shared_ptr<IdTensor> input, int num_ep
 
 void RandomPermutation::Permutate() {
     auto seed = std::chrono::system_clock::now().time_since_epoch().count();
-    void *data = static_cast<char*>(_input->mutable_data());
+    void *data = _input->mutable_data();
 
     auto g = std::default_random_engine(seed);
 
@@ -38,7 +38,7 @@ void RandomPermutation::Permutate() {
         std::uniform_int_distribution<size_t> d(0, i);
         switch(_input->dtype()) {
             case kSamI32:
-                std::swap((static_cast<int *>(data))[i], (static_cast<int *>(data))[d(g)]);
+                std::swap((reinterpret_cast<int *>(data))[i], (reinterpret_cast<int *>(data))[d(g)]);
                 break;
             case kSamF32:
             case kSamI8:

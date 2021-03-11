@@ -43,9 +43,9 @@ void DataContainer::Consume() {
 }
 
 std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype, 
-                                 std::vector<size_t> dims, int device) {
+                                         std::vector<size_t> dims, int device) {
     auto tensor = std::make_shared<Tensor>();
-    size_t expected_size = std::accumulate(dims.begin(), dims.end(), 0) * getDataTypeLength(dtype);
+    size_t expected_size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
     struct stat st;
     stat(filepath.c_str(), &st);
@@ -80,7 +80,7 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
 
 std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, int device) {
     auto tensor = std::make_shared<Tensor>();
-    size_t size = std::accumulate(dims.begin(), dims.end(), 0) * getDataTypeLength(dtype);
+    size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
     void *data;
     if (device > CPU_DEVICE_ID) {
@@ -107,7 +107,7 @@ std::shared_ptr<Tensor> Tensor::CreateView(std::shared_ptr<Tensor> src, size_t o
 
     tensor->_dtype = src->_dtype;
     tensor->_dims = dims;
-    tensor->_size = std::accumulate(dims.begin(), dims.end(), 0) * getDataTypeLength(src->_dtype);
+    tensor->_size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src->_dtype);
     tensor->_offset = offset + src->_offset;
     tensor->_container = src->_container;
 
@@ -119,7 +119,7 @@ std::shared_ptr<Tensor> Tensor::CreateView(std::shared_ptr<Tensor> src, size_t o
 std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t offset, std::vector<size_t> dims) {
     SAM_CHECK(src && src->defined());
     auto tensor = std::make_shared<Tensor>();
-    size_t size = std::accumulate(dims.begin(), dims.end(), 0) * getDataTypeLength(src ->_dtype);
+    size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src ->_dtype);
 
     tensor->_dtype = src->_dtype;
     tensor->_dims = dims;
@@ -149,7 +149,7 @@ std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t off
 
 std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector<size_t> dims, int device) {
     auto tensor = std::make_shared<Tensor>();
-    size_t size = std::accumulate(dims.begin(), dims.end(), 0) * getDataTypeLength(dtype);
+    size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
     tensor->_dtype = dtype;
     tensor->_dims = dims;
@@ -172,23 +172,23 @@ int decodeGraphID(uint64_t key) {
     return key & 0xffff;
 }
 
-int getDataTypeLength(int dtype) {
+size_t getDataTypeLength(int dtype) {
   switch (dtype) {
     case kSamI8:
     case kSamU8:
-      return 1;
+      return 1ul;
     case kSamF16:
-      return 2;
+      return 2ul;
     case kSamF32:
     case kSamI32:
-      return 4;
+      return 4ul;
     case kSamI64:
     case kSamF64:
-      return 8;
+      return 8ul;
     default:
       SAM_CHECK(0) << "Unsupported data type: " << dtype;
   }
-  return 4;
+  return 4ul;
 }
 
 void cudaDataDeleter(void *data) {

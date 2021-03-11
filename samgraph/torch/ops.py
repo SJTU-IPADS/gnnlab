@@ -1,9 +1,14 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+# Load all the necessary PyTorch C types.
 import torch
 
 from samgraph.torch import c_lib
 from samgraph.common import SamGraphBasics as _SamGraphBasics
-
 _basics = _SamGraphBasics(__file__, 'c_lib')
+
 init = _basics.init
 start = _basics.start
 dataset_num_class = _basics.dataset_num_class

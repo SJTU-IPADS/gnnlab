@@ -156,7 +156,7 @@ uint64_t encodeBatchKey(int epoch_idx, size_t batch_idx);
 uint64_t encodeGraphID(uint64_t key, int graph_id);
 int decodeGraphID(uint64_t key);
 
-int getDataTypeLength(int dtype);
+size_t getDataTypeLength(int dtype);
 
 void cudaDataDeleter(void *data);
 void cpuDataDeleter(void *data);

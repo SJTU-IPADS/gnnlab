@@ -7,8 +7,7 @@ namespace samgraph{
 namespace common {
 namespace cuda {
 
-template<typename T>
-void Fill(T *data, size_t len, T val, cudaStream_t stream);
+void Fill(float *data, size_t len, float val, cudaStream_t stream);
 
 } // namespace cuda
 } // namespace common

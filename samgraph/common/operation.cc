@@ -15,6 +15,7 @@ void samgraph_init(const char *path, int sample_device, int train_device,
                    int batch_size, int *fanout, int num_fanout, int num_epoch) {
     SamGraphEngine::Init(path, sample_device, train_device,  batch_size,
                          std::vector<int>(fanout, fanout + num_fanout), num_epoch);
+    SAM_LOG(INFO) << "SamGraph has been initialied successfully";
     return;
 }
 
@@ -32,6 +33,7 @@ void samgraph_start() {
     func.push_back(SubmitLoop);
 
     SamGraphEngine::Start(func);
+    SAM_LOG(INFO) << "SamGraph has been started successfully";
 }
 
 int samgraph_num_epoch() {

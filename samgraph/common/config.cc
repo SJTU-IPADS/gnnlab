@@ -14,7 +14,7 @@ const std::string Config::kValidSetFile = "valid_set.bin";
 
 const std::string Config::kMetaNumNode     = "NUM_NODE";
 const std::string Config::kMetaNumEdge     = "NUM_EDGE";
-const std::string Config::kMetaFeatDim     = "NUM_CLASS";
+const std::string Config::kMetaFeatDim     = "FEAT_DIM";
 const std::string Config::kMetaNumClass    = "NUM_CLASS";
 const std::string Config::kMetaNumTrainSet = "NUM_TRAIN_SET";
 const std::string Config::kMetaNumTestSet  = "NUM_TEST_SET"; 

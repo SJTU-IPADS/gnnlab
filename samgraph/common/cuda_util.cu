@@ -19,17 +19,16 @@ __global__ void fill(T *data, size_t len, T val) {
     }
 }
 
-template<typename T>
-void Fill(T *data, size_t len, T val, cudaStream_t stream) {
+void Fill(float *data, size_t len, float val, cudaStream_t stream) {
     const uint32_t num_tiles = (len + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
 
     const dim3 grid(num_tiles);
     const dim3 block(Config::kCudaBlockSize);
 
-    fill<T, Config::kCudaBlockSize, Config::kCudaTileSize>
+    fill<float, Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(data, len, val);
 }
 
-}
-}
-}
+} // namespace cuda
+} // namespace common
+} // namespace samgraph

@@ -12,7 +12,7 @@ namespace common {
 class RandomPermutation {
  public:
   RandomPermutation(std::shared_ptr<IdTensor> input, int num_epoch,
-                    size_t batch_size, bool drop_last=true);\
+                    size_t batch_size, bool drop_last);
   std::shared_ptr<IdTensor> GetBatch();
 
   inline int cur_epoch() { return _cur_epoch; }

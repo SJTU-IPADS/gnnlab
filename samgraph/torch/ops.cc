@@ -3,6 +3,7 @@
 #include <cusparse.h>
 #include <cuda_runtime.h>
 
+#include "ops.h"
 #include "../common/engine.h"
 #include "../common/logging.h"
 #include "../common/cuda_util.h"

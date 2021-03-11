@@ -41,14 +41,14 @@ def run(args):
     fanout_list = [int(fanout) for fanout in args.fan_out.split(',')]
 
     sam.init(args.dataset_path, args.sample_device, args.train_device,
-         args.batch_size, fanout_list, len(fanout_list), args.num_epoch)
+             args.batch_size, fanout_list, args.num_epoch)
 
     th_train_device = th.device('cuda:%d' % args.train_device)
 
     in_feat = sam.dataset_num_feat_dim()
-    n_class = sam.dataset_num_class()
+    num_class = sam.dataset_num_class()
 
-    model = SAGE(in_feat, args.n_hidden, n_class, args.n_layer, F.relu, args.dropout)
+    model = SAGE(in_feat, args.num_hidden, num_class, args.num_layer, F.relu, args.dropout)
     model = model.to(th_train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
@@ -74,8 +74,8 @@ def run(args):
             loss.backward()
             optimizer.step()
 
-            print('Epoch {:05d} | Step {:05d} | Loss {:.4f}'.format(
-                epoch, step, loss.item()
+            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Time {:.4f} secs'.format(
+                epoch, step, loss.item(), time.time() - tic_step
             ))
 
             tic_step = time.time()
