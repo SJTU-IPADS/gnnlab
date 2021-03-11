@@ -19,6 +19,8 @@ void samgraph_init(const char *path, int sample_device, int train_device,
 }
 
 void samgraph_start() {
+    SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
+
     std::vector<LoopFunction> func;
     func.push_back(HostPermutateLoop);
     func.push_back(IdCopyHost2DeviceLoop);
@@ -30,6 +32,65 @@ void samgraph_start() {
     func.push_back(SubmitLoop);
 
     SamGraphEngine::Start(func);
+}
+
+int samgraph_num_epoch() {
+    SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
+    return SamGraphEngine::GetRandomPermutation()->num_epoch();
+}
+
+int samgraph_num_step_per_epoch() {
+    SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
+    return SamGraphEngine::GetRandomPermutation()->num_batch();
+}
+
+size_t samgraph_dataset_num_class() {
+    SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
+    return SamGraphEngine::GetGraphDataset()->num_class;
+}
+
+size_t samgraph_dataset_num_feat_dim() {
+    SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
+    return SamGraphEngine::GetGraphDataset()->feat->shape().at(1);
+}
+
+uint64_t samgraph_get_next_batch(int epoch, int step) {
+    SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
+
+    uint64_t key = encodeBatchKey(epoch, step);
+    auto graph = SamGraphEngine::GetGraphPool()->GetGraphBatch(key);
+
+    SamGraphEngine::SetGraphBatch(graph);
+
+    return key;
+}
+
+uint64_t samgraph_get_graph_key(uint64_t batch_key, int graph_id) {
+    return encodeGraphID(batch_key, graph_id);
+}
+
+size_t samgraph_get_graph_num_row(uint64_t key) {
+    int layer_idx = decodeGraphID(key);
+
+    auto batch = SamGraphEngine::GetGraphBatch();
+
+    return batch->output_graph[layer_idx]->num_row;
+}
+
+size_t samgraph_get_graph_num_col(uint64_t key) {
+    int layer_idx = decodeGraphID(key);
+
+    auto batch = SamGraphEngine::GetGraphBatch();
+
+    return batch->output_graph[layer_idx]->num_column;
+}
+
+size_t samgraph_get_graph_num_edge(uint64_t key) {
+    int layer_idx = decodeGraphID(key);
+
+    auto batch = SamGraphEngine::GetGraphBatch();
+
+    return batch->output_graph[layer_idx]->num_edge;
 }
 
 void samgraph_shutdown() {

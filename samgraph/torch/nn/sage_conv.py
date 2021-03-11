@@ -1,5 +1,5 @@
 from torch import nn
-from .. import op
+from samgraph.torch.ops import spmm
 
 class SageConv(nn.module):
     def __init__(self,
@@ -29,8 +29,8 @@ class SageConv(nn.module):
     def forward(self, graph, feat):
         feat_src = feat_dst = self.feat_drop(feat)
 
-        h_self = feat_dst[:graph.get_n()]
-        h_neigh = op.spmm(graph, feat_src)
+        h_self = feat_dst[graph.num_row]
+        h_neigh = spmm(graph.key, feat_src)
 
         rst = self.fc_self(h_self) + self.fc_neigh(h_neigh)
 

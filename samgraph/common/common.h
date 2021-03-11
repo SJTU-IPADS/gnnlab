@@ -32,15 +32,16 @@ class Tensor;
 class DataContainer {
  public:
   DataContainer(void *data, size_t size, int device)
-    : _data(data), _size(size), _device(device) {}
+    : _data(data), _size(size), _device(device), _is_consumed(false) {}
   // Destroy the tensor when the _data is not null
   ~DataContainer();
-  bool Consume();
+  void Consume();
 
  private:
   void *_data;
   size_t _size;
   int _device;
+  bool _is_consumed;
 
   friend class Tensor;
 };
@@ -63,7 +64,7 @@ class Tensor {
   static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
                                           std::vector<size_t> dims, int device);
   // Consume the tensor, and we don't have to free the data.
-  bool ConsumeData() { return _container->Consume(); }
+  void ConsumeData() { _container->Consume(); }
 
   bool defined() const { return _container && _container->_data; }
   DataType dtype() const { return _dtype; }
@@ -126,6 +127,7 @@ const int QueueNum =
 struct TrainGraph {
   std::shared_ptr<IdTensor> indptr;
   std::shared_ptr<IdTensor> indices;
+  std::shared_ptr<IdTensor> val;
   int num_row;
   int num_column;
   int num_edge;
@@ -150,8 +152,14 @@ struct TaskEntry {
 
 using GraphBatch = TaskEntry;
 
-uint64_t encodeKey(int epoch_idx, size_t batch_idx);
+uint64_t encodeBatchKey(int epoch_idx, size_t batch_idx);
+uint64_t encodeGraphID(uint64_t key, int graph_id);
+int decodeGraphID(uint64_t key);
+
 int getDataTypeLength(int dtype);
+
+void cudaDataDeleter(void *data);
+void cpuDataDeleter(void *data);
 
 } // namespace common
 } // namespace samgraph

@@ -36,6 +36,7 @@ int SamGraphEngine::_num_epoch = 0;
 SamGraphTaskQueue* SamGraphEngine::_queues[QueueNum] = {nullptr};
 static std::vector<std::thread*> SamGraphEngine_threads;
 
+cudaStream_t* SamGraphEngine::_train_stream = nullptr;
 cudaStream_t* SamGraphEngine::_sample_stream = nullptr;
 cudaStream_t* SamGraphEngine::_id_copy_host2device_stream = nullptr;
 cudaStream_t* SamGraphEngine::_graph_copy_device2device_stream = nullptr;
@@ -73,6 +74,7 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     _id_copy_device2host_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
     _feat_copy_host2device_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
 
+    CUDA_CALL(cudaStreamCreateWithFlags(_train_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_sample_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_id_copy_host2device_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_graph_copy_device2device_stream, cudaStreamNonBlocking));
@@ -98,7 +100,7 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     }
 
     _permutation = new RandomPermutation(_dataset->train_set, _batch_size, false);
-    _graph_pool = new GraphPool();
+    _graph_pool = new GraphPool(Config::kGraphPoolThreshold);
 
     joined_thread_cnt = 0;
 
@@ -114,6 +116,10 @@ void SamGraphEngine::Start(const std::vector<LoopFunction> &func) {
 }
 
 void SamGraphEngine::Shutdown() {
+    if (_should_shutdown) {
+        return;
+    }
+
     _should_shutdown = true;
     int total_thread_num = _threads.size();
 
@@ -147,6 +153,12 @@ void SamGraphEngine::Shutdown() {
     }
 
     delete _dataset;
+
+    if (_train_stream) {
+        CUDA_CALL(cudaStreamDestroy(*_train_stream));
+        free(_train_stream);
+        _train_stream = nullptr;
+    }
 
     if (_sample_stream) {
         CUDA_CALL(cudaStreamDestroy(*_sample_stream));

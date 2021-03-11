@@ -71,6 +71,7 @@ setup(
         name='samgraph.torch.c_lib',
         sources=[
             'samgraph/common/common.cc',
+            'samgraph/common/config.cc',
             'samgraph/common/cpu_extractor.cc',
             'samgraph/common/engine.cc',
             'samgraph/common/graph_pool.cc',
@@ -84,8 +85,9 @@ setup(
             'samgraph/common/cuda_hashtable.cu',
             'samgraph/common/cuda_mapping.cu',
             'samgraph/common/cuda_sampling.cu',
+            'samgraph/common/cuda_util.cu',
             # 'samgraph/torch/adapter.cc',
-            # 'samgraph/torch/ops.cc',
+            'samgraph/torch/ops.cc',
         ],
         include_dirs=[os.path.join(here, '3rdparty/cub')],
         libraries=['cusparse'],

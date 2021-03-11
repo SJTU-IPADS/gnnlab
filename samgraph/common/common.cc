@@ -12,6 +12,7 @@
 
 #include "common.h"
 #include "logging.h"
+#include "config.h"
 
 namespace samgraph {
 namespace common {
@@ -34,13 +35,11 @@ DataContainer::~DataContainer() {
     }
 }
 
-bool DataContainer::Consume() {
-    if (_data) {
-        _data = nullptr;
-        return true;
-    } else {
-        return false;
-    }
+void DataContainer::Consume() {
+    SAM_CHECK_GE(_device, CPU_DEVICE_ID);
+    SAM_CHECK(!_is_consumed);
+    _is_consumed = true;
+    _data = nullptr;
 }
 
 std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype, 
@@ -161,8 +160,16 @@ std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector
     return tensor;
 }
 
-uint64_t encodeKey(int epoch_idx, size_t batch_idx) {
-    return (epoch_idx << 31) + batch_idx;
+uint64_t encodeBatchKey(int epoch_idx, size_t batch_idx) {
+    return (epoch_idx << 31) + (batch_idx << 15);
+}
+
+uint64_t encodeGraphID(uint64_t key, int layer_idx) {
+    return (key & Config::kBatchMask) + layer_idx;
+}
+
+int decodeGraphID(uint64_t key) {
+    return key & 0xffff;
 }
 
 int getDataTypeLength(int dtype) {
@@ -182,6 +189,14 @@ int getDataTypeLength(int dtype) {
       SAM_CHECK(0) << "Unsupported data type: " << dtype;
   }
   return 4;
+}
+
+void cudaDataDeleter(void *data) {
+    CUDA_CALL(cudaFree(data));
+}
+
+void cpuDataDeleter(void *data) {
+    free(data);
 }
 
 

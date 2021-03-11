@@ -29,7 +29,7 @@ bool RunHostPermutateLoopOnce() {
     if (batch) {
         // Create task entry
         auto task = std::make_shared<TaskEntry>();
-        task->key = encodeKey(p->cur_epoch(), p->cur_batch());
+        task->key = encodeBatchKey(p->cur_epoch(), p->cur_batch());
         task->train_nodes = batch;
 
         next_q->AddTask(task);
@@ -78,6 +78,15 @@ bool RunIdCopyHost2DeviceLoopOnce() {
 }
 
 bool RunDeviceSampleLoopOnce() {
+    std::vector<QueueType> next_ops = {GRAPH_COPYD2D, ID_COPYD2H};
+    for (auto next_op : next_ops) {
+        auto q = SamGraphEngine::GetTaskQueue(next_op);
+        if (q->ExceedThreshold()) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+            return true;
+        }
+    }
+
     auto this_op = DEV_SAMPLE;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
@@ -241,6 +250,14 @@ bool RunGraphCopyDevice2DeviceLoopOnce() {
 }
 
 bool RunIdCopyDevice2HostLoopOnce() {
+    auto next_op = FEAT_EXTRACT;
+    auto next_q = SamGraphEngine::GetTaskQueue(next_op);
+
+    if (next_q->ExceedThreshold()) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+        return true;
+    }
+
     auto this_op = ID_COPYH2D;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
@@ -256,9 +273,8 @@ bool RunIdCopyDevice2HostLoopOnce() {
                                               task->output_nodes->shape(), CPU_DEVICE_ID);
 
         CUDA_CALL(cudaStreamSynchronize(id_copy_d2h_stream));
-        auto next_op = FEAT_EXTRACT;
-        auto q = SamGraphEngine::GetTaskQueue(next_op);
-        q->AddTask(task);
+        
+        next_q->AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -267,6 +283,13 @@ bool RunIdCopyDevice2HostLoopOnce() {
 }
 
 bool RunHostFeatureExtractLoopOnce() {
+    auto next_op = FEAT_COPYH2D;
+    auto next_q = SamGraphEngine::GetTaskQueue(next_op);
+    if (next_q->ExceedThreshold()) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+        return true;
+    }
+
     auto this_op = FEAT_EXTRACT;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
@@ -293,9 +316,7 @@ bool RunHostFeatureExtractLoopOnce() {
         auto label_src = dataset->label->data();
         extractor->extract(label_dst, label_src, idx, num_idx, 1, label_type);
 
-        auto next_op = FEAT_COPYH2D;
-        auto q = SamGraphEngine::GetTaskQueue(next_op);
-        q->AddTask(task);
+        next_q->AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -304,6 +325,13 @@ bool RunHostFeatureExtractLoopOnce() {
 }
 
 bool RunFeatureCopyHost2DeviceLoop() {
+    auto next_op = SUBMIT;
+    auto next_q = SamGraphEngine::GetTaskQueue(next_op);
+    if (next_q->ExceedThreshold()) {
+        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+        return true;
+    }
+
     auto this_op = FEAT_COPYH2D;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
@@ -335,9 +363,7 @@ bool RunFeatureCopyHost2DeviceLoop() {
         auto ready_table = SamGraphEngine::GetSubmitTable();
         ready_table->AddReadyCount(task->key);
 
-        auto next_op = SUBMIT;
-        auto q = SamGraphEngine::GetTaskQueue(next_op);
-        q->AddTask(task);
+        next_q->AddTask(task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -346,12 +372,16 @@ bool RunFeatureCopyHost2DeviceLoop() {
 }
 
 bool RunSubmitLoopOnce() {
+    auto graph_pool = SamGraphEngine::GetGraphPool();
+    if (graph_pool->ExceedThreshold()) {
+        return true;
+    }
+
     auto this_op = SUBMIT;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
-        auto graph_pool = SamGraphEngine::GetGraphPool();
         graph_pool->AddGraphBatch(task->key, task);
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));

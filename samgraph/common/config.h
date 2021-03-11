@@ -2,6 +2,7 @@
 #define SAMGRAPH_CONFIG_H
 
 #include <unordered_map>
+#include <cstdint>
 
 #include "common.h"
 #include "types.h"
@@ -32,8 +33,12 @@ class Config {
   static constexpr size_t kCudaTileSize = 1024;
 
   static const std::unordered_map<int, size_t> kQueueThreshold;
+  static constexpr size_t kGraphPoolThreshold = 5;
 
   static constexpr nodeid_t kEmptyKey = -1;
+
+  static constexpr uint64_t kBatchMask = ~0xffff;
+  static constexpr uint64_t kGraphMask = 0xffff;
 };
 
 } // namespace common

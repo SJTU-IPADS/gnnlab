@@ -30,6 +30,9 @@ class SamGraphEngine {
   static bool ShouldShutdown() { return _should_shutdown; }
   static void Shutdown();
 
+  static bool IsInitialized() { return _initialize; }
+  static bool IsShutdown() { return _should_shutdown; }
+
   static std::vector<int> GetFanout() { return _fanout; }
 
   static RandomPermutation* GetRandomPermutation() { return _permutation; }
@@ -42,6 +45,7 @@ class SamGraphEngine {
   static int GetSampleDevice() { return _sample_device; }
   static int GetTrainDevice() { return _train_device; }
 
+  static cudaStream_t* GetTrainStream() { return _train_stream; }
   static cudaStream_t* GetSampleStream() { return _sample_stream; }
   static cudaStream_t* GetIdCopyHost2DeviceStream() { return _id_copy_host2device_stream; }
   static cudaStream_t* GetGraphCopyDevice2DeviceStream() { return _graph_copy_device2device_stream; }
@@ -82,6 +86,7 @@ class SamGraphEngine {
   static SamGraphTaskQueue* _queues[QueueNum];
   static std::vector<std::thread*> _threads;
   // Cuda streams
+  static cudaStream_t* _train_stream;
   static cudaStream_t* _sample_stream;
   static cudaStream_t* _id_copy_host2device_stream;
   static cudaStream_t* _graph_copy_device2device_stream;

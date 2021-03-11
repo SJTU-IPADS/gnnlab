@@ -32,6 +32,8 @@ void ConvertCoo2Csr(nodeid_t *src, nodeid_t *dst, int m, int n, int nnz, nodeid_
 
     // Convert coo 2 csr
     CUSPARSE_CALL(cusparseXcoo2csr(handle, src, nnz, m, indptr, CUSPARSE_INDEX_BASE_ZERO));
+    
+    CUSPARSE_CALL(cusparseDestroy(handle));
 }
 
 } // namespace cuda
