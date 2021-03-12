@@ -6,9 +6,8 @@
 namespace samgraph {
 namespace common {
 
-typedef int nodeid_t;
-typedef float feat_t;
-typedef int label_t;
+using IdType = unsigned int;
+using SignedIdType = int;
 
 } // namespace common
 } // namespace samgraph

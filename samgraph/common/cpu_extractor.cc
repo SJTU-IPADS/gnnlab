@@ -12,7 +12,7 @@ CpuExtractor::CpuExtractor() {
     }
 }
 
-int CpuExtractor::extract(void *dst, const void *src, const nodeid_t *idx,
+int CpuExtractor::extract(void *dst, const void *src, const IdType *idx,
                            size_t num_idx, size_t dim, DataType dtype) {
     switch(dtype) {
         case kSamF32:
@@ -27,7 +27,7 @@ int CpuExtractor::extract(void *dst, const void *src, const nodeid_t *idx,
 }
 
 template<typename T>
-int CpuExtractor::_extract(T* dst, const T* src, const nodeid_t *idx,
+int CpuExtractor::_extract(T* dst, const T* src, const IdType *idx,
                             size_t num_idx, size_t dim) {
     #pragma omp parallel for num_threads(_num_threads)
     for (size_t i = 0; i < num_idx; ++i) {

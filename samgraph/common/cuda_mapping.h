@@ -10,10 +10,10 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-void MapEdges(const nodeid_t * const global_src,
-              nodeid_t * const new_global_src,
-              const nodeid_t * const global_dst,
-              nodeid_t * const new_global_dst,
+void MapEdges(const IdType * const global_src,
+              IdType * const new_global_src,
+              const IdType * const global_dst,
+              IdType * const new_global_dst,
               const size_t num_edges,
               DeviceOrderedHashTable mapping,
               cudaStream_t stream);

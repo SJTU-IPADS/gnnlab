@@ -12,6 +12,24 @@
 namespace samgraph {
 namespace torch {
 
+::torch::Dtype toTorchType(common::DataType dtype) {
+    switch(dtype) {
+        case common::kSamF32:
+            return ::torch::kF32;
+        case common::kSamF64:
+            return ::torch::kF64;
+        case common::kSamU8:
+            return ::torch::kU8;
+        case common::kSamI32:
+            return ::torch::kI32;
+        case common::kSamI8:
+            return ::torch::kI8;
+        case common::kSamI64:
+            return ::torch::kI64;
+        default:
+            SAM_CHECK(0);
+}
+
 ::torch::Tensor Csrmm(uint64_t key, ::torch::Tensor input) {
     auto graph_id = common::decodeGraphID(key);
 

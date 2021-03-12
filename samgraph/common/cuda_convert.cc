@@ -7,7 +7,7 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-void ConvertCoo2Csr(nodeid_t *src, nodeid_t *dst, int m, int n, int nnz, nodeid_t *indptr, int device, cudaStream_t stream) {
+void ConvertCoo2Csr(IdType *src, IdType *dst, int m, int n, int nnz, IdType *indptr, int device, cudaStream_t stream) {
     CUDA_CALL(cudaSetDevice(device));
 
     cusparseHandle_t handle;

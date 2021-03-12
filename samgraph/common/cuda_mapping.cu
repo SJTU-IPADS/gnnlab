@@ -20,8 +20,8 @@ namespace cuda {
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __device__ void map_node_ids (
-    const nodeid_t *const global,
-    nodeid_t * const new_global,
+    const IdType *const global,
+    IdType * const new_global,
     const size_t num_nodes,
     const DeviceOrderedHashTable &table) {
     assert(BLOCK_SIZE == blockDim.x);
@@ -39,10 +39,10 @@ __device__ void map_node_ids (
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void map_edge_ids(
-    const nodeid_t * const global_src,
-    nodeid_t * const new_global_src,
-    const nodeid_t * const global_dst,
-    nodeid_t * const new_global_dst,
+    const IdType * const global_src,
+    IdType * const new_global_src,
+    const IdType * const global_dst,
+    IdType * const new_global_dst,
     const size_t num_edges,
     DeviceOrderedHashTable &mapping
 ) {
@@ -65,10 +65,10 @@ __global__ void map_edge_ids(
     }
 }
 
-void MapEdges(const nodeid_t * const global_src,
-              nodeid_t * const new_global_src,
-              const nodeid_t * const global_dst,
-              nodeid_t * const new_global_dst,
+void MapEdges(const IdType * const global_src,
+              IdType * const new_global_src,
+              const IdType * const global_dst,
+              IdType * const new_global_dst,
               const size_t num_edges,
               DeviceOrderedHashTable mapping,
               cudaStream_t stream) {

@@ -11,11 +11,11 @@ class CpuExtractor {
  public:
   CpuExtractor();
 
-  int extract(void *dst, const void *src, const nodeid_t *idx,
+  int extract(void *dst, const void *src, const IdType *idx,
                size_t num_idx, size_t dim, DataType dtype);
  private:
   template <typename T>
-  int _extract(T* dst, const T* src, const nodeid_t *idx,
+  int _extract(T* dst, const T* src, const IdType *idx,
                size_t num_idx, size_t dim);
 
   int _num_threads;
