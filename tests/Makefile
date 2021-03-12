@@ -12,6 +12,9 @@ csrmm_bp.out: csrmm_bp.cc common.h
 compact_edge.out: compact_edge.cu common.h
 	$(CC) $(FLAGS) -o compact_edge.out -arch=sm_35 -lcusparse -I../3rdparty/cub -I. compact_edge.cu
 
+sample.out: sample.cu common.h
+	$(CC) $(FLAGS) -o sample.out -arch=sm_35 -lcusparse -I../3rdparty/cub -I. sample.cu
+
 .PHONY: clean
 clean:
 	rm -f *.o *.out

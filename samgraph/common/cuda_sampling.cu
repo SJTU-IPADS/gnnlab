@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cassert>
+#include <cstdio>
 
 #include <curand.h>
 #include <curand_kernel.h>
@@ -34,8 +35,8 @@ namespace cuda {
 
 template<size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void
-sample(const nodeid_t *indptr, const nodeid_t *indices, const size_t num_node, const size_t num_edge, const nodeid_t *input,
-         const size_t num_input, const size_t fanout, nodeid_t *tmp_src, nodeid_t *tmp_dst, size_t *num_out, unsigned long seed) {
+sample(const nodeid_t *indptr, const nodeid_t *indices, const nodeid_t *input, const size_t num_input,
+       const size_t fanout, nodeid_t *tmp_src, nodeid_t *tmp_dst, unsigned long seed) {
     assert(BLOCK_SIZE == blockDim.x);
     const size_t block_start = TILE_SIZE * blockIdx.x;
     const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -160,6 +161,8 @@ compact_edge(const nodeid_t *tmp_src, const nodeid_t *tmp_dst, nodeid_t *out_src
 
 void DeviceSample(const nodeid_t *indptr, const nodeid_t *indices, const size_t num_node, const size_t num_edge, const nodeid_t *input,
                   const size_t num_input, const size_t fanout, nodeid_t *out_src, nodeid_t *out_dst, size_t *num_out, cudaStream_t stream) {
+    SAM_LOG(DEBUG) << "DeviceSample: begin with num_input " << num_input << " and fanout " << fanout;
+
     const size_t num_tiles = (num_node + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
     const dim3 grid(num_tiles);
     const dim3 block(Config::kCudaBlockSize);
@@ -174,32 +177,43 @@ void DeviceSample(const nodeid_t *indptr, const nodeid_t *indices, const size_t 
     SAM_LOG(DEBUG) << "DeviceSample: cuda tmp_dst malloc " << toReadableSize(num_input * fanout * sizeof(nodeid_t));
 
     sample<Config::kCudaBlockSize, Config::kCudaTileSize>
-        <<<grid, block, 0, stream>>>(indptr, indices, num_node, num_edge, input,
-                                     num_input, fanout, tmp_src, tmp_dst, num_out, seed);
+        <<<grid, block, 0, stream>>>(indptr, indices, input, num_input,
+                                     fanout, tmp_src, tmp_dst, seed);
     CUDA_CALL(cudaGetLastError());
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    SAM_LOG(DEBUG) << "DeviceSample: sample ";
 
     size_t *item_prefix;
     CUDA_CALL(cudaMalloc(&item_prefix, sizeof(size_t) * (num_input + 1)));
-    SAM_LOG(DEBUG) << "DeviceSample: cuda item_prefix malloc " << toReadableSize(sizeof(nodeid_t) * (num_input + 1));
+    SAM_LOG(DEBUG) << "DeviceSample: cuda item_prefix malloc " << toReadableSize(sizeof(size_t) * (num_input + 1));
     
     count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, item_prefix, num_input, fanout);
     CUDA_CALL(cudaGetLastError());
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    SAM_LOG(DEBUG) << "DeviceSample: count_edge ";
+    
 
     size_t workspace_bytes;
     CUDA_CALL(cub::DeviceScan::ExclusiveSum(
         nullptr, workspace_bytes, static_cast<size_t *>(nullptr),
         static_cast<size_t *>(nullptr), grid.x + 1, stream));
-        
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    SAM_LOG(DEBUG) << "DeviceSample: ExclusiveSum 1 ";
+
     void *workspace;
     CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
-    SAM_LOG(DEBUG) << "DeviceSample: cuda workspace malloc " << toReadableSize(workspace_bytes);
     CUDA_CALL(cub::DeviceScan::ExclusiveSum(
         workspace, workspace_bytes, item_prefix, item_prefix, grid.x + 1, stream));
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    SAM_LOG(DEBUG) << "DeviceSample: ExclusiveSum 2 ";
+    SAM_LOG(DEBUG) << "DeviceSample: cuda workspace malloc " << toReadableSize(workspace_bytes);
 
     compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, tmp_dst, out_src, out_dst, num_out,
                                      item_prefix, num_input, fanout);
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    SAM_LOG(DEBUG) << "DeviceSample: compact_edge ";
     CUDA_CALL(cudaGetLastError());
 
     CUDA_CALL(cudaStreamSynchronize(stream));
