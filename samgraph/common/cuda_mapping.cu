@@ -26,14 +26,14 @@ __device__ void map_node_ids (
     const DeviceOrderedHashTable &table) {
     assert(BLOCK_SIZE == blockDim.x);
     
-    using Mapping = typename OrderedHashTable::Mapping;
+    using Bucket = typename OrderedHashTable::Bucket;
 
     const size_t tile_start = TILE_SIZE * blockIdx.x;
     const size_t tile_end = min(TILE_SIZE * (blockIdx.x + 1), num_nodes);
 
     for (size_t idx = threadIdx.x + tile_start; idx < tile_end; idx += BLOCK_SIZE) {
-        const Mapping &mapping = *table.Search(global[idx]);
-        new_global[idx] = mapping.local;
+        const Bucket &bucket = *table.Search(global[idx]);
+        new_global[idx] = bucket.local;
     }
 }
 
@@ -44,7 +44,7 @@ __global__ void map_edge_ids(
     const IdType * const global_dst,
     IdType * const new_global_dst,
     const size_t num_edges,
-    DeviceOrderedHashTable &mapping
+    DeviceOrderedHashTable &bucket
 ) {
     assert(BLOCK_SIZE == blockDim.x);
 
@@ -53,14 +53,14 @@ __global__ void map_edge_ids(
             global_src,
             new_global_src,
             num_edges,
-            mapping
+            bucket
         );
     } else {
         map_node_ids<BLOCK_SIZE, TILE_SIZE>(
             global_dst,
             new_global_dst,
             num_edges,
-            mapping
+            bucket
         );
     }
 }
@@ -70,7 +70,7 @@ void MapEdges(const IdType * const global_src,
               const IdType * const global_dst,
               IdType * const new_global_dst,
               const size_t num_edges,
-              DeviceOrderedHashTable mapping,
+              DeviceOrderedHashTable bucket,
               cudaStream_t stream) {
     
     const dim3 grid(RoundUpDiv(num_edges, Config::kCudaTileSize), 2);
@@ -86,7 +86,7 @@ void MapEdges(const IdType * const global_src,
         global_dst,
         new_global_dst,
         num_edges,
-        mapping);
+        bucket);
 }
 
 } // namespace cuda

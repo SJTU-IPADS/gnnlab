@@ -17,13 +17,18 @@ class OrderedHashTable;
 
 class DeviceOrderedHashTable {
   public:
-    struct Mapping {
+    struct Bucket {
       IdType key;
       IdType local;
       IdType index;
+      IdType version;
     };
 
-    typedef const Mapping* ConstIterator;
+    struct Mapping {
+        IdType local;
+    };
+
+    typedef const Bucket* ConstIterator;
 
     DeviceOrderedHashTable(
         const DeviceOrderedHashTable& other) = default;
@@ -36,12 +41,16 @@ class DeviceOrderedHashTable {
     }
 
   protected:
-    const Mapping * _table;
+    const Bucket * _table;
+    const Mapping *_mapping;
     size_t _size;
+    size_t _mapping_size;
 
     explicit DeviceOrderedHashTable(
-        const Mapping * table,
-        size_t size);
+        const Bucket * const table,
+        const Mapping * const mapping,
+        const size_t size,
+        const size_t mapping_size);
 
     inline __device__ IdType SearchForPosition(const IdType id) const {
       IdType pos = Hash(id);
@@ -69,6 +78,7 @@ class OrderedHashTable {
   public:
     static constexpr size_t kDefaultScale = 3;
 
+    using Bucket = typename DeviceOrderedHashTable::Bucket;
     using Mapping = typename DeviceOrderedHashTable::Mapping;
 
     OrderedHashTable(
@@ -100,9 +110,14 @@ class OrderedHashTable {
     DeviceOrderedHashTable DeviceHandle() const;
 
   private:
-    Mapping * _table;
+    Bucket * _table;
+    Mapping *_mapping;
     size_t _size;
+    size_t _mapping_size;
     int _device;
+
+    IdType _version;
+    IdType _offset;
 };
 
 } // namespace cuda

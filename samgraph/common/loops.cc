@@ -147,22 +147,15 @@ bool RunDeviceSampleLoopOnce() {
             
             // Populate the hash table with newly sampled nodes
             IdType *unique;
-            size_t *num_unique;
+            size_t num_unique;
 
             std::swap(out_src, out_dst); // swap the src and dst
             CUDA_CALL(cudaMalloc(&unique, host_num_out * sizeof(IdType)));
-            CUDA_CALL(cudaMalloc(&num_unique, sizeof(size_t)));
             SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda unique malloc " << toReadableSize(host_num_out * sizeof(IdType));
             SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda num_unique malloc " << toReadableSize(sizeof(size_t));
 
-            hash_table.FillWithDuplicates(out_src, host_num_out, unique, num_unique, sample_stream);
+            hash_table.FillWithDuplicates(out_src, host_num_out, unique, &num_unique, sample_stream);
             CUDA_CALL(cudaGetLastError());
-
-            // Set the input of next sampling
-            size_t host_num_unique;
-            CUDA_CALL(cudaMemcpyAsync((void *)&host_num_unique, (const void*)num_unique, (size_t)sizeof(size_t), 
-                                      (cudaMemcpyKind)cudaMemcpyDeviceToHost, (cudaStream_t)sample_stream));
-            CUDA_CALL(cudaStreamSynchronize(sample_stream));
 
             // Mapping edges
             IdType *new_src;
@@ -184,15 +177,15 @@ bool RunDeviceSampleLoopOnce() {
 
             // Convert COO format to CSR format
             IdType *new_indptr;
-            CUDA_CALL(cudaMalloc(&new_indptr, (host_num_unique + 1) * sizeof(IdType)));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_indptr malloc " << toReadableSize((host_num_unique + 1) * sizeof(IdType));
-            cuda::ConvertCoo2Csr(new_src, new_dst, host_num_unique, num_input, host_num_out, new_indptr, sample_device, sample_stream);
+            CUDA_CALL(cudaMalloc(&new_indptr, (num_unique + 1) * sizeof(IdType)));
+            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_indptr malloc " << toReadableSize((num_unique + 1) * sizeof(IdType));
+            cuda::ConvertCoo2Csr(new_src, new_dst, num_unique, num_input, host_num_out, new_indptr, sample_device, sample_stream);
 
             // Construct TrainGraph
             auto train_graph = std::make_shared<TrainGraph>();
-            train_graph->indptr = Tensor::FromBlob(new_indptr, DataType::kSamI32, {host_num_unique + 1}, sample_device);
+            train_graph->indptr = Tensor::FromBlob(new_indptr, DataType::kSamI32, {num_unique + 1}, sample_device);
             train_graph->indices = Tensor::FromBlob(new_dst, DataType::kSamI32, {host_num_out}, sample_device);
-            train_graph->num_row = host_num_unique;
+            train_graph->num_row = num_unique;
             train_graph->num_column = num_input;
             train_graph->num_edge = host_num_out;
 
@@ -203,9 +196,8 @@ bool RunDeviceSampleLoopOnce() {
             CUDA_CALL(cudaFree(out_dst));
             CUDA_CALL(cudaFree(num_out));
             CUDA_CALL(cudaFree(new_src));
-            CUDA_CALL(cudaFree(num_unique));
 
-            task->cur_input = Tensor::FromBlob((void *)unique, DataType::kSamI32, {host_num_unique}, sample_device);
+            task->cur_input = Tensor::FromBlob((void *)unique, DataType::kSamI32, {num_unique}, sample_device);
         }
 
         task->output_nodes = task->cur_input;

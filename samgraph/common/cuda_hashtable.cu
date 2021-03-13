@@ -11,7 +11,8 @@ namespace cuda {
 
 class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
  public:
-  typedef typename DeviceOrderedHashTable::Mapping *Iterator;
+  typedef typename DeviceOrderedHashTable::Bucket *Iterator;
+  typedef typename DeviceOrderedHashTable::Mapping *MappingPtr;
 
   explicit MutableDeviceOrderedHashTable(OrderedHashTable *const hostTable)
       : DeviceOrderedHashTable(hostTable->DeviceHandle()) {}
@@ -23,13 +24,14 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
   }
 
   inline __device__ bool AttemptInsertAt(const IdType pos, const IdType id,
-                                         const IdType index) {
+                                         const IdType index, const IdType version) {
     const IdType key = atomicCAS(&GetMutable(pos)->key, Config::kEmptyKey, id);
     if (key == Config::kEmptyKey || key == id) {
       // we either set a match key, or found a matching key, so then place the
       // minimum index in position. Match the type of atomicMin, so ignore
       // linting
-      atomicMin(&GetMutable(pos)->index, index); // NOLINT
+      atomicMin(&GetMutable(pos)->index, index);
+      atomicCAS(&GetMutable(pos)->version, Config::kEmptyKey, version);
       return true;
     } else {
       // we need to search elsewhere
@@ -37,17 +39,22 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
     }
   }
 
-  inline __device__ Iterator Insert(const IdType id, const IdType index) {
+  inline __device__ Iterator Insert(const IdType id, const IdType index, const IdType version) {
     IdType pos = Hash(id);
 
     // linearly scan for an empty slot or matching entry
     IdType delta = 1;
-    while (!AttemptInsertAt(pos, id, index)) {
+    while (!AttemptInsertAt(pos, id, index, version)) {
       pos = Hash(pos + delta);
       delta += 1;
     }
 
     return GetMutable(pos);
+  }
+
+  inline __device__ MappingPtr Map(const IdType pos, const IdType local) {
+    GetMapping(pos)->local = local;
+    return GetMapping(pos);
   }
 
 private:
@@ -57,6 +64,11 @@ private:
     // constructed from a mutable version of OrderedHashTable, making this
     // a safe cast to perform.
     return const_cast<Iterator>(this->_table + pos);
+  }
+
+  inline __device__ MappingPtr GetMapping(const IdType pos) {
+    assert(pos < this->_mapping_size);
+    return const_cast<MappingPtr>(this->_mapping + pos);
   }
 };
 
@@ -93,7 +105,8 @@ template <int BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void
 generate_hashmap_duplicates(const IdType *const items,
                             const size_t num_items,
-                            MutableDeviceOrderedHashTable table) {
+                            MutableDeviceOrderedHashTable table,
+                            const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
   const size_t block_start = TILE_SIZE * blockIdx.x;
@@ -103,7 +116,7 @@ generate_hashmap_duplicates(const IdType *const items,
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
     if (index < num_items) {
-      table.Insert(items[index], index);
+      table.Insert(items[index], index, version);
     }
   }
 }
@@ -111,7 +124,9 @@ generate_hashmap_duplicates(const IdType *const items,
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void generate_hashmap_unique(const IdType *const items,
                                         const size_t num_items,
-                                        MutableDeviceOrderedHashTable table) {
+                                        MutableDeviceOrderedHashTable table,
+                                        const IdType global_offset,
+                                        const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
   using Iterator = typename MutableDeviceOrderedHashTable::Iterator;
@@ -123,11 +138,11 @@ __global__ void generate_hashmap_unique(const IdType *const items,
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
     if (index < num_items) {
-      const Iterator pos = table.Insert(items[index], index);
+      const Iterator pos = table.Insert(items[index], index, version);
 
       // since we are only inserting unique items, we know their local id
       // will be equal to their index
-      pos->local = static_cast<IdType>(index);
+      pos->local = global_offset + static_cast<IdType>(index);
     }
   }
 }
@@ -135,11 +150,12 @@ __global__ void generate_hashmap_unique(const IdType *const items,
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_hashmap(const IdType *items, const size_t num_items,
                               DeviceOrderedHashTable table,
-                              IdType *const num_unique) {
+                              IdType *const num_unique,
+                              const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
   using BlockReduce = typename cub::BlockReduce<IdType, BLOCK_SIZE>;
-  using Mapping = typename DeviceOrderedHashTable::Mapping;
+  using Bucket = typename DeviceOrderedHashTable::Bucket;
 
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -150,8 +166,8 @@ __global__ void count_hashmap(const IdType *items, const size_t num_items,
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
     if (index < num_items) {
-      const Mapping &mapping = *table.Search(items[index]);
-      if (mapping.index == index) {
+      const Bucket &bucket = *table.Search(items[index]);
+      if (bucket.index == index && bucket.version == version) {
         ++count;
       }
     }
@@ -174,13 +190,14 @@ __global__ void compact_hashmap(const IdType *const items,
                                 const size_t num_items,
                                 MutableDeviceOrderedHashTable table,
                                 const IdType *const num_items_prefix,
-                                IdType *const unique_items,
-                                size_t *const num_unique_items) {
+                                size_t *const num_unique_items,
+                                const IdType global_offset,
+                                const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
   using FlagType = IdType;
   using BlockScan = typename cub::BlockScan<FlagType, BLOCK_SIZE>;
-  using Mapping = typename DeviceOrderedHashTable::Mapping;
+  using Bucket = typename DeviceOrderedHashTable::Bucket;
 
   constexpr const int32_t VALS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
 
@@ -196,10 +213,10 @@ __global__ void compact_hashmap(const IdType *const items,
         threadIdx.x + i * BLOCK_SIZE + blockIdx.x * TILE_SIZE;
 
     FlagType flag;
-    Mapping *kv;
+    Bucket *kv;
     if (index < num_items) {
       kv = table.Search(items[index]);
-      flag = kv->index == index;
+      flag = kv->version == version && kv->index == index;
     } else {
       flag = 0;
     }
@@ -212,37 +229,45 @@ __global__ void compact_hashmap(const IdType *const items,
     __syncthreads();
 
     if (kv) {
-      const IdType pos = offset + flag;
+      const IdType pos = global_offset + offset + flag;
       kv->local = pos;
-      unique_items[pos] = items[index];
+      table.Map(pos, items[index]);
     }
   }
 
   if (threadIdx.x == 0 && blockIdx.x == 0) {
-    *num_unique_items = num_items_prefix[gridDim.x];
+    *num_unique_items = global_offset + num_items_prefix[gridDim.x];
   }
 }
 
 // DeviceOrderedHashTable implementation
-DeviceOrderedHashTable::DeviceOrderedHashTable(const Mapping *const table,
-                                               const size_t size)
-    : _table(table), _size(size) {}
+DeviceOrderedHashTable::DeviceOrderedHashTable(const Bucket *const table,
+                                               const Mapping *const mapping,
+                                               const size_t size,
+                                               const size_t mapping_size)
+    : _table(table), _mapping(mapping), _size(size), _mapping_size(mapping_size) {}
 
 DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
-  return DeviceOrderedHashTable(_table, _size);
+  return DeviceOrderedHashTable(_table, _mapping, _size, _mapping_size);
 }
 
 // OrderedHashTable implementation
-OrderedHashTable::OrderedHashTable(const size_t size, int device, cudaStream_t stream, const int scale)
-    : _table(nullptr), _size(TableSize(size, scale)), _device(device) {
+OrderedHashTable::OrderedHashTable(const size_t size, int device, cudaStream_t stream, const size_t scale)
+    : _table(nullptr), _size(TableSize(size, scale)), _mapping_size(size), _device(device), _version(0), _offset(0) {
   // make sure we will at least as many buckets as items.
-  CUDA_CALL(cudaMalloc(&_table, sizeof(Mapping) * _size));
+  CUDA_CALL(cudaMalloc(&_table, sizeof(Bucket) * _size));
+  CUDA_CALL(cudaMalloc(&_mapping, sizeof(Mapping) * _mapping_size));
 
-  CUDA_CALL(cudaMemsetAsync(_table, Config::kEmptyKey,
-                            sizeof(Mapping) * _size, stream));
+  CUDA_CALL(cudaMemsetAsync(_table, (int)Config::kEmptyKey,
+                            sizeof(Bucket) * _size, stream));
+  CUDA_CALL(cudaMemsetAsync(_mapping, (int)Config::kEmptyKey,
+                            sizeof(Mapping) *_mapping_size, stream));
 }
 
-OrderedHashTable::~OrderedHashTable() { CUDA_CALL(cudaFree(_table)); }
+OrderedHashTable::~OrderedHashTable() { 
+  CUDA_CALL(cudaFree(_table));
+  CUDA_CALL(cudaFree(_mapping));
+}
 
 void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                                           const size_t num_input,
@@ -257,14 +282,14 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
   auto device_table = MutableDeviceOrderedHashTable(this);
 
   generate_hashmap_duplicates<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(input, num_input, device_table);
+      <<<grid, block, 0, stream>>>(input, num_input, device_table, _version);
   CUDA_CALL(cudaGetLastError());
 
   IdType *item_prefix;
   CUDA_CALL(cudaMalloc(&item_prefix, sizeof(IdType) * (num_input + 1)));
 
   count_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix);
+      <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix, _version);
   CUDA_CALL(cudaGetLastError());
 
   size_t workspace_bytes;
@@ -279,10 +304,21 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   CUDA_CALL(cudaFree(workspace));
 
+  size_t *d_num_unique;
+  CUDA_CALL(cudaMalloc(&d_num_unique, sizeof(size_t)));
   compact_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize><<<grid, block, 0, stream>>>(
-      input, num_input, device_table, item_prefix, unique, num_unique);
+      input, num_input, device_table, item_prefix, d_num_unique, _offset, _version);
   CUDA_CALL(cudaGetLastError());
   CUDA_CALL(cudaFree(item_prefix));
+
+  CUDA_CALL(cudaMemcpyAsync(num_unique, d_num_unique, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
+  CUDA_CALL(cudaFree(d_num_unique));
+
+  CUDA_CALL(cudaMemcpyAsync(unique, _mapping, sizeof(IdType) * (*num_unique), cudaMemcpyDeviceToDevice, stream));
+  CUDA_CALL(cudaStreamSynchronize(stream));
+
+  _version++;
+  _offset = *num_unique;
 }
 
 void OrderedHashTable::FillWithUnique(const IdType *const input,
@@ -297,7 +333,7 @@ void OrderedHashTable::FillWithUnique(const IdType *const input,
   auto device_table = MutableDeviceOrderedHashTable(this);
 
   generate_hashmap_unique<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(input, num_input, device_table);
+      <<<grid, block, 0, stream>>>(input, num_input, device_table, _offset, _version);
 
   CUDA_CALL(cudaGetLastError());
 }
