@@ -53,7 +53,7 @@ namespace torch {
 
     if (!train_graph->val) {
         size_t num_edge = train_graph->num_edge;
-        auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device);
+        auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device, "csrmm_val_" + std::to_string(key));
         common::cuda::Fill(reinterpret_cast<float*>(val->mutable_data()),
                            num_edge, 1.0f, stream);
     }
@@ -127,7 +127,7 @@ namespace torch {
 
     if (!train_graph->val) {
         size_t num_edge = train_graph->num_edge;
-        auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device);
+        auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device, "csrmmsp_val_" + std::to_string(key));
         common::cuda::Fill(reinterpret_cast<float*>(val->mutable_data()),
                            num_edge, 1.0f, stream);
     }

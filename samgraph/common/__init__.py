@@ -76,3 +76,6 @@ class SamGraphBasics(object):
 
     def shutdown(self):
         return self.C_LIB_CTYPES.samgraph_shutdown()
+
+    def test_cusparse(self):
+        return self.C_LIB_CTYPES.samgraph_test_cusparse()

@@ -140,11 +140,12 @@ __global__ void generate_hashmap_unique(const IdType *const items,
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
     if (index < num_items) {
-      const Iterator pos = table.Insert(items[index], index, version);
-
+      const Iterator bucket = table.Insert(items[index], index, version);
+      IdType pos = global_offset + static_cast<IdType>(index);
       // since we are only inserting unique items, we know their local id
       // will be equal to their index
-      pos->local = global_offset + static_cast<IdType>(index);
+      bucket->local = pos;
+      table.Map(pos, items[index]);
     }
   }
 }
@@ -318,10 +319,11 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
   CUDA_CALL(cudaStreamSynchronize(stream));
 
   SAM_LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique " << *num_unique;
-  
+
   CUDA_CALL(cudaMemcpyAsync(unique, _mapping, sizeof(IdType) * (*num_unique), cudaMemcpyDeviceToDevice, stream));
   CUDA_CALL(cudaStreamSynchronize(stream));
 
+  CUDA_CALL(cudaStreamSynchronize(stream));
   CUDA_CALL(cudaFree(workspace));
   CUDA_CALL(cudaFree(item_prefix));
   CUDA_CALL(cudaFree(d_num_unique));
@@ -343,7 +345,6 @@ void OrderedHashTable::FillWithUnique(const IdType *const input,
 
   generate_hashmap_unique<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, _offset, _version);
-
   CUDA_CALL(cudaGetLastError());
 
   _version++;

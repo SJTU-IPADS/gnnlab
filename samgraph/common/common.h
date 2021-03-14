@@ -31,8 +31,8 @@ class Tensor;
 // the underlying data storage
 class DataContainer {
  public:
-  DataContainer(void *data, size_t size, int device)
-    : _data(data), _size(size), _device(device), _is_consumed(false) {}
+  DataContainer(void *data, size_t size, int device, std::string name)
+    : _data(data), _size(size), _device(device), _is_consumed(false), _name(name) {}
   // Destroy the tensor when the _data is not null
   ~DataContainer();
   void Consume();
@@ -43,6 +43,8 @@ class DataContainer {
   int _device;
   bool _is_consumed;
 
+  std::string _name;
+
   friend class Tensor;
 };
 
@@ -51,18 +53,18 @@ class Tensor {
   // Create a tensor from the file and take the
   // ownership of the input data
   static std::shared_ptr<Tensor> FromMmap(std::string filepath, DataType dtype,
-                                          std::vector<size_t> dims, int device);
+                                          std::vector<size_t> dims, int device, std::string name);
   // Create an uninitialized tensor data
-  static std::shared_ptr<Tensor> Empty(DataType dtype, std::vector<size_t> dims, int device);
+  static std::shared_ptr<Tensor> Empty(DataType dtype, std::vector<size_t> dims, int device, std::string name);
   // Create view from a tensor, they share the same storage
   static std::shared_ptr<Tensor> CreateView(std::shared_ptr<Tensor> tensor, size_t offset,
                                             std::vector<size_t> dims);
   // Deep slice a tensor
   static std::shared_ptr<Tensor> DeepCopy(std::shared_ptr<Tensor> tensor, size_t offset,
-                                       std::vector<size_t> dims);
+                                       std::vector<size_t> dims, std::string name);
   // From blob
   static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
-                                          std::vector<size_t> dims, int device);
+                                          std::vector<size_t> dims, int device, std::string name);
   // Consume the tensor, and we don't have to free the data.
   void ConsumeData() { _container->Consume(); }
 

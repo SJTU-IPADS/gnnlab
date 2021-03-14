@@ -168,6 +168,7 @@ void DeviceSample(const IdType *indptr, const IdType *indices, const IdType *inp
     const dim3 block(Config::kCudaBlockSize);
 
     unsigned long seed = std::chrono::system_clock::now().time_since_epoch().count();
+    seed = 10ul;
 
     IdType *tmp_src;
     IdType *tmp_dst;
@@ -179,6 +180,7 @@ void DeviceSample(const IdType *indptr, const IdType *indices, const IdType *inp
     sample<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(indptr, indices, input, num_input,
                                      fanout, tmp_src, tmp_dst, seed);
+    CUDA_CALL(cudaStreamSynchronize(stream));
     CUDA_CALL(cudaGetLastError());
 
     size_t *item_prefix;
@@ -187,8 +189,8 @@ void DeviceSample(const IdType *indptr, const IdType *indices, const IdType *inp
     
     count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, item_prefix, num_input, fanout);
+    CUDA_CALL(cudaStreamSynchronize(stream));
     CUDA_CALL(cudaGetLastError());
-    
 
     size_t workspace_bytes;
     CUDA_CALL(cub::DeviceScan::ExclusiveSum(

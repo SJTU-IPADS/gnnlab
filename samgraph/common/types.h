@@ -7,6 +7,7 @@ namespace samgraph {
 namespace common {
 
 using IdType = unsigned int;
+using SignedIdType = int;
 
 } // namespace common
 } // namespace samgraph

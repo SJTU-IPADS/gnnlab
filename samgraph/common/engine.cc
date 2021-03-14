@@ -249,19 +249,19 @@ void SamGraphEngine::LoadGraphDataset() {
     _dataset->num_class = meta[Config::kMetaNumClass];
 
     _dataset->indptr    = Tensor::FromMmap(_dataset_path + Config::kInptrFile, DataType::kSamI32,
-                                           {meta[Config::kMetaNumNode] + 1}, _sample_device);
+                                           {meta[Config::kMetaNumNode] + 1}, _sample_device, "dataset.indptr");
     _dataset->indices   = Tensor::FromMmap(_dataset_path + Config::kIndicesFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumEdge]}, _sample_device);
+                                          {meta[Config::kMetaNumEdge]}, _sample_device, "dataset.indices");
     _dataset->feat      = Tensor::FromMmap(_dataset_path + Config::kFeatFile, DataType::kSamF32,
-                                          {meta[Config::kMetaNumNode], meta[Config::kMetaFeatDim]}, CPU_DEVICE_MMAP_ID);
+                                          {meta[Config::kMetaNumNode], meta[Config::kMetaFeatDim]}, CPU_DEVICE_MMAP_ID, "dataset.feat");
     _dataset->label     = Tensor::FromMmap(_dataset_path + Config::kLabelFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumNode]}, CPU_DEVICE_MMAP_ID);
+                                          {meta[Config::kMetaNumNode]}, CPU_DEVICE_MMAP_ID, "dataset.label");
     _dataset->train_set = Tensor::FromMmap(_dataset_path + Config::kTrainSetFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumTrainSet]}, CPU_DEVICE_ID);
+                                          {meta[Config::kMetaNumTrainSet]}, CPU_DEVICE_ID, "dataset.train_set");
     _dataset->test_set  = Tensor::FromMmap(_dataset_path + Config::kTestSetFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumTestSet]}, CPU_DEVICE_ID);
+                                          {meta[Config::kMetaNumTestSet]}, CPU_DEVICE_ID, "dataset.test_set");
     _dataset->valid_set = Tensor::FromMmap(_dataset_path + Config::kValidSetFile, DataType::kSamI32,
-                                          {meta[Config::kMetaNumValidSet]}, CPU_DEVICE_ID);
+                                          {meta[Config::kMetaNumValidSet]}, CPU_DEVICE_ID, "dataset.valid_set");
 
     SAM_LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path <<  ") successfully";
 }

@@ -21,7 +21,8 @@ DataContainer::~DataContainer() {
     if (_data == nullptr) {
         return;
     }
-        
+
+    SAM_LOG(DEBUG) << "Tensor " << _name << " has been freed";
     switch(_device) {
         case CPU_DEVICE_ID:
             free(_data);
@@ -43,7 +44,7 @@ void DataContainer::Consume() {
 }
 
 std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype, 
-                                         std::vector<size_t> dims, int device) {
+                                         std::vector<size_t> dims, int device, std::string name) {
     auto tensor = std::make_shared<Tensor>();
     size_t expected_size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
@@ -80,12 +81,12 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
     tensor->_size = size;
     tensor->_dims = dims;
     tensor->_offset = 0;
-    tensor->_container = std::make_shared<DataContainer>(data, size, device);
+    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
 
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, int device) {
+std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, int device, std::string name) {
     auto tensor = std::make_shared<Tensor>();
     size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
@@ -105,7 +106,7 @@ std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, 
     tensor->_dims = dims;
     tensor->_size = size;
     tensor->_offset = 0;
-    tensor->_container = std::make_shared<DataContainer>(data, size, device);
+    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
     
     return tensor;
 }
@@ -125,7 +126,7 @@ std::shared_ptr<Tensor> Tensor::CreateView(std::shared_ptr<Tensor> src, size_t o
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t offset, std::vector<size_t> dims) {
+std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t offset, std::vector<size_t> dims, std::string name) {
     SAM_CHECK(src && src->defined());
     auto tensor = std::make_shared<Tensor>();
     size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src ->_dtype);
@@ -153,12 +154,12 @@ std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t off
         SAM_LOG(DEBUG) << "DeepCopy: cpu malloc " << toReadableSize(size);
     }
 
-    tensor->_container = std::make_shared<DataContainer>(data, size, device);
+    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
 
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector<size_t> dims, int device) {
+std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector<size_t> dims, int device, std::string name) {
     auto tensor = std::make_shared<Tensor>();
     size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
@@ -166,7 +167,7 @@ std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector
     tensor->_dims = dims;
     tensor->_size = size;
     tensor->_offset = 0;
-    tensor->_container = std::make_shared<DataContainer>(data, size, device);
+    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
 
     return tensor;
 }
