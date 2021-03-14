@@ -281,7 +281,7 @@ bool RunIdCopyDevice2HostLoopOnce() {
         return true;
     }
 
-    auto this_op = ID_COPYH2D;
+    auto this_op = ID_COPYD2H;
     auto q = SamGraphEngine::GetTaskQueue(this_op);
     auto task = q->GetTask();
 
@@ -402,6 +402,7 @@ bool RunSubmitLoopOnce() {
 
     if (task) {
         graph_pool->AddGraphBatch(task->key, task);
+        SAM_LOG(DEBUG) << "Submit: process task with key " << task->key;
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -469,6 +470,7 @@ void SingleLoop() {
     RunIdCopyDevice2HostLoopOnce();
     RunHostFeatureExtractLoopOnce();
     RunFeatureCopyHost2DeviceLoopOnce();
+    RunSubmitLoopOnce();
     SamGraphEngine::ReportThreadFinish();
 }
 

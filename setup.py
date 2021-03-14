@@ -93,8 +93,8 @@ setup(
         extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
         extra_compile_args= {
             'cxx': ['-std=c++14', '-g', '-fopt-info',  '-fPIC', 
-                    #  '-Ofast',
-                     '-O0',
+                     '-Ofast',
+                    #  '-O0',
                      '-Wall', '-fopenmp', '-march=native'],
             'nvcc': ['-std=c++14', '-g', '-arch=sm_35', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
         })

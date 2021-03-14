@@ -60,25 +60,25 @@ def run(args):
 
     sam.start()
 
-    for epoch in range(num_epoch):
+    # for epoch in range(num_epoch):
 
-        tic_step = time.time()
-        for step in range(num_step):
-            graph_batch = sam.get_next_batch(num_graph)
-            batch_input = sam.get_graph_feat(graph_batch.key)
-            batch_label = sam.get_graph_label(graph_batch.key)
+    #     tic_step = time.time()
+    #     for step in range(num_step):
+    #         graph_batch = sam.get_next_batch(num_graph)
+    #         batch_input = sam.get_graph_feat(graph_batch.key)
+    #         batch_label = sam.get_graph_label(graph_batch.key)
 
-            batch_pred = model(graph_batch, batch_input)
-            loss = loss_fcn(batch_pred, batch_label)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+    #         batch_pred = model(graph_batch, batch_input)
+    #         loss = loss_fcn(batch_pred, batch_label)
+    #         optimizer.zero_grad()
+    #         loss.backward()
+    #         optimizer.step()
 
-            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Time {:.4f} secs'.format(
-                epoch, step, loss.item(), time.time() - tic_step
-            ))
+    #         print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Time {:.4f} secs'.format(
+    #             epoch, step, loss.item(), time.time() - tic_step
+    #         ))
 
-            tic_step = time.time()
+    #         tic_step = time.time()
     
     sam.shutdown()
 
