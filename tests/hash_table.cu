@@ -120,10 +120,11 @@ __global__ void generate_hashmap_unique(const IdType *const items,
  for (size_t index = threadIdx.x + block_start; index < block_end; index += BLOCK_SIZE) {
    if (index < num_items) {
      const Iterator pos = table.Insert(items[index], index, version);
-
+     IdType pos = global_offset + static_cast<IdType>(index);
      // since we are only inserting unique items, we know their local id
      // will be equal to their index
-     pos->local = global_offset + static_cast<IdType>(index);
+     pos->local = pos;
+     mapping[pos] = items[index];
    }
  }
 }
