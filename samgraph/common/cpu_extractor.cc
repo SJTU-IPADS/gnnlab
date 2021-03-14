@@ -8,7 +8,7 @@ CpuExtractor::CpuExtractor() {
     if (getenv("SAMGRAPH_OMP_THREAD")) {
         _num_threads = atoi(getenv("SAMGRAPH_OMP_THREAD"));
     } else {
-        _num_threads = 4;
+        _num_threads = 40;
     }
 }
 
@@ -18,6 +18,10 @@ int CpuExtractor::extract(void *dst, const void *src, const IdType *idx,
         case kSamF32:
             return _extract(reinterpret_cast<float *>(dst),
                             reinterpret_cast<const float *>(src),
+                            idx, num_idx, dim);
+        case kSamI32:
+            return _extract(reinterpret_cast<int32_t *>(dst),
+                            reinterpret_cast<const int32_t *>(src),
                             idx, num_idx, dim);
         default:
             SAM_CHECK(0);

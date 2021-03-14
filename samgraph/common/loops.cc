@@ -191,8 +191,8 @@ bool RunDeviceSampleLoopOnce() {
                                  sample_device, cusparse_handle, sample_stream);
 
             auto train_graph = std::make_shared<TrainGraph>();
-            train_graph->indptr = Tensor::FromBlob(new_indptr, DataType::kSamI32, {num_input + 1}, sample_device, "train_graph.inptr_cuda_" + std::to_string(task->key) + "_" + std::to_string(i));
-            train_graph->indices = Tensor::FromBlob(new_dst, DataType::kSamI32, {host_num_out}, sample_device, "train_graph.indices_cuda_" + std::to_string(task->key) + "_" + std::to_string(i));
+            train_graph->indptr = Tensor::FromBlob(new_indptr, DataType::kSamI32, {num_input + 1}, sample_device, "train_graph.inptr_cuda_sample_" + std::to_string(task->key) + "_" + std::to_string(i));
+            train_graph->indices = Tensor::FromBlob(new_dst, DataType::kSamI32, {host_num_out}, sample_device, "train_graph.indices_cuda_sample_" + std::to_string(task->key) + "_" + std::to_string(i));
             train_graph->num_row = num_input;
             train_graph->num_column = num_unique;
             train_graph->num_edge = host_num_out;
@@ -237,28 +237,34 @@ bool RunGraphCopyDevice2DeviceLoopOnce() {
 
     if (task) {
         auto train_device = SamGraphEngine::GetTrainDevice();
-
         auto graph_copy_stream = *SamGraphEngine::GetGraphCopyDevice2DeviceStream();
 
-        for (auto graph : task->output_graph) {
+        for (size_t i = 0; i < task->output_graph.size(); i++) {
+            auto graph = task->output_graph[i];
             void *train_indptr;
             void *train_indices;
             CUDA_CALL(cudaSetDevice(train_device));
             CUDA_CALL(cudaMalloc(&train_indptr, graph->indptr->size()));
             CUDA_CALL(cudaMalloc(&train_indices, graph->indices->size()));
+            SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_indptr malloc " << toReadableSize(graph->indptr->size());
+            SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_indices malloc " << toReadableSize(graph->indices->size());
+
             CUDA_CALL(cudaMemcpyAsync(train_indptr, graph->indptr->data(), graph->indptr->size(),
                                       cudaMemcpyDeviceToDevice, graph_copy_stream));
             CUDA_CALL(cudaMemcpyAsync(train_indices, graph->indices->data(), graph->indices->size(),
                                       cudaMemcpyDeviceToDevice, graph_copy_stream));
-            
-            graph->indptr = Tensor::FromBlob(train_indptr, graph->indptr->dtype(), graph->indptr->shape(), train_device, "");
-            graph->indices = Tensor::FromBlob(train_indices, graph->indptr->dtype(), graph->indices->shape(), train_device, "");
+
+            CUDA_CALL(cudaStreamSynchronize(graph_copy_stream));
+            graph->indptr = Tensor::FromBlob(train_indptr, graph->indptr->dtype(), graph->indptr->shape(), train_device, "train_graph.inptr_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
+            graph->indices = Tensor::FromBlob(train_indices, graph->indptr->dtype(), graph->indices->shape(), train_device, "train_graph.inptr_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
         }
 
         CUDA_CALL(cudaStreamSynchronize(graph_copy_stream));
 
         auto ready_table = SamGraphEngine::GetSubmitTable();
         ready_table->AddReadyCount(task->key);
+
+        SAM_LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -285,13 +291,13 @@ bool RunIdCopyDevice2HostLoopOnce() {
 
         CUDA_CALL(cudaMemcpyAsync(node_ids, task->output_nodes->data(), task->output_nodes->size(),
                                   cudaMemcpyDeviceToHost, id_copy_d2h_stream));
-        
-        task->output_nodes = Tensor::FromBlob(node_ids, task->output_nodes->dtype(),
-                                              task->output_nodes->shape(), CPU_DEVICE_ID, "");
-
         CUDA_CALL(cudaStreamSynchronize(id_copy_d2h_stream));
         
+        task->output_nodes = Tensor::FromBlob(node_ids, task->output_nodes->dtype(),
+                                              task->output_nodes->shape(), CPU_DEVICE_ID, "task.output_nodes_cpu_" + std::to_string(task->key));
+
         next_q->AddTask(task);
+        SAM_LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -314,6 +320,7 @@ bool RunHostFeatureExtractLoopOnce() {
     if (task) {
         auto dataset = SamGraphEngine::GetGraphDataset();
         auto output_nodes = task->output_nodes;
+        SAM_CHECK_EQ(output_nodes->device(), CPU_DEVICE_ID);
         auto feat_dim = dataset->feat->shape()[1];
         auto feat_type = dataset->feat->dtype();
         auto label_type = dataset->label->dtype();
@@ -334,6 +341,7 @@ bool RunHostFeatureExtractLoopOnce() {
         extractor->extract(label_dst, label_src, idx, num_idx, 1, label_type);
 
         next_q->AddTask(task);
+        SAM_LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -341,7 +349,7 @@ bool RunHostFeatureExtractLoopOnce() {
     return true;
 }
 
-bool RunFeatureCopyHost2DeviceLoop() {
+bool RunFeatureCopyHost2DeviceLoopOnce() {
     auto next_op = SUBMIT;
     auto next_q = SamGraphEngine::GetTaskQueue(next_op);
     if (next_q->ExceedThreshold()) {
@@ -356,24 +364,17 @@ bool RunFeatureCopyHost2DeviceLoop() {
     if (task) {
         auto train_device = SamGraphEngine::GetTrainDevice();
         CUDA_CALL(cudaSetDevice(train_device));
-
         auto feat_copy_h2d_stream = *SamGraphEngine::GetFeatureCopyHost2DeviceStream();
 
-        auto host_feat = task->output_feat;
-        auto feat_dim = host_feat->shape()[1];
-        auto feat_type = host_feat->dtype();
+        auto feat = task->output_feat;
+        auto label = task->output_label;
 
-        auto num_idx = host_feat->shape()[0];
+        auto d_feat = Tensor::Empty(feat->dtype(), feat->shape(), train_device, "task.train_feat_cuda_" + std::to_string(task->key));
+        auto d_label = Tensor::Empty(label->dtype(), label->shape(), train_device, "task.train_label_cuda" + std::to_string(task->key));
 
-        auto host_label = task->output_label;
-        auto label_type = host_label->dtype();
-
-        auto train_feat = Tensor::Empty(feat_type, {num_idx, feat_dim}, train_device, "task.train_feat_cuda_" + std::to_string(task->key));
-        auto train_label = Tensor::Empty(label_type, {num_idx}, train_device, "task.train_label_cuda" + std::to_string(task->key));
-
-        CUDA_CALL(cudaMemcpyAsync(train_feat->mutable_data(), host_feat->data(), host_feat->size(),
+        CUDA_CALL(cudaMemcpyAsync(d_feat->mutable_data(), feat->data(), feat->size(),
                                   cudaMemcpyHostToDevice, feat_copy_h2d_stream));
-        CUDA_CALL(cudaMemcpyAsync(train_label->mutable_data(), host_label->data(), host_label->size(),
+        CUDA_CALL(cudaMemcpyAsync(d_label->mutable_data(), label->data(), label->size(),
                                   cudaMemcpyHostToDevice, feat_copy_h2d_stream));
         CUDA_CALL(cudaStreamSynchronize(feat_copy_h2d_stream));
 
@@ -381,6 +382,7 @@ bool RunFeatureCopyHost2DeviceLoop() {
         ready_table->AddReadyCount(task->key);
 
         next_q->AddTask(task);
+        SAM_LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
@@ -448,7 +450,7 @@ void HostFeatureExtractLoop() {
 
 void FeatureCopyHost2DeviceLoop() {
     CUDA_CALL(cudaSetDevice(SamGraphEngine::GetTrainDevice()));
-    while(RunFeatureCopyHost2DeviceLoop() && !SamGraphEngine::ShouldShutdown()) {
+    while(RunFeatureCopyHost2DeviceLoopOnce() && !SamGraphEngine::ShouldShutdown()) {
     }
     SamGraphEngine::ReportThreadFinish();
 }
@@ -463,6 +465,10 @@ void SingleLoop() {
     RunHostPermutateLoopOnce();
     RunIdCopyHost2DeviceLoopOnce();
     RunDeviceSampleLoopOnce();
+    RunGraphCopyDevice2DeviceLoopOnce();
+    RunIdCopyDevice2HostLoopOnce();
+    RunHostFeatureExtractLoopOnce();
+    RunFeatureCopyHost2DeviceLoopOnce();
     SamGraphEngine::ReportThreadFinish();
 }
 
