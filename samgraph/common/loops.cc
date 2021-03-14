@@ -110,7 +110,7 @@ bool RunDeviceSampleLoopOnce() {
         cuda::OrderedHashTable hash_table(predict_node_num, sample_device, sample_stream, 3);
         
         size_t num_train_node = train_nodes->shape()[0];
-        hash_table.FillWithUnique(static_cast<const IdType *>(train_nodes->data()), num_train_node, sample_stream);
+        hash_table.FillWithUnique(static_cast<const IdType *const>(train_nodes->data()), num_train_node, sample_stream);
 
         task->output_graph.resize(num_layers);
         for (int i = last_layer_idx; i >= 0; i--) {
@@ -150,9 +150,8 @@ bool RunDeviceSampleLoopOnce() {
             size_t num_unique;
 
             std::swap(out_src, out_dst); // swap the src and dst
-            CUDA_CALL(cudaMalloc(&unique, host_num_out * sizeof(IdType)));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda unique malloc " << toReadableSize(host_num_out * sizeof(IdType));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda num_unique malloc " << toReadableSize(sizeof(size_t));
+            CUDA_CALL(cudaMalloc(&unique, (host_num_out + hash_table.NumItems()) * sizeof(IdType)));
+            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda unique malloc " << toReadableSize((host_num_out + + hash_table.NumItems()) * sizeof(IdType));
 
             hash_table.FillWithDuplicates(out_src, host_num_out, unique, &num_unique, sample_stream);
             CUDA_CALL(cudaGetLastError());
@@ -161,10 +160,10 @@ bool RunDeviceSampleLoopOnce() {
             IdType *new_src;
             IdType *new_dst;
 
-            CUDA_CALL(cudaMalloc(&new_src, host_num_out * sizeof(size_t)));
-            CUDA_CALL(cudaMalloc(&new_dst, host_num_out * sizeof(size_t)));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_src malloc " << toReadableSize(host_num_out * sizeof(size_t));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_dst malloc " << toReadableSize(host_num_out * sizeof(size_t));
+            CUDA_CALL(cudaMalloc(&new_src, host_num_out * sizeof(IdType)));
+            CUDA_CALL(cudaMalloc(&new_dst, host_num_out * sizeof(IdType)));
+            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_src malloc " << toReadableSize(host_num_out * sizeof(IdType));
+            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_dst malloc " << toReadableSize(host_num_out * sizeof(IdType));
 
             cuda::MapEdges((const IdType *) out_src,
                            (IdType * const) new_src,

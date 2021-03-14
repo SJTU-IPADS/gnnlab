@@ -44,7 +44,7 @@ __global__ void map_edge_ids(
     const IdType * const global_dst,
     IdType * const new_global_dst,
     const size_t num_edges,
-    DeviceOrderedHashTable &bucket
+    DeviceOrderedHashTable &table
 ) {
     assert(BLOCK_SIZE == blockDim.x);
 
@@ -53,14 +53,14 @@ __global__ void map_edge_ids(
             global_src,
             new_global_src,
             num_edges,
-            bucket
+            table
         );
     } else {
         map_node_ids<BLOCK_SIZE, TILE_SIZE>(
             global_dst,
             new_global_dst,
             num_edges,
-            bucket
+            table
         );
     }
 }
@@ -70,7 +70,7 @@ void MapEdges(const IdType * const global_src,
               const IdType * const global_dst,
               IdType * const new_global_dst,
               const size_t num_edges,
-              DeviceOrderedHashTable bucket,
+              DeviceOrderedHashTable table,
               cudaStream_t stream) {
     
     const dim3 grid(RoundUpDiv(num_edges, Config::kCudaTileSize), 2);
@@ -86,7 +86,7 @@ void MapEdges(const IdType * const global_src,
         global_dst,
         new_global_dst,
         num_edges,
-        bucket);
+        table);
 }
 
 } // namespace cuda

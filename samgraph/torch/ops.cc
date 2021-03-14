@@ -28,6 +28,10 @@ namespace torch {
             return ::torch::kI64;
         default:
             SAM_CHECK(0);
+            return ::torch::kF32;
+    }
+
+    SAM_CHECK(0);
 }
 
 ::torch::Tensor Csrmm(uint64_t key, ::torch::Tensor input) {
@@ -189,7 +193,7 @@ namespace torch {
 
     ::torch::Tensor tensor = ::torch::from_blob(
         feat->mutable_data(),
-        {feat->shape()[0], feat->shape()[1]},
+        {(long long)feat->shape()[0], (long long)feat->shape()[1]},
         common::cudaDataDeleter,
         ::torch::TensorOptions().dtype(::torch::kF32)
                                 .device(device_str)
@@ -209,7 +213,7 @@ namespace torch {
 
     ::torch::Tensor tensor = ::torch::from_blob(
         label->mutable_data(),
-        {label->shape()[0]},
+        {(long long)label->shape()[0]},
         common::cudaDataDeleter,
         ::torch::TensorOptions().dtype(::torch::kI32)
                                 .device(device_str)

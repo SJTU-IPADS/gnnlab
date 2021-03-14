@@ -106,6 +106,8 @@ class OrderedHashTable {
         const IdType * const input,
         const size_t num_input,
         cudaStream_t stream);
+    
+    size_t NumItems() const { return _offset; }
 
     DeviceOrderedHashTable DeviceHandle() const;
 

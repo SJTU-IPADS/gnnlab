@@ -1,9 +1,11 @@
 #include <cassert>
+#include <cstdio>
 
 #include <cub/cub.cuh>
 
 #include "cuda_hashtable.h"
 #include "logging.h"
+#include "common.h"
 
 namespace samgraph {
 namespace common {
@@ -287,6 +289,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   IdType *item_prefix;
   CUDA_CALL(cudaMalloc(&item_prefix, sizeof(IdType) * (num_input + 1)));
+  SAM_LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc " << toReadableSize(sizeof(IdType) * (num_input + 1));
 
   count_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix, _version);
@@ -298,24 +301,30 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
       static_cast<IdType *>(nullptr), grid.x + 1, stream));
   void *workspace;
   CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
+  SAM_LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc " << toReadableSize(sizeof(IdType) * (num_input + 1));
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       workspace, workspace_bytes, item_prefix, item_prefix, grid.x + 1, stream));
 
-  CUDA_CALL(cudaFree(workspace));
-
   size_t *d_num_unique;
   CUDA_CALL(cudaMalloc(&d_num_unique, sizeof(size_t)));
+  SAM_LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda d_num_unique malloc " << toReadableSize(sizeof(size_t));
+
   compact_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize><<<grid, block, 0, stream>>>(
       input, num_input, device_table, item_prefix, d_num_unique, _offset, _version);
   CUDA_CALL(cudaGetLastError());
-  CUDA_CALL(cudaFree(item_prefix));
 
   CUDA_CALL(cudaMemcpyAsync(num_unique, d_num_unique, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
-  CUDA_CALL(cudaFree(d_num_unique));
+  CUDA_CALL(cudaStreamSynchronize(stream));
 
+  SAM_LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique " << *num_unique;
+  
   CUDA_CALL(cudaMemcpyAsync(unique, _mapping, sizeof(IdType) * (*num_unique), cudaMemcpyDeviceToDevice, stream));
   CUDA_CALL(cudaStreamSynchronize(stream));
+
+  CUDA_CALL(cudaFree(workspace));
+  CUDA_CALL(cudaFree(item_prefix));
+  CUDA_CALL(cudaFree(d_num_unique));
 
   _version++;
   _offset = *num_unique;
@@ -336,6 +345,11 @@ void OrderedHashTable::FillWithUnique(const IdType *const input,
       <<<grid, block, 0, stream>>>(input, num_input, device_table, _offset, _version);
 
   CUDA_CALL(cudaGetLastError());
+
+  _version++;
+  _offset += num_input;
+
+  SAM_LOG(DEBUG) << "OrderedHashTable::FillWithUnique insert " << num_input << " items, now " << _offset << " in total"; 
 }
 
 } // namespace cuda
