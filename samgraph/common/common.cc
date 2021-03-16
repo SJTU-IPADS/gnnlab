@@ -65,18 +65,17 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
         void *d_data;
         CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMalloc(&d_data, size));
-        SAM_LOG(DEBUG) << "FromMmap: cuda malloc " << toReadableSize(size);
+        SAM_LOG(DEBUG) << "FromMmap: " << name << " cuda malloc " << toReadableSize(size);
         if (stream) {
             CUDA_CALL(cudaMemcpyAsync(d_data, data, size, cudaMemcpyHostToDevice, stream));
             CUDA_CALL(cudaStreamSynchronize(stream));
-            CUDA_CALL(cudaGetLastError());
         } else {
             CUDA_CALL(cudaMemcpy(d_data, data, size, cudaMemcpyHostToDevice));
         }
         munmap(data, size);
         data = d_data;
     } else if (device == CPU_DEVICE_ID){
-        SAM_LOG(DEBUG) << "FromMmap: cpu malloc " << toReadableSize(size);
+        SAM_LOG(DEBUG) << "FromMmap: " << name << " cpu malloc " << toReadableSize(size);
         void *new_data = malloc(size);
         memcpy(new_data, data, size);
         munmap(data, size);
@@ -96,6 +95,7 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
 
 std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, int device, std::string name) {
     auto tensor = std::make_shared<Tensor>();
+    SAM_CHECK_GT(dims.size(), 0);
     size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
     void *data;
@@ -105,7 +105,7 @@ std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, 
         SAM_LOG(DEBUG) << "Empty: " << name << " cuda " << device << " malloc " << toReadableSize(size) << " with addr " << data;
     } else if (device == CPU_DEVICE_ID) {
         data = malloc(size);
-        SAM_LOG(DEBUG) << "Empty: cpu malloc " << toReadableSize(size) << " with addr " << data;
+        SAM_LOG(DEBUG) << "Empty: " << name << " cpu malloc " << toReadableSize(size) << " with addr " << data;
     } else {
         SAM_CHECK(0) << "Unvalid device ID";
     }
@@ -119,38 +119,42 @@ std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, 
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::CreateView(std::shared_ptr<Tensor> src, size_t offset, std::vector<size_t> dims) {
+std::shared_ptr<Tensor> Tensor::CreateView1D(std::shared_ptr<Tensor> src, size_t item_offset, std::vector<size_t> dims) {
     SAM_CHECK(src && src->defined());
+    SAM_CHECK_GT(dims.size(), 0);
     auto tensor = std::make_shared<Tensor>();
 
     tensor->_dtype = src->_dtype;
     tensor->_dims = dims;
     tensor->_size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src->_dtype);
-    tensor->_offset = offset + src->_offset;
+    tensor->_offset = src->_offset + 
+                      item_offset * std::accumulate(dims.begin() + 1, dims.end(), 1ul, std::multiplies<size_t>())  * getDataTypeLength(src ->_dtype);
     tensor->_container = src->_container;
 
-    SAM_CHECK_LE(offset + tensor->_size, src->_size);
+    SAM_CHECK_LE(item_offset + tensor->_size, src->_size);
 
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t offset,
+std::shared_ptr<Tensor> Tensor::CreateCopy1D(std::shared_ptr<Tensor> src, size_t item_offset,
                                          std::vector<size_t> dims, std::string name,
                                          cudaStream_t stream) {
     SAM_CHECK(src && src->defined());
+    SAM_CHECK_GT(dims.size(), 0);
     auto tensor = std::make_shared<Tensor>();
     size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src ->_dtype);
 
     tensor->_dtype = src->_dtype;
     tensor->_dims = dims;
     tensor->_size = size;
-    tensor->_offset = offset;
-
-    SAM_CHECK_LE(offset + size, src->_size);
+    tensor->_offset = 0;
+    
+    size_t copy_offset = item_offset * std::accumulate(dims.begin() + 1, dims.end(), 1ul, std::multiplies<size_t>())  * getDataTypeLength(src ->_dtype);
+    SAM_CHECK_LE(copy_offset + size, src->_size);
 
     auto src_container = src->_container;
     auto device = src->device();
-    auto src_data = src->data();
+    auto src_data = static_cast<const void *>((static_cast<char *>(src->mutable_data()) + copy_offset));
     void *data;
     if (device > CPU_DEVICE_ID) {
         CUDA_CALL(cudaSetDevice(device));
@@ -158,16 +162,15 @@ std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t off
         if (stream) {
             CUDA_CALL(cudaMemcpyAsync(data, src_data, size, cudaMemcpyDeviceToDevice, stream));
             CUDA_CALL(cudaStreamSynchronize(stream));
-            CUDA_CALL(cudaGetLastError());
         } else {
             CUDA_CALL(cudaMemcpy(data, src_data, size, cudaMemcpyDeviceToDevice));
         }
-        SAM_LOG(DEBUG) << "DeepCopy: " << name << " cuda " << device << " malloc " << toReadableSize(size);
+        SAM_LOG(DEBUG) << "CreateCopy1D: " << name << " cuda " << device << " malloc " << toReadableSize(size);
     } else {
         data = malloc(tensor->_size);
         memcpy(data, src_data, size);
         device = CPU_DEVICE_ID;
-        SAM_LOG(DEBUG) << "DeepCopy: cpu malloc " << toReadableSize(size);
+        SAM_LOG(DEBUG) << "CreateCopy1D: " << name << " cpu malloc " << toReadableSize(size);
     }
 
     tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
@@ -188,16 +191,20 @@ std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector
     return tensor;
 }
 
-uint64_t encodeBatchKey(int epoch_idx, size_t batch_idx) {
-    return (epoch_idx << 31) + (batch_idx << 15);
+uint64_t encodeBatchKey(uint64_t epoch_idx, uint64_t batch_idx) {
+    return ((epoch_idx << Config::kEpochOffset) | (batch_idx << Config::kBatchOffset));
 }
 
-uint64_t encodeGraphID(uint64_t key, int layer_idx) {
-    return (key & Config::kBatchMask) + layer_idx;
+uint64_t encodeGraphID(uint64_t key, uint64_t graph_id) {
+    return (key & Config::kBatchKeyMask) | (graph_id & Config::kGraphKeyMask);
 }
 
-int decodeGraphID(uint64_t key) {
-    return key & 0xffff;
+uint64_t decodeBatchKey(uint64_t key) {
+    return key & Config::kBatchKeyMask;
+}
+
+uint64_t decodeGraphID(uint64_t key) {
+    return key & Config::kGraphKeyMask;
 }
 
 size_t getDataTypeLength(int dtype) {

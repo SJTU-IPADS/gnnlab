@@ -38,8 +38,10 @@ class Config {
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
 
-  static constexpr uint64_t kBatchMask = ~0xffff;
-  static constexpr uint64_t kGraphMask = 0xffff;
+  static constexpr uint8_t kEpochOffset = 32;
+  static constexpr uint8_t kBatchOffset = 16;
+  static constexpr uint64_t kBatchKeyMask = ~0xffff;
+  static constexpr uint64_t kGraphKeyMask = 0xffff;
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;

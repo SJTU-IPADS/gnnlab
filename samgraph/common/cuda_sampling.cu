@@ -181,7 +181,6 @@ void DeviceSample(const IdType *indptr, const IdType *indices, const IdType *inp
         <<<grid, block, 0, stream>>>(indptr, indices, input, num_input,
                                      fanout, tmp_src, tmp_dst, seed);
     CUDA_CALL(cudaStreamSynchronize(stream));
-    CUDA_CALL(cudaGetLastError());
 
     size_t *item_prefix;
     CUDA_CALL(cudaMalloc(&item_prefix, sizeof(size_t) * (num_input + 1)));
@@ -190,30 +189,25 @@ void DeviceSample(const IdType *indptr, const IdType *indices, const IdType *inp
     count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, item_prefix, num_input, fanout);
     CUDA_CALL(cudaStreamSynchronize(stream));
-    CUDA_CALL(cudaGetLastError());
 
     size_t workspace_bytes;
     CUDA_CALL(cub::DeviceScan::ExclusiveSum(
         nullptr, workspace_bytes, static_cast<size_t *>(nullptr),
         static_cast<size_t *>(nullptr), grid.x + 1, stream));
     CUDA_CALL(cudaStreamSynchronize(stream));
-    CUDA_CALL(cudaGetLastError());
 
     void *workspace;
     CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
     CUDA_CALL(cub::DeviceScan::ExclusiveSum(
         workspace, workspace_bytes, item_prefix, item_prefix, grid.x + 1, stream));
     CUDA_CALL(cudaStreamSynchronize(stream));
-    CUDA_CALL(cudaGetLastError());
     SAM_LOG(DEBUG) << "DeviceSample: cuda workspace malloc " << toReadableSize(workspace_bytes);
 
     compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, tmp_dst, out_src, out_dst, num_out,
                                      item_prefix, num_input, fanout);
     CUDA_CALL(cudaStreamSynchronize(stream));
-    CUDA_CALL(cudaGetLastError());
 
-    CUDA_CALL(cudaStreamSynchronize(stream));
     CUDA_CALL(cudaFree(workspace));
     CUDA_CALL(cudaFree(item_prefix));
     CUDA_CALL(cudaFree(tmp_src));

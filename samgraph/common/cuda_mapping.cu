@@ -77,7 +77,6 @@ void MapEdges(const IdType * const global_src,
         num_edges,
         table);
     CUDA_CALL(cudaStreamSynchronize(stream));
-    CUDA_CALL(cudaGetLastError());
 }
 
 } // namespace cuda

@@ -13,7 +13,7 @@ class RandomPermutation {
  public:
   RandomPermutation(std::shared_ptr<IdTensor> input, int num_epoch,
                     size_t batch_size, bool drop_last);
-  std::shared_ptr<IdTensor> GetBatch();
+  std::shared_ptr<IdTensor> GetBatch(cudaStream_t stream = nullptr);
 
   inline int cur_epoch() { return _cur_epoch; }
   inline int num_epoch() { return _num_epoch; }
@@ -33,7 +33,7 @@ class RandomPermutation {
   size_t _num_batch;
   size_t _cur_batch_idx;
 
-  void Permutate();
+  void RePermutate();
 };
 
 } // namespace common

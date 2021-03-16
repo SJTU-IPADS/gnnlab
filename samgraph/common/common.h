@@ -43,7 +43,7 @@ class DataContainer {
   void *_data;
   size_t _size;
   int _device;
-  bool _is_consumed;
+  volatile bool _is_consumed;
 
   std::string _name;
 
@@ -60,10 +60,10 @@ class Tensor {
   // Create an uninitialized tensor data
   static std::shared_ptr<Tensor> Empty(DataType dtype, std::vector<size_t> dims, int device, std::string name);
   // Create view from a tensor, they share the same storage
-  static std::shared_ptr<Tensor> CreateView(std::shared_ptr<Tensor> tensor, size_t offset,
+  static std::shared_ptr<Tensor> CreateView1D(std::shared_ptr<Tensor> tensor, size_t item_offset,
                                             std::vector<size_t> dims);
   // Deep slice a tensor
-  static std::shared_ptr<Tensor> DeepCopy(std::shared_ptr<Tensor> tensor, size_t offset,
+  static std::shared_ptr<Tensor> CreateCopy1D(std::shared_ptr<Tensor> tensor, size_t item_offset,
                                        std::vector<size_t> dims, std::string name, cudaStream_t stream = nullptr);
   // From blob
   static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
@@ -159,9 +159,10 @@ struct TaskEntry {
 
 using GraphBatch = TaskEntry;
 
-uint64_t encodeBatchKey(int epoch_idx, size_t batch_idx);
-uint64_t encodeGraphID(uint64_t key, int graph_id);
-int decodeGraphID(uint64_t key);
+uint64_t encodeBatchKey(uint64_t epoch_idx, uint64_t batch_idx);
+uint64_t decodeBatchKey(uint64_t key);
+uint64_t encodeGraphID(uint64_t key, uint64_t graph_id);
+uint64_t decodeGraphID(uint64_t key);
 
 size_t getDataTypeLength(int dtype);
 

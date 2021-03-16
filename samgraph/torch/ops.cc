@@ -36,13 +36,23 @@ namespace torch {
 
 ::torch::Tensor Csrmm(uint64_t key, ::torch::Tensor input) {
     auto graph_id = common::decodeGraphID(key);
+    auto batch_key = common::decodeBatchKey(key);
 
     auto graph_batch = common::SamGraphEngine::GetGraphBatch();
     auto train_graph = graph_batch->output_graph.at(graph_id);
     auto device = common::SamGraphEngine::GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
-    SAM_CHECK_EQ(key, graph_batch->key);
+    {
+        int m = train_graph->num_row; // Number of row in matrix
+        int n = input.sizes()[1]; // Number of columns in input
+        return ::torch::empty({(long long)m,
+                               (long long)n},
+                                ::torch::TensorOptions().dtype(::torch::kF32)
+                                                    .device(device_str));
+    }
+
+    SAM_CHECK_EQ(batch_key, graph_batch->key);
 
     cusparseHandle_t handle;
     cusparseMatDescr_t descr_a;
@@ -111,13 +121,23 @@ namespace torch {
 
 ::torch::Tensor CsrmmTranspose(uint64_t key, ::torch::Tensor input) {
     auto graph_id = common::decodeGraphID(key);
+    auto batch_key = common::decodeBatchKey(key);
 
     auto graph_batch = common::SamGraphEngine::GetGraphBatch();
     auto train_graph = graph_batch->output_graph.at(graph_id);
     auto device = common::SamGraphEngine::GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
-    SAM_CHECK_EQ(key, graph_batch->key);
+    // {
+    //     int n = input.sizes()[1]; // Number of columns in input
+    //     int k = train_graph->num_column; // Number of column in matrix
+    //     return ::torch::empty({(long long)k,
+    //                            (long long)n},
+    //                             ::torch::TensorOptions().dtype(::torch::kF32)
+    //                                                 .device(device_str));
+    // }
+
+    SAM_CHECK_EQ(batch_key, graph_batch->key);
 
     cusparseHandle_t handle;
     cusparseMatDescr_t descr_a;
@@ -198,16 +218,11 @@ namespace torch {
     ::torch::Tensor tensor = ::torch::from_blob(
         feat->mutable_data(),
         {(long long)feat->shape()[0], (long long)feat->shape()[1]},
-        [key] (void *data) {
-            SAM_LOG(DEBUG) << "Torch feature tensor with key " << key << " has been freed";
-            CUDA_CALL(cudaFree(data));
-        },
+        [feat] (void *data) {},
         ::torch::TensorOptions().dtype(::torch::kF32)
                                 .device(device_str)
     );
 
-    feat->ConsumeData();
-    SAM_LOG(DEBUG) << "GetGraphFeature: Consume data";
     return tensor;
 }
 
@@ -217,38 +232,18 @@ namespace torch {
     auto device = common::SamGraphEngine::GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
+    cudaStream_t stream = *common::SamGraphEngine::GetTrainStream();
+    common::cuda::AssertVal((int64_t *)label->data(), label->shape()[0], (int64_t)0, (int64_t)172, stream);
+
     SAM_CHECK_EQ(key, graph_batch->key);
     ::torch::Tensor tensor = ::torch::from_blob(
         label->mutable_data(),
         {(long long)label->shape()[0]},
-        [key] (void *data) {
-            SAM_LOG(DEBUG) << "Torch label tensor with key " << key << " has been freed";
-            CUDA_CALL(cudaFree(data));
-        },
+        [label] (void *data) {},
         ::torch::TensorOptions().dtype(::torch::kI64)
                                 .device(device_str)
     );
 
-    label->ConsumeData();
-    SAM_LOG(DEBUG) << "GetGraphLabel: label ConsumeData";
-    return tensor;
-}
-
-::torch::Tensor CudaTensor() {
-    void *ptr;
-    CUDA_CALL(cudaSetDevice(0));
-    CUDA_CALL(cudaMalloc(&ptr, 20ul));
-    SAM_LOG(DEBUG) << "CudaTensor: original ptr addr " << ptr;
-    ::torch::Tensor tensor = ::torch::from_blob(
-        ptr,
-        {5ll},
-        [](void *data) {
-            CUDA_CALL(cudaFree(data));
-        },
-        ::torch::TensorOptions().dtype(::torch::kF32)
-                                .device("cuda:0")
-    );
-    SAM_LOG(DEBUG) << "CudaTensor: torchTensor ptr addr " << tensor.data_ptr();
     return tensor;
 }
 
@@ -257,7 +252,6 @@ PYBIND11_MODULE(c_lib, m) {
     m.def("samgraph_torch_get_graph_label", &GetGraphLabel);
     m.def("samgraph_torch_csrmm", &Csrmm);
     m.def("samgraph_torch_csrmm_tranpose", &CsrmmTranspose);
-    m.def("samgraph_torch_cuda_tensor", &CudaTensor);
 }
 
 } // namespace torch
