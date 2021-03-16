@@ -27,69 +27,39 @@ enum DataType {
 #define CPU_DEVICE_ID (-1)
 #define CPU_DEVICE_MMAP_ID (-2)
 
-class Tensor;
-
-// Data Container is used to manage 
-// the underlying data storage
-class DataContainer {
- public:
-  DataContainer(void *data, size_t size, int device, std::string name)
-    : _data(data), _size(size), _device(device), _is_consumed(false), _name(name) {}
-  // Destroy the tensor when the _data is not null
-  ~DataContainer();
-  void Consume();
-
- private:
-  void *_data;
-  size_t _size;
-  int _device;
-  volatile bool _is_consumed;
-
-  std::string _name;
-
-  friend class Tensor;
-};
-
 class Tensor {
  public:
+  Tensor();
+  ~Tensor();
   // Create a tensor from the file and take the
   // ownership of the input data
   static std::shared_ptr<Tensor> FromMmap(std::string filepath, DataType dtype,
-                                          std::vector<size_t> dims, int device,
+                                          std::vector<size_t> shape, int device,
                                           std::string name, cudaStream_t stream = nullptr);
   // Create an uninitialized tensor data
-  static std::shared_ptr<Tensor> Empty(DataType dtype, std::vector<size_t> dims, int device, std::string name);
-  // Create view from a tensor, they share the same storage
-  static std::shared_ptr<Tensor> CreateView1D(std::shared_ptr<Tensor> tensor, size_t item_offset,
-                                            std::vector<size_t> dims);
+  static std::shared_ptr<Tensor> Empty(DataType dtype, std::vector<size_t> shape, int device, std::string name);
   // Deep slice a tensor
   static std::shared_ptr<Tensor> CreateCopy1D(std::shared_ptr<Tensor> tensor, size_t item_offset,
-                                       std::vector<size_t> dims, std::string name, cudaStream_t stream = nullptr);
+                                       std::vector<size_t> shape, std::string name, cudaStream_t stream = nullptr);
   // From blob
   static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
-                                          std::vector<size_t> dims, int device, std::string name);
-  // Consume the tensor, and we don't have to free the data.
-  void ConsumeData() { _container->Consume(); }
+                                          std::vector<size_t> shape, int device, std::string name);
 
-  bool defined() const { return _container && _container->_data; }
+  bool defined() const { return _data; }
   DataType dtype() const { return _dtype; }
-  const std::vector<size_t> &shape() const { return _dims; }
-  const void* data() const { return static_cast<char*>(_container->_data) + _offset; }
-  void* mutable_data() { return static_cast<char *>(_container->_data) + _offset; }
+  const std::vector<size_t> &shape() const { return _shape; }
+  const void* data() const { return _data; }
+  void* mutable_data() { return _data; }
   size_t size() const { return _size; }
-  int device() const { return _container->_device; }
+  int device() const { return _device; }
 
  private:
-  // Data container
-  std::shared_ptr<DataContainer> _container;
-  // Start offset
-  size_t _offset;
-  // Data type
+  void *_data;
+  int _device;
   DataType _dtype;
-  // Size of tensor in bytes
   size_t _size;
-  // Tensor dimensions
-  std::vector<size_t> _dims;
+  std::vector<size_t> _shape;
+  std::string _name;
 };
 
 // IdTensors only have one dimesion

@@ -17,9 +17,11 @@
 namespace samgraph {
 namespace common {
 
-DataContainer::~DataContainer() {
-    if (_data == nullptr) {
-        SAM_LOG(DEBUG) << "Tensor " << _name << " has been consumed, but the container now is freed";
+Tensor::Tensor()
+    : _data(nullptr), _device(CPU_DEVICE_ID) {}
+
+Tensor::~Tensor() {
+    if (!_data) {
         return;
     }
 
@@ -27,28 +29,20 @@ DataContainer::~DataContainer() {
     switch(_device) {
         case CPU_DEVICE_ID:
             free(_data);
-            return;
+            break;
         case CPU_DEVICE_MMAP_ID:
             munmap(_data, _size);
-            return;
+            break;
         default:
             CUDA_CALL(cudaFree(_data));
-            return;
     }
 }
 
-void DataContainer::Consume() {
-    SAM_CHECK_GE(_device, CPU_DEVICE_ID);
-    SAM_CHECK(!_is_consumed);
-    _is_consumed = true;
-    _data = nullptr;
-}
-
 std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype, 
-                                         std::vector<size_t> dims, int device,
+                                         std::vector<size_t> shape, int device,
                                          std::string name, cudaStream_t stream) {
     auto tensor = std::make_shared<Tensor>();
-    size_t expected_size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
+    size_t expected_size = std::accumulate(shape.begin(), shape.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
     struct stat st;
     stat(filepath.c_str(), &st);
@@ -86,17 +80,18 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
 
     tensor->_dtype = dtype;
     tensor->_size = size;
-    tensor->_dims = dims;
-    tensor->_offset = 0;
-    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
+    tensor->_shape = shape;
+    tensor->_data = data;
+    tensor->_device = device;
+    tensor->_name = name;
 
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, int device, std::string name) {
+std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> shape, int device, std::string name) {
     auto tensor = std::make_shared<Tensor>();
-    SAM_CHECK_GT(dims.size(), 0);
-    size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
+    SAM_CHECK_GT(shape.size(), 0);
+    size_t size = std::accumulate(shape.begin(), shape.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
     void *data;
     if (device > CPU_DEVICE_ID) {
@@ -111,50 +106,32 @@ std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, 
     }
 
     tensor->_dtype = dtype;
-    tensor->_dims = dims;
+    tensor->_shape = shape;
     tensor->_size = size;
-    tensor->_offset = 0;
-    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
+    tensor->_data = data;
+    tensor->_device = device;
+    tensor->_name = name;
     
-    return tensor;
-}
-
-std::shared_ptr<Tensor> Tensor::CreateView1D(std::shared_ptr<Tensor> src, size_t item_offset, std::vector<size_t> dims) {
-    SAM_CHECK(src && src->defined());
-    SAM_CHECK_GT(dims.size(), 0);
-    auto tensor = std::make_shared<Tensor>();
-
-    tensor->_dtype = src->_dtype;
-    tensor->_dims = dims;
-    tensor->_size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src->_dtype);
-    tensor->_offset = src->_offset + 
-                      item_offset * std::accumulate(dims.begin() + 1, dims.end(), 1ul, std::multiplies<size_t>())  * getDataTypeLength(src ->_dtype);
-    tensor->_container = src->_container;
-
-    SAM_CHECK_LE(item_offset + tensor->_size, src->_size);
-
     return tensor;
 }
 
 std::shared_ptr<Tensor> Tensor::CreateCopy1D(std::shared_ptr<Tensor> src, size_t item_offset,
-                                         std::vector<size_t> dims, std::string name,
+                                         std::vector<size_t> shape, std::string name,
                                          cudaStream_t stream) {
     SAM_CHECK(src && src->defined());
-    SAM_CHECK_GT(dims.size(), 0);
+    SAM_CHECK_GT(shape.size(), 0);
     auto tensor = std::make_shared<Tensor>();
-    size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src ->_dtype);
+    size_t size = std::accumulate(shape.begin(), shape.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src ->_dtype);
 
     tensor->_dtype = src->_dtype;
-    tensor->_dims = dims;
+    tensor->_shape = shape;
     tensor->_size = size;
-    tensor->_offset = 0;
     
-    size_t copy_offset = item_offset * std::accumulate(dims.begin() + 1, dims.end(), 1ul, std::multiplies<size_t>())  * getDataTypeLength(src ->_dtype);
+    size_t copy_offset = item_offset * std::accumulate(shape.begin() + 1, shape.end(), 1ul, std::multiplies<size_t>())  * getDataTypeLength(src ->_dtype);
     SAM_CHECK_LE(copy_offset + size, src->_size);
 
-    auto src_container = src->_container;
-    auto device = src->device();
-    auto src_data = static_cast<const void *>((static_cast<char *>(src->mutable_data()) + copy_offset));
+    auto device = src->_device;
+    auto src_data = static_cast<const void *>((static_cast<char *>(src->_data) + copy_offset));
     void *data;
     if (device > CPU_DEVICE_ID) {
         CUDA_CALL(cudaSetDevice(device));
@@ -173,20 +150,23 @@ std::shared_ptr<Tensor> Tensor::CreateCopy1D(std::shared_ptr<Tensor> src, size_t
         SAM_LOG(DEBUG) << "CreateCopy1D: " << name << " cpu malloc " << toReadableSize(size);
     }
 
-    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
+    tensor->_data = data;
+    tensor->_device = device;
+    tensor->_name = name;
 
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector<size_t> dims, int device, std::string name) {
+std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector<size_t> shape, int device, std::string name) {
     auto tensor = std::make_shared<Tensor>();
-    size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
+    size_t size = std::accumulate(shape.begin(), shape.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
     tensor->_dtype = dtype;
-    tensor->_dims = dims;
+    tensor->_shape = shape;
     tensor->_size = size;
-    tensor->_offset = 0;
-    tensor->_container = std::make_shared<DataContainer>(data, size, device, name);
+    tensor->_data = data;
+    tensor->_device = device;
+    tensor->_name = name;
 
     return tensor;
 }
