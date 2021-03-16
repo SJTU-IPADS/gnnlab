@@ -62,6 +62,7 @@ uint64_t samgraph_get_next_batch(int epoch, int step) {
     SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
 
     uint64_t key = encodeBatchKey(epoch, step);
+    SAM_LOG(DEBUG) << "samgraph_get_next_batch encodeKey with epoch " << epoch << " step " << step << " and key " << key;
     auto graph = SamGraphEngine::GetGraphPool()->GetGraphBatch(key);
 
     SAM_LOG(DEBUG) << "Get next batch with key " << key;

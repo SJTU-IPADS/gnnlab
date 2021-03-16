@@ -286,6 +286,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   generate_hashmap_duplicates<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, _version);
+  CUDA_CALL(cudaStreamSynchronize(stream));
   CUDA_CALL(cudaGetLastError());
 
   IdType *item_prefix;
@@ -294,18 +295,24 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   count_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix, _version);
+  CUDA_CALL(cudaStreamSynchronize(stream));
   CUDA_CALL(cudaGetLastError());
 
   size_t workspace_bytes;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       nullptr, workspace_bytes, static_cast<IdType *>(nullptr),
       static_cast<IdType *>(nullptr), grid.x + 1, stream));
+  CUDA_CALL(cudaStreamSynchronize(stream));
+  CUDA_CALL(cudaGetLastError());
+
   void *workspace;
   CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
   SAM_LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc " << toReadableSize(sizeof(IdType) * (num_input + 1));
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       workspace, workspace_bytes, item_prefix, item_prefix, grid.x + 1, stream));
+  CUDA_CALL(cudaStreamSynchronize(stream));
+  CUDA_CALL(cudaGetLastError());
 
   size_t *d_num_unique;
   CUDA_CALL(cudaMalloc(&d_num_unique, sizeof(size_t)));
@@ -313,6 +320,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   compact_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize><<<grid, block, 0, stream>>>(
       input, num_input, device_table, item_prefix, d_num_unique, _offset, _version);
+  CUDA_CALL(cudaStreamSynchronize(stream));
   CUDA_CALL(cudaGetLastError());
 
   CUDA_CALL(cudaMemcpyAsync(num_unique, d_num_unique, sizeof(size_t), cudaMemcpyDeviceToHost, stream));
@@ -345,6 +353,7 @@ void OrderedHashTable::FillWithUnique(const IdType *const input,
 
   generate_hashmap_unique<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, _offset, _version);
+  CUDA_CALL(cudaStreamSynchronize(stream));
   CUDA_CALL(cudaGetLastError());
 
   _version++;

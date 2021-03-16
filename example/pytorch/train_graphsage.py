@@ -60,27 +60,29 @@ def run(args):
 
     sam.start()
 
-    # for epoch in range(num_epoch):
+    for epoch in range(num_epoch):
 
-    #     tic_step = time.time()
-    #     for step in range(num_step):
-    #         graph_batch = sam.get_next_batch(num_graph)
-    #         batch_input = sam.get_graph_feat(graph_batch.key)
-    #         batch_label = sam.get_graph_label(graph_batch.key)
+        tic_step = time.time()
+        for step in range(num_step):
+            graph_batch = sam.get_next_batch(epoch, step, num_graph)
+            batch_input = sam.get_graph_feat(graph_batch.key)
+            batch_label = sam.get_graph_label(graph_batch.key)
 
-    #         batch_pred = model(graph_batch, batch_input)
-    #         loss = loss_fcn(batch_pred, batch_label)
-    #         optimizer.zero_grad()
-    #         loss.backward()
-    #         optimizer.step()
+            batch_pred = model(graph_batch, batch_input)
+            loss = loss_fcn(batch_pred, batch_label)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-    #         print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Time {:.4f} secs'.format(
-    #             epoch, step, loss.item(), time.time() - tic_step
-    #         ))
+            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Time {:.4f} secs'.format(
+                epoch, step, loss.item(), time.time() - tic_step
+            ))
 
-    #         tic_step = time.time()
+            return
+
+            tic_step = time.time()
     
-    sam.shutdown()
+    # sam.shutdown()
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
@@ -91,8 +93,8 @@ if __name__ == '__main__':
     argparser.add_argument('--num-epoch', type=int, default=20)
     argparser.add_argument('--num-hidden', type=int, default=256)
     argparser.add_argument('--num-layer', type=int, default=3)
-    argparser.add_argument('--fan-out', type=str, default='15,10,5')
-    argparser.add_argument('--batch-size', type=int, default=8192)
+    argparser.add_argument('--fan-out', type=str, default='5')
+    argparser.add_argument('--batch-size', type=int, default=30)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
 

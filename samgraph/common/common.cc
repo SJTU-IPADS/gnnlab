@@ -19,6 +19,7 @@ namespace common {
 
 DataContainer::~DataContainer() {
     if (_data == nullptr) {
+        SAM_LOG(DEBUG) << "Tensor " << _name << " has been consumed, but the container now is freed";
         return;
     }
 
@@ -44,7 +45,8 @@ void DataContainer::Consume() {
 }
 
 std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype, 
-                                         std::vector<size_t> dims, int device, std::string name) {
+                                         std::vector<size_t> dims, int device,
+                                         std::string name, cudaStream_t stream) {
     auto tensor = std::make_shared<Tensor>();
     size_t expected_size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(dtype);
     
@@ -64,7 +66,13 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
         CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMalloc(&d_data, size));
         SAM_LOG(DEBUG) << "FromMmap: cuda malloc " << toReadableSize(size);
-        CUDA_CALL(cudaMemcpy(d_data, data, size, cudaMemcpyHostToDevice));
+        if (stream) {
+            CUDA_CALL(cudaMemcpyAsync(d_data, data, size, cudaMemcpyHostToDevice, stream));
+            CUDA_CALL(cudaStreamSynchronize(stream));
+            CUDA_CALL(cudaGetLastError());
+        } else {
+            CUDA_CALL(cudaMemcpy(d_data, data, size, cudaMemcpyHostToDevice));
+        }
         munmap(data, size);
         data = d_data;
     } else if (device == CPU_DEVICE_ID){
@@ -94,10 +102,10 @@ std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> dims, 
     if (device > CPU_DEVICE_ID) {
         CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMalloc(&data, size));
-        SAM_LOG(DEBUG) << "Empty: cuda malloc " << toReadableSize(size);
+        SAM_LOG(DEBUG) << "Empty: " << name << " cuda " << device << " malloc " << toReadableSize(size) << " with addr " << data;
     } else if (device == CPU_DEVICE_ID) {
         data = malloc(size);
-        SAM_LOG(DEBUG) << "Empty: cpu malloc " << toReadableSize(size);
+        SAM_LOG(DEBUG) << "Empty: cpu malloc " << toReadableSize(size) << " with addr " << data;
     } else {
         SAM_CHECK(0) << "Unvalid device ID";
     }
@@ -126,7 +134,9 @@ std::shared_ptr<Tensor> Tensor::CreateView(std::shared_ptr<Tensor> src, size_t o
     return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t offset, std::vector<size_t> dims, std::string name) {
+std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t offset,
+                                         std::vector<size_t> dims, std::string name,
+                                         cudaStream_t stream) {
     SAM_CHECK(src && src->defined());
     auto tensor = std::make_shared<Tensor>();
     size_t size = std::accumulate(dims.begin(), dims.end(), 1ul, std::multiplies<size_t>()) * getDataTypeLength(src ->_dtype);
@@ -145,8 +155,14 @@ std::shared_ptr<Tensor> Tensor::DeepCopy(std::shared_ptr<Tensor> src, size_t off
     if (device > CPU_DEVICE_ID) {
         CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMalloc(&data, size));
-        CUDA_CALL(cudaMemcpy(data, src_data, size, cudaMemcpyDeviceToDevice));
-        SAM_LOG(DEBUG) << "DeepCopy: cuda malloc " << toReadableSize(size);
+        if (stream) {
+            CUDA_CALL(cudaMemcpyAsync(data, src_data, size, cudaMemcpyDeviceToDevice, stream));
+            CUDA_CALL(cudaStreamSynchronize(stream));
+            CUDA_CALL(cudaGetLastError());
+        } else {
+            CUDA_CALL(cudaMemcpy(data, src_data, size, cudaMemcpyDeviceToDevice));
+        }
+        SAM_LOG(DEBUG) << "DeepCopy: " << name << " cuda " << device << " malloc " << toReadableSize(size);
     } else {
         data = malloc(tensor->_size);
         memcpy(data, src_data, size);
@@ -203,14 +219,6 @@ size_t getDataTypeLength(int dtype) {
   return 4ul;
 }
 
-void cudaDataDeleter(void *data) {
-    CUDA_CALL(cudaFree(data));
-}
-
-void cpuDataDeleter(void *data) {
-    free(data);
-}
-
 std::string toReadableSize(size_t size_in_bytes) {
     char buf[Config::kBufferSize];
     if (size_in_bytes > Config::kGigabytes) {
@@ -231,7 +239,6 @@ std::string toReadableSize(size_t size_in_bytes) {
         return std::string(buf);
     }
 }
-
 
 } // namespace common
 } // namespace samgraph

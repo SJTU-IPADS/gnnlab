@@ -75,17 +75,22 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     _id_copy_device2host_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
     _feat_copy_host2device_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
 
-    CUDA_CALL(cudaStreamCreateWithFlags(_train_stream, cudaStreamNonBlocking));
+    CUDA_CALL(cudaSetDevice(_sample_device));
     CUDA_CALL(cudaStreamCreateWithFlags(_sample_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_id_copy_host2device_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_graph_copy_device2device_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_id_copy_device2host_stream, cudaStreamNonBlocking));
+
+    CUDA_CALL(cudaSetDevice(_train_device));
+    CUDA_CALL(cudaStreamCreateWithFlags(_train_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_feat_copy_host2device_stream, cudaStreamNonBlocking));
 
     CUDA_CALL(cudaStreamSynchronize(*_sample_stream));
     CUDA_CALL(cudaStreamSynchronize(*_id_copy_host2device_stream));
     CUDA_CALL(cudaStreamSynchronize(*_graph_copy_device2device_stream));
     CUDA_CALL(cudaStreamSynchronize(*_id_copy_device2host_stream));
+
+    CUDA_CALL(cudaStreamSynchronize(*_train_stream));
     CUDA_CALL(cudaStreamSynchronize(*_feat_copy_host2device_stream));
 
     _submit_table = new ReadyTable(2, "SUBMIT");
@@ -154,37 +159,43 @@ void SamGraphEngine::Shutdown() {
 
     delete _dataset;
 
-    if (_train_stream) {
-        CUDA_CALL(cudaStreamDestroy(*_train_stream));
-        free(_train_stream);
-        _train_stream = nullptr;
-    }
-
     if (_sample_stream) {
+        CUDA_CALL(cudaStreamSynchronize(*_sample_stream));
         CUDA_CALL(cudaStreamDestroy(*_sample_stream));
         free(_sample_stream);
         _sample_stream = nullptr;
     }
 
     if (_id_copy_host2device_stream) {
+        CUDA_CALL(cudaStreamSynchronize(*_id_copy_host2device_stream));
         CUDA_CALL(cudaStreamDestroy(*_id_copy_host2device_stream));
         free(_id_copy_host2device_stream);
         _id_copy_host2device_stream = nullptr;
     }
 
     if (_graph_copy_device2device_stream) {
+        CUDA_CALL(cudaStreamSynchronize(*_graph_copy_device2device_stream));
         CUDA_CALL(cudaStreamDestroy(*_graph_copy_device2device_stream));
         free(_graph_copy_device2device_stream);
         _graph_copy_device2device_stream = nullptr;
     }
 
     if (_id_copy_device2host_stream) {
+        CUDA_CALL(cudaStreamSynchronize(*_id_copy_device2host_stream));
         CUDA_CALL(cudaStreamDestroy(*_id_copy_device2host_stream));
         free(_id_copy_device2host_stream);
         _id_copy_device2host_stream = nullptr;
     }
 
+    if (_train_stream) {
+        CUDA_CALL(cudaStreamSynchronize(*_train_stream));
+        CUDA_CALL(cudaStreamDestroy(*_train_stream));
+        free(_train_stream);
+        _train_stream = nullptr;
+    }
+
     if (_feat_copy_host2device_stream) {
+        CUDA_CALL(cudaStreamSynchronize(*_feat_copy_host2device_stream));
         CUDA_CALL(cudaStreamDestroy(*_feat_copy_host2device_stream));
         free(_feat_copy_host2device_stream);
         _feat_copy_host2device_stream = nullptr;
@@ -254,7 +265,7 @@ void SamGraphEngine::LoadGraphDataset() {
                                           {meta[Config::kMetaNumEdge]}, _sample_device, "dataset.indices");
     _dataset->feat      = Tensor::FromMmap(_dataset_path + Config::kFeatFile, DataType::kSamF32,
                                           {meta[Config::kMetaNumNode], meta[Config::kMetaFeatDim]}, CPU_DEVICE_MMAP_ID, "dataset.feat");
-    _dataset->label     = Tensor::FromMmap(_dataset_path + Config::kLabelFile, DataType::kSamI32,
+    _dataset->label     = Tensor::FromMmap(_dataset_path + Config::kLabelFile, DataType::kSamI64,
                                           {meta[Config::kMetaNumNode]}, CPU_DEVICE_MMAP_ID, "dataset.label");
     _dataset->train_set = Tensor::FromMmap(_dataset_path + Config::kTrainSetFile, DataType::kSamI32,
                                           {meta[Config::kMetaNumTrainSet]}, CPU_DEVICE_ID, "dataset.train_set");

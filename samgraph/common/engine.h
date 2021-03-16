@@ -45,11 +45,12 @@ class SamGraphEngine {
   static int GetSampleDevice() { return _sample_device; }
   static int GetTrainDevice() { return _train_device; }
 
-  static cudaStream_t* GetTrainStream() { return _train_stream; }
   static cudaStream_t* GetSampleStream() { return _sample_stream; }
   static cudaStream_t* GetIdCopyHost2DeviceStream() { return _id_copy_host2device_stream; }
   static cudaStream_t* GetGraphCopyDevice2DeviceStream() { return _graph_copy_device2device_stream; }
   static cudaStream_t* GetIdCopyDevice2HostStream() { return _id_copy_device2host_stream; }
+  
+  static cudaStream_t* GetTrainStream() { return _train_stream; }
   static cudaStream_t* GetFeatureCopyHost2DeviceStream() {  return _feat_copy_host2device_stream; }
 
   static GraphPool* GetGraphPool() { return _graph_pool; }
@@ -85,12 +86,13 @@ class SamGraphEngine {
   // Task queue
   static SamGraphTaskQueue* _queues[QueueNum];
   static std::vector<std::thread*> _threads;
-  // Cuda streams
-  static cudaStream_t* _train_stream;
+  // Cuda streams on sample device
   static cudaStream_t* _sample_stream;
   static cudaStream_t* _id_copy_host2device_stream;
   static cudaStream_t* _graph_copy_device2device_stream;
   static cudaStream_t* _id_copy_device2host_stream;
+  // Cuda streams on train device
+  static cudaStream_t* _train_stream;
   static cudaStream_t* _feat_copy_host2device_stream;
   // Random node batch genrator
   static RandomPermutation* _permutation;

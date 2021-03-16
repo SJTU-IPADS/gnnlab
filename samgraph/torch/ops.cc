@@ -56,6 +56,7 @@ namespace torch {
         auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device, "csrmm_val_" + std::to_string(key));
         common::cuda::Fill(reinterpret_cast<float*>(val->mutable_data()),
                            num_edge, 1.0f, stream);
+        train_graph->val = val;
     }
 
     ::torch::Tensor output = ::torch::empty({(long long)train_graph->num_row,
@@ -130,6 +131,7 @@ namespace torch {
         auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device, "csrmmsp_val_" + std::to_string(key));
         common::cuda::Fill(reinterpret_cast<float*>(val->mutable_data()),
                            num_edge, 1.0f, stream);
+        train_graph->val = val;
     }
 
     ::torch::Tensor output = ::torch::empty({(long long)train_graph->num_column,
@@ -185,21 +187,27 @@ namespace torch {
 
 ::torch::Tensor GetGraphFeature(uint64_t key) {
     auto graph_batch = common::SamGraphEngine::GetGraphBatch();
-    auto feat = graph_batch->output_feat;
+    auto feat = graph_batch->input_feat;
     auto device = common::SamGraphEngine::GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
     
     SAM_CHECK_EQ(key, graph_batch->key);
+    SAM_LOG(DEBUG) << "GetGraphFeature feat shape " << feat->shape().size() << " dim0: " << feat->shape()[0] << " dim1: " << feat->shape()[1]
+                   << "device_str " << device_str;
 
     ::torch::Tensor tensor = ::torch::from_blob(
         feat->mutable_data(),
         {(long long)feat->shape()[0], (long long)feat->shape()[1]},
-        common::cudaDataDeleter,
+        [key] (void *data) {
+            SAM_LOG(DEBUG) << "Torch feature tensor with key " << key << " has been freed";
+            CUDA_CALL(cudaFree(data));
+        },
         ::torch::TensorOptions().dtype(::torch::kF32)
                                 .device(device_str)
     );
 
     feat->ConsumeData();
+    SAM_LOG(DEBUG) << "GetGraphFeature: Consume data";
     return tensor;
 }
 
@@ -210,16 +218,37 @@ namespace torch {
     auto device_str = "cuda:" + std::to_string(device);
 
     SAM_CHECK_EQ(key, graph_batch->key);
-
     ::torch::Tensor tensor = ::torch::from_blob(
         label->mutable_data(),
         {(long long)label->shape()[0]},
-        common::cudaDataDeleter,
-        ::torch::TensorOptions().dtype(::torch::kI32)
+        [key] (void *data) {
+            SAM_LOG(DEBUG) << "Torch label tensor with key " << key << " has been freed";
+            CUDA_CALL(cudaFree(data));
+        },
+        ::torch::TensorOptions().dtype(::torch::kI64)
                                 .device(device_str)
     );
 
     label->ConsumeData();
+    SAM_LOG(DEBUG) << "GetGraphLabel: label ConsumeData";
+    return tensor;
+}
+
+::torch::Tensor CudaTensor() {
+    void *ptr;
+    CUDA_CALL(cudaSetDevice(0));
+    CUDA_CALL(cudaMalloc(&ptr, 20ul));
+    SAM_LOG(DEBUG) << "CudaTensor: original ptr addr " << ptr;
+    ::torch::Tensor tensor = ::torch::from_blob(
+        ptr,
+        {5ll},
+        [](void *data) {
+            CUDA_CALL(cudaFree(data));
+        },
+        ::torch::TensorOptions().dtype(::torch::kF32)
+                                .device("cuda:0")
+    );
+    SAM_LOG(DEBUG) << "CudaTensor: torchTensor ptr addr " << tensor.data_ptr();
     return tensor;
 }
 
@@ -228,6 +257,7 @@ PYBIND11_MODULE(c_lib, m) {
     m.def("samgraph_torch_get_graph_label", &GetGraphLabel);
     m.def("samgraph_torch_csrmm", &Csrmm);
     m.def("samgraph_torch_csrmm_tranpose", &CsrmmTranspose);
+    m.def("samgraph_torch_cuda_tensor", &CudaTensor);
 }
 
 } // namespace torch

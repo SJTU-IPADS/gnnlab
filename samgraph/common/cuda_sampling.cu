@@ -196,16 +196,21 @@ void DeviceSample(const IdType *indptr, const IdType *indices, const IdType *inp
     CUDA_CALL(cub::DeviceScan::ExclusiveSum(
         nullptr, workspace_bytes, static_cast<size_t *>(nullptr),
         static_cast<size_t *>(nullptr), grid.x + 1, stream));
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    CUDA_CALL(cudaGetLastError());
 
     void *workspace;
     CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
     CUDA_CALL(cub::DeviceScan::ExclusiveSum(
         workspace, workspace_bytes, item_prefix, item_prefix, grid.x + 1, stream));
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    CUDA_CALL(cudaGetLastError());
     SAM_LOG(DEBUG) << "DeviceSample: cuda workspace malloc " << toReadableSize(workspace_bytes);
 
     compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(tmp_src, tmp_dst, out_src, out_dst, num_out,
                                      item_prefix, num_input, fanout);
+    CUDA_CALL(cudaStreamSynchronize(stream));
     CUDA_CALL(cudaGetLastError());
 
     CUDA_CALL(cudaStreamSynchronize(stream));

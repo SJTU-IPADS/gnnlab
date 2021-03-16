@@ -3,6 +3,7 @@
 
 #include "cuda_util.h"
 #include "config.h"
+#include "logging.h"
 
 namespace samgraph {
 namespace common {
@@ -42,6 +43,8 @@ void Fill(float *data, size_t len, float val, cudaStream_t stream) {
 
     fill<float, Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(data, len, val);
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    CUDA_CALL(cudaGetLastError());
 }
 
 void PrintID(const IdType *input, const size_t num_input, cudaStream_t stream) {
@@ -50,8 +53,12 @@ void PrintID(const IdType *input, const size_t num_input, cudaStream_t stream) {
     const dim3 grid(num_tiles);
     const dim3 block(Config::kCudaBlockSize);
 
+    SAM_LOG(DEBUG) << "PrintID: input " << input << " with num_input " << num_input;
+
     print_id<Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(input, num_input);
+    CUDA_CALL(cudaStreamSynchronize(stream));
+    CUDA_CALL(cudaGetLastError());
 }
 
 } // namespace cuda

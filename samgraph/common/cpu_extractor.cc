@@ -23,6 +23,10 @@ int CpuExtractor::extract(void *dst, const void *src, const IdType *idx,
             return _extract(reinterpret_cast<int32_t *>(dst),
                             reinterpret_cast<const int32_t *>(src),
                             idx, num_idx, dim);
+        case kSamI64:
+            return _extract(reinterpret_cast<int64_t *>(dst),
+                            reinterpret_cast<const int64_t *>(src),
+                            idx, num_idx, dim);
         default:
             SAM_CHECK(0);
     }

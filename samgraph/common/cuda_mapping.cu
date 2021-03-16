@@ -76,6 +76,7 @@ void MapEdges(const IdType * const global_src,
         new_global_dst,
         num_edges,
         table);
+    CUDA_CALL(cudaStreamSynchronize(stream));
     CUDA_CALL(cudaGetLastError());
 }
 

@@ -4,7 +4,6 @@
 #include <unordered_map>
 #include <memory>
 #include <mutex>
-#include <condition_variable>
 
 #include "common.h"
 
@@ -23,7 +22,6 @@ class GraphPool {
  private:
   bool _stop;
   std::mutex _mutex;
-  std::condition_variable _condition;
   const size_t _threshold;
   std::unordered_map<uint64_t, std::shared_ptr<GraphBatch>> _pool;
 };

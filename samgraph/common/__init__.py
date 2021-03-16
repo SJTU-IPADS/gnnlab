@@ -70,8 +70,8 @@ class SamGraphBasics(object):
     def num_step_per_epoch(self):
         return self.C_LIB_CTYPES.samgraph_num_step_per_epoch()
 
-    def get_next_batch(self, num_graph):
-        batch_key = self.C_LIB_CTYPES.samgraph_get_next_batch()
+    def get_next_batch(self, epoch, step, num_graph):
+        batch_key = self.C_LIB_CTYPES.samgraph_get_next_batch(epoch, step)
         return GraphBatch(self.C_LIB_CTYPES, batch_key, num_graph)
 
     def shutdown(self):

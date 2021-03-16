@@ -52,3 +52,6 @@ def get_graph_feat(batch_key):
     
 def get_graph_label(batch_key):
     return c_lib.samgraph_torch_get_graph_label(batch_key)
+
+def pybind11_test():
+    return c_lib.samgraph_torch_cuda_tensor()

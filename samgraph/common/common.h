@@ -7,6 +7,8 @@
 #include <vector>
 #include <mutex>
 
+#include <cuda_runtime.h>
+
 namespace samgraph {
 namespace common {
 
@@ -53,7 +55,8 @@ class Tensor {
   // Create a tensor from the file and take the
   // ownership of the input data
   static std::shared_ptr<Tensor> FromMmap(std::string filepath, DataType dtype,
-                                          std::vector<size_t> dims, int device, std::string name);
+                                          std::vector<size_t> dims, int device,
+                                          std::string name, cudaStream_t stream = nullptr);
   // Create an uninitialized tensor data
   static std::shared_ptr<Tensor> Empty(DataType dtype, std::vector<size_t> dims, int device, std::string name);
   // Create view from a tensor, they share the same storage
@@ -61,7 +64,7 @@ class Tensor {
                                             std::vector<size_t> dims);
   // Deep slice a tensor
   static std::shared_ptr<Tensor> DeepCopy(std::shared_ptr<Tensor> tensor, size_t offset,
-                                       std::vector<size_t> dims, std::string name);
+                                       std::vector<size_t> dims, std::string name, cudaStream_t stream = nullptr);
   // From blob
   static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
                                           std::vector<size_t> dims, int device, std::string name);
@@ -138,16 +141,18 @@ struct TrainGraph {
 struct TaskEntry {
     // Key of the task
     uint64_t key;
-    // Input tensor
+    // Train nodes
     std::shared_ptr<IdTensor> train_nodes;
     // Current input tensor
     std::shared_ptr<IdTensor> cur_input;
     // Output graph tensor
     std::vector<std::shared_ptr<TrainGraph>> output_graph;
-    // Original node ids of the first train graph
+    // node ids of the last train graph
+    std::shared_ptr<Tensor> input_nodes;
+    // node ids of the first train graph
     std::shared_ptr<Tensor> output_nodes;
-    // Output feature tensor
-    std::shared_ptr<Tensor> output_feat;
+    // Input feature tensor
+    std::shared_ptr<Tensor> input_feat;
     // Output label tensor
     std::shared_ptr<Tensor> output_label;
 };
@@ -159,9 +164,6 @@ uint64_t encodeGraphID(uint64_t key, int graph_id);
 int decodeGraphID(uint64_t key);
 
 size_t getDataTypeLength(int dtype);
-
-void cudaDataDeleter(void *data);
-void cpuDataDeleter(void *data);
 
 std::string toReadableSize(size_t size_in_bytes);
 

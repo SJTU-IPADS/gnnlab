@@ -81,12 +81,12 @@ class LogMessageFatal : public LogMessage {
   ~LogMessageFatal();
 };
 
-#define _SAM_LOG_TRACE LogMessage(__FILE__, __LINE__, LogLevel::TRACE)
-#define _SAM_LOG_DEBUG LogMessage(__FILE__, __LINE__, LogLevel::DEBUG)
-#define _SAM_LOG_INFO LogMessage(__FILE__, __LINE__, LogLevel::INFO)
-#define _SAM_LOG_WARNING LogMessage(__FILE__, __LINE__, LogLevel::WARNING)
-#define _SAM_LOG_ERROR LogMessage(__FILE__, __LINE__, LogLevel::ERROR)
-#define _SAM_LOG_FATAL LogMessageFatal(__FILE__, __LINE__)
+#define _SAM_LOG_TRACE common::LogMessage(__FILE__, __LINE__, common::LogLevel::TRACE)
+#define _SAM_LOG_DEBUG common::LogMessage(__FILE__, __LINE__, common::LogLevel::DEBUG)
+#define _SAM_LOG_INFO common::LogMessage(__FILE__, __LINE__, common::LogLevel::INFO)
+#define _SAM_LOG_WARNING common::LogMessage(__FILE__, __LINE__, common::LogLevel::WARNING)
+#define _SAM_LOG_ERROR common::LogMessage(__FILE__, __LINE__, common::LogLevel::ERROR)
+#define _SAM_LOG_FATAL common::LogMessageFatal(__FILE__, __LINE__)
 
 #define _LOG(severity) _SAM_LOG_##severity
 
