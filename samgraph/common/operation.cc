@@ -12,7 +12,7 @@ namespace common {
 extern "C" {
 
 void samgraph_init(const char *path, int sample_device, int train_device,
-                   int batch_size, int *fanout, int num_fanout, int num_epoch) {
+                   size_t batch_size, int *fanout, size_t num_fanout, int num_epoch) {
     SamGraphEngine::Init(path, sample_device, train_device,  batch_size,
                          std::vector<int>(fanout, fanout + num_fanout), num_epoch);
     SAM_LOG(INFO) << "SamGraph has been initialied successfully";
@@ -23,16 +23,16 @@ void samgraph_start() {
     SAM_CHECK(SamGraphEngine::IsInitialized() && !SamGraphEngine::IsShutdown());
 
     std::vector<LoopFunction> func;
-    // func.push_back(HostPermutateLoop);
-    // func.push_back(IdCopyHost2DeviceLoop);
-    // func.push_back(DeviceSampleLoop);
-    // func.push_back(GraphCopyDevice2DeviceLoop);
-    // func.push_back(IdCopyDevice2HostLoop);
-    // func.push_back(HostFeatureExtractLoop);
-    // func.push_back(FeatureCopyHost2DeviceLoop);
-    // func.push_back(SubmitLoop);
+    func.push_back(HostPermutateLoop);
+    func.push_back(IdCopyHost2DeviceLoop);
+    func.push_back(DeviceSampleLoop);
+    func.push_back(GraphCopyDevice2DeviceLoop);
+    func.push_back(IdCopyDevice2HostLoop);
+    func.push_back(HostFeatureExtractLoop);
+    func.push_back(FeatureCopyHost2DeviceLoop);
+    func.push_back(SubmitLoop);
 
-    func.push_back(SingleLoop);
+    // func.push_back(SingleLoop);
 
     SamGraphEngine::Start(func);
     SAM_LOG(INFO) << "SamGraph has been started successfully";
@@ -63,6 +63,9 @@ uint64_t samgraph_get_next_batch(int epoch, int step) {
 
     uint64_t key = encodeBatchKey(epoch, step);
     SAM_LOG(DEBUG) << "samgraph_get_next_batch encodeKey with epoch " << epoch << " step " << step << " and key " << key;
+    
+    // RunSingleLoopOnce();
+
     auto graph = SamGraphEngine::GetGraphPool()->GetGraphBatch(key);
 
     SAM_LOG(DEBUG) << "Get next batch with key " << key;

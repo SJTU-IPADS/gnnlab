@@ -14,8 +14,7 @@ extern "C" {
 THCudaTensor samgraph_torch_get_graph_feat(uint64_t key);
 THCudaTensor samgraph_torch_get_graph_label(uint64_t key);
 THCudaTensor samgraph_torch_csrmm(uint64_t key, THCudaTensor input);
-THCudaTensor samgraph_torch_csrmm_tranpose(uint64_t key, THCudaTensor input);
-THCudaTensor samgraph_torch_cuda_tensor();
+THCudaTensor samgraph_torch_csrmm_transpose(uint64_t key, THCudaTensor input);
 
 }
 

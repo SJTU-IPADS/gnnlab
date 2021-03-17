@@ -17,7 +17,9 @@ __global__ void fill(T *data, size_t len, T val) {
     const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
     
     for (size_t index = threadIdx.x + block_start; index < block_end; index += BLOCK_SIZE) {
-        data[index] = val;
+        if (index < len) {
+            data[index] = val;
+        }
     }
 }
 
@@ -49,7 +51,7 @@ __global__ void assert_val(const T *input, const size_t num_input, const T min, 
     }
 }
 
-void Fill(float *data, size_t len, float val, cudaStream_t stream) {
+void Fill(float *data, size_t len, float val, cudaStream_t stream, bool sync) {
     const uint32_t num_tiles = (len + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
 
     const dim3 grid(num_tiles);
@@ -57,7 +59,10 @@ void Fill(float *data, size_t len, float val, cudaStream_t stream) {
 
     fill<float, Config::kCudaBlockSize, Config::kCudaTileSize>
         <<<grid, block, 0, stream>>>(data, len, val);
-    CUDA_CALL(cudaStreamSynchronize(stream));
+    
+    if (sync) {
+        CUDA_CALL(cudaStreamSynchronize(stream));
+    }
 }
 
 void PrintID(const IdType *input, const size_t num_input, cudaStream_t stream) {

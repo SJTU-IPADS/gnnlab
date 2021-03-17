@@ -29,14 +29,13 @@ int SamGraphEngine::_sample_device = 0;
 int SamGraphEngine::_train_device = 0;
 std::string SamGraphEngine::_dataset_path = "";
 SamGraphDataset* SamGraphEngine::_dataset = nullptr;
-int SamGraphEngine::_batch_size = 0;
+size_t SamGraphEngine::_batch_size = 0;
 std::vector<int> SamGraphEngine::_fanout;
 int SamGraphEngine::_num_epoch = 0;
 
 SamGraphTaskQueue* SamGraphEngine::_queues[QueueNum] = {nullptr};
 std::vector<std::thread*> SamGraphEngine::_threads;
 
-cudaStream_t* SamGraphEngine::_train_stream = nullptr;
 cudaStream_t* SamGraphEngine::_sample_stream = nullptr;
 cudaStream_t* SamGraphEngine::_id_copy_host2device_stream = nullptr;
 cudaStream_t* SamGraphEngine::_graph_copy_device2device_stream = nullptr;
@@ -52,7 +51,7 @@ std::shared_ptr<GraphBatch> SamGraphEngine::_cur_graph_batch = nullptr;
 std::atomic_int SamGraphEngine::joined_thread_cnt;
 
 void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train_device,
-                          int batch_size, std::vector<int> fanout, int num_epoch) {
+                          size_t batch_size, std::vector<int> fanout, int num_epoch) {
     if (_initialize) {
         return;
     }
@@ -68,7 +67,6 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     LoadGraphDataset();
 
     // Create CUDA streams
-    _train_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
     _sample_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
     _id_copy_host2device_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
     _graph_copy_device2device_stream = (cudaStream_t*) malloc(sizeof(cudaStream_t));
@@ -82,7 +80,6 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     CUDA_CALL(cudaStreamCreateWithFlags(_id_copy_device2host_stream, cudaStreamNonBlocking));
 
     CUDA_CALL(cudaSetDevice(_train_device));
-    CUDA_CALL(cudaStreamCreateWithFlags(_train_stream, cudaStreamNonBlocking));
     CUDA_CALL(cudaStreamCreateWithFlags(_feat_copy_host2device_stream, cudaStreamNonBlocking));
 
     CUDA_CALL(cudaStreamSynchronize(*_sample_stream));
@@ -90,7 +87,6 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     CUDA_CALL(cudaStreamSynchronize(*_graph_copy_device2device_stream));
     CUDA_CALL(cudaStreamSynchronize(*_id_copy_device2host_stream));
 
-    CUDA_CALL(cudaStreamSynchronize(*_train_stream));
     CUDA_CALL(cudaStreamSynchronize(*_feat_copy_host2device_stream));
 
     _submit_table = new ReadyTable(2, "SUBMIT");
@@ -185,13 +181,6 @@ void SamGraphEngine::Shutdown() {
         CUDA_CALL(cudaStreamDestroy(*_id_copy_device2host_stream));
         free(_id_copy_device2host_stream);
         _id_copy_device2host_stream = nullptr;
-    }
-
-    if (_train_stream) {
-        CUDA_CALL(cudaStreamSynchronize(*_train_stream));
-        CUDA_CALL(cudaStreamDestroy(*_train_stream));
-        free(_train_stream);
-        _train_stream = nullptr;
     }
 
     if (_feat_copy_host2device_stream) {

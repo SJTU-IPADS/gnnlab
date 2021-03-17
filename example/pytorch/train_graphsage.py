@@ -47,8 +47,9 @@ def run(args):
 
     in_feat = sam.dataset_num_feat_dim()
     num_class = sam.dataset_num_class()
+    num_layer = len(fanout_list)
 
-    model = SAGE(in_feat, args.num_hidden, num_class, args.num_layer, F.relu, args.dropout)
+    model = SAGE(in_feat, args.num_hidden, num_class, num_layer, F.relu, args.dropout)
     model = model.to(th_train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
@@ -60,29 +61,32 @@ def run(args):
 
     sam.start()
 
+    model.train()
     for epoch in range(num_epoch):
 
         tic_step = time.time()
         for step in range(num_step):
+            tic_sample = time.time()
             graph_batch = sam.get_next_batch(epoch, step, num_graph)
             batch_input = sam.get_graph_feat(graph_batch.key)
             batch_label = sam.get_graph_label(graph_batch.key)
+            toc_sample = time.time()
 
+            tic_train = time.time()
             batch_pred = model(graph_batch, batch_input)
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            toc_train = time.time()
 
-            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Time {:.4f} secs'.format(
-                epoch, step, loss.item(), time.time() - tic_step
+            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Sample: {:.4f} secs | Train: {:.4f} secs | Time {:.4f} secs'.format(
+                epoch, step, loss.item(), toc_sample - tic_sample, toc_train - tic_train, time.time() - tic_step
             ))
-
-            return
 
             tic_step = time.time()
     
-    # sam.shutdown()
+    sam.shutdown()
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
@@ -92,9 +96,8 @@ if __name__ == '__main__':
     argparser.add_argument('--dataset-path', type=str, default='/graph-learning/samgraph/papers100M')
     argparser.add_argument('--num-epoch', type=int, default=20)
     argparser.add_argument('--num-hidden', type=int, default=256)
-    argparser.add_argument('--num-layer', type=int, default=3)
-    argparser.add_argument('--fan-out', type=str, default='5')
-    argparser.add_argument('--batch-size', type=int, default=30)
+    argparser.add_argument('--fan-out', type=str, default='15,10,5')
+    argparser.add_argument('--batch-size', type=int, default=8192)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
 

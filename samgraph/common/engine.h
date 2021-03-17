@@ -25,7 +25,7 @@ typedef void (*LoopFunction)();
 class SamGraphEngine {
  public:
   static void Init(std::string dataset_path, int sample_device, int train_device,
-                   int batch_size, std::vector<int> fanout, int num_epoch);
+                   size_t batch_size, std::vector<int> fanout, int num_epoch);
   static void Start(const std::vector<LoopFunction> &func);
   static bool ShouldShutdown() { return _should_shutdown; }
   static void Shutdown();
@@ -49,8 +49,7 @@ class SamGraphEngine {
   static cudaStream_t* GetIdCopyHost2DeviceStream() { return _id_copy_host2device_stream; }
   static cudaStream_t* GetGraphCopyDevice2DeviceStream() { return _graph_copy_device2device_stream; }
   static cudaStream_t* GetIdCopyDevice2HostStream() { return _id_copy_device2host_stream; }
-  
-  static cudaStream_t* GetTrainStream() { return _train_stream; }
+
   static cudaStream_t* GetFeatureCopyHost2DeviceStream() {  return _feat_copy_host2device_stream; }
 
   static GraphPool* GetGraphPool() { return _graph_pool; }
@@ -78,7 +77,7 @@ class SamGraphEngine {
   // Global graph dataset
   static SamGraphDataset* _dataset;
   // Sampling batch size
-  static int _batch_size;
+  static size_t _batch_size;
   // Fanout data
   static std::vector<int> _fanout;
   // Sampling epoch
@@ -92,7 +91,6 @@ class SamGraphEngine {
   static cudaStream_t* _graph_copy_device2device_stream;
   static cudaStream_t* _id_copy_device2host_stream;
   // Cuda streams on train device
-  static cudaStream_t* _train_stream;
   static cudaStream_t* _feat_copy_host2device_stream;
   // Random node batch genrator
   static RandomPermutation* _permutation;

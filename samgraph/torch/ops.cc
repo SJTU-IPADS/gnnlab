@@ -1,5 +1,7 @@
 #include <torch/torch.h>
 #include <torch/extension.h>
+#include <ATen/cuda/CUDAContext.h>
+
 #include <cusparse.h>
 #include <cuda_runtime.h>
 
@@ -11,6 +13,12 @@
 
 namespace samgraph {
 namespace torch {
+
+namespace {
+
+bool stream_sync = true;
+
+}
 
 ::torch::Dtype toTorchType(common::DataType dtype) {
     switch(dtype) {
@@ -43,29 +51,16 @@ namespace torch {
     auto device = common::SamGraphEngine::GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
-    {
-        int m = train_graph->num_row; // Number of row in matrix
-        int n = input.sizes()[1]; // Number of columns in input
-        return ::torch::empty({(long long)m,
-                               (long long)n},
-                                ::torch::TensorOptions().dtype(::torch::kF32)
-                                                    .device(device_str));
-    }
-
     SAM_CHECK_EQ(batch_key, graph_batch->key);
 
-    cusparseHandle_t handle;
-    cusparseMatDescr_t descr_a;
-    cudaStream_t stream;
-
-    CUDA_CALL(cudaSetDevice(device));
-    stream = *common::SamGraphEngine::GetTrainStream();
+    cusparseHandle_t handle = at::cuda::getCurrentCUDASparseHandle(); 
+    cudaStream_t stream = at::cuda::getCurrentCUDAStream(device);
 
     if (!train_graph->val) {
         size_t num_edge = train_graph->num_edge;
         auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device, "csrmm_val_" + std::to_string(key));
         common::cuda::Fill(reinterpret_cast<float*>(val->mutable_data()),
-                           num_edge, 1.0f, stream);
+                           num_edge, 1.0f, stream, stream_sync);
         train_graph->val = val;
     }
 
@@ -90,11 +85,11 @@ namespace torch {
     int ldc = m;
     float *c = output.data_ptr<float>();
 
-    CUDA_CALL(cudaMalloc((void **)&c, m * n *sizeof(float)));
+    SAM_CHECK_EQ(k, input.sizes()[0]);    
+    SAM_CHECK_EQ(m + 1, train_graph->indptr->shape()[0]);
+    SAM_CHECK_EQ(nnz, train_graph->indices->shape()[0]);
 
-    CUSPARSE_CALL(cusparseCreate(&handle));
-    CUSPARSE_CALL(cusparseSetStream(handle, stream));
-    
+    cusparseMatDescr_t descr_a;
     CUSPARSE_CALL(cusparseCreateMatDescr(&descr_a));
     CUSPARSE_CALL(cusparseSetMatType(descr_a, CUSPARSE_MATRIX_TYPE_GENERAL));
     CUSPARSE_CALL(cusparseSetMatIndexBase(descr_a, CUSPARSE_INDEX_BASE_ZERO));
@@ -112,9 +107,10 @@ namespace torch {
                   c,
                   ldc));
 
-    CUDA_CALL(cudaStreamSynchronize(stream));
     CUSPARSE_CALL(cusparseDestroyMatDescr(descr_a));
-    CUSPARSE_CALL(cusparseDestroy(handle));
+    if (stream_sync) {
+        CUDA_CALL(cudaStreamSynchronize(stream));
+    }
 
     return output;
 }
@@ -128,29 +124,16 @@ namespace torch {
     auto device = common::SamGraphEngine::GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
-    // {
-    //     int n = input.sizes()[1]; // Number of columns in input
-    //     int k = train_graph->num_column; // Number of column in matrix
-    //     return ::torch::empty({(long long)k,
-    //                            (long long)n},
-    //                             ::torch::TensorOptions().dtype(::torch::kF32)
-    //                                                 .device(device_str));
-    // }
-
     SAM_CHECK_EQ(batch_key, graph_batch->key);
 
-    cusparseHandle_t handle;
-    cusparseMatDescr_t descr_a;
-    cudaStream_t stream;
-
-    CUDA_CALL(cudaSetDevice(device));
-    stream = *common::SamGraphEngine::GetTrainStream();
+    cusparseHandle_t handle = at::cuda::getCurrentCUDASparseHandle();
+    cudaStream_t stream  = at::cuda::getCurrentCUDAStream(device);
 
     if (!train_graph->val) {
         size_t num_edge = train_graph->num_edge;
         auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device, "csrmmsp_val_" + std::to_string(key));
         common::cuda::Fill(reinterpret_cast<float*>(val->mutable_data()),
-                           num_edge, 1.0f, stream);
+                           num_edge, 1.0f, stream, stream_sync);
         train_graph->val = val;
     }
 
@@ -171,16 +154,16 @@ namespace torch {
     const int* indptr_a = reinterpret_cast<const int*>(train_graph->indptr->data());
     const int* indices_a = reinterpret_cast<const int*>(train_graph->indices->data());
     const float *b = input.data_ptr<float>();
-    int ldb = m; // Leading dimension of b has changed from m to k
+    int ldb = m; // Leading dimension of b has changed from k to m
     const float beta = 0.0f;
-    int ldc = k; // Leading dimension of c has changed from k to m
+    int ldc = k; // Leading dimension of c has changed from m to k
     float *c = output.data_ptr<float>();
 
-    CUDA_CALL(cudaMalloc((void **)&c, k * n *sizeof(float)));
-
-    CUSPARSE_CALL(cusparseCreate(&handle));
-    CUSPARSE_CALL(cusparseSetStream(handle, stream));
-    
+    SAM_CHECK_EQ(m, input.sizes()[0]);
+    SAM_CHECK_EQ(m + 1, train_graph->indptr->shape()[0]);
+    SAM_CHECK_EQ(nnz, train_graph->indices->shape()[0]);
+ 
+    cusparseMatDescr_t descr_a;
     CUSPARSE_CALL(cusparseCreateMatDescr(&descr_a));
     CUSPARSE_CALL(cusparseSetMatType(descr_a, CUSPARSE_MATRIX_TYPE_GENERAL));
     CUSPARSE_CALL(cusparseSetMatIndexBase(descr_a, CUSPARSE_INDEX_BASE_ZERO));
@@ -198,9 +181,10 @@ namespace torch {
                   c,
                   ldc));
 
-    CUDA_CALL(cudaStreamSynchronize(stream));
     CUSPARSE_CALL(cusparseDestroyMatDescr(descr_a));
-    CUSPARSE_CALL(cusparseDestroy(handle));
+    if (stream_sync) {
+        CUDA_CALL(cudaStreamSynchronize(stream));
+    }
 
     return output;
 }
@@ -232,9 +216,6 @@ namespace torch {
     auto device = common::SamGraphEngine::GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
-    cudaStream_t stream = *common::SamGraphEngine::GetTrainStream();
-    common::cuda::AssertVal((int64_t *)label->data(), label->shape()[0], (int64_t)0, (int64_t)172, stream);
-
     SAM_CHECK_EQ(key, graph_batch->key);
     ::torch::Tensor tensor = ::torch::from_blob(
         label->mutable_data(),
@@ -251,7 +232,7 @@ PYBIND11_MODULE(c_lib, m) {
     m.def("samgraph_torch_get_graph_feat", &GetGraphFeature);
     m.def("samgraph_torch_get_graph_label", &GetGraphLabel);
     m.def("samgraph_torch_csrmm", &Csrmm);
-    m.def("samgraph_torch_csrmm_tranpose", &CsrmmTranspose);
+    m.def("samgraph_torch_csrmm_transpose", &CsrmmTranspose);
 }
 
 } // namespace torch

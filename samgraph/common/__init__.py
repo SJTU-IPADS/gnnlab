@@ -44,16 +44,36 @@ class SamGraphBasics(object):
         full_path = get_extension_full_path(pkg_path, *args)
         self.C_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
 
-    def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch):
-        # parameter conversion
-        if isinstance(path, str):
-            path = str.encode(path)
+        self.C_LIB_CTYPES.samgraph_num_epoch.restype = ctypes.c_int
         
-        num_fanout = len(fanout)
-        fanout = (ctypes.c_int * num_fanout)(*fanout)
+        self.C_LIB_CTYPES.samgraph_num_step_per_epoch.restype = ctypes.c_int
+        self.C_LIB_CTYPES.samgraph_dataset_num_class.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_dataset_num_feat_dim.restype = ctypes.c_size_t
+        
+        self.C_LIB_CTYPES.samgraph_get_next_batch.argtypes = (ctypes.c_int, ctypes.c_int)
+        self.C_LIB_CTYPES.samgraph_get_next_batch.restype = ctypes.c_uint64
 
-        return self.C_LIB_CTYPES.samgraph_init(path, sample_device, train_device,
-                                               batch_size, fanout, num_fanout, num_epoch)
+        self.C_LIB_CTYPES.samgraph_get_graph_key.argtypes = (ctypes.c_uint64, ctypes.c_int)
+        self.C_LIB_CTYPES.samgraph_get_graph_key.restype = ctypes.c_uint64
+
+        self.C_LIB_CTYPES.samgraph_get_graph_num_row.argtypes = (ctypes.c_uint64,)
+        self.C_LIB_CTYPES.samgraph_get_graph_num_col.argtypes = (ctypes.c_uint64,)
+        self.C_LIB_CTYPES.samgraph_get_graph_num_edge.argtypes = (ctypes.c_uint64,)
+        self.C_LIB_CTYPES.samgraph_get_graph_num_row.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_get_graph_num_col.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
+        
+
+    def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch):
+        num_fanout = len(fanout)
+
+        return self.C_LIB_CTYPES.samgraph_init(ctypes.c_char_p(str.encode(path)),
+                                               ctypes.c_int(sample_device),
+                                               ctypes.c_int(train_device),
+                                               ctypes.c_ulonglong(batch_size),
+                                               (ctypes.c_int * num_fanout)(*fanout),
+                                               ctypes.c_ulonglong(num_fanout),
+                                               ctypes.c_int(num_epoch))
     
     def start(self):
         return self.C_LIB_CTYPES.samgraph_start()

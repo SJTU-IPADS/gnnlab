@@ -72,7 +72,7 @@ std::shared_ptr<IdTensor> RandomPermutation::GetBatch(cudaStream_t stream) {
     }
 
     size_t offset = _cur_batch_idx * _batch_size;
-    size_t size = _cur_batch_idx == (_cur_batch_idx - 1) ? _last_batch_size : _batch_size;
+    size_t size = _cur_batch_idx == (_num_batch - 1) ? _last_batch_size : _batch_size;
 
     return IdTensor::CreateCopy1D(_input, offset, {size}, "random_permutation_batch", stream);
 }

@@ -18,11 +18,10 @@ void HostFeatureExtractLoop();
 
 void FeatureCopyHost2DeviceLoop();
 
-// Submit loop will wait for the accomplishment of
-// GraphCopyDevice2DeviceLoop and HostFeatureExtractLoop
 void SubmitLoop();
 
-// Single Loop for evaluation
+// For debug
+bool RunSingleLoopOnce();
 void SingleLoop();
 
 } // namespace common

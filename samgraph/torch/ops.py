@@ -40,8 +40,8 @@ class SamGraphCsrmm(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        graph_key = ctx.graph_key
-        return None, None, _csrmm_transpose(graph_key, grad_output)
+        graph_key = ctx.key
+        return None, _csrmm_transpose(graph_key, grad_output)
 
 def csrmm(graph_key, tensor):
     ouput = SamGraphCsrmm.apply(graph_key, tensor)
@@ -52,6 +52,3 @@ def get_graph_feat(batch_key):
     
 def get_graph_label(batch_key):
     return c_lib.samgraph_torch_get_graph_label(batch_key)
-
-def pybind11_test():
-    return c_lib.samgraph_torch_cuda_tensor()
