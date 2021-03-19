@@ -3,7 +3,7 @@
 
 #include <cuda_runtime.h>
 
-#include "types.h"
+#include "../types.h"
 #include "cuda_hashtable.h"
 
 namespace samgraph {

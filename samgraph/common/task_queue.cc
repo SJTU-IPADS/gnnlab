@@ -1,5 +1,5 @@
 #include "task_queue.h"
-#include "engine.h"
+#include "cuda/cuda_engine.h"
 
 namespace samgraph {
 namespace common {
@@ -10,7 +10,7 @@ SamGraphTaskQueue::SamGraphTaskQueue(QueueType qt, size_t threshold) {
     _rt = nullptr;
 
     if (_qt == SUBMIT) {
-        _rt = SamGraphEngine::GetSubmitTable();
+        _rt = cuda::SamGraphCudaEngine::GetSubmitTable();
     } 
 }
 

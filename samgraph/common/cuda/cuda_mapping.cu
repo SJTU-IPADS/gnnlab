@@ -1,7 +1,7 @@
 #include <cassert>
 #include <cstdio>
 
-#include "config.h"
+#include "../config.h"
 #include "cuda_mapping.h"
 #include "cuda_hashtable.h"
 

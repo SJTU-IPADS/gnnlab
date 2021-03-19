@@ -1,8 +1,9 @@
-#ifndef SAMGRAPH_LOOPS_H
-#define SAMGRAPH_LOOPS_H
+#ifndef SAMGRAPH_CUDA_LOOPS_H
+#define SAMGRAPH_CUDA_LOOPS_H
 
 namespace samgraph {
 namespace common {
+namespace cuda {
 
 void HostPermutateLoop();
 
@@ -24,7 +25,8 @@ void SubmitLoop();
 bool RunSingleLoopOnce();
 void SingleLoop();
 
+} // namespace cuda
 } // namespace common
 } // namespace samgraph
 
-#endif // SAMGRAPH_LOOPS_H
+#endif // SAMGRAPH_CUDA_LOOPS_H

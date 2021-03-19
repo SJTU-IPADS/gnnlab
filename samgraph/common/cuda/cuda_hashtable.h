@@ -5,9 +5,9 @@
 
 #include <cuda_runtime.h>
 
-#include "types.h"
-#include "logging.h"
-#include "config.h"
+#include "../types.h"
+#include "../logging.h"
+#include "../config.h"
 
 namespace samgraph {
 namespace common {

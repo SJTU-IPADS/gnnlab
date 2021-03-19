@@ -14,43 +14,44 @@
 #include <numeric>
 #include <functional>
 
-#include "types.h"
-#include "config.h"
-#include "logging.h"
-#include "engine.h"
+#include "../types.h"
+#include "../config.h"
+#include "../logging.h"
+#include "cuda_engine.h"
 
 namespace samgraph{
 namespace common {
+namespace cuda {
 
-bool SamGraphEngine::_initialize = false;
-bool SamGraphEngine::_should_shutdown = false;
+bool SamGraphCudaEngine::_initialize = false;
+bool SamGraphCudaEngine::_should_shutdown = false;
 
-int SamGraphEngine::_sample_device = 0;
-int SamGraphEngine::_train_device = 0;
-std::string SamGraphEngine::_dataset_path = "";
-SamGraphDataset* SamGraphEngine::_dataset = nullptr;
-size_t SamGraphEngine::_batch_size = 0;
-std::vector<int> SamGraphEngine::_fanout;
-int SamGraphEngine::_num_epoch = 0;
+int SamGraphCudaEngine::_sample_device = 0;
+int SamGraphCudaEngine::_train_device = 0;
+std::string SamGraphCudaEngine::_dataset_path = "";
+SamGraphDataset* SamGraphCudaEngine::_dataset = nullptr;
+size_t SamGraphCudaEngine::_batch_size = 0;
+std::vector<int> SamGraphCudaEngine::_fanout;
+int SamGraphCudaEngine::_num_epoch = 0;
 
-SamGraphTaskQueue* SamGraphEngine::_queues[QueueNum] = {nullptr};
-std::vector<std::thread*> SamGraphEngine::_threads;
+SamGraphTaskQueue* SamGraphCudaEngine::_queues[QueueNum] = {nullptr};
+std::vector<std::thread*> SamGraphCudaEngine::_threads;
 
-cudaStream_t* SamGraphEngine::_sample_stream = nullptr;
-cudaStream_t* SamGraphEngine::_id_copy_host2device_stream = nullptr;
-cudaStream_t* SamGraphEngine::_graph_copy_device2device_stream = nullptr;
-cudaStream_t* SamGraphEngine::_id_copy_device2host_stream = nullptr;
-cudaStream_t* SamGraphEngine::_feat_copy_host2device_stream = nullptr;
+cudaStream_t* SamGraphCudaEngine::_sample_stream = nullptr;
+cudaStream_t* SamGraphCudaEngine::_id_copy_host2device_stream = nullptr;
+cudaStream_t* SamGraphCudaEngine::_graph_copy_device2device_stream = nullptr;
+cudaStream_t* SamGraphCudaEngine::_id_copy_device2host_stream = nullptr;
+cudaStream_t* SamGraphCudaEngine::_feat_copy_host2device_stream = nullptr;
 
-ReadyTable* SamGraphEngine::_submit_table = nullptr;
-CpuExtractor* SamGraphEngine::_cpu_extractor = nullptr;
-RandomPermutation* SamGraphEngine::_permutation = nullptr;
-GraphPool* SamGraphEngine::_graph_pool = nullptr;
-std::shared_ptr<GraphBatch> SamGraphEngine::_cur_graph_batch = nullptr;
+ReadyTable* SamGraphCudaEngine::_submit_table = nullptr;
+CpuExtractor* SamGraphCudaEngine::_cpu_extractor = nullptr;
+RandomPermutation* SamGraphCudaEngine::_permutation = nullptr;
+GraphPool* SamGraphCudaEngine::_graph_pool = nullptr;
+std::shared_ptr<GraphBatch> SamGraphCudaEngine::_cur_graph_batch = nullptr;
 
-std::atomic_int SamGraphEngine::joined_thread_cnt;
+std::atomic_int SamGraphCudaEngine::joined_thread_cnt;
 
-void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train_device,
+void SamGraphCudaEngine::Init(std::string dataset_path, int sample_device, int train_device,
                           size_t batch_size, std::vector<int> fanout, int num_epoch) {
     if (_initialize) {
         return;
@@ -97,7 +98,7 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     for (int i = 0; i < QueueNum; i++) {
         SAM_LOG(DEBUG) << "Create task queue" << i;
         auto type = static_cast<QueueType>(i);
-        SamGraphEngine::CreateTaskQueue(type);
+        SamGraphCudaEngine::CreateTaskQueue(type);
     }
 
     _permutation = new RandomPermutation(_dataset->train_set, _num_epoch, _batch_size, false);
@@ -108,7 +109,7 @@ void SamGraphEngine::Init(std::string dataset_path, int sample_device, int train
     _initialize = true;
 }
 
-void SamGraphEngine::Start(const std::vector<LoopFunction> &func) {
+void SamGraphCudaEngine::Start(const std::vector<LoopFunction> &func) {
     // Start background threads
     for (size_t i = 0; i < func.size(); i++) {
         _threads.push_back(new std::thread(func[i]));
@@ -116,7 +117,7 @@ void SamGraphEngine::Start(const std::vector<LoopFunction> &func) {
     SAM_LOG(DEBUG) << "Started " << func.size() << " background threads.";
 }
 
-void SamGraphEngine::Shutdown() {
+void SamGraphCudaEngine::Shutdown() {
     if (_should_shutdown) {
         return;
     }
@@ -206,13 +207,13 @@ void SamGraphEngine::Shutdown() {
     _should_shutdown = false;
 }
 
-void SamGraphEngine::CreateTaskQueue(QueueType queueType) {
+void SamGraphCudaEngine::CreateTaskQueue(QueueType queueType) {
     if (!_queues[queueType]) {
         _queues[queueType] = new SamGraphTaskQueue(queueType, Config::kQueueThreshold.at(queueType));
     }
 }
 
-void SamGraphEngine::LoadGraphDataset() {
+void SamGraphCudaEngine::LoadGraphDataset() {
     // Load graph dataset from disk by mmap and copy the graph
     // topology data into the target CUDA device. 
     _dataset = new SamGraphDataset();
@@ -266,10 +267,11 @@ void SamGraphEngine::LoadGraphDataset() {
     SAM_LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path <<  ") successfully";
 }
 
-bool SamGraphEngine::IsAllThreadFinish(int total_thread_num) {
+bool SamGraphCudaEngine::IsAllThreadFinish(int total_thread_num) {
   int k = joined_thread_cnt.fetch_add(0);
   return (k == total_thread_num);
 };
 
+} // namespace cuda
 } // namespace common
 } // namespace samgraph

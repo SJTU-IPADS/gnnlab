@@ -1,9 +1,9 @@
 #include <cassert>
 #include <cstdio>
 
+#include "../config.h"
+#include "../logging.h"
 #include "cuda_util.h"
-#include "config.h"
-#include "logging.h"
 
 namespace samgraph {
 namespace common {

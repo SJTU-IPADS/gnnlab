@@ -1,11 +1,12 @@
-#ifndef SAMGRAPH_CPU_EXTRACTOR_H
-#define SAMGRAPH_CPU_EXTRACTOR_H
+#ifndef SAMGRAPH_CUDA_CPU_EXTRACTOR_H
+#define SAMGRAPH_CUDA_CPU_EXTRACTOR_H
 
-#include "common.h"
-#include "types.h"
+#include "../common.h"
+#include "../types.h"
 
 namespace samgraph {
 namespace common {
+namespace cuda {
 
 class CpuExtractor {
  public:
@@ -21,7 +22,8 @@ class CpuExtractor {
   int _num_threads;
 };
 
+} // namesapce cuda
 } // namespace common
 } // namespace samgraph
 
-#endif // SAMGRAPH_CPU_EXTRACTOR_H
+#endif // SAMGRAPH_CUDA_CPU_EXTRACTOR_H

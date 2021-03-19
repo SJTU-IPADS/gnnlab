@@ -1,5 +1,5 @@
-#ifndef SAMGRAPH_ENGINE_H
-#define SAMGRAPH_ENGINE_H
+#ifndef SAMGRAPH_CUDA_ENGINE_H
+#define SAMGRAPH_CUDA_ENGINE_H
 
 #include <string>
 #include <vector>
@@ -9,20 +9,21 @@
 
 #include <cuda_runtime.h>
 
-#include "common.h"
-#include "logging.h"
-#include "task_queue.h"
-#include "random_permutation.h"
-#include "graph_pool.h"
-#include "ready_table.h"
+#include "../common.h"
+#include "../logging.h"
+#include "../task_queue.h"
+#include "../random_permutation.h"
+#include "../graph_pool.h"
+#include "../ready_table.h"
 #include "cpu_extractor.h"
 
 namespace samgraph {
 namespace common {
+namespace cuda {
 
 typedef void (*LoopFunction)();
 
-class SamGraphEngine {
+class SamGraphCudaEngine {
  public:
   static void Init(std::string dataset_path, int sample_device, int train_device,
                    size_t batch_size, std::vector<int> fanout, int num_epoch);
@@ -104,7 +105,8 @@ class SamGraphEngine {
   static CpuExtractor* _cpu_extractor;
 };
 
+} // namespace cuda
 } // namespace common
 } // namespace samgraph
 
-#endif // SAMGRAPH_ENGINE_H
+#endif // SAMGRAPH_CUDA_ENGINE_H

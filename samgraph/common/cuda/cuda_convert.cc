@@ -1,7 +1,7 @@
 #include <cusparse.h>
 
+#include "../logging.h"
 #include "cuda_convert.h"
-#include "logging.h"
 
 namespace samgraph {
 namespace common {

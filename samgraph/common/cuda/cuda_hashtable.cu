@@ -3,9 +3,9 @@
 
 #include <cub/cub.cuh>
 
+#include "../logging.h"
+#include "../common.h"
 #include "cuda_hashtable.h"
-#include "logging.h"
-#include "common.h"
 
 namespace samgraph {
 namespace common {

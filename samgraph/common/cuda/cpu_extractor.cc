@@ -1,8 +1,9 @@
+#include "../logging.h"
 #include "cpu_extractor.h"
-#include "logging.h"
 
 namespace samgraph {
 namespace common {
+namespace cuda {
 
 CpuExtractor::CpuExtractor() {
     if (getenv("SAMGRAPH_OMP_THREAD")) {
@@ -48,5 +49,6 @@ int CpuExtractor::_extract(T* dst, const T* src, const IdType *idx,
     return 0;
 }
 
+} // namespace cuda
 } // namespace common
 } // namespace samgraph

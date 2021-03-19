@@ -6,10 +6,10 @@
 #include <curand_kernel.h>
 #include <cub/cub.cuh>
 
+#include "../config.h"
+#include "../logging.h"
+#include "../common.h"
 #include "cuda_sampling.h"
-#include "config.h"
-#include "logging.h"
-#include "common.h"
 
 namespace {
 

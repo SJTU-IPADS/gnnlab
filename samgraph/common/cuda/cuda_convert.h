@@ -4,7 +4,7 @@
 #include <cuda_runtime.h>
 #include <cusparse.h>
 
-#include "types.h"
+#include "../types.h"
 
 namespace samgraph {
 namespace common {
