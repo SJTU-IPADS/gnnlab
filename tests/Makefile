@@ -27,6 +27,9 @@ d2d.out:  d2d.cu common.h
 macro.out: macro.cc
 	$(CC) -E -x c macro.cc -o macro.out
 
+inheritance.out: inheritance.cc
+	$(CC) $(FLAGS) inheritance.cc -o inheritance.out
+
 .PHONY: clean
 clean:
 	rm -rf *.o *.out *.so __pycache__
