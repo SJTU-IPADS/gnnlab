@@ -17,14 +17,14 @@ namespace cuda {
 
 bool RunHostPermutateLoopOnce() {
     auto next_op = CUDA_ID_COPYH2D;
-    auto next_q = SamGraphCudaEngine::Get()->GetTaskQueue(next_op);
+    auto next_q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(next_op);
 
     if (next_q->ExceedThreshold()) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
         return true;
     }
 
-    auto p = SamGraphCudaEngine::Get()->GetRandomPermutation();
+    auto p = SamGraphCudaEngine::GetEngine()->GetRandomPermutation();
     auto batch = p->GetBatch();
 
     if (batch) {
@@ -45,8 +45,8 @@ bool RunHostPermutateLoopOnce() {
 }
 
 bool RunIdCopyHost2DeviceLoopOnce() {
-    auto next_op = CUDA_DEV_SAMPLE;
-    auto next_q = SamGraphCudaEngine::Get()->GetTaskQueue(next_op);
+    auto next_op = CUDA_SAMPLE;
+    auto next_q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(next_op);
     
     if (next_q->ExceedThreshold()) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -54,13 +54,13 @@ bool RunIdCopyHost2DeviceLoopOnce() {
     }
 
     auto this_op = CUDA_ID_COPYH2D;
-    auto q = SamGraphCudaEngine::Get()->GetTaskQueue(this_op);
+    auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
         auto nodes = task->train_nodes;
-        auto id_copy_h2d_stream = SamGraphCudaEngine::Get()->GetIdCopyHost2DeviceStream();
-        auto device = SamGraphCudaEngine::Get()->GetSampleDevice();
+        auto id_copy_h2d_stream = SamGraphCudaEngine::GetEngine()->GetIdCopyHost2DeviceStream();
+        auto device = SamGraphCudaEngine::GetEngine()->GetSampleDevice();
 
         auto d_nodes = Tensor::Empty(nodes->dtype(), nodes->shape(), device, "task.train_nodes_" + std::to_string(task->key));
         CUDA_CALL(cudaSetDevice(device));
@@ -83,28 +83,28 @@ bool RunIdCopyHost2DeviceLoopOnce() {
     return true;
 }
 
-bool RunDeviceSampleLoopOnce() {
+bool RunCudaSampleOnce() {
     std::vector<CudaQueueType> next_ops = {CUDA_GRAPH_COPYD2D, CUDA_ID_COPYD2H};
     for (auto next_op : next_ops) {
-        auto q = SamGraphCudaEngine::Get()->GetTaskQueue(next_op);
+        auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(next_op);
         if (q->ExceedThreshold()) {
             std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
             return true;
         }
     }
 
-    auto this_op = CUDA_DEV_SAMPLE;
-    auto q = SamGraphCudaEngine::Get()->GetTaskQueue(this_op);
+    auto this_op = CUDA_SAMPLE;
+    auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
-        auto fanouts = SamGraphCudaEngine::Get()->GetFanout();
+        auto fanouts = SamGraphCudaEngine::GetEngine()->GetFanout();
         auto num_layers = fanouts.size();
         auto last_layer_idx = num_layers - 1;
 
-        auto dataset = SamGraphCudaEngine::Get()->GetGraphDataset();
-        auto sample_device = SamGraphCudaEngine::Get()->GetSampleDevice();
-        auto sample_stream = *SamGraphCudaEngine::Get()->GetSampleStream();
+        auto dataset = SamGraphCudaEngine::GetEngine()->GetGraphDataset();
+        auto sample_device = SamGraphCudaEngine::GetEngine()->GetSampleDevice();
+        auto sample_stream = *SamGraphCudaEngine::GetEngine()->GetSampleStream();
 
         cusparseHandle_t cusparse_handle;
         CUSPARSE_CALL(cusparseCreate(&cusparse_handle));
@@ -126,7 +126,7 @@ bool RunDeviceSampleLoopOnce() {
             const int fanout = fanouts[i];
             const IdType *input = static_cast<const IdType *>(task->cur_input->data());
             const size_t num_input = task->cur_input->shape()[0];
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: begin sample layer " << i;
+            SAM_LOG(DEBUG) << "CudaSample: begin sample layer " << i;
 
             IdType *out_src;
             IdType *out_dst;
@@ -136,13 +136,13 @@ bool RunDeviceSampleLoopOnce() {
             CUDA_CALL(cudaMalloc(&out_src, num_input * fanout * sizeof(IdType)));
             CUDA_CALL(cudaMalloc(&out_dst, num_input * fanout * sizeof(IdType)));
             CUDA_CALL(cudaMalloc(&num_out, sizeof(size_t)));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: size of out_src " << num_input * fanout;
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda out_src malloc " << toReadableSize(num_input * fanout * sizeof(IdType));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda out_dst malloc " << toReadableSize(num_input * fanout * sizeof(IdType));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda num_out malloc " << toReadableSize(sizeof(size_t));
+            SAM_LOG(DEBUG) << "CudaSample: size of out_src " << num_input * fanout;
+            SAM_LOG(DEBUG) << "CudaSample: cuda out_src malloc " << toReadableSize(num_input * fanout * sizeof(IdType));
+            SAM_LOG(DEBUG) << "CudaSample: cuda out_dst malloc " << toReadableSize(num_input * fanout * sizeof(IdType));
+            SAM_LOG(DEBUG) << "CudaSample: cuda num_out malloc " << toReadableSize(sizeof(size_t));
 
             // Sample a compact coo graph
-            DeviceSample((const IdType *)indptr, (const IdType *)indices,
+            CudaSample((const IdType *)indptr, (const IdType *)indices,
                                (const IdType *) input, (const size_t) num_input, (const size_t) fanout,
                                (IdType *) out_src, (IdType *) out_dst, (size_t *) num_out, 
                                (cudaStream_t) sample_stream);
@@ -150,15 +150,14 @@ bool RunDeviceSampleLoopOnce() {
             CUDA_CALL(cudaMemcpyAsync((void *)&host_num_out, (const void*)num_out, (size_t)sizeof(size_t), 
                                       (cudaMemcpyKind)cudaMemcpyDeviceToHost, (cudaStream_t)sample_stream));
             CUDA_CALL(cudaStreamSynchronize(sample_stream));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: number of samples " << host_num_out;
+            SAM_LOG(DEBUG) << "CudaSample: number of samples " << host_num_out;
 
             // Populate the hash table with newly sampled nodes
             IdType *unique;
             size_t num_unique;
 
-            // std::swap(out_src, out_dst); // swap the src and dst
             CUDA_CALL(cudaMalloc(&unique, (host_num_out + hash_table.NumItems()) * sizeof(IdType)));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda unique malloc " << toReadableSize((host_num_out + + hash_table.NumItems()) * sizeof(IdType));
+            SAM_LOG(DEBUG) << "CudaSample: cuda unique malloc " << toReadableSize((host_num_out + + hash_table.NumItems()) * sizeof(IdType));
 
             hash_table.FillWithDuplicates(out_dst, host_num_out, unique, &num_unique, sample_stream);
             // No need to Synchronize
@@ -170,9 +169,9 @@ bool RunDeviceSampleLoopOnce() {
 
             CUDA_CALL(cudaMalloc(&new_src, host_num_out * sizeof(IdType)));
             CUDA_CALL(cudaMalloc(&new_dst, host_num_out * sizeof(IdType)));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: size of new_src " << host_num_out;
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_src malloc " << toReadableSize(host_num_out * sizeof(IdType));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_dst malloc " << toReadableSize(host_num_out * sizeof(IdType));
+            SAM_LOG(DEBUG) << "CudaSample: size of new_src " << host_num_out;
+            SAM_LOG(DEBUG) << "CudaSample: cuda new_src malloc " << toReadableSize(host_num_out * sizeof(IdType));
+            SAM_LOG(DEBUG) << "CudaSample: cuda new_dst malloc " << toReadableSize(host_num_out * sizeof(IdType));
 
             MapEdges((const IdType *) out_src,
                            (IdType * const) new_src,
@@ -185,7 +184,7 @@ bool RunDeviceSampleLoopOnce() {
             // Convert COO format to CSR format
             IdType *new_indptr;
             CUDA_CALL(cudaMalloc(&new_indptr, (num_input + 1) * sizeof(IdType)));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: cuda new_indptr malloc " << toReadableSize((num_unique + 1) * sizeof(IdType));
+            SAM_LOG(DEBUG) << "CudaSample: cuda new_indptr malloc " << toReadableSize((num_unique + 1) * sizeof(IdType));
             ConvertCoo2Csr(new_src, new_dst, num_input, num_unique, host_num_out, new_indptr,
                                  sample_device, cusparse_handle, sample_stream);
 
@@ -205,7 +204,7 @@ bool RunDeviceSampleLoopOnce() {
             CUDA_CALL(cudaFree(new_src));
 
             task->cur_input = Tensor::FromBlob((void *)unique, DataType::kSamI32, {num_unique}, sample_device, "cur_input_unique_cuda_" + std::to_string(task->key) + "_" + std::to_string(i));
-            SAM_LOG(DEBUG) << "DeviceSampleLoop: finish layer " << i;
+            SAM_LOG(DEBUG) << "CudaSample: finish layer " << i;
         }
 
         CUSPARSE_CALL(cusparseDestroy(cusparse_handle));
@@ -215,7 +214,7 @@ bool RunDeviceSampleLoopOnce() {
         // Deliver the taks to next worker thread
         std::vector<CudaQueueType> next_ops = {CUDA_GRAPH_COPYD2D, CUDA_ID_COPYD2H};
         for (auto next_op : next_ops) {
-            auto next_q = SamGraphCudaEngine::Get()->GetTaskQueue(next_op);
+            auto next_q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(next_op);
             next_q->AddTask(task);
         }
 
@@ -229,12 +228,12 @@ bool RunDeviceSampleLoopOnce() {
 
 bool RunGraphCopyDevice2DeviceLoopOnce() {
     auto this_op = CUDA_GRAPH_COPYD2D;
-    auto q = SamGraphCudaEngine::Get()->GetTaskQueue(this_op);
+    auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
-        auto train_device = SamGraphCudaEngine::Get()->GetTrainDevice();
-        auto graph_copy_stream = *SamGraphCudaEngine::Get()->GetGraphCopyDevice2DeviceStream();
+        auto train_device = SamGraphCudaEngine::GetEngine()->GetTrainDevice();
+        auto graph_copy_stream = *SamGraphCudaEngine::GetEngine()->GetGraphCopyDevice2DeviceStream();
 
         for (size_t i = 0; i < task->output_graph.size(); i++) {
             auto graph = task->output_graph[i];
@@ -260,7 +259,7 @@ bool RunGraphCopyDevice2DeviceLoopOnce() {
 
         CUDA_CALL(cudaStreamSynchronize(graph_copy_stream));
 
-        auto ready_table = SamGraphCudaEngine::Get()->GetSubmitTable();
+        auto ready_table = SamGraphCudaEngine::GetEngine()->GetSubmitTable();
         ready_table->AddReadyCount(task->key);
 
         SAM_LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
@@ -273,7 +272,7 @@ bool RunGraphCopyDevice2DeviceLoopOnce() {
 
 bool RunIdCopyDevice2HostLoopOnce() {
     auto next_op = CUDA_FEAT_EXTRACT;
-    auto next_q = SamGraphCudaEngine::Get()->GetTaskQueue(next_op);
+    auto next_q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(next_op);
 
     if (next_q->ExceedThreshold()) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -281,11 +280,11 @@ bool RunIdCopyDevice2HostLoopOnce() {
     }
 
     auto this_op = CUDA_ID_COPYD2H;
-    auto q = SamGraphCudaEngine::Get()->GetTaskQueue(this_op);
+    auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
-        auto id_copy_d2h_stream = *SamGraphCudaEngine::Get()->GetIdCopyDevice2HostStream();
+        auto id_copy_d2h_stream = *SamGraphCudaEngine::GetEngine()->GetIdCopyDevice2HostStream();
         void *node_ids = malloc(task->input_nodes->size());
         SAM_LOG(DEBUG) << "IdCopyDevice2Host node_ids cpu malloc " << toReadableSize(task->input_nodes->size());
 
@@ -307,18 +306,18 @@ bool RunIdCopyDevice2HostLoopOnce() {
 
 bool RunHostFeatureExtractLoopOnce() {
     auto next_op = CUDA_FEAT_COPYH2D;
-    auto next_q = SamGraphCudaEngine::Get()->GetTaskQueue(next_op);
+    auto next_q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(next_op);
     if (next_q->ExceedThreshold()) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
         return true;
     }
 
     auto this_op = CUDA_FEAT_EXTRACT;
-    auto q = SamGraphCudaEngine::Get()->GetTaskQueue(this_op);
+    auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
-        auto dataset = SamGraphCudaEngine::Get()->GetGraphDataset();
+        auto dataset = SamGraphCudaEngine::GetEngine()->GetGraphDataset();
         auto input_nodes = task->input_nodes;
         auto output_nodes = task->output_nodes;
         SAM_CHECK_EQ(input_nodes->device(), CPU_DEVICE_ID);
@@ -339,7 +338,7 @@ bool RunHostFeatureExtractLoopOnce() {
         task->input_feat = Tensor::Empty(feat_type,{num_input, feat_dim}, CPU_DEVICE_ID, "task.input_feat_cpu_" + std::to_string(task->key));
         task->output_label = Tensor::Empty(label_type, {num_ouput}, CPU_DEVICE_ID, "task.output_label_cpu" + std::to_string(task->key));
 
-        auto extractor = SamGraphCudaEngine::Get()->GetCpuExtractor();
+        auto extractor = SamGraphCudaEngine::GetEngine()->GetExtractor();
 
         auto feat_dst = task->input_feat->mutable_data();
         auto feat_src = dataset->feat->data();
@@ -360,20 +359,20 @@ bool RunHostFeatureExtractLoopOnce() {
 
 bool RunFeatureCopyHost2DeviceLoopOnce() {
     auto next_op = CUDA_SUBMIT;
-    auto next_q = SamGraphCudaEngine::Get()->GetTaskQueue(next_op);
+    auto next_q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(next_op);
     if (next_q->ExceedThreshold()) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
         return true;
     }
 
     auto this_op = CUDA_FEAT_COPYH2D;
-    auto q = SamGraphCudaEngine::Get()->GetTaskQueue(this_op);
+    auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
-        auto train_device = SamGraphCudaEngine::Get()->GetTrainDevice();
+        auto train_device = SamGraphCudaEngine::GetEngine()->GetTrainDevice();
         CUDA_CALL(cudaSetDevice(train_device));
-        auto feat_copy_h2d_stream = *SamGraphCudaEngine::Get()->GetFeatureCopyHost2DeviceStream();
+        auto feat_copy_h2d_stream = *SamGraphCudaEngine::GetEngine()->GetFeatureCopyHost2DeviceStream();
 
         auto feat = task->input_feat;
         auto label = task->output_label;
@@ -392,7 +391,7 @@ bool RunFeatureCopyHost2DeviceLoopOnce() {
         task->input_feat = d_feat;
         task->output_label = d_label;
 
-        auto ready_table = SamGraphCudaEngine::Get()->GetSubmitTable();
+        auto ready_table = SamGraphCudaEngine::GetEngine()->GetSubmitTable();
         ready_table->AddReadyCount(task->key);
 
         next_q->AddTask(task);
@@ -405,14 +404,14 @@ bool RunFeatureCopyHost2DeviceLoopOnce() {
 }
 
 bool RunSubmitLoopOnce() {
-    auto graph_pool = SamGraphCudaEngine::Get()->GetGraphPool();
+    auto graph_pool = SamGraphCudaEngine::GetEngine()->GetGraphPool();
     if (graph_pool->ExceedThreshold()) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
         return true;
     }
 
     auto this_op = CUDA_SUBMIT;
-    auto q = SamGraphCudaEngine::Get()->GetTaskQueue(this_op);
+    auto q = SamGraphCudaEngine::GetEngine()->GetTaskQueue(this_op);
     auto task = q->GetTask();
 
     if (task) {
@@ -426,54 +425,54 @@ bool RunSubmitLoopOnce() {
 }
 
 void HostPermutateLoop() {
-    while(RunHostPermutateLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+    while(RunHostPermutateLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 void IdCopyHost2DeviceLoop() {
-    while(RunIdCopyHost2DeviceLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {        
+    while(RunIdCopyHost2DeviceLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {        
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
-void DeviceSampleLoop() {
-    CUDA_CALL(cudaSetDevice(SamGraphCudaEngine::Get()->GetSampleDevice()));
-    while(RunDeviceSampleLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+void CudaSample() {
+    CUDA_CALL(cudaSetDevice(SamGraphCudaEngine::GetEngine()->GetSampleDevice()));
+    while(RunCudaSampleOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 void GraphCopyDevice2DeviceLoop() {
-    while(RunGraphCopyDevice2DeviceLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+    while(RunGraphCopyDevice2DeviceLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 void IdCopyDevice2HostLoop() {
-    CUDA_CALL(cudaSetDevice(SamGraphCudaEngine::Get()->GetSampleDevice()));
-    while(RunIdCopyDevice2HostLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+    CUDA_CALL(cudaSetDevice(SamGraphCudaEngine::GetEngine()->GetSampleDevice()));
+    while(RunIdCopyDevice2HostLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 void HostFeatureExtractLoop() {
-    while(RunHostFeatureExtractLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+    while(RunHostFeatureExtractLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 void FeatureCopyHost2DeviceLoop() {
-    CUDA_CALL(cudaSetDevice(SamGraphCudaEngine::Get()->GetTrainDevice()));
-    while(RunFeatureCopyHost2DeviceLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+    CUDA_CALL(cudaSetDevice(SamGraphCudaEngine::GetEngine()->GetTrainDevice()));
+    while(RunFeatureCopyHost2DeviceLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 void SubmitLoop() {
-    while(RunSubmitLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+    while(RunSubmitLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 bool RunSingleLoopOnce() {
@@ -481,7 +480,7 @@ bool RunSingleLoopOnce() {
 
     RunHostPermutateLoopOnce();
     RunIdCopyHost2DeviceLoopOnce();
-    RunDeviceSampleLoopOnce();
+    RunCudaSampleOnce();
     RunGraphCopyDevice2DeviceLoopOnce();
     RunIdCopyDevice2HostLoopOnce();
     RunHostFeatureExtractLoopOnce();
@@ -497,9 +496,9 @@ bool RunSingleLoopOnce() {
 }
 
 void SingleLoop() {
-    while(RunSingleLoopOnce() && !SamGraphCudaEngine::Get()->ShouldShutdown()) {
+    while(RunSingleLoopOnce() && !SamGraphCudaEngine::GetEngine()->ShouldShutdown()) {
     }
-    SamGraphCudaEngine::Get()->ReportThreadFinish();
+    SamGraphCudaEngine::GetEngine()->ReportThreadFinish();
 }
 
 } // namespace cuda

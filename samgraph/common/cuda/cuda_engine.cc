@@ -16,11 +16,15 @@ SamGraphCudaEngine::SamGraphCudaEngine() {
 }
 
 void SamGraphCudaEngine::Init(std::string dataset_path, int sample_device, int train_device,
-                          size_t batch_size, std::vector<int> fanout, int num_epoch) {
+                              size_t batch_size, std::vector<int> fanout, int num_epoch) {
     if (_initialize) {
         return;
     }
 
+    SAM_CHECK_GT(sample_device, CPU_DEVICE_ID);
+    SAM_CHECK_GT(train_device, CPU_DEVICE_ID);
+
+    _engine_type = kCudaEngine;
     _sample_device = sample_device;
     _train_device = train_device;
     _dataset_path = dataset_path;
@@ -56,7 +60,7 @@ void SamGraphCudaEngine::Init(std::string dataset_path, int sample_device, int t
     CUDA_CALL(cudaStreamSynchronize(*_feat_copy_host2device_stream));
 
     _submit_table = new ReadyTable(Config::kSubmitTableCount, "CUDA_SUBMIT");
-    _cpu_extractor = new CpuExtractor();
+    _extractor = new Extractor();
     _permutation = new RandomPermutation(_dataset->train_set, _num_epoch, _batch_size, false);
     _num_step = _permutation->num_step();
     _graph_pool = new GraphPool(Config::kGraphPoolThreshold);
@@ -80,7 +84,7 @@ void SamGraphCudaEngine::Start() {
     
     func.push_back(HostPermutateLoop);
     func.push_back(IdCopyHost2DeviceLoop);
-    func.push_back(DeviceSampleLoop);
+    func.push_back(CudaSample);
     func.push_back(GraphCopyDevice2DeviceLoop);
     func.push_back(IdCopyDevice2HostLoop);
     func.push_back(HostFeatureExtractLoop);
@@ -120,9 +124,9 @@ void SamGraphCudaEngine::Shutdown() {
         _submit_table = nullptr;
     }
 
-    if (_cpu_extractor) {
-        delete _cpu_extractor;
-        _cpu_extractor = nullptr;
+    if (_extractor) {
+        delete _extractor;
+        _extractor = nullptr;
     }
 
     delete _dataset;
@@ -185,11 +189,6 @@ void SamGraphCudaEngine::Shutdown() {
     _initialize = false;
     _should_shutdown = false;
 }
-
-bool SamGraphCudaEngine::IsAllThreadFinish(int total_thread_num) {
-  int k = _joined_thread_cnt.fetch_add(0);
-  return (k == total_thread_num);
-};
 
 } // namespace cuda
 } // namespace common

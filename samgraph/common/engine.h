@@ -41,7 +41,7 @@ class SamGraphEngine {
 
   // Singleton
   static void CreateEngine(EngineType t);
-  static inline SamGraphEngine *Get() { return _engine; }
+  static inline SamGraphEngine *GetEngine() { return _engine; }
 
  protected:
   // Whether the server is initialized
@@ -72,6 +72,7 @@ class SamGraphEngine {
   std::atomic_int _joined_thread_cnt;
 
   void LoadGraphDataset();
+  bool IsAllThreadFinish(int total_thread_num);
 
   static EngineType _engine_type;
   static SamGraphEngine * _engine;

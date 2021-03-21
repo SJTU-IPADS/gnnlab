@@ -16,7 +16,7 @@
 #include "../graph_pool.h"
 #include "../ready_table.h"
 #include "../engine.h"
-#include "cpu_extractor.h"
+#include "../extractor.h"
 
 namespace samgraph {
 namespace common {
@@ -27,12 +27,12 @@ class SamGraphCudaEngine : public SamGraphEngine {
   SamGraphCudaEngine();
 
   void Init(std::string dataset_path, int sample_device, int train_device,
-                   size_t batch_size, std::vector<int> fanout, int num_epoch) override;
+            size_t batch_size, std::vector<int> fanout, int num_epoch) override;
   void Start() override;
   void Shutdown() override;
 
   RandomPermutation* GetRandomPermutation() { return _permutation; }
-  CpuExtractor* GetCpuExtractor() { return _cpu_extractor; }
+  Extractor* GetExtractor() { return _extractor; }
   SamGraphTaskQueue* GetTaskQueue(CudaQueueType queueType) { return _queues[queueType]; }
   ReadyTable *GetSubmitTable() { return _submit_table; }
 
@@ -42,7 +42,10 @@ class SamGraphCudaEngine : public SamGraphEngine {
   cudaStream_t* GetIdCopyDevice2HostStream() { return _id_copy_device2host_stream; }
   cudaStream_t* GetFeatureCopyHost2DeviceStream() {  return _feat_copy_host2device_stream; }
 
-  static inline SamGraphCudaEngine *Get() { return dynamic_cast<SamGraphCudaEngine *>(SamGraphEngine::_engine); }
+  static inline SamGraphCudaEngine *GetEngine() {
+    SAM_CHECK_EQ(_engine_type, kCudaEngine);
+    return dynamic_cast<SamGraphCudaEngine *>(SamGraphEngine::_engine);
+  }
 
  private:
   // Task queue
@@ -61,9 +64,7 @@ class SamGraphCudaEngine : public SamGraphEngine {
   // Ready table
   ReadyTable* _submit_table;
   // CPU Extractor
-  CpuExtractor* _cpu_extractor;
-
-  bool IsAllThreadFinish(int total_thread_num);
+  Extractor* _extractor;
 };
 
 } // namespace cuda

@@ -96,7 +96,7 @@ struct SamGraphDataset {
 
 enum CudaQueueType {
     CUDA_ID_COPYH2D = 0,
-    CUDA_DEV_SAMPLE,
+    CUDA_SAMPLE,
     CUDA_GRAPH_COPYD2D,
     CUDA_ID_COPYD2H,
     CUDA_FEAT_EXTRACT,

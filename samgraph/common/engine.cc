@@ -10,6 +10,7 @@
 #include "logging.h"
 #include "config.h"
 #include "cuda/cuda_engine.h"
+#include "cpu/cpu_engine.h"
 
 namespace samgraph {
 namespace common {
@@ -24,8 +25,10 @@ void SamGraphEngine::CreateEngine(EngineType t) {
 
     switch(t) {
         case kCpuEngine:
+            _engine = new cpu::SamGraphCpuEngine;
             break;
         case kCpuPEngine:
+            SAM_CHECK(0);
             break;
         case kCudaEngine:
             _engine = new cuda::SamGraphCudaEngine;
@@ -88,6 +91,12 @@ void SamGraphEngine::LoadGraphDataset() {
 
     SAM_LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path <<  ") successfully";
 }
+
+
+bool SamGraphEngine::IsAllThreadFinish(int total_thread_num) {
+  int k = _joined_thread_cnt.fetch_add(0);
+  return (k == total_thread_num);
+};
 
 } // namespace common
 } // namespace samgraph

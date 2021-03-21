@@ -9,7 +9,7 @@ void HostPermutateLoop();
 
 void IdCopyHost2DeviceLoop();
 
-void DeviceSampleLoop();
+void CudaSample();
 
 void GraphCopyDevice2DeviceLoop();
 

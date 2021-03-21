@@ -47,6 +47,8 @@ class Config {
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;
   static constexpr size_t kMegabytes = 1 * 1024 * 1024;
   static constexpr size_t kKilobytes = 1 * 1024;
+
+  static constexpr int kOMPThreadNum = 44;
 };
 
 } // namespace common

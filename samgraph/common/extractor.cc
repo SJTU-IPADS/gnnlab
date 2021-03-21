@@ -1,11 +1,10 @@
-#include "../logging.h"
-#include "cpu_extractor.h"
+#include "logging.h"
+#include "extractor.h"
 
 namespace samgraph {
 namespace common {
-namespace cuda {
 
-CpuExtractor::CpuExtractor() {
+Extractor::Extractor() {
     if (getenv("SAMGRAPH_OMP_THREAD")) {
         _num_threads = atoi(getenv("SAMGRAPH_OMP_THREAD"));
     } else {
@@ -13,7 +12,7 @@ CpuExtractor::CpuExtractor() {
     }
 }
 
-int CpuExtractor::extract(void *dst, const void *src, const IdType *idx,
+int Extractor::extract(void *dst, const void *src, const IdType *idx,
                            size_t num_idx, size_t dim, DataType dtype) {
     switch(dtype) {
         case kSamF32:
@@ -36,7 +35,7 @@ int CpuExtractor::extract(void *dst, const void *src, const IdType *idx,
 }
 
 template<typename T>
-int CpuExtractor::_extract(T* dst, const T* src, const IdType *idx,
+int Extractor::_extract(T* dst, const T* src, const IdType *idx,
                             size_t num_idx, size_t dim) {
     #pragma omp parallel for num_threads(_num_threads)
     for (size_t i = 0; i < num_idx; ++i) {
@@ -49,6 +48,5 @@ int CpuExtractor::_extract(T* dst, const T* src, const IdType *idx,
     return 0;
 }
 
-} // namespace cuda
 } // namespace common
 } // namespace samgraph
