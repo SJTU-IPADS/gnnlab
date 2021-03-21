@@ -9,7 +9,7 @@
 #include "../config.h"
 #include "../logging.h"
 #include "../common.h"
-#include "cuda_sampling.h"
+#include "cuda_function.h"
 
 namespace {
 

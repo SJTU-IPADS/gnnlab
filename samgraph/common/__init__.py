@@ -1,6 +1,7 @@
 import ctypes
 import os
 import sysconfig
+from enum import IntEnum
 
 def get_ext_suffix():
     """Determine library extension for various versions of Python."""
@@ -19,6 +20,11 @@ def get_extension_full_path(pkg_path, *args):
     dir_path = os.path.join(os.path.dirname(pkg_path), *args[:-1])
     full_path = os.path.join(dir_path, args[-1] + get_ext_suffix())
     return full_path
+
+class EngineType(IntEnum):
+    CPU  = 0
+    CPUP = 1
+    CUDA = 2
 
 class Graph(object):
     def __init__(self, key, graph_id, num_row, num_col, num_edge):
@@ -46,7 +52,7 @@ class SamGraphBasics(object):
 
         self.C_LIB_CTYPES.samgraph_num_epoch.restype = ctypes.c_int
         
-        self.C_LIB_CTYPES.samgraph_num_step_per_epoch.restype = ctypes.c_int
+        self.C_LIB_CTYPES.samgraph_num_step_per_epoch.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_dataset_num_class.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_dataset_num_feat_dim.restype = ctypes.c_size_t
         
@@ -64,8 +70,10 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
         
 
-    def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch):
+    def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch, engine_type):
         num_fanout = len(fanout)
+
+        assert(isinstance(engine_type, EngineType))
 
         return self.C_LIB_CTYPES.samgraph_init(ctypes.c_char_p(str.encode(path)),
                                                ctypes.c_int(sample_device),
@@ -73,7 +81,8 @@ class SamGraphBasics(object):
                                                ctypes.c_ulonglong(batch_size),
                                                (ctypes.c_int * num_fanout)(*fanout),
                                                ctypes.c_ulonglong(num_fanout),
-                                               ctypes.c_int(num_epoch))
+                                               ctypes.c_int(num_epoch),
+                                               ctypes.c_int(engine_type.value))
     
     def start(self):
         return self.C_LIB_CTYPES.samgraph_start()

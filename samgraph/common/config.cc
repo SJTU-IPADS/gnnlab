@@ -21,13 +21,13 @@ const std::string Config::kMetaNumTestSet  = "NUM_TEST_SET";
 const std::string Config::kMetaNumValidSet = "NUM_VALID_SET";
 
 const std::unordered_map<int, size_t> Config::kQueueThreshold = {
-    { ID_COPYH2D,    5 },
-    { DEV_SAMPLE,    5 },
-    { GRAPH_COPYD2D, 5 },
-    { ID_COPYD2H,    5 },
-    { FEAT_EXTRACT,  5 },
-    { FEAT_COPYH2D,  5 },
-    { SUBMIT,        5 },
+    { CUDA_ID_COPYH2D,    5 },
+    { CUDA_DEV_SAMPLE,    5 },
+    { CUDA_GRAPH_COPYD2D, 5 },
+    { CUDA_ID_COPYD2H,    5 },
+    { CUDA_FEAT_EXTRACT,  5 },
+    { CUDA_FEAT_COPYH2D,  5 },
+    { CUDA_SUBMIT,        5 },
 };
 
 } // namespace common

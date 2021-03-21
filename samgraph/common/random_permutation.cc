@@ -21,16 +21,16 @@ RandomPermutation::RandomPermutation(std::shared_ptr<IdTensor> input, int num_ep
     _input = input;
     _num_element = num_element;
     _drop_last = drop_last;
-    _num_batch = drop_last ? (num_element / batch_size) : ((num_element - 1) / batch_size) + 1;
+    _num_step = drop_last ? (num_element / batch_size) : ((num_element - 1) / batch_size) + 1;
     _batch_size = batch_size;
     _last_batch_size = drop_last ? batch_size : num_element % batch_size;
     
-    _cur_batch_idx = std::numeric_limits<int>::max();
+    _cur_step = std::numeric_limits<int>::max();
 }
 
 void RandomPermutation::RePermutate() {
     _cur_epoch++;
-    _cur_batch_idx = 0;
+    _cur_step = 0;
 
     if (_cur_epoch >= _num_epoch) {
         return;
@@ -65,14 +65,14 @@ std::shared_ptr<IdTensor> RandomPermutation::GetBatch(cudaStream_t stream) {
         return nullptr;
     }
 
-    _cur_batch_idx++;
+    _cur_step++;
 
-    if (_cur_batch_idx >= _num_batch) {
+    if (_cur_step >= _num_step) {
         RePermutate();
     }
 
-    size_t offset = _cur_batch_idx * _batch_size;
-    size_t size = _cur_batch_idx == (_num_batch - 1) ? _last_batch_size : _batch_size;
+    size_t offset = _cur_step * _batch_size;
+    size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
     return IdTensor::CreateCopy1D(_input, offset, {size}, "random_permutation_batch", stream);
 }

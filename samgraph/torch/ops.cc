@@ -8,7 +8,7 @@
 #include "ops.h"
 #include "../common/logging.h"
 #include "../common/cuda/cuda_engine.h"
-#include "../common/cuda/cuda_util.h"
+#include "../common/cuda/cuda_function.h"
 #include "../common/common.h"
 
 namespace samgraph {
@@ -46,9 +46,9 @@ bool stream_sync = true;
     auto graph_id = common::decodeGraphID(key);
     auto batch_key = common::decodeBatchKey(key);
 
-    auto graph_batch = common::cuda::SamGraphCudaEngine::GetGraphBatch();
+    auto graph_batch = common::SamGraphEngine::Get()->GetGraphBatch();
     auto train_graph = graph_batch->output_graph.at(graph_id);
-    auto device = common::cuda::SamGraphCudaEngine::GetTrainDevice();
+    auto device = common::SamGraphEngine::Get()->GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
     SAM_CHECK_EQ(batch_key, graph_batch->key);
@@ -119,9 +119,9 @@ bool stream_sync = true;
     auto graph_id = common::decodeGraphID(key);
     auto batch_key = common::decodeBatchKey(key);
 
-    auto graph_batch = common::cuda::SamGraphCudaEngine::GetGraphBatch();
+    auto graph_batch = common::SamGraphEngine::Get()->GetGraphBatch();
     auto train_graph = graph_batch->output_graph.at(graph_id);
-    auto device = common::cuda::SamGraphCudaEngine::GetTrainDevice();
+    auto device = common::SamGraphEngine::Get()->GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
     SAM_CHECK_EQ(batch_key, graph_batch->key);
@@ -190,9 +190,9 @@ bool stream_sync = true;
 }
 
 ::torch::Tensor GetGraphFeature(uint64_t key) {
-    auto graph_batch = common::cuda::SamGraphCudaEngine::GetGraphBatch();
+    auto graph_batch = common::SamGraphEngine::Get()->GetGraphBatch();
     auto feat = graph_batch->input_feat;
-    auto device = common::cuda::SamGraphCudaEngine::GetTrainDevice();
+    auto device = common::SamGraphEngine::Get()->GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
     
     SAM_CHECK_EQ(key, graph_batch->key);
@@ -211,9 +211,9 @@ bool stream_sync = true;
 }
 
 ::torch::Tensor GetGraphLabel(uint64_t key) {
-    auto graph_batch = common::cuda::SamGraphCudaEngine::GetGraphBatch();
+    auto graph_batch = common::SamGraphEngine::Get()->GetGraphBatch();
     auto label = graph_batch->output_label;
-    auto device = common::cuda::SamGraphCudaEngine::GetTrainDevice();
+    auto device = common::SamGraphEngine::Get()->GetTrainDevice();
     auto device_str = "cuda:" + std::to_string(device);
 
     SAM_CHECK_EQ(key, graph_batch->key);

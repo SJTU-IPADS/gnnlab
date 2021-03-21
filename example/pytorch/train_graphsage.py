@@ -41,7 +41,7 @@ def run(args):
     fanout_list = [int(fanout) for fanout in args.fan_out.split(',')]
 
     sam.init(args.dataset_path, args.sample_device, args.train_device,
-             args.batch_size, fanout_list, args.num_epoch)
+             args.batch_size, fanout_list, args.num_epoch, args.engine_type)
 
     th_train_device = th.device('cuda:%d' % args.train_device)
 
@@ -100,6 +100,7 @@ if __name__ == '__main__':
     argparser.add_argument('--batch-size', type=int, default=8192)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--engine-type', type=sam.EngineType, default=sam.EngineType.CUDA, choices=list(sam.EngineType))
 
     args = argparser.parse_args()
     run(args)

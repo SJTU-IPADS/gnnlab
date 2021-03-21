@@ -1,17 +1,12 @@
 #include "task_queue.h"
-#include "cuda/cuda_engine.h"
 
 namespace samgraph {
 namespace common {
 
-SamGraphTaskQueue::SamGraphTaskQueue(QueueType qt, size_t threshold) {
+SamGraphTaskQueue::SamGraphTaskQueue(CudaQueueType qt, size_t threshold, ReadyTable* rt) {
     _qt = qt;
     _threshold = threshold;
-    _rt = nullptr;
-
-    if (_qt == SUBMIT) {
-        _rt = cuda::SamGraphCudaEngine::GetSubmitTable();
-    } 
+    _rt = rt;
 }
 
 void SamGraphTaskQueue::AddTask(std::shared_ptr<TaskEntry> task) {

@@ -13,8 +13,8 @@ namespace common {
 
 class SamGraphTaskQueue {
  public:
-  SamGraphTaskQueue(QueueType type, size_t threshold);
-  QueueType GetQueueType() { return _qt; }
+  SamGraphTaskQueue(CudaQueueType type, size_t threshold, ReadyTable* rt = nullptr);
+  CudaQueueType GetQueueType() { return _qt; }
   void AddTask(std::shared_ptr<TaskEntry>);
   std::shared_ptr<TaskEntry> GetTask();
   bool ExceedThreshold();
@@ -23,7 +23,7 @@ class SamGraphTaskQueue {
  private:
   std::vector<std::shared_ptr<TaskEntry>> _q;
   std::mutex _mutex;
-  QueueType _qt;
+  CudaQueueType _qt;
   size_t _threshold;
   ReadyTable *_rt;
 };

@@ -3,7 +3,6 @@
 
 #include <memory>
 
-#include "types.h"
 #include "common.h"
 
 namespace samgraph {
@@ -17,8 +16,8 @@ class RandomPermutation {
 
   inline int cur_epoch() { return _cur_epoch; }
   inline int num_epoch() { return _num_epoch; }
-  inline size_t cur_batch() { return _cur_batch_idx; }
-  inline size_t num_batch() { return _num_batch; }
+  inline size_t cur_step() { return _cur_step; }
+  inline size_t num_step() { return _num_step; }
   inline size_t num_element() { return _input->shape().front(); }
 
  private:
@@ -30,8 +29,8 @@ class RandomPermutation {
   bool _drop_last;
   size_t _batch_size;
   size_t _last_batch_size;
-  size_t _num_batch;
-  size_t _cur_batch_idx;
+  size_t _num_step;
+  size_t _cur_step;
 
   void RePermutate();
 };

@@ -2,7 +2,7 @@
 #define SAMGRAPH_CUDA_CPU_EXTRACTOR_H
 
 #include "../common.h"
-#include "../types.h"
+#include "../common.h"
 
 namespace samgraph {
 namespace common {

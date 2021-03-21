@@ -2,7 +2,7 @@
 #include <cstdio>
 
 #include "../config.h"
-#include "cuda_mapping.h"
+#include "cuda_function.h"
 #include "cuda_hashtable.h"
 
 namespace samgraph {

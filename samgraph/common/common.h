@@ -6,11 +6,21 @@
 #include <functional>
 #include <vector>
 #include <mutex>
+#include <cstdint>
 
 #include <cuda_runtime.h>
 
 namespace samgraph {
 namespace common {
+
+enum EngineType {
+  kCpuEngine = 0,
+  kCpuPEngine,
+  kCudaEngine
+};
+
+using IdType = unsigned int;
+using SignedIdType = int;
 
 // Keep the order consistent with DMLC/mshadow
 // https://github.com/dmlc/mshadow/blob/master/mshadow/base.h
@@ -84,19 +94,19 @@ struct SamGraphDataset {
     std::shared_ptr<IdTensor> valid_set;
 };
 
-enum QueueType {
-    ID_COPYH2D = 0,
-    DEV_SAMPLE,
-    GRAPH_COPYD2D,
-    ID_COPYD2H,
-    FEAT_EXTRACT,
-    FEAT_COPYH2D,
-    SUBMIT,
-    QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST
+enum CudaQueueType {
+    CUDA_ID_COPYH2D = 0,
+    CUDA_DEV_SAMPLE,
+    CUDA_GRAPH_COPYD2D,
+    CUDA_ID_COPYD2H,
+    CUDA_FEAT_EXTRACT,
+    CUDA_FEAT_COPYH2D,
+    CUDA_SUBMIT,
+    CUDA_QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST
 };
 
-const int QueueNum =
-    (int)QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST;
+const int CudaQueueNum =
+    (int)CUDA_QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST;
 
 // Train graph format that is compatible with the cuSparse method
 struct TrainGraph {
@@ -118,9 +128,9 @@ struct TaskEntry {
     // Output graph tensor
     std::vector<std::shared_ptr<TrainGraph>> output_graph;
     // node ids of the last train graph
-    std::shared_ptr<Tensor> input_nodes;
+    std::shared_ptr<IdTensor> input_nodes;
     // node ids of the first train graph
-    std::shared_ptr<Tensor> output_nodes;
+    std::shared_ptr<IdTensor> output_nodes;
     // Input feature tensor
     std::shared_ptr<Tensor> input_feat;
     // Output label tensor

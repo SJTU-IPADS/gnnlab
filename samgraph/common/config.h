@@ -6,7 +6,6 @@
 #include <limits>
 
 #include "common.h"
-#include "types.h"
 
 namespace samgraph {
 namespace common {
@@ -35,6 +34,7 @@ class Config {
 
   static const std::unordered_map<int, size_t> kQueueThreshold;
   static constexpr size_t kGraphPoolThreshold = 5;
+  static constexpr size_t kSubmitTableCount = 2;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
 

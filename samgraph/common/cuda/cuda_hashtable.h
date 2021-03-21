@@ -5,7 +5,7 @@
 
 #include <cuda_runtime.h>
 
-#include "../types.h"
+#include "../common.h"
 #include "../logging.h"
 #include "../config.h"
 
