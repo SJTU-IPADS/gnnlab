@@ -44,6 +44,7 @@ void SamGraphCpuEngine::Init(std::string dataset_path, int sample_device, int tr
     _permutation = new RandomPermutation(_dataset->train_set, _num_epoch, _batch_size, false);
     _num_step = _permutation->num_step();
     _graph_pool = new GraphPool(Config::kGraphPoolThreshold);
+    _hash_table = new HashTable(_dataset->num_node);
 
     _initialize = true;
 }
@@ -103,10 +104,25 @@ void SamGraphCpuEngine::Shutdown() {
         _graph_pool = nullptr;
     }
 
+    if (_hash_table) {
+        delete _hash_table;
+        _hash_table = nullptr;
+    }
+
     _threads.clear();
     _joined_thread_cnt = 0;
     _initialize = false;
     _should_shutdown = false;
+}
+
+void SamGraphCpuEngine::SampleOnce() {
+    auto tic = std::chrono::system_clock::now();
+    RunCpuSampleLoopOnce();
+    auto toc = std::chrono::system_clock::now();
+
+    std::chrono::duration<double> duration = toc - tic;
+
+    SAM_LOG(INFO) << "sample " << duration.count();
 }
 
 } // namespace cpu

@@ -27,9 +27,6 @@ void SamGraphEngine::CreateEngine(EngineType t) {
         case kCpuEngine:
             _engine = new cpu::SamGraphCpuEngine;
             break;
-        case kCpuPEngine:
-            SAM_CHECK(0);
-            break;
         case kCudaEngine:
             _engine = new cuda::SamGraphCudaEngine;
             break;

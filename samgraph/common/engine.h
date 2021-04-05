@@ -20,6 +20,7 @@ class SamGraphEngine {
                      size_t batch_size, std::vector<int> fanout, int num_epoch) = 0;
   virtual void Start() = 0;
   virtual void Shutdown() = 0;
+  virtual void SampleOnce() = 0;
 
   std::vector<int> GetFanout() { return _fanout; }
   int GetNumEpoch() { return _num_epoch; }

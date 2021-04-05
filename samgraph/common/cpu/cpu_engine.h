@@ -9,6 +9,7 @@
 #include "../random_permutation.h"
 #include "../extractor.h"
 #include "../logging.h"
+#include "cpu_hashtable.h"
 
 namespace samgraph {
 namespace common {
@@ -22,10 +23,12 @@ class SamGraphCpuEngine : public SamGraphEngine {
             size_t batch_size, std::vector<int> fanout, int num_epoch) override;
   void Start() override;
   void Shutdown() override;
+  void SampleOnce() override;
 
   RandomPermutation* GetRandomPermutation() { return _permutation; }
   Extractor* GetExtractor() { return _extractor; }
   cudaStream_t* GetWorkStream() {  return _work_stream; }
+  HashTable *GetHashTable() { return _hash_table; }
 
   static inline SamGraphCpuEngine *GetEngine() {
     SAM_CHECK_EQ(_engine_type, kCpuEngine);
@@ -42,6 +45,8 @@ class SamGraphCpuEngine : public SamGraphEngine {
   RandomPermutation* _permutation;
   // CPU Extractor
   Extractor* _extractor;
+  // Hash table
+  HashTable* _hash_table;
 };
 
 } // namespace cpu

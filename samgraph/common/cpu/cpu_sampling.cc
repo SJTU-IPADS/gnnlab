@@ -27,7 +27,7 @@ void CpuSample(const IdType *const indptr, const IdType *const indices,
 
     bool all_has_fanout = true;
 
-#pragma omp parallel for num_threads(Config::kOMPThreadNum) reduction  (&&:all_has_fanout)
+#pragma omp parallel for num_threads(Config::kOmpThreadNum) reduction  (&&:all_has_fanout)
     for (size_t i = 0; i < num_input; ++i) {
         const IdType rid = input[i];
         const IdType off = indptr[rid];
