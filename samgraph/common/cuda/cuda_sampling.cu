@@ -76,6 +76,8 @@ sample(const IdType *indptr, const IdType *indices, const IdType *input, const s
                     }
                 } 
             }
+
+            // printf("index %lu, len %lu, fanout %lu\n", index, len, fanout);
         }
     }
 }
@@ -99,6 +101,7 @@ count_edge(IdType *edge_src, size_t *item_prefix, const size_t num_input, const 
                     ++count;
                 }
             }
+            // printf("index %lu  count %lu\n", index, count);
         }
     }
     
@@ -108,6 +111,7 @@ count_edge(IdType *edge_src, size_t *item_prefix, const size_t num_input, const 
     
     if (threadIdx.x == 0) {
         item_prefix[blockIdx.x] = count;
+        // printf("blockIdx.x %d count %lu\n", blockIdx.x, count);
         if (blockIdx.x == 0) {
             item_prefix[gridDim.x] = 0;
         }
@@ -156,6 +160,7 @@ compact_edge(const IdType *tmp_src, const IdType *tmp_dst, IdType *out_src, IdTy
 
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         *num_out = item_prefix[gridDim.x];
+        // printf("item_prefix %d\n", item_prefix[gridDim.x]);
     }
 }
 

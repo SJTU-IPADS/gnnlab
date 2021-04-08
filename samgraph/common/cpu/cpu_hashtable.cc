@@ -1,9 +1,9 @@
 #include <cstdlib>
 #include <cstring>
-#include <chrono>
 
 #include "../logging.h"
 #include "../config.h"
+#include "../timer.h"
 #include "cpu_hashtable.h"
 
 namespace samgraph {
@@ -30,7 +30,7 @@ HashTable::~HashTable() {
 }
 
 void HashTable::Populate(const IdType *input, const size_t num_input) {
-    auto tic = std::chrono::system_clock::now();
+    Timer t;
     #pragma omp parallel for num_threads(Config::kOmpThreadNum)
     for (size_t i = 0; i < num_input; i++) {
         IdType id = input[i];
@@ -42,26 +42,23 @@ void HashTable::Populate(const IdType *input, const size_t num_input) {
             _mapping[local].global = id;
         }
     }
-    auto toc = std::chrono::system_clock::now();
-    std::chrono::duration<double> duration = toc - tic;
-    SAM_LOG(INFO) << "HashTable::Populate " << duration.count();
+
+    SAM_LOG(INFO) << "HashTable::Populate " << t.Passed();
 }
 
 void HashTable::MapNodes(IdType *output, size_t num_ouput) {
-    auto tic = std::chrono::system_clock::now();
+    Timer t;
     SAM_CHECK_LE(num_ouput, _map_offset);
     #pragma omp parallel for num_threads(Config::kOmpThreadNum)
     for (size_t i = 0; i < num_ouput; i++) {
         output[i] = _mapping[i].global;
     }
 
-    auto toc = std::chrono::system_clock::now();
-    std::chrono::duration<double> duration = toc - tic;
-    SAM_LOG(INFO) << "HashTable::MapNodes " << duration.count();
+    SAM_LOG(INFO) << "HashTable::MapNodes " << t.Passed();
 }
 
 void HashTable::MapEdges(const IdType *src, const IdType *dst, const size_t len, IdType *new_src, IdType *new_dst) {
-    auto tic = std::chrono::system_clock::now();
+    Timer t;
     #pragma omp parallel for num_threads(Config::kOmpThreadNum)
     for (size_t i = 0; i < len; i++) {
         SAM_CHECK_LT(src[i], _capacity);
@@ -77,9 +74,7 @@ void HashTable::MapEdges(const IdType *src, const IdType *dst, const size_t len,
         new_dst[i] = bucket1.local;
     }
 
-    auto toc = std::chrono::system_clock::now();
-    std::chrono::duration<double> duration = toc - tic;
-    SAM_LOG(INFO) << "HashTable::MapEdges " << duration.count();
+    SAM_LOG(INFO) << "HashTable::MapEdges " << t.Passed();
 }
 
 void HashTable::Clear() {

@@ -1,5 +1,6 @@
 #include "../logging.h"
 #include "../config.h"
+#include "../timer.h"
 #include "cpu_engine.h"
 #include "cpu_loops.h"
 
@@ -21,7 +22,6 @@ void SamGraphCpuEngine::Init(std::string dataset_path, int sample_device, int tr
     SAM_CHECK_EQ(sample_device, CPU_DEVICE_ID);
     SAM_CHECK_GT(train_device, CPU_DEVICE_ID);
 
-    _engine_type = kCpuEngine;
     _sample_device = sample_device;
     _train_device = train_device;
     _dataset_path = dataset_path;
@@ -116,13 +116,11 @@ void SamGraphCpuEngine::Shutdown() {
 }
 
 void SamGraphCpuEngine::SampleOnce() {
-    auto tic = std::chrono::system_clock::now();
+    Timer t;
     RunCpuSampleLoopOnce();
-    auto toc = std::chrono::system_clock::now();
+    double sam_time = t.Passed();
 
-    std::chrono::duration<double> duration = toc - tic;
-
-    SAM_LOG(INFO) << "sample " << duration.count();
+    SAM_LOG(INFO) << "sample " << sam_time;
 }
 
 } // namespace cpu

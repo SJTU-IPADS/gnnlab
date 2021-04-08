@@ -29,8 +29,8 @@ class Config {
   static const std::string kMetaNumTestSet; 
   static const std::string kMetaNumValidSet;
 
-  static constexpr int kCudaBlockSize = 256;
-  static constexpr size_t kCudaTileSize = 1024;
+  static constexpr int kCudaBlockSize = 64;
+  static constexpr size_t kCudaTileSize = 128;
 
   static const std::unordered_map<int, size_t> kQueueThreshold;
   static constexpr size_t kGraphPoolThreshold = 5;
@@ -48,7 +48,7 @@ class Config {
   static constexpr size_t kMegabytes = 1 * 1024 * 1024;
   static constexpr size_t kKilobytes = 1 * 1024;
 
-  static constexpr int kOMPThreadNum = 44;
+  static constexpr int kOmpThreadNum = 24;
 };
 
 } // namespace common

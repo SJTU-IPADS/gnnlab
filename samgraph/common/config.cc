@@ -21,7 +21,6 @@ const std::string Config::kMetaNumTestSet  = "NUM_TEST_SET";
 const std::string Config::kMetaNumValidSet = "NUM_VALID_SET";
 
 const std::unordered_map<int, size_t> Config::kQueueThreshold = {
-    { CUDA_ID_COPYH2D,    5 },
     { CUDA_SAMPLE,    5 },
     { CUDA_GRAPH_COPYD2D, 5 },
     { CUDA_ID_COPYD2H,    5 },

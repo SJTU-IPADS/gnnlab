@@ -17,6 +17,7 @@ num_epoch = _basics.num_epoch
 num_step_per_epoch = _basics.num_step_per_epoch
 get_next_batch = _basics.get_next_batch
 shutdown = _basics.shutdown
+sample = _basics.sample
 
 def _check_tensor(tensor):
     if not tensor.dtype == torch.float32:

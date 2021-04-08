@@ -6,8 +6,8 @@ namespace common {
 
 extern "C" {
 
-void samgraph_init(const char*path, int sample_device, int train_device, size_t batch_size,
-                   int *fanout, size_t num_fanout, int num_epoch, int engine_type);
+void samgraph_init(const char*path, int sample_device, int train_device,size_t batch_size,
+                   int *fanout, size_t num_fanout, int num_epoch);
 
 void samgraph_start();
 
@@ -22,6 +22,8 @@ size_t samgraph_dataset_num_class();
 size_t samgraph_dataset_num_feat_dim();
 
 uint64_t samgraph_get_next_batch(int epoch, int step);
+
+void samgraph_sample_once();
 
 uint64_t samgraph_get_graph_key(uint64_t batch_key, int graph_id);
 

@@ -41,7 +41,7 @@ class SamGraphEngine {
   void ReportThreadFinish() { _joined_thread_cnt.fetch_add(1); }
 
   // Singleton
-  static void CreateEngine(EngineType t);
+  static void CreateEngine(int device);
   static inline SamGraphEngine *GetEngine() { return _engine; }
 
  protected:
@@ -75,7 +75,6 @@ class SamGraphEngine {
   void LoadGraphDataset();
   bool IsAllThreadFinish(int total_thread_num);
 
-  static EngineType _engine_type;
   static SamGraphEngine * _engine;
 };
 

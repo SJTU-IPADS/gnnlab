@@ -5,6 +5,7 @@
 
 #include "../logging.h"
 #include "../common.h"
+#include "../timer.h"
 #include "cuda_hashtable.h"
 
 namespace samgraph {
@@ -268,9 +269,13 @@ OrderedHashTable::OrderedHashTable(const size_t size, int device, cudaStream_t s
   CUDA_CALL(cudaStreamSynchronize(stream));
 }
 
-OrderedHashTable::~OrderedHashTable() { 
+OrderedHashTable::~OrderedHashTable() {
+  cudaDeviceSynchronize();
+  Timer t;
+
   CUDA_CALL(cudaFree(_table));
   CUDA_CALL(cudaFree(_mapping));
+  SAM_LOG(INFO) << "free " << t.Passed();
 }
 
 void OrderedHashTable::FillWithDuplicates(const IdType *const input,

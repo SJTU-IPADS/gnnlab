@@ -21,11 +21,6 @@ def get_extension_full_path(pkg_path, *args):
     full_path = os.path.join(dir_path, args[-1] + get_ext_suffix())
     return full_path
 
-class EngineType(IntEnum):
-    CPU  = 0
-    CPUP = 1
-    CUDA = 2
-
 class Graph(object):
     def __init__(self, key, graph_id, num_row, num_col, num_edge):
         self.key = key
@@ -70,10 +65,8 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
         
 
-    def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch, engine_type):
+    def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch):
         num_fanout = len(fanout)
-
-        assert(isinstance(engine_type, EngineType))
 
         return self.C_LIB_CTYPES.samgraph_init(ctypes.c_char_p(str.encode(path)),
                                                ctypes.c_int(sample_device),
@@ -81,8 +74,7 @@ class SamGraphBasics(object):
                                                ctypes.c_ulonglong(batch_size),
                                                (ctypes.c_int * num_fanout)(*fanout),
                                                ctypes.c_ulonglong(num_fanout),
-                                               ctypes.c_int(num_epoch),
-                                               ctypes.c_int(engine_type.value))
+                                               ctypes.c_int(num_epoch))
     
     def start(self):
         return self.C_LIB_CTYPES.samgraph_start()
@@ -108,3 +100,6 @@ class SamGraphBasics(object):
 
     def test_cusparse(self):
         return self.C_LIB_CTYPES.samgraph_test_cusparse()
+    
+    def sample(self):
+        return self.C_LIB_CTYPES.samgraph_sample_once()

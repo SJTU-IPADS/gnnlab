@@ -82,7 +82,7 @@ setup(
             'samgraph/common/task_queue.cc',
             'samgraph/common/cpu/cpu_convert.cc',
             'samgraph/common/cpu/cpu_engine.cc',
-            'samgraph/common/cpu/cpu_hashmap.cc',
+            'samgraph/common/cpu/cpu_hashtable.cc',
             'samgraph/common/cpu/cpu_loops.cc',
             'samgraph/common/cpu/cpu_sampling.cc',
             'samgraph/common/cuda/cuda_convert.cc',
@@ -91,6 +91,7 @@ setup(
             'samgraph/common/cuda/cuda_kernels.cu',
             'samgraph/common/cuda/cuda_loops.cc',
             'samgraph/common/cuda/cuda_mapping.cu',
+            'samgraph/common/cuda/cuda_permutator.cc',
             'samgraph/common/cuda/cuda_sampling.cu',
             'samgraph/torch/ops.cc',
         ],
@@ -99,8 +100,8 @@ setup(
         extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
         extra_compile_args= {
             'cxx': ['-std=c++14', '-g', '-fopt-info',  '-fPIC', 
-                    #  '-Ofast',
-                     '-O0',
+                     '-Ofast',
+                    #  '-O0',
                      '-Wall', '-fopenmp', '-march=native'],
             'nvcc': ['-std=c++14', '-g', '-arch=sm_35', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
         })

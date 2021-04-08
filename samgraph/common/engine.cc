@@ -15,23 +15,17 @@
 namespace samgraph {
 namespace common {
 
-EngineType      SamGraphEngine::_engine_type = kCudaEngine;
 SamGraphEngine* SamGraphEngine::_engine = nullptr;
 
-void SamGraphEngine::CreateEngine(EngineType t) {
+void SamGraphEngine::CreateEngine(int device) {
     if (_engine) {
         return;
     }
 
-    switch(t) {
-        case kCpuEngine:
-            _engine = new cpu::SamGraphCpuEngine;
-            break;
-        case kCudaEngine:
-            _engine = new cuda::SamGraphCudaEngine;
-            break;
-        default:
-            SAM_CHECK(0);
+    if (device < 0) {
+        _engine = new cpu::SamGraphCpuEngine;
+    } else {
+         _engine = new cuda::SamGraphCudaEngine;
     }
 }
 

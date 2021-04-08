@@ -1,8 +1,10 @@
 #include <cstdlib>
+#include <chrono>
 
 #include "../common.h"
 #include "../config.h"
 #include "../logging.h"
+#include "../timer.h"
 #include "cuda_loops.h"
 #include "cuda_engine.h"
 
@@ -24,7 +26,6 @@ void SamGraphCudaEngine::Init(std::string dataset_path, int sample_device, int t
     SAM_CHECK_GT(sample_device, CPU_DEVICE_ID);
     SAM_CHECK_GT(train_device, CPU_DEVICE_ID);
 
-    _engine_type = kCudaEngine;
     _sample_device = sample_device;
     _train_device = train_device;
     _dataset_path = dataset_path;
@@ -61,8 +62,8 @@ void SamGraphCudaEngine::Init(std::string dataset_path, int sample_device, int t
 
     _submit_table = new ReadyTable(Config::kSubmitTableCount, "CUDA_SUBMIT");
     _extractor = new Extractor();
-    _permutation = new RandomPermutation(_dataset->train_set, _num_epoch, _batch_size, false);
-    _num_step = _permutation->num_step();
+    _permutator = new CudaPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
+    _num_step = _permutator->num_step();
     _graph_pool = new GraphPool(Config::kGraphPoolThreshold);
 
     // Create queues
@@ -83,7 +84,6 @@ void SamGraphCudaEngine::Start() {
     std::vector<LoopFunction> func;
     
     func.push_back(HostPermutateLoop);
-    func.push_back(IdCopyHost2DeviceLoop);
     func.push_back(CudaSample);
     func.push_back(GraphCopyDevice2DeviceLoop);
     func.push_back(IdCopyDevice2HostLoop);
@@ -174,9 +174,9 @@ void SamGraphCudaEngine::Shutdown() {
         _feat_copy_host2device_stream = nullptr;
     }
 
-    if (_permutation) {
-        delete _permutation;
-        _permutation = nullptr;
+    if (_permutator) {
+        delete _permutator;
+        _permutator = nullptr;
     }
 
     if (_graph_pool) {
@@ -188,6 +188,20 @@ void SamGraphCudaEngine::Shutdown() {
     _joined_thread_cnt = 0;
     _initialize = false;
     _should_shutdown = false;
+}
+
+void SamGraphCudaEngine::SampleOnce() {
+    RunHostPermutateLoopOnce();
+    Timer t;
+    RunCudaSampleLoopOnce();
+    double sam_time = t.Passed();
+
+    SAM_LOG(INFO) << "sample " << sam_time;
+
+    auto ops = {CUDA_GRAPH_COPYD2D, CUDA_ID_COPYD2H};
+    for (auto op : ops) {
+        _queues[op]->GetTask();
+    }
 }
 
 } // namespace cuda

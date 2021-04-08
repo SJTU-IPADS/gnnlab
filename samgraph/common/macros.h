@@ -1,0 +1,1 @@
+#define PROFILE_CUDA_KERNELS 0

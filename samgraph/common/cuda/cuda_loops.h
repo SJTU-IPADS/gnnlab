@@ -7,8 +7,6 @@ namespace cuda {
 
 void HostPermutateLoop();
 
-void IdCopyHost2DeviceLoop();
-
 void CudaSample();
 
 void GraphCopyDevice2DeviceLoop();
@@ -21,9 +19,12 @@ void FeatureCopyHost2DeviceLoop();
 
 void SubmitLoop();
 
-// For debug
-bool RunSingleLoopOnce();
 void SingleLoop();
+
+// For debug
+bool RunHostPermutateLoopOnce();
+bool RunCudaSampleLoopOnce();
+bool RunSingleLoopOnce();
 
 } // namespace cuda
 } // namespace common

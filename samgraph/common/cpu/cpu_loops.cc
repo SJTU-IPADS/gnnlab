@@ -6,6 +6,7 @@
 #include <cuda_runtime.h>
 
 #include "../logging.h"
+#include "../timer.h"
 #include "cpu_loops.h"
 #include "cpu_engine.h"
 #include "cpu_hashtable.h"
@@ -57,7 +58,7 @@ bool RunCpuSampleLoopOnce() {
         const IdType *indices = static_cast<const IdType *>(dataset->indices->data());
 
         for (int i = last_layer_idx; i >= 0; i--) {
-            auto tic0 = std::chrono::system_clock::now();
+            Timer t0;
             const int fanout = fanouts[i];
             const IdType *input = static_cast<const IdType *>(task->cur_input->data());
             const size_t num_input = task->cur_input->shape()[0];
@@ -73,7 +74,9 @@ bool RunCpuSampleLoopOnce() {
             CpuSample(indptr, indices, input, num_input, out_src, out_dst, &num_out, fanout);
             SAM_LOG(INFO) << "CpuSample: num_out " << num_out;
 
-            auto tic1 = std::chrono::system_clock::now();
+            double ns_time = t0.Passed();
+
+            Timer t1;
 
             // Populate the hash table with newly sampled nodes
             hash_table->Populate(out_dst, num_out);
@@ -90,7 +93,7 @@ bool RunCpuSampleLoopOnce() {
             SAM_LOG(DEBUG) << "CpuSample: cpu new_src malloc " << toReadableSize(num_out * sizeof(IdType));
             hash_table->MapEdges(out_src, out_dst, num_out, new_src, new_dst);
 
-            auto tic2 = std::chrono::system_clock::now();
+            double rm_time = t1.Passed();
 
             // IdType *new_indptr = (IdType *) malloc((num_input + 1) * sizeof(IdType));
             // IdType *new_indices = (IdType *) malloc(num_out * sizeof(IdType));
@@ -125,10 +128,7 @@ bool RunCpuSampleLoopOnce() {
             // free(new_indptr);
             // free(new_indices);
 
-            std::chrono::duration<double> duration0 = tic1 - tic0;
-            std::chrono::duration<double> duration1 = tic2 - tic1;
-
-            SAM_LOG(INFO) << "layer " << i << " sample " << duration0.count() << " remap " << duration1.count();
+            SAM_LOG(INFO) << "layer " << i << " ns " << ns_time << " remap " << rm_time;
     
             SAM_LOG(DEBUG) << "CpuSample: finish layer " << i;
         }

@@ -171,6 +171,50 @@ std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype, std::vector
     return tensor;
 }
 
+std::shared_ptr<Tensor> Tensor::ToDevice(const std::shared_ptr<Tensor> origin, int device, cudaStream_t stream) {
+    auto tensor = std::make_shared<Tensor>();
+    
+    tensor->_dtype = origin->_dtype;
+    tensor->_shape = origin->_shape;
+    tensor->_size = origin->_size;
+    tensor->_device = origin->_device;
+    tensor->_name = origin->_name + "_ToDevice";
+
+    if (device == CPU_DEVICE_ID) {
+        tensor->_data = malloc(origin->_size);
+    } else if (device){
+        CUDA_CALL(cudaSetDevice(device));
+        CUDA_CALL(cudaMalloc(&tensor->_data, tensor->_size));
+    } else {
+        SAM_CHECK(0);
+    }
+
+    if (device == CPU_DEVICE_ID && origin->_device <= CPU_DEVICE_ID) {  
+        memcpy(tensor->_data, origin->_data, tensor->_size);
+    } else {
+        cudaMemcpyKind kind;
+        if (device == CPU_DEVICE_ID && origin->_device > CPU_DEVICE_ID) {
+            kind = cudaMemcpyDeviceToHost;
+        } else if (device > CPU_DEVICE_ID && origin->_device <= CPU_DEVICE_ID) {
+            kind = cudaMemcpyHostToDevice;
+        } else if (device > CPU_DEVICE_ID && origin->_device > CPU_DEVICE_ID){
+            kind = cudaMemcpyDeviceToDevice;
+        } else {
+            SAM_CHECK(0);
+        }
+
+
+        if (stream) {
+            CUDA_CALL(cudaMemcpyAsync(tensor->_data, origin->_data, tensor->_size, kind,stream));
+            CUDA_CALL(cudaStreamSynchronize(stream));    
+        } else {
+            CUDA_CALL(cudaMemcpy(tensor->_data, origin->_data, tensor->_size, kind));
+        }
+    }
+
+    return tensor;
+}
+
 uint64_t encodeBatchKey(uint64_t epoch_idx, uint64_t batch_idx) {
     return ((epoch_idx << Config::kEpochOffset) | (batch_idx << Config::kBatchOffset));
 }

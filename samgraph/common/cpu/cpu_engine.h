@@ -30,10 +30,7 @@ class SamGraphCpuEngine : public SamGraphEngine {
   cudaStream_t* GetWorkStream() {  return _work_stream; }
   HashTable *GetHashTable() { return _hash_table; }
 
-  static inline SamGraphCpuEngine *GetEngine() {
-    SAM_CHECK_EQ(_engine_type, kCpuEngine);
-    return dynamic_cast<SamGraphCpuEngine *>(SamGraphEngine::_engine);;
-  }
+  static inline SamGraphCpuEngine *GetEngine() { return dynamic_cast<SamGraphCpuEngine *>(SamGraphEngine::_engine); }
 
  private:
   // Task queue

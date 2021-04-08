@@ -13,12 +13,6 @@
 namespace samgraph {
 namespace common {
 
-enum EngineType {
-  kCpuEngine = 0,
-  kCpuPEngine,
-  kCudaEngine
-};
-
 using IdType = unsigned int;
 using SignedIdType = int;
 
@@ -54,6 +48,7 @@ class Tensor {
   // From blob
   static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
                                           std::vector<size_t> shape, int device, std::string name);
+  static std::shared_ptr<Tensor> ToDevice(const std::shared_ptr<Tensor> origin, int device, cudaStream_t stream = nullptr);
 
   bool defined() const { return _data; }
   DataType dtype() const { return _dtype; }
@@ -95,7 +90,6 @@ struct SamGraphDataset {
 };
 
 enum CudaQueueType {
-    CUDA_ID_COPYH2D = 0,
     CUDA_SAMPLE,
     CUDA_GRAPH_COPYD2D,
     CUDA_ID_COPYD2H,
