@@ -95,6 +95,8 @@ class OrderedHashTable {
     OrderedHashTable& operator=(
         const OrderedHashTable& other) = delete;
 
+    void Clear(cudaStream_t stream);
+
     void FillWithDuplicates(
         const IdType * const input,
         const size_t num_input,

@@ -113,6 +113,8 @@ struct TrainGraph {
 };
 
 struct TaskEntry {
+    uint64_t epoch;
+    uint64_t step;
     // Key of the task
     uint64_t key;
     // Train nodes

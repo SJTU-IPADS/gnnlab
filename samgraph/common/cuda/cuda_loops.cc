@@ -7,6 +7,7 @@
 
 #include "../logging.h"
 #include "../timer.h"
+#include "../profiler.h"
 #include "cuda_loops.h"
 #include "cuda_engine.h"
 #include "cuda_function.h"
@@ -35,6 +36,8 @@ bool RunHostPermutateLoopOnce() {
         task->train_nodes = batch;
         task->cur_input = batch;
         task->output_nodes = batch;
+        task->epoch = p->cur_epoch();
+        task->step = p->cur_step();
 
         next_q->AddTask(task);
 
@@ -61,6 +64,9 @@ bool RunCudaSampleLoopOnce() {
     auto task = q->GetTask();
 
     if (task) {
+        size_t profile_idx = Profiler::GetEntryIndex(task->epoch, task->step);
+        Timer t;
+
         auto fanouts = SamGraphCudaEngine::GetEngine()->GetFanout();
         auto num_layers = fanouts.size();
         auto last_layer_idx = num_layers - 1;
@@ -76,15 +82,16 @@ bool RunCudaSampleLoopOnce() {
         auto train_nodes = task->train_nodes;
         size_t predict_node_num = train_nodes->shape()[0] + 
                                   train_nodes->shape()[0] * std::accumulate(fanouts.begin(), fanouts.end(), 1ul, std::multiplies<size_t>());
-        OrderedHashTable hash_table(predict_node_num, sample_device, sample_stream, 3);
+        OrderedHashTable *hash_table = SamGraphCudaEngine::GetEngine()->GetHashtable();
+        hash_table->Clear(sample_stream);
         CUDA_CALL(cudaStreamSynchronize(sample_stream));
 
         size_t num_train_node = train_nodes->shape()[0];
-        hash_table.FillWithUnique(static_cast<const IdType *const>(train_nodes->data()), num_train_node, sample_stream);
+        hash_table->FillWithUnique(static_cast<const IdType *const>(train_nodes->data()), num_train_node, sample_stream);
         task->output_graph.resize(num_layers);
         CUDA_CALL(cudaStreamSynchronize(sample_stream));
 
-        // SAM_LOG(INFO) << "malloc and memset " << durationn0.count() << " fill with_unique " << durationn1.count();
+        // SAM_LOG(DEBUG) << "malloc and memset " << durationn0.count() << " fill with_unique " << durationn1.count();
         
         const IdType *indptr = static_cast<const IdType *>(dataset->indptr->data());
         const IdType *indices = static_cast<const IdType *>(dataset->indices->data());
@@ -118,22 +125,25 @@ bool RunCudaSampleLoopOnce() {
             CUDA_CALL(cudaMemcpyAsync((void *)&host_num_out, (const void*)num_out, (size_t)sizeof(size_t), 
                                       (cudaMemcpyKind)cudaMemcpyDeviceToHost, (cudaStream_t)sample_stream));
             CUDA_CALL(cudaStreamSynchronize(sample_stream));
-            SAM_LOG(INFO) << "CudaSample: " <<  "layer " << i << " number of samples " << host_num_out;
+            SAM_LOG(DEBUG) << "CudaSample: " <<  "layer " << i << " number of samples " << host_num_out;
 
             double ns_time = t0.Passed();
 
             Timer t1;
+            Timer t2;
 
             // Populate the hash table with newly sampled nodes
             IdType *unique;
             size_t num_unique;
 
-            CUDA_CALL(cudaMalloc(&unique, (host_num_out + hash_table.NumItems()) * sizeof(IdType)));
-            SAM_LOG(DEBUG) << "CudaSample: cuda unique malloc " << toReadableSize((host_num_out + + hash_table.NumItems()) * sizeof(IdType));
+            CUDA_CALL(cudaMalloc(&unique, (host_num_out + hash_table->NumItems()) * sizeof(IdType)));
+            SAM_LOG(DEBUG) << "CudaSample: cuda unique malloc " << toReadableSize((host_num_out + + hash_table->NumItems()) * sizeof(IdType));
 
-            hash_table.FillWithDuplicates(out_dst, host_num_out, unique, &num_unique, sample_stream);
-            // No need to Synchronize
-            // CUDA_CALL(cudaStreamSynchronize(sample_stream));
+            hash_table->FillWithDuplicates(out_dst, host_num_out, unique, &num_unique, sample_stream);
+            
+            double populate_time = t2.Passed();
+
+            Timer t3;
 
             // Mapping edges
             IdType *new_src;
@@ -150,8 +160,10 @@ bool RunCudaSampleLoopOnce() {
                            (const IdType * const) out_dst,
                            (IdType * const) new_dst,
                            (const size_t) host_num_out,
-                           (DeviceOrderedHashTable) hash_table.DeviceHandle(),
+                           (DeviceOrderedHashTable) hash_table->DeviceHandle(),
                            (cudaStream_t) sample_stream);
+            
+            double map_edges_time = t3.Passed();
 
             // // Convert COO format to CSR format
             // IdType *new_indptr;
@@ -175,8 +187,16 @@ bool RunCudaSampleLoopOnce() {
             CUDA_CALL(cudaFree(num_out));
             CUDA_CALL(cudaFree(new_src));
             CUDA_CALL(cudaFree(new_dst));
-            double rm_time = t1.Passed();
-            SAM_LOG(INFO) << "layer " << i << " ns " << ns_time << " remap " << rm_time;
+            double remap_time = t1.Passed();
+
+            SAM_LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap " << remap_time;
+
+            Profiler::Get()->num_samples[profile_idx] += host_num_out;
+            Profiler::Get()->ns_time[profile_idx] += ns_time;
+            Profiler::Get()->remap_time[profile_idx] += remap_time;
+            Profiler::Get()->populate_time[profile_idx] += populate_time;
+            Profiler::Get()->map_node_time[profile_idx] += 0;
+            Profiler::Get()->map_edge_time[profile_idx] += map_edges_time;
 
             task->cur_input = Tensor::FromBlob((void *)unique, DataType::kSamI32, {num_unique}, sample_device, "cur_input_unique_cuda_" + std::to_string(task->key) + "_" + std::to_string(i));
             SAM_LOG(DEBUG) << "CudaSample: finish layer " << i;
@@ -193,13 +213,15 @@ bool RunCudaSampleLoopOnce() {
             next_q->AddTask(task);
         }
 
+        double sam_time = t.Passed();
+        Profiler::Get()->sample_time[profile_idx] += sam_time;
+
+        Profiler::Get()->Report(task->epoch, task->step);
+
         SAM_LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
-        auto ticccc1 = std::chrono::system_clock::now();
     } else {
         std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     }
-
-    auto ticcccccc1 = std::chrono::system_clock::now();
 
     return true;
 }

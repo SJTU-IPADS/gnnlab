@@ -116,11 +116,7 @@ void SamGraphCpuEngine::Shutdown() {
 }
 
 void SamGraphCpuEngine::SampleOnce() {
-    Timer t;
     RunCpuSampleLoopOnce();
-    double sam_time = t.Passed();
-
-    SAM_LOG(INFO) << "sample " << sam_time;
 }
 
 } // namespace cpu

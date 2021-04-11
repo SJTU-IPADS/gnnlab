@@ -18,6 +18,7 @@
 #include "../extractor.h"
 
 #include "cuda_permutator.h"
+#include "cuda_hashtable.h"
 
 namespace samgraph {
 namespace common {
@@ -37,6 +38,7 @@ class SamGraphCudaEngine : public SamGraphEngine {
   Extractor* GetExtractor() { return _extractor; }
   SamGraphTaskQueue* GetTaskQueue(CudaQueueType queueType) { return _queues[queueType]; }
   ReadyTable *GetSubmitTable() { return _submit_table; }
+  OrderedHashTable *GetHashtable() { return _hashtable; }
 
   cudaStream_t* GetSampleStream() { return _sample_stream; }
   cudaStream_t* GetIdCopyHost2DeviceStream() { return _id_copy_host2device_stream; }
@@ -64,6 +66,8 @@ class SamGraphCudaEngine : public SamGraphEngine {
   ReadyTable* _submit_table;
   // CPU Extractor
   Extractor* _extractor;
+  // Hash table
+  OrderedHashTable* _hashtable;
 };
 
 } // namespace cuda

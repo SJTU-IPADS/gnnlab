@@ -30,7 +30,6 @@ HashTable::~HashTable() {
 }
 
 void HashTable::Populate(const IdType *input, const size_t num_input) {
-    Timer t;
     #pragma omp parallel for num_threads(Config::kOmpThreadNum)
     for (size_t i = 0; i < num_input; i++) {
         IdType id = input[i];
@@ -42,23 +41,17 @@ void HashTable::Populate(const IdType *input, const size_t num_input) {
             _mapping[local].global = id;
         }
     }
-
-    SAM_LOG(INFO) << "HashTable::Populate " << t.Passed();
 }
 
 void HashTable::MapNodes(IdType *output, size_t num_ouput) {
-    Timer t;
     SAM_CHECK_LE(num_ouput, _map_offset);
     #pragma omp parallel for num_threads(Config::kOmpThreadNum)
     for (size_t i = 0; i < num_ouput; i++) {
         output[i] = _mapping[i].global;
     }
-
-    SAM_LOG(INFO) << "HashTable::MapNodes " << t.Passed();
 }
 
 void HashTable::MapEdges(const IdType *src, const IdType *dst, const size_t len, IdType *new_src, IdType *new_dst) {
-    Timer t;
     #pragma omp parallel for num_threads(Config::kOmpThreadNum)
     for (size_t i = 0; i < len; i++) {
         SAM_CHECK_LT(src[i], _capacity);
@@ -73,8 +66,6 @@ void HashTable::MapEdges(const IdType *src, const IdType *dst, const size_t len,
         new_src[i] = bucket0.local;
         new_dst[i] = bucket1.local;
     }
-
-    SAM_LOG(INFO) << "HashTable::MapEdges " << t.Passed();
 }
 
 void HashTable::Clear() {

@@ -7,6 +7,7 @@
 
 #include "../logging.h"
 #include "../timer.h"
+#include "../profiler.h"
 #include "cpu_loops.h"
 #include "cpu_engine.h"
 #include "cpu_hashtable.h"
@@ -28,23 +29,25 @@ bool RunCpuSampleLoopOnce() {
 
     if (batch) {
         // Create task entry
+        Timer t;
         auto task = std::make_shared<TaskEntry>();
         task->key = encodeBatchKey(p->cur_epoch(), p->cur_step());
         task->train_nodes = batch;
         task->cur_input = batch;
         task->output_nodes = batch;
+        task->epoch = p->cur_epoch();
+        task->step = p->cur_step();
 
+        uint64_t profile_idx = Profiler::GetEntryIndex(task->epoch, task->step);
         auto fanouts = SamGraphCpuEngine::GetEngine()->GetFanout();
         auto num_layers = fanouts.size();
         auto last_layer_idx = num_layers - 1;
 
         auto dataset = SamGraphCpuEngine::GetEngine()->GetGraphDataset();
-        auto train_device = SamGraphCpuEngine::GetEngine()->GetTrainDevice();
-        auto work_stream = *SamGraphCpuEngine::GetEngine()->GetWorkStream();
+        // auto train_device = SamGraphCpuEngine::GetEngine()->GetTrainDevice();
+        // auto work_stream = *SamGraphCpuEngine::GetEngine()->GetWorkStream();
 
         auto train_nodes = task->train_nodes;
-        size_t predict_node_num = train_nodes->shape()[0] + 
-                                  train_nodes->shape()[0] * std::accumulate(fanouts.begin(), fanouts.end(), 1ul, std::multiplies<size_t>());
 
         auto hash_table = SamGraphCpuEngine::GetEngine()->GetHashTable();
         hash_table->Clear();
@@ -72,20 +75,26 @@ bool RunCpuSampleLoopOnce() {
 
             // Sample a compact coo graph
             CpuSample(indptr, indices, input, num_input, out_src, out_dst, &num_out, fanout);
-            SAM_LOG(INFO) << "CpuSample: num_out " << num_out;
-
+            SAM_LOG(DEBUG) << "CpuSample: num_out " << num_out;
+            Profiler::Get()->num_samples[profile_idx] += num_out;
             double ns_time = t0.Passed();
 
             Timer t1;
+            Timer t2;
 
             // Populate the hash table with newly sampled nodes
             hash_table->Populate(out_dst, num_out);
 
+            double populate_time = t2.Passed();
+
+            Timer t3;
             size_t num_unique = hash_table->NumItem();
             IdType *unique = (IdType *) malloc(num_unique * sizeof(IdType));
             hash_table->MapNodes(unique, num_unique);
 
+            double map_nodes_time = t3.Passed();
 
+            Timer t4;
             // Mapping edges
             IdType *new_src = (IdType *) malloc(num_out * sizeof(IdType));
             IdType *new_dst = (IdType *) malloc(num_out * sizeof(IdType));
@@ -93,7 +102,9 @@ bool RunCpuSampleLoopOnce() {
             SAM_LOG(DEBUG) << "CpuSample: cpu new_src malloc " << toReadableSize(num_out * sizeof(IdType));
             hash_table->MapEdges(out_src, out_dst, num_out, new_src, new_dst);
 
-            double rm_time = t1.Passed();
+            double map_edges_time = t4.Passed();
+
+            double remap_time = t1.Passed();
 
             // IdType *new_indptr = (IdType *) malloc((num_input + 1) * sizeof(IdType));
             // IdType *new_indices = (IdType *) malloc(num_out * sizeof(IdType));
@@ -128,7 +139,14 @@ bool RunCpuSampleLoopOnce() {
             // free(new_indptr);
             // free(new_indices);
 
-            SAM_LOG(INFO) << "layer " << i << " ns " << ns_time << " remap " << rm_time;
+            Profiler::Get()->ns_time[profile_idx] += ns_time;
+            Profiler::Get()->remap_time[profile_idx] += remap_time;
+            Profiler::Get()->populate_time[profile_idx] += populate_time;
+            Profiler::Get()->map_node_time[profile_idx] += map_nodes_time;
+            Profiler::Get()->map_edge_time[profile_idx] += map_edges_time;
+
+
+            SAM_LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap " << remap_time;
     
             SAM_LOG(DEBUG) << "CpuSample: finish layer " << i;
         }
@@ -181,6 +199,12 @@ bool RunCpuSampleLoopOnce() {
         // // Submit
         // auto graph_pool = SamGraphCpuEngine::GetEngine()->GetGraphPool();
         // graph_pool->AddGraphBatch(task->key, task);
+
+        double sam_time = t.Passed();
+        Profiler::Get()->sample_time[profile_idx] += sam_time;
+
+        Profiler::Get()->Report(p->cur_epoch(), p->cur_step());
+
 
         SAM_LOG(DEBUG) << "CpuSampleLoop: process task with key " << task->key;
     } else {

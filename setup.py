@@ -77,6 +77,7 @@ setup(
             'samgraph/common/graph_pool.cc',
             'samgraph/common/logging.cc',
             'samgraph/common/operation.cc',
+            'samgraph/common/profiler.cc',
             'samgraph/common/random_permutation.cc',
             'samgraph/common/ready_table.cc',
             'samgraph/common/task_queue.cc',

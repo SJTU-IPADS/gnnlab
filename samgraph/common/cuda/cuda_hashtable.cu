@@ -278,6 +278,16 @@ OrderedHashTable::~OrderedHashTable() {
   SAM_LOG(INFO) << "free " << t.Passed();
 }
 
+void OrderedHashTable::Clear(cudaStream_t stream) {
+  CUDA_CALL(cudaMemsetAsync(_table, (int)Config::kEmptyKey,
+                            sizeof(Bucket) * _size, stream));
+  CUDA_CALL(cudaMemsetAsync(_mapping, (int)Config::kEmptyKey,
+                            sizeof(Mapping) *_mapping_size, stream));
+  CUDA_CALL(cudaStreamSynchronize(stream));
+  _version = 0;
+  _offset = 0;
+}
+
 void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                                           const size_t num_input,
                                           IdType *const unique,

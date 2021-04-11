@@ -1,10 +1,10 @@
 #include <cstdlib>
 #include <chrono>
+#include <numeric>
 
 #include "../common.h"
 #include "../config.h"
 #include "../logging.h"
-#include "../timer.h"
 #include "cuda_loops.h"
 #include "cuda_engine.h"
 
@@ -65,6 +65,9 @@ void SamGraphCudaEngine::Init(std::string dataset_path, int sample_device, int t
     _permutator = new CudaPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
     _num_step = _permutator->num_step();
     _graph_pool = new GraphPool(Config::kGraphPoolThreshold);
+
+    size_t predict_node_num = _batch_size + _batch_size * std::accumulate(_fanout.begin(), _fanout.end(), 1ul, std::multiplies<size_t>());
+    _hashtable = new OrderedHashTable(predict_node_num, sample_device, *_sample_stream, 3);
 
     // Create queues
     for (int i = 0; i < CudaQueueNum; i++) {
@@ -192,11 +195,7 @@ void SamGraphCudaEngine::Shutdown() {
 
 void SamGraphCudaEngine::SampleOnce() {
     RunHostPermutateLoopOnce();
-    Timer t;
     RunCudaSampleLoopOnce();
-    double sam_time = t.Passed();
-
-    SAM_LOG(INFO) << "sample " << sam_time;
 
     auto ops = {CUDA_GRAPH_COPYD2D, CUDA_ID_COPYD2H};
     for (auto op : ops) {
