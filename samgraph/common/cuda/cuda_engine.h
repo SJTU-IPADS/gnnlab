@@ -1,24 +1,23 @@
 #ifndef SAMGRAPH_CUDA_ENGINE_H
 #define SAMGRAPH_CUDA_ENGINE_H
 
-#include <string>
-#include <vector>
-#include <thread>
-#include <memory>
-#include <atomic>
-
 #include <cuda_runtime.h>
 
+#include <atomic>
+#include <memory>
+#include <string>
+#include <thread>
+#include <vector>
+
 #include "../common.h"
-#include "../logging.h"
-#include "../task_queue.h"
-#include "../graph_pool.h"
-#include "../ready_table.h"
 #include "../engine.h"
 #include "../extractor.h"
-
-#include "cuda_permutator.h"
+#include "../graph_pool.h"
+#include "../logging.h"
+#include "../ready_table.h"
+#include "../task_queue.h"
 #include "cuda_hashtable.h"
+#include "cuda_permutator.h"
 
 namespace samgraph {
 namespace common {
@@ -36,17 +35,29 @@ class SamGraphCudaEngine : public SamGraphEngine {
 
   CudaPermutator* GetPermutator() { return _permutator; }
   Extractor* GetExtractor() { return _extractor; }
-  SamGraphTaskQueue* GetTaskQueue(CudaQueueType queueType) { return _queues[queueType]; }
-  ReadyTable *GetSubmitTable() { return _submit_table; }
-  OrderedHashTable *GetHashtable() { return _hashtable; }
+  SamGraphTaskQueue* GetTaskQueue(CudaQueueType queueType) {
+    return _queues[queueType];
+  }
+  ReadyTable* GetSubmitTable() { return _submit_table; }
+  OrderedHashTable* GetHashtable() { return _hashtable; }
 
   cudaStream_t* GetSampleStream() { return _sample_stream; }
-  cudaStream_t* GetIdCopyHost2DeviceStream() { return _id_copy_host2device_stream; }
-  cudaStream_t* GetGraphCopyDevice2DeviceStream() { return _graph_copy_device2device_stream; }
-  cudaStream_t* GetIdCopyDevice2HostStream() { return _id_copy_device2host_stream; }
-  cudaStream_t* GetFeatureCopyHost2DeviceStream() {  return _feat_copy_host2device_stream; }
+  cudaStream_t* GetIdCopyHost2DeviceStream() {
+    return _id_copy_host2device_stream;
+  }
+  cudaStream_t* GetGraphCopyDevice2DeviceStream() {
+    return _graph_copy_device2device_stream;
+  }
+  cudaStream_t* GetIdCopyDevice2HostStream() {
+    return _id_copy_device2host_stream;
+  }
+  cudaStream_t* GetFeatureCopyHost2DeviceStream() {
+    return _feat_copy_host2device_stream;
+  }
 
-  static inline SamGraphCudaEngine *GetEngine() { return dynamic_cast<SamGraphCudaEngine *>(SamGraphEngine::_engine); }
+  static inline SamGraphCudaEngine* GetEngine() {
+    return dynamic_cast<SamGraphCudaEngine*>(SamGraphEngine::_engine);
+  }
 
  private:
   // Task queue
@@ -59,7 +70,7 @@ class SamGraphCudaEngine : public SamGraphEngine {
   cudaStream_t* _id_copy_device2host_stream;
   // Cuda streams on train device
   cudaStream_t* _feat_copy_host2device_stream;
-  
+
   // Random node batch genrator
   CudaPermutator* _permutator;
   // Ready table
@@ -70,8 +81,8 @@ class SamGraphCudaEngine : public SamGraphEngine {
   OrderedHashTable* _hashtable;
 };
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_CUDA_ENGINE_H
+#endif  // SAMGRAPH_CUDA_ENGINE_H

@@ -19,15 +19,34 @@ class Profiler {
 
   static Profiler* Get();
 
-  // Time metric
+  // Time breakdown level 0
   std::vector<double> sample_time;
+  std::vector<double> extract_time;
+  std::vector<double> copy_time;
+  std::vector<double> train_time;
+
+  // Time breakdown level 1
   std::vector<double> ns_time;
   std::vector<double> remap_time;
+
+  // Time breakdown level 2
+  std::vector<double> graph_copy_time;
+  std::vector<double> feat_copy_time;
+
+  // Time breakdown level 2
+  std::vector<double> sample_calculation_time;
+  std::vector<double> sample_count_edge_time;
+  std::vector<double> sample_compact_edge_time;
+
   std::vector<double> populate_time;
   std::vector<double> map_node_time;
   std::vector<double> map_edge_time;
+  std::vector<double> coo2csr_time;
 
-  // Number metric
+  // Time breakdown
+  //   std::vector<double>;
+
+  // Number of samples
   std::vector<size_t> num_samples;
 
   constexpr static size_t kMaxEntries = 200000;

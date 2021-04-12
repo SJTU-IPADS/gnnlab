@@ -12,7 +12,7 @@ namespace cuda {
 class CudaPermutator {
  public:
   CudaPermutator(std::shared_ptr<IdTensor> input, int num_epoch,
-                    size_t batch_size, bool drop_last);
+                 size_t batch_size, bool drop_last);
   std::shared_ptr<IdTensor> GetBatch(cudaStream_t stream = nullptr);
 
   inline int cur_epoch() { return _cur_epoch; }
@@ -37,8 +37,8 @@ class CudaPermutator {
   void RePermutate(cudaStream_t stream = nullptr);
 };
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_CUDA_PERMUTATOR_H
+#endif  // SAMGRAPH_CUDA_PERMUTATOR_H

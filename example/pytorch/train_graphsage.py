@@ -8,6 +8,7 @@ import torch.optim as optim
 
 import samgraph.torch as sam
 
+
 class SAGE(nn.Module):
     def __init__(self,
                  in_feat,
@@ -37,6 +38,7 @@ class SAGE(nn.Module):
                 h = self.dropout(h)
         return h
 
+
 def run(args):
     fanout_list = [int(fanout) for fanout in args.fan_out.split(',')]
 
@@ -49,7 +51,8 @@ def run(args):
     num_class = sam.dataset_num_class()
     num_layer = len(fanout_list)
 
-    model = SAGE(in_feat, args.num_hidden, num_class, num_layer, F.relu, args.dropout)
+    model = SAGE(in_feat, args.num_hidden, num_class,
+                 num_layer, F.relu, args.dropout)
     model = model.to(th_train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
@@ -59,7 +62,7 @@ def run(args):
     num_step = sam.num_step_per_epoch()
     num_graph = len(fanout_list)
 
-    sam.start()
+    # sam.start()
 
     model.train()
     for epoch in range(num_epoch):
@@ -67,6 +70,7 @@ def run(args):
         tic_step = time.time()
         for step in range(num_step):
             tic_sample = time.time()
+            sam.sample()
             graph_batch = sam.get_next_batch(epoch, step, num_graph)
             batch_input = sam.get_graph_feat(graph_batch.key)
             batch_label = sam.get_graph_label(graph_batch.key)
@@ -81,19 +85,22 @@ def run(args):
             toc_train = time.time()
 
             print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Sample: {:.4f} secs | Train: {:.4f} secs | Time {:.4f} secs'.format(
-                epoch, step, loss.item(), toc_sample - tic_sample, toc_train - tic_train, time.time() - tic_step
+                epoch, step, loss.item(), toc_sample - tic_sample, toc_train -
+                tic_train, time.time() - tic_step
             ))
 
             tic_step = time.time()
-    
+
     sam.shutdown()
+
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
     argparser.add_argument('--train-device', type=int, default=0,
                            help="")
     argparser.add_argument('--sample-device', type=int, default=1)
-    argparser.add_argument('--dataset-path', type=str, default='/graph-learning/samgraph/papers100M')
+    argparser.add_argument('--dataset-path', type=str,
+                           default='/graph-learning/samgraph/papers100M')
     argparser.add_argument('--num-epoch', type=int, default=20)
     argparser.add_argument('--num-hidden', type=int, default=256)
     argparser.add_argument('--fan-out', type=str, default='15,10,5')

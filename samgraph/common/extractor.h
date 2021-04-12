@@ -10,17 +10,18 @@ class Extractor {
  public:
   Extractor();
 
-  int extract(void *dst, const void *src, const IdType *idx,
-               size_t num_idx, size_t dim, DataType dtype);
+  int extract(void *dst, const void *src, const IdType *idx, size_t num_idx,
+              size_t dim, DataType dtype);
+
  private:
   template <typename T>
-  int _extract(T* dst, const T* src, const IdType *idx,
-               size_t num_idx, size_t dim);
+  int _extract(T *dst, const T *src, const IdType *idx, size_t num_idx,
+               size_t dim);
 
   int _num_threads;
 };
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_EXTRACTOR_H
+#endif  // SAMGRAPH_EXTRACTOR_H

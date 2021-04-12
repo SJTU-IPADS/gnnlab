@@ -1,13 +1,17 @@
 #ifndef SAMGRAPH_OPERATIONS_H
 #define SAMGRAPH_OPERATIONS_H
 
+#include <cstddef>
+#include <cstdint>
+
 namespace samgraph {
 namespace common {
 
 extern "C" {
 
-void samgraph_init(const char*path, int sample_device, int train_device,size_t batch_size,
-                   int *fanout, size_t num_fanout, int num_epoch);
+void samgraph_init(const char *path, int sample_device, int train_device,
+                   size_t batch_size, int *fanout, size_t num_fanout,
+                   int num_epoch);
 
 void samgraph_start();
 
@@ -32,10 +36,9 @@ size_t samgraph_get_graph_num_row(uint64_t key);
 size_t samgraph_get_graph_num_col(uint64_t key);
 
 size_t samgraph_get_graph_num_edge(uint64_t key);
-
 }
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_OPERATIONS_H
+#endif  // SAMGRAPH_OPERATIONS_H

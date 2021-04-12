@@ -1,17 +1,17 @@
-#ifndef SAMGRAPH_RANDOM_PERMUTATION_H
-#define SAMGRAPH_RANDOM_PERMUTATION_H
+#ifndef SAMGRAPH_CPU_PERMUTATOR_H
+#define SAMGRAPH_CPU_PERMUTATOR_H
 
 #include <memory>
 
-#include "common.h"
+#include "../common.h"
 
 namespace samgraph {
 namespace common {
 
-class RandomPermutation {
+class CpuPermutator {
  public:
-  RandomPermutation(std::shared_ptr<IdTensor> input, int num_epoch,
-                    size_t batch_size, bool drop_last);
+  CpuPermutator(std::shared_ptr<IdTensor> input, int num_epoch,
+                size_t batch_size, bool drop_last);
   std::shared_ptr<IdTensor> GetBatch(cudaStream_t stream = nullptr);
 
   inline int cur_epoch() { return _cur_epoch; }
@@ -35,7 +35,7 @@ class RandomPermutation {
   void RePermutate();
 };
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_RANDOM_PERMUTATION_H
+#endif  // SAMGRAPH_CPU_PERMUTATOR_H

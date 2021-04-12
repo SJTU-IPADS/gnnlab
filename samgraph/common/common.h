@@ -1,14 +1,14 @@
 #ifndef SAMGRAPH_COMMON_H
 #define SAMGRAPH_COMMON_H
 
-#include <string>
-#include <memory>
-#include <functional>
-#include <vector>
-#include <mutex>
-#include <cstdint>
-
 #include <cuda_runtime.h>
+
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
 
 namespace samgraph {
 namespace common {
@@ -39,27 +39,36 @@ class Tensor {
   // ownership of the input data
   static std::shared_ptr<Tensor> FromMmap(std::string filepath, DataType dtype,
                                           std::vector<size_t> shape, int device,
-                                          std::string name, cudaStream_t stream = nullptr);
+                                          std::string name,
+                                          cudaStream_t stream = nullptr);
   // Create an uninitialized tensor data
-  static std::shared_ptr<Tensor> Empty(DataType dtype, std::vector<size_t> shape, int device, std::string name);
+  static std::shared_ptr<Tensor> Empty(DataType dtype,
+                                       std::vector<size_t> shape, int device,
+                                       std::string name);
   // Deep slice a tensor
-  static std::shared_ptr<Tensor> CreateCopy1D(std::shared_ptr<Tensor> tensor, size_t item_offset,
-                                       std::vector<size_t> shape, std::string name, cudaStream_t stream = nullptr);
+  static std::shared_ptr<Tensor> CreateCopy1D(std::shared_ptr<Tensor> tensor,
+                                              size_t item_offset,
+                                              std::vector<size_t> shape,
+                                              std::string name,
+                                              cudaStream_t stream = nullptr);
   // From blob
   static std::shared_ptr<Tensor> FromBlob(void* data, DataType dtype,
-                                          std::vector<size_t> shape, int device, std::string name);
-  static std::shared_ptr<Tensor> ToDevice(const std::shared_ptr<Tensor> origin, int device, cudaStream_t stream = nullptr);
+                                          std::vector<size_t> shape, int device,
+                                          std::string name);
+  static std::shared_ptr<Tensor> ToDevice(const std::shared_ptr<Tensor> origin,
+                                          int device,
+                                          cudaStream_t stream = nullptr);
 
   bool defined() const { return _data; }
   DataType dtype() const { return _dtype; }
-  const std::vector<size_t> &shape() const { return _shape; }
+  const std::vector<size_t>& shape() const { return _shape; }
   const void* data() const { return _data; }
   void* mutable_data() { return _data; }
   size_t size() const { return _size; }
   int device() const { return _device; }
 
  private:
-  void *_data;
+  void* _data;
   int _device;
   DataType _dtype;
   size_t _size;
@@ -72,31 +81,31 @@ using IdTensor = Tensor;
 
 // Graph dataset that should be loaded from the .
 struct SamGraphDataset {
-    // Graph topology data
-    std::shared_ptr<IdTensor> indptr;
-    std::shared_ptr<IdTensor> indices;
-    size_t num_node;
-    size_t num_edge;
+  // Graph topology data
+  std::shared_ptr<IdTensor> indptr;
+  std::shared_ptr<IdTensor> indices;
+  size_t num_node;
+  size_t num_edge;
 
-    // Node feature and label
-    size_t num_class;
-    std::shared_ptr<Tensor> feat;
-    std::shared_ptr<Tensor> label;
+  // Node feature and label
+  size_t num_class;
+  std::shared_ptr<Tensor> feat;
+  std::shared_ptr<Tensor> label;
 
-    // Node set
-    std::shared_ptr<IdTensor> train_set;
-    std::shared_ptr<IdTensor> test_set;
-    std::shared_ptr<IdTensor> valid_set;
+  // Node set
+  std::shared_ptr<IdTensor> train_set;
+  std::shared_ptr<IdTensor> test_set;
+  std::shared_ptr<IdTensor> valid_set;
 };
 
 enum CudaQueueType {
-    CUDA_SAMPLE,
-    CUDA_GRAPH_COPYD2D,
-    CUDA_ID_COPYD2H,
-    CUDA_FEAT_EXTRACT,
-    CUDA_FEAT_COPYH2D,
-    CUDA_SUBMIT,
-    CUDA_QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST
+  CUDA_SAMPLE,
+  CUDA_GRAPH_COPYD2D,
+  CUDA_ID_COPYD2H,
+  CUDA_FEAT_EXTRACT,
+  CUDA_FEAT_COPYH2D,
+  CUDA_SUBMIT,
+  CUDA_QUEUE_NUM_AND_NOT_A_REAL_QUEUE_TYPE_AND_MUST_BE_THE_LAST
 };
 
 const int CudaQueueNum =
@@ -113,24 +122,25 @@ struct TrainGraph {
 };
 
 struct TaskEntry {
-    uint64_t epoch;
-    uint64_t step;
-    // Key of the task
-    uint64_t key;
-    // Train nodes
-    std::shared_ptr<IdTensor> train_nodes;
-    // Current input tensor
-    std::shared_ptr<IdTensor> cur_input;
-    // Output graph tensor
-    std::vector<std::shared_ptr<TrainGraph>> output_graph;
-    // node ids of the last train graph
-    std::shared_ptr<IdTensor> input_nodes;
-    // node ids of the first train graph
-    std::shared_ptr<IdTensor> output_nodes;
-    // Input feature tensor
-    std::shared_ptr<Tensor> input_feat;
-    // Output label tensor
-    std::shared_ptr<Tensor> output_label;
+  uint64_t profile_idx;
+  uint64_t epoch;
+  uint64_t step;
+  // Key of the task
+  uint64_t key;
+  // Train nodes
+  std::shared_ptr<IdTensor> train_nodes;
+  // Current input tensor
+  std::shared_ptr<IdTensor> cur_input;
+  // Output graph tensor
+  std::vector<std::shared_ptr<TrainGraph>> output_graph;
+  // node ids of the last train graph
+  std::shared_ptr<IdTensor> input_nodes;
+  // node ids of the first train graph
+  std::shared_ptr<IdTensor> output_nodes;
+  // Input feature tensor
+  std::shared_ptr<Tensor> input_feat;
+  // Output label tensor
+  std::shared_ptr<Tensor> output_label;
 };
 
 using GraphBatch = TaskEntry;
@@ -144,7 +154,7 @@ size_t getDataTypeLength(int dtype);
 
 std::string toReadableSize(size_t size_in_bytes);
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_COMMON_H
+#endif  // SAMGRAPH_COMMON_H

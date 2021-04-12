@@ -1,10 +1,10 @@
 #ifndef SAMGRAPH_ENGINE_H
 #define SAMGRAPH_ENGINE_H
 
+#include <atomic>
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
-#include <atomic>
 
 #include "common.h"
 #include "graph_pool.h"
@@ -16,8 +16,9 @@ typedef void (*LoopFunction)();
 
 class SamGraphEngine {
  public:
-  virtual void Init(std::string dataset_path, int sample_device, int train_device,
-                     size_t batch_size, std::vector<int> fanout, int num_epoch) = 0;
+  virtual void Init(std::string dataset_path, int sample_device,
+                    int train_device, size_t batch_size,
+                    std::vector<int> fanout, int num_epoch) = 0;
   virtual void Start() = 0;
   virtual void Shutdown() = 0;
   virtual void SampleOnce() = 0;
@@ -36,13 +37,15 @@ class SamGraphEngine {
   const SamGraphDataset* GetGraphDataset() { return _dataset; }
   GraphPool* GetGraphPool() { return _graph_pool; }
   std::shared_ptr<GraphBatch> GetGraphBatch() { return _cur_graph_batch; };
-  void SetGraphBatch(std::shared_ptr<GraphBatch> batch) { _cur_graph_batch = batch; }
+  void SetGraphBatch(std::shared_ptr<GraphBatch> batch) {
+    _cur_graph_batch = batch;
+  }
 
   void ReportThreadFinish() { _joined_thread_cnt.fetch_add(1); }
 
   // Singleton
   static void CreateEngine(int device);
-  static inline SamGraphEngine *GetEngine() { return _engine; }
+  static inline SamGraphEngine* GetEngine() { return _engine; }
 
  protected:
   // Whether the server is initialized
@@ -75,10 +78,10 @@ class SamGraphEngine {
   void LoadGraphDataset();
   bool IsAllThreadFinish(int total_thread_num);
 
-  static SamGraphEngine * _engine;
+  static SamGraphEngine* _engine;
 };
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_ENGINE_H
+#endif  // SAMGRAPH_ENGINE_H

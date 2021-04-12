@@ -1,4 +1,4 @@
-#include "cuda_permutator.h"
+#include "cpu_permutator.h"
 
 #include <algorithm>
 #include <chrono>
@@ -8,14 +8,12 @@
 #include <random>
 
 #include "../logging.h"
-#include "cuda_engine.h"
 
 namespace samgraph {
 namespace common {
-namespace cuda {
 
-CudaPermutator::CudaPermutator(std::shared_ptr<IdTensor> input, int num_epoch,
-                               size_t batch_size, bool drop_last) {
+CpuPermutator::CpuPermutator(std::shared_ptr<IdTensor> input, int num_epoch,
+                             size_t batch_size, bool drop_last) {
   size_t num_element = input->shape().front();
   SAM_CHECK_EQ(input->shape().size(), 1);
 
@@ -23,9 +21,6 @@ CudaPermutator::CudaPermutator(std::shared_ptr<IdTensor> input, int num_epoch,
   _cur_epoch = -1;
 
   _input = input;
-  _d_input = Tensor::Empty(input->dtype(), input->shape(),
-                           SamGraphEngine::GetEngine()->GetSampleDevice(),
-                           "cuda_permutator d_input");
   _num_element = num_element;
   _drop_last = drop_last;
   _num_step = drop_last ? (num_element / batch_size)
@@ -36,7 +31,7 @@ CudaPermutator::CudaPermutator(std::shared_ptr<IdTensor> input, int num_epoch,
   _cur_step = std::numeric_limits<int>::max();
 }
 
-void CudaPermutator::RePermutate(cudaStream_t stream) {
+void CpuPermutator::RePermutate() {
   _cur_epoch++;
   _cur_step = 0;
 
@@ -67,19 +62,9 @@ void CudaPermutator::RePermutate(cudaStream_t stream) {
         SAM_CHECK(0);
     }
   }
-
-  if (stream) {
-    CUDA_CALL(cudaMemcpyAsync(_d_input->mutable_data(), _input->data(),
-                              _d_input->size(), cudaMemcpyHostToDevice,
-                              stream));
-    CUDA_CALL(cudaStreamSynchronize(stream));
-  } else {
-    CUDA_CALL(cudaMemcpy(_d_input->mutable_data(), _input->data(),
-                         _d_input->size(), cudaMemcpyHostToDevice));
-  }
 }
 
-std::shared_ptr<IdTensor> CudaPermutator::GetBatch(cudaStream_t stream) {
+std::shared_ptr<IdTensor> CpuPermutator::GetBatch(cudaStream_t stream) {
   if (_cur_epoch >= _num_epoch) {
     return nullptr;
   }
@@ -87,18 +72,15 @@ std::shared_ptr<IdTensor> CudaPermutator::GetBatch(cudaStream_t stream) {
   _cur_step++;
 
   if (_cur_step >= _num_step) {
-    RePermutate(stream);
-    // _cur_epoch++;
-    // _cur_step = 0;
+    RePermutate();
   }
 
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  return IdTensor::CreateCopy1D(_d_input, offset, {size},
+  return IdTensor::CreateCopy1D(_input, offset, {size},
                                 "random_permutation_batch", stream);
 }
 
-}  // namespace cuda
 }  // namespace common
 }  // namespace samgraph

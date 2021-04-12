@@ -26,8 +26,8 @@ bool RunHostPermutateLoopOnce();
 bool RunCudaSampleLoopOnce();
 bool RunSingleLoopOnce();
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_CUDA_LOOPS_H
+#endif  // SAMGRAPH_CUDA_LOOPS_H

@@ -29,8 +29,8 @@ class Config {
   static const std::string kMetaNumTestSet; 
   static const std::string kMetaNumValidSet;
 
-  static constexpr int kCudaBlockSize = 64;
-  static constexpr size_t kCudaTileSize = 128;
+  static constexpr int kCudaBlockSize = 128;
+  static constexpr size_t kCudaTileSize = 512;
 
   static const std::unordered_map<int, size_t> kQueueThreshold;
   static constexpr size_t kGraphPoolThreshold = 5;

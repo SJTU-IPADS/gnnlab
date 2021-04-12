@@ -1,8 +1,8 @@
 #ifndef SAMGRAPH_TASK_QUEUE_H
 #define SAMGRAPH_TASK_QUEUE_H
 
-#include <mutex>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include "common.h"
@@ -13,7 +13,8 @@ namespace common {
 
 class SamGraphTaskQueue {
  public:
-  SamGraphTaskQueue(CudaQueueType type, size_t threshold, ReadyTable* rt = nullptr);
+  SamGraphTaskQueue(CudaQueueType type, size_t threshold,
+                    ReadyTable* rt = nullptr);
   CudaQueueType GetQueueType() { return _qt; }
   void AddTask(std::shared_ptr<TaskEntry>);
   std::shared_ptr<TaskEntry> GetTask();
@@ -25,11 +26,10 @@ class SamGraphTaskQueue {
   std::mutex _mutex;
   CudaQueueType _qt;
   size_t _threshold;
-  ReadyTable *_rt;
+  ReadyTable* _rt;
 };
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_TASK_QUEUE_H
-
+#endif  // SAMGRAPH_TASK_QUEUE_H

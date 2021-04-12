@@ -1,9 +1,9 @@
 #ifndef SAMGRAPH_GRAPH_POOL_H
 #define SAMGRAPH_GRAPH_POOL_H
 
-#include <unordered_map>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 
 #include "common.h"
 
@@ -26,7 +26,7 @@ class GraphPool {
   std::unordered_map<uint64_t, std::shared_ptr<GraphBatch>> _pool;
 };
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_GRAPH_POLL_H
+#endif  // SAMGRAPH_GRAPH_POLL_H

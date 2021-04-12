@@ -1,16 +1,17 @@
 #ifndef SAMGRAPH_READY_TABLE_H
 #define SAMGRAPH_READY_TABLE_H
 
-#include <unordered_map>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 
 namespace samgraph {
 namespace common {
 
 class ReadyTable {
  public:
-  ReadyTable(int ready_count, const char *name) : _ready_count(ready_count), _table_name(name) {}
+  ReadyTable(int ready_count, const char *name)
+      : _ready_count(ready_count), _table_name(name) {}
 
   bool IsKeyReady(uint64_t key);
   int AddReadyCount(uint64_t key);
@@ -23,7 +24,7 @@ class ReadyTable {
   std::string _table_name;
 };
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_READY_TABLE_H
+#endif  // SAMGRAPH_READY_TABLE_H

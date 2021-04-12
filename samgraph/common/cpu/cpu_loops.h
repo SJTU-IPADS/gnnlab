@@ -9,8 +9,8 @@ bool RunCpuSampleLoopOnce();
 
 void CpuSampleLoop();
 
-} // namespace cpu
-} // namespace common
-} // namespace samgraph
+}  // namespace cpu
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_CPU_LOOLS_H
+#endif  // SAMGRAPH_CPU_LOOLS_H

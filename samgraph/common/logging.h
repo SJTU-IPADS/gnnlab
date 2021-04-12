@@ -43,11 +43,11 @@ enum class LogLevel { TRACE, DEBUG, INFO, WARNING, ERROR, FATAL };
 /*!
  * \brief Protected CUSPARSE call.
  */
-#define CUSPARSE_CALL(func)                                      \
-  {                                                              \
-    cusparseStatus_t e = (func);                                 \
-    SAM_CHECK(e == CUSPARSE_STATUS_SUCCESS)                      \
-        << "CUSPARSE: " << cusparseGetErrorString(e);            \
+#define CUSPARSE_CALL(func)                           \
+  {                                                   \
+    cusparseStatus_t e = (func);                      \
+    SAM_CHECK(e == CUSPARSE_STATUS_SUCCESS)           \
+        << "CUSPARSE: " << cusparseGetErrorString(e); \
   }
 
 /*
@@ -81,11 +81,16 @@ class LogMessageFatal : public LogMessage {
   ~LogMessageFatal();
 };
 
-#define _SAM_LOG_TRACE common::LogMessage(__FILE__, __LINE__, common::LogLevel::TRACE)
-#define _SAM_LOG_DEBUG common::LogMessage(__FILE__, __LINE__, common::LogLevel::DEBUG)
-#define _SAM_LOG_INFO common::LogMessage(__FILE__, __LINE__, common::LogLevel::INFO)
-#define _SAM_LOG_WARNING common::LogMessage(__FILE__, __LINE__, common::LogLevel::WARNING)
-#define _SAM_LOG_ERROR common::LogMessage(__FILE__, __LINE__, common::LogLevel::ERROR)
+#define _SAM_LOG_TRACE \
+  common::LogMessage(__FILE__, __LINE__, common::LogLevel::TRACE)
+#define _SAM_LOG_DEBUG \
+  common::LogMessage(__FILE__, __LINE__, common::LogLevel::DEBUG)
+#define _SAM_LOG_INFO \
+  common::LogMessage(__FILE__, __LINE__, common::LogLevel::INFO)
+#define _SAM_LOG_WARNING \
+  common::LogMessage(__FILE__, __LINE__, common::LogLevel::WARNING)
+#define _SAM_LOG_ERROR \
+  common::LogMessage(__FILE__, __LINE__, common::LogLevel::ERROR)
 #define _SAM_LOG_FATAL common::LogMessageFatal(__FILE__, __LINE__)
 
 #define _LOG(severity) _SAM_LOG_##severity

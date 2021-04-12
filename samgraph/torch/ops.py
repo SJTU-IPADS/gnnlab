@@ -19,19 +19,23 @@ get_next_batch = _basics.get_next_batch
 shutdown = _basics.shutdown
 sample = _basics.sample
 
+
 def _check_tensor(tensor):
     if not tensor.dtype == torch.float32:
         raise ValueError('Tensor type %s is not supported.' % tensor.type())
     if not tensor.is_contiguous():
         raise ValueError('Tensor is required to be contiguous.')
 
+
 def _csrmm(graph_key, tensor):
     _check_tensor(tensor)
     return c_lib.samgraph_torch_csrmm(graph_key, tensor)
 
+
 def _csrmm_transpose(graph_key, tensor):
     _check_tensor(tensor)
     return c_lib.samgraph_torch_csrmm_transpose(graph_key, tensor)
+
 
 class SamGraphCsrmm(torch.autograd.Function):
     @staticmethod
@@ -44,12 +48,15 @@ class SamGraphCsrmm(torch.autograd.Function):
         graph_key = ctx.key
         return None, _csrmm_transpose(graph_key, grad_output)
 
+
 def csrmm(graph_key, tensor):
     ouput = SamGraphCsrmm.apply(graph_key, tensor)
     return ouput
 
+
 def get_graph_feat(batch_key):
     return c_lib.samgraph_torch_get_graph_feat(batch_key)
-    
+
+
 def get_graph_label(batch_key):
     return c_lib.samgraph_torch_get_graph_label(batch_key)
