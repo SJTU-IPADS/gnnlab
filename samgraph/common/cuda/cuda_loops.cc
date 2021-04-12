@@ -177,6 +177,7 @@ bool RunCudaSampleLoopOnce() {
                (cudaStream_t)sample_stream);
 
       double map_edges_time = t3.Passed();
+      double remap_time = t1.Passed();
 
       Timer t4;
       // Convert COO format to CSR format
@@ -209,7 +210,6 @@ bool RunCudaSampleLoopOnce() {
       CUDA_CALL(cudaFree(out_dst));
       CUDA_CALL(cudaFree(num_out));
       CUDA_CALL(cudaFree(new_src));
-      double remap_time = t1.Passed();
 
       SAM_LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap "
                      << remap_time;
@@ -500,7 +500,6 @@ bool RunSubmitLoopOnce() {
   if (task) {
     SAM_LOG(DEBUG) << "Submit: process task with key " << task->key;
     graph_pool->AddGraphBatch(task->key, task);
-    Profiler::Get()->Report(task->epoch, task->step);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
