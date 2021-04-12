@@ -500,6 +500,7 @@ bool RunSubmitLoopOnce() {
   if (task) {
     SAM_LOG(DEBUG) << "Submit: process task with key " << task->key;
     graph_pool->AddGraphBatch(task->key, task);
+    Profiler::Get()->Report(task->epoch, task->step);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
