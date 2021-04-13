@@ -4,6 +4,9 @@ import dgl.nn.pytorch as dglnn
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
+import fastgraph
+import time
+
 
 class SAGE(nn.Module):
     def __init__(self,
@@ -34,15 +37,25 @@ class SAGE(nn.Module):
                 h = self.dropout(h)
         return h
 
-def run():
-    g =  dgl.data.CoraFullDataset()[0]
-    
-    train_nids = torch.arange(10000)
-    sampler = dgl.dataloading.MultiLayerNeighborSampler([5, 4, 3])
 
+def run():
     device = torch.device('cuda:0')
-    in_feats = g.ndata['feat'].shape[1]
-    n_classes = torch.max(g.ndata['label']).item() + 1
+
+    dataset = fastgraph.Papers100M('/graph-learning/samgraph/papers100M')
+    g = dataset.to_dgl_graph()
+    train_nids = dataset.train_set
+    in_feats = dataset.feat_dim
+    n_classes = dataset.num_class
+
+    sampler = dgl.dataloading.MultiLayerNeighborSampler([15, 10, 5])
+    dataloader = dgl.dataloading.NodeDataLoader(
+        g,
+        train_nids,
+        sampler,
+        batch_size=8192,
+        shuffle=True,
+        drop_last=True,
+        num_workers=0)
 
     model = SAGE(in_feats, 16, n_classes, 3, F.relu, 0.5)
     model = model.to(device)
@@ -50,25 +63,28 @@ def run():
     loss_fcn = loss_fcn.to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.003)
 
-    dataloader = dgl.dataloading.NodeDataLoader(
-        g,
-        train_nids,
-        sampler,
-        batch_size=1000,
-        shuffle=True,
-        drop_last=True,
-        num_workers=0)
-    
-    for _, (_, _, blocks) in enumerate(dataloader):
-        blocks = [block.int().to('cuda:0') for block in blocks]
-        batch_inputs = blocks[0].srcdata['feat']
-        batch_labels = blocks[-1].dstdata['label']
+    for epoch in range(2):
+        t0 = time.time()
+        for step, (_, _, blocks) in enumerate(dataloader):
+            t1 = time.time()
+            blocks = [block.int().to(device) for block in blocks]
+            batch_inputs = blocks[0].srcdata['feat']
+            batch_labels = blocks[-1].dstdata['label']
 
-        batch_pred = model(blocks, batch_inputs)
-        loss = loss_fcn(batch_pred, batch_labels)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            t2 = time.time()
+
+            # Compute loss and prediction
+            batch_pred = model(blocks, batch_inputs)
+            loss = loss_fcn(batch_pred, batch_labels)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            t3 = time.time()
+            print('Epoch {:05d} | Step {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+                epoch, step, t3 - t0, t1 - t0, t2 - t1, t3 - t2, loss))
+            t0 = time.time()
+
 
 if __name__ == '__main__':
     run()
