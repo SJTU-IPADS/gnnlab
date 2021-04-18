@@ -10,6 +10,8 @@
 #include "../common/cuda/cuda_engine.h"
 #include "../common/cuda/cuda_function.h"
 #include "../common/logging.h"
+#include "../common/profiler.h"
+#include "../common/timer.h"
 
 namespace samgraph {
 namespace torch {
@@ -58,11 +60,21 @@ bool stream_sync = true;
 
   if (!train_graph->val) {
     size_t num_edge = train_graph->num_edge;
+    common::Timer t0;
     auto val = common::Tensor::Empty(common::kSamF32, {num_edge}, device,
                                      "csrmm_val_" + std::to_string(key));
+    double alloc_val_time = t0.Passed();
+
+    common::Timer t1;
     common::cuda::Fill(reinterpret_cast<float*>(val->mutable_data()), num_edge,
                        1.0f, stream, stream_sync);
     train_graph->val = val;
+    double fill_val_time = t1.Passed();
+
+    common::Profiler::Get()->alloc_val_time[graph_batch->profile_idx] +=
+        alloc_val_time;
+    common::Profiler::Get()->fill_val_time[graph_batch->profile_idx] +=
+        fill_val_time;
   }
 
   ::torch::Tensor output = ::torch::empty(
@@ -91,6 +103,7 @@ bool stream_sync = true;
   SAM_CHECK_EQ(m + 1, train_graph->indptr->shape()[0]);
   SAM_CHECK_EQ(nnz, train_graph->indices->shape()[0]);
 
+  common::Timer t2;
   cusparseMatDescr_t descr_a;
   CUSPARSE_CALL(cusparseCreateMatDescr(&descr_a));
   CUSPARSE_CALL(cusparseSetMatType(descr_a, CUSPARSE_MATRIX_TYPE_GENERAL));
@@ -104,6 +117,9 @@ bool stream_sync = true;
   if (stream_sync) {
     CUDA_CALL(cudaStreamSynchronize(stream));
   }
+
+  double csrmm_time = t2.Passed();
+  common::Profiler::Get()->csrmm_time[graph_batch->profile_idx] += csrmm_time;
 
   return output;
 }
@@ -154,6 +170,7 @@ bool stream_sync = true;
   int ldc = k;  // Leading dimension of c has changed from m to k
   float* c = output.data_ptr<float>();
 
+  common::Timer t0;
   SAM_CHECK_EQ(m, input.sizes()[0]);
   SAM_CHECK_EQ(m + 1, train_graph->indptr->shape()[0]);
   SAM_CHECK_EQ(nnz, train_graph->indices->shape()[0]);
@@ -171,6 +188,10 @@ bool stream_sync = true;
   if (stream_sync) {
     CUDA_CALL(cudaStreamSynchronize(stream));
   }
+
+  double csrmm_transpose_time = t0.Passed();
+  common::Profiler::Get()->csrmm_transpose_time[graph_batch->profile_idx] +=
+      csrmm_transpose_time;
 
   return output;
 }
@@ -211,11 +232,41 @@ bool stream_sync = true;
   return tensor;
 }
 
+::torch::Tensor GetGraphRow(uint64_t key, int layer_idx) {
+  auto graph_batch = common::SamGraphEngine::GetEngine()->GetGraphBatch();
+  auto row = graph_batch->output_graph[layer_idx]->row;
+  auto device = common::SamGraphEngine::GetEngine()->GetTrainDevice();
+  auto device_str = "cuda:" + std::to_string(device);
+
+  SAM_CHECK_EQ(key, graph_batch->key);
+  ::torch::Tensor tensor = ::torch::from_blob(
+      row->mutable_data(), {(long long)row->shape()[0]}, [row](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI32).device(device_str));
+
+  return tensor;
+}
+
+::torch::Tensor GetGraphCol(uint64_t key, int layer_idx) {
+  auto graph_batch = common::SamGraphEngine::GetEngine()->GetGraphBatch();
+  auto col = graph_batch->output_graph[layer_idx]->col;
+  auto device = common::SamGraphEngine::GetEngine()->GetTrainDevice();
+  auto device_str = "cuda:" + std::to_string(device);
+
+  SAM_CHECK_EQ(key, graph_batch->key);
+  ::torch::Tensor tensor = ::torch::from_blob(
+      col->mutable_data(), {(long long)col->shape()[0]}, [col](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI32).device(device_str));
+
+  return tensor;
+}
+
 PYBIND11_MODULE(c_lib, m) {
   m.def("samgraph_torch_get_graph_feat", &GetGraphFeature);
   m.def("samgraph_torch_get_graph_label", &GetGraphLabel);
   m.def("samgraph_torch_csrmm", &Csrmm);
   m.def("samgraph_torch_csrmm_transpose", &CsrmmTranspose);
+  m.def("samgraph_torch_get_graph_row", &GetGraphRow);
+  m.def("samgraph_torch_get_graph_col", &GetGraphCol);
 }
 
 }  // namespace torch

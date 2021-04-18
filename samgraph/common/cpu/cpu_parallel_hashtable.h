@@ -11,8 +11,8 @@ namespace cpu {
 class ParallelHashTable {
  public:
   struct Bucket {
+    IdType id;
     IdType local;
-    IdType version;
   };
 
   struct Mapping {
@@ -35,8 +35,6 @@ class ParallelHashTable {
 
   IdType _map_offset;
   size_t _capacity;
-
-  IdType _version;
 };
 
 }  // namespace cpu

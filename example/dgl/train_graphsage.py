@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import fastgraph
 import time
+import numpy as np
 
 
 class SAGE(nn.Module):
@@ -57,12 +58,17 @@ def run():
         drop_last=True,
         num_workers=0)
 
-    model = SAGE(in_feats, 16, n_classes, 3, F.relu, 0.5)
+    model = SAGE(in_feats, 256, n_classes, 3, F.relu, 0.5)
     model = model.to(device)
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.003)
 
+    sample_times = []
+    copy_times  = []
+    train_times = []
+    total_times = []
+    num_samples = []
     for epoch in range(2):
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
@@ -70,7 +76,6 @@ def run():
             blocks = [block.int().to(device) for block in blocks]
             batch_inputs = blocks[0].srcdata['feat']
             batch_labels = blocks[-1].dstdata['label']
-
             t2 = time.time()
 
             # Compute loss and prediction
@@ -81,8 +86,19 @@ def run():
             optimizer.step()
 
             t3 = time.time()
-            print('Epoch {:05d} | Step {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, t3 - t0, t1 - t0, t2 - t1, t3 - t2, loss))
+
+            sample_times.append(t1 - t0)
+            copy_times.append(t2 - t1)
+            train_times.append(t3 - t2)
+            total_times.append(t3 - t0)
+
+            num_sample = 0
+            for block in blocks:
+                num_sample += block.num_edges()
+            num_samples.append(num_sample)
+
+            print('Epoch {:05d} | Step {:05d} | Samples {:f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+                epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
 

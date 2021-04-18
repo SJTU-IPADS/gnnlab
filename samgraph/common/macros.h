@@ -2,6 +2,6 @@
 #define SAMGRAPH_MACROS_H
 
 #define PROFILE_CUDA_KERNELS 0
-#define PRINT_PROFILE 0
+#define PRINT_PROFILE 1
 
 #endif  // SAMGRAPH_MACROS_H

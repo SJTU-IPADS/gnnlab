@@ -1,9 +1,9 @@
 #ifndef SAMGRAPH_CONFIG_H
 #define SAMGRAPH_CONFIG_H
 
-#include <unordered_map>
 #include <cstdint>
 #include <limits>
+#include <unordered_map>
 
 #include "common.h"
 
@@ -26,11 +26,11 @@ class Config {
   static const std::string kMetaFeatDim;
   static const std::string kMetaNumClass;
   static const std::string kMetaNumTrainSet;
-  static const std::string kMetaNumTestSet; 
+  static const std::string kMetaNumTestSet;
   static const std::string kMetaNumValidSet;
 
-  static constexpr int kCudaBlockSize = 128;
-  static constexpr size_t kCudaTileSize = 512;
+  static constexpr int kCudaBlockSize = 256;
+  static constexpr size_t kCudaTileSize = 1024;
 
   static const std::unordered_map<int, size_t> kQueueThreshold;
   static constexpr size_t kGraphPoolThreshold = 5;
@@ -51,7 +51,7 @@ class Config {
   static constexpr int kOmpThreadNum = 24;
 };
 
-} // namespace common
-} // namespace samgraph
+}  // namespace common
+}  // namespace samgraph
 
-#endif // SAMGRAPH_CONFIG_H
+#endif  // SAMGRAPH_CONFIG_H

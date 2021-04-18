@@ -35,9 +35,9 @@ class SageConv(nn.Module):
         feat_src = feat_dst = self.feat_drop(feat)
 
         h_self = feat_dst[:graph.num_row, :]
-        # h_neigh = csrmm(graph.key, feat_src)
+        h_neigh = csrmm(graph.key, feat_src)
 
-        rst = self.fc_self(h_self)  # + self.fc_neigh(h_neigh)
+        rst = self.fc_self(h_self) + self.fc_neigh(h_neigh)
 
         if self.activation is not None:
             rst = self.activation(rst)

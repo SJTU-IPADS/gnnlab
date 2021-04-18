@@ -9,6 +9,7 @@
 #include "engine.h"
 #include "logging.h"
 #include "macros.h"
+#include "profiler.h"
 
 namespace samgraph {
 namespace common {
@@ -107,7 +108,10 @@ void samgraph_shutdown() {
 #endif
   return;
 }
-}
 
+void samgraph_profiler_report(int epoch, int step) {
+  Profiler::Get()->Report(epoch, step);
+}
+}
 }  // namespace common
 }  // namespace samgraph

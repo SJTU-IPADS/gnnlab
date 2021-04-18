@@ -32,6 +32,7 @@ bool RunHostPermutateLoopOnce() {
 
   if (batch) {
     // Create task entry
+    Timer t;
     auto task = std::make_shared<TaskEntry>();
     task->key = encodeBatchKey(p->cur_epoch(), p->cur_step());
     task->train_nodes = batch;
@@ -42,6 +43,10 @@ bool RunHostPermutateLoopOnce() {
     task->profile_idx = Profiler::GetEntryIndex(task->epoch, task->step);
 
     next_q->AddTask(task);
+    double shuffle_time = t.Passed();
+
+    size_t profile_idx = task->profile_idx;
+    Profiler::Get()->sample_time[profile_idx] += shuffle_time;
 
     SAM_LOG(DEBUG) << "HostPermuateLoop: process task with key " << task->key;
   } else {
@@ -179,37 +184,48 @@ bool RunCudaSampleLoopOnce() {
       double map_edges_time = t3.Passed();
       double remap_time = t1.Passed();
 
-      Timer t4;
+      // Timer t4;
       // Convert COO format to CSR format
-      IdType *new_indptr;
-      CUDA_CALL(cudaMalloc(&new_indptr, (num_input + 1) * sizeof(IdType)));
-      SAM_LOG(DEBUG) << "CudaSample: cuda new_indptr malloc "
-                     << toReadableSize((num_unique + 1) * sizeof(IdType));
-      ConvertCoo2Csr(new_src, new_dst, num_input, num_unique, host_num_out,
-                     new_indptr, sample_device, cusparse_handle, sample_stream);
+      // IdType *new_indptr;
+      // CUDA_CALL(cudaMalloc(&new_indptr, (num_input + 1) * sizeof(IdType)));
+      // SAM_LOG(DEBUG) << "CudaSample: cuda new_indptr malloc "
+      //                << toReadableSize((num_unique + 1) * sizeof(IdType));
+      // ConvertCoo2Csr(new_src, new_dst, num_input, num_unique, host_num_out,
+      //                new_indptr, sample_device, cusparse_handle,
+      //                sample_stream);
 
       auto train_graph = std::make_shared<TrainGraph>();
-      train_graph->indptr = Tensor::FromBlob(
-          new_indptr, DataType::kSamI32, {num_input + 1}, sample_device,
-          "train_graph.inptr_cuda_sample_" + std::to_string(task->key) + "_" +
-              std::to_string(i));
-      train_graph->indices = Tensor::FromBlob(
-          new_dst, DataType::kSamI32, {host_num_out}, sample_device,
-          "train_graph.indices_cuda_sample_" + std::to_string(task->key) + "_" +
-              std::to_string(i));
+      // train_graph->indptr = Tensor::FromBlob(
+      //     new_indptr, DataType::kSamI32, {num_input + 1}, sample_device,
+      //     "train_graph.inptr_cuda_sample_" + std::to_string(task->key) + "_"
+      //     +
+      //         std::to_string(i));
+      // train_graph->indices = Tensor::FromBlob(
+      //     new_dst, DataType::kSamI32, {host_num_out}, sample_device,
+      //     "train_graph.indices_cuda_sample_" + std::to_string(task->key) +
+      //     "_" +
+      //         std::to_string(i));
       train_graph->num_row = num_input;
       train_graph->num_column = num_unique;
       train_graph->num_edge = host_num_out;
+      train_graph->col = Tensor::FromBlob(
+          new_src, DataType::kSamI32, {host_num_out}, sample_device,
+          "train_graph.row_cuda_sample_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
+      train_graph->row = Tensor::FromBlob(
+          new_dst, DataType::kSamI32, {host_num_out}, sample_device,
+          "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
 
       task->output_graph[i] = train_graph;
 
-      double coo2csr_time = t4.Passed();
+      // double coo2csr_time = t4.Passed();
 
       // Do some clean jobs
       CUDA_CALL(cudaFree(out_src));
       CUDA_CALL(cudaFree(out_dst));
       CUDA_CALL(cudaFree(num_out));
-      CUDA_CALL(cudaFree(new_src));
+      // CUDA_CALL(cudaFree(new_src));
 
       SAM_LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap "
                      << remap_time;
@@ -220,7 +236,7 @@ bool RunCudaSampleLoopOnce() {
       Profiler::Get()->populate_time[profile_idx] += populate_time;
       Profiler::Get()->map_node_time[profile_idx] += 0;
       Profiler::Get()->map_edge_time[profile_idx] += map_edges_time;
-      Profiler::Get()->coo2csr_time[profile_idx] += coo2csr_time;
+      // Profiler::Get()->coo2csr_time[profile_idx] += coo2csr_time;
 
       task->cur_input = Tensor::FromBlob(
           (void *)unique, DataType::kSamI32, {num_unique}, sample_device,
@@ -264,36 +280,34 @@ bool RunGraphCopyDevice2DeviceLoopOnce() {
     Timer t;
     for (size_t i = 0; i < task->output_graph.size(); i++) {
       auto graph = task->output_graph[i];
-      void *train_indptr;
-      void *train_indices;
+      void *train_row;
+      void *train_col;
       CUDA_CALL(cudaSetDevice(train_device));
-      CUDA_CALL(cudaMalloc(&train_indptr, graph->indptr->size()));
-      CUDA_CALL(cudaMalloc(&train_indices, graph->indices->size()));
-      SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_indptr malloc "
-                     << toReadableSize(graph->indptr->size());
-      SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_indices malloc "
-                     << toReadableSize(graph->indices->size());
+      CUDA_CALL(cudaMalloc(&train_row, graph->row->size()));
+      CUDA_CALL(cudaMalloc(&train_col, graph->col->size()));
+      SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
+                     << toReadableSize(graph->row->size());
+      SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
+                     << toReadableSize(graph->col->size());
 
-      CUDA_CALL(cudaMemcpyAsync(train_indptr, graph->indptr->data(),
-                                graph->indptr->size(), cudaMemcpyDeviceToDevice,
+      CUDA_CALL(cudaMemcpyAsync(train_row, graph->row->data(),
+                                graph->row->size(), cudaMemcpyDeviceToDevice,
                                 graph_copy_stream));
       CUDA_CALL(cudaStreamSynchronize(graph_copy_stream));
 
-      CUDA_CALL(cudaMemcpyAsync(train_indices, graph->indices->data(),
-                                graph->indices->size(),
-                                cudaMemcpyDeviceToDevice, graph_copy_stream));
+      CUDA_CALL(cudaMemcpyAsync(train_col, graph->col->data(),
+                                graph->col->size(), cudaMemcpyDeviceToDevice,
+                                graph_copy_stream));
       CUDA_CALL(cudaStreamSynchronize(graph_copy_stream));
 
-      graph->indptr = Tensor::FromBlob(train_indptr, graph->indptr->dtype(),
-                                       graph->indptr->shape(), train_device,
-                                       "train_graph.inptr_cuda_train_" +
-                                           std::to_string(task->key) + "_" +
-                                           std::to_string(i));
-      graph->indices = Tensor::FromBlob(train_indices, graph->indptr->dtype(),
-                                        graph->indices->shape(), train_device,
-                                        "train_graph.inptr_cuda_train_" +
-                                            std::to_string(task->key) + "_" +
-                                            std::to_string(i));
+      graph->row = Tensor::FromBlob(
+          train_row, graph->row->dtype(), graph->row->shape(), train_device,
+          "train_graph.row_cuda_train_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
+      graph->col = Tensor::FromBlob(
+          train_col, graph->col->dtype(), graph->col->shape(), train_device,
+          "train_graph.col_cuda_train_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
     }
 
     CUDA_CALL(cudaStreamSynchronize(graph_copy_stream));
@@ -330,6 +344,7 @@ bool RunIdCopyDevice2HostLoopOnce() {
   auto task = q->GetTask();
 
   if (task) {
+    Timer t;
     auto id_copy_d2h_stream =
         *SamGraphCudaEngine::GetEngine()->GetIdCopyDevice2HostStream();
     void *input_nodes = malloc(task->input_nodes->size());
@@ -356,6 +371,9 @@ bool RunIdCopyDevice2HostLoopOnce() {
 
     next_q->AddTask(task);
     SAM_LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
+    double copy_time = t.Passed();
+    size_t profile_idx = task->profile_idx;
+    Profiler::Get()->extract_time[profile_idx] += copy_time;
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }

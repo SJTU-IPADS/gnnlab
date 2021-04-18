@@ -18,6 +18,7 @@ num_step_per_epoch = _basics.num_step_per_epoch
 get_next_batch = _basics.get_next_batch
 shutdown = _basics.shutdown
 sample = _basics.sample
+profiler_report = _basics.profiler_report
 
 
 def _check_tensor(tensor):
@@ -60,3 +61,11 @@ def get_graph_feat(batch_key):
 
 def get_graph_label(batch_key):
     return c_lib.samgraph_torch_get_graph_label(batch_key)
+
+
+def get_graph_row(batch_key, layer_idx):
+    return c_lib.samgraph_torch_get_graph_row(batch_key, layer_idx)
+
+
+def get_graph_col(batch_key, layer_idx):
+    return c_lib.samgraph_torch_get_graph_col(batch_key, layer_idx)

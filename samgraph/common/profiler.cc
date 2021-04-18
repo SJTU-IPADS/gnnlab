@@ -29,6 +29,11 @@ Profiler::Profiler() {
   map_node_time.resize(kMaxEntries, 0);
   map_edge_time.resize(kMaxEntries, 0);
 
+  alloc_val_time.resize(kMaxEntries, 0);
+  fill_val_time.resize(kMaxEntries, 0);
+  csrmm_time.resize(kMaxEntries, 0);
+  csrmm_transpose_time.resize(kMaxEntries, 0);
+
   num_samples.resize(kMaxEntries, 0);
 
   _num_step_per_epoch = SamGraphEngine::GetEngine()->GetNumStep();
@@ -46,6 +51,11 @@ void Profiler::Report(size_t epoch, size_t step) {
       "    [SAMPLE PROFILE] | ns time: %.4lf | remap time: %.4lf | coo2csr "
       "time %.4lf \n",
       ns_time[idx], remap_time[idx], coo2csr_time[idx]);
+  printf(
+      "    [TRAIN PROFILE]  | alloc val time: %.4lf | fill val time: %.4lf | "
+      "csrmm time: %.4lf | csrmm transpose time: %.4lf\n",
+      alloc_val_time[idx], fill_val_time[idx], csrmm_time[idx],
+      csrmm_transpose_time[idx]);
 #endif
   // "ns: %.4lf | remap: %.4lf | populate %.4lf | map nodes: %.4lf | map "
   // "edges %.4lf |\n",

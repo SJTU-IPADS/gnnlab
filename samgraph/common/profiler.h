@@ -46,6 +46,11 @@ class Profiler {
   // Time breakdown
   //   std::vector<double>;
 
+  std::vector<double> alloc_val_time;
+  std::vector<double> fill_val_time;
+  std::vector<double> csrmm_time;
+  std::vector<double> csrmm_transpose_time;
+
   // Number of samples
   std::vector<size_t> num_samples;
 

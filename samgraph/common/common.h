@@ -116,6 +116,8 @@ struct TrainGraph {
   std::shared_ptr<IdTensor> indptr;
   std::shared_ptr<IdTensor> indices;
   std::shared_ptr<IdTensor> val;
+  std::shared_ptr<IdTensor> row;
+  std::shared_ptr<IdTensor> col;
   int num_row;
   int num_column;
   int num_edge;

@@ -1,38 +1,51 @@
 import argparse
 import time
-
+import dgl.nn.pytorch as dglnn
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import dgl
 
 import samgraph.torch as sam
 
 
+def to_dgl_blocks(batch_key, num_layers):
+    feat = sam.get_graph_feat(batch_key)
+    label = sam.get_graph_label(batch_key)
+    blocks = []
+    for i in range(num_layers):
+        row = sam.get_graph_row(batch_key, i)
+        col = sam.get_graph_col(batch_key, i)
+        blocks.append(dgl.create_block({('_U', '_V', '_U'): (row, col)}))
+
+    return blocks, feat, label
+
+
 class SAGE(nn.Module):
     def __init__(self,
-                 in_feat,
+                 in_feats,
                  n_hidden,
-                 n_class,
-                 n_layer,
+                 n_classes,
+                 n_layers,
                  activation,
                  dropout):
         super().__init__()
-        self.n_layers = n_layer
+        self.n_layers = n_layers
         self.n_hidden = n_hidden
-        self.n_classes = n_class
+        self.n_classes = n_classes
         self.layers = nn.ModuleList()
-        self.layers.append(sam.SageConv(in_feat, n_hidden))
-        for _ in range(1, n_layer - 1):
-            self.layers.append(sam.SageConv(n_hidden, n_hidden))
-        self.layers.append(sam.SageConv(n_hidden, n_class))
+        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, 'mean'))
+        for i in range(1, n_layers - 1):
+            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, 'mean'))
+        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
         self.dropout = nn.Dropout(dropout)
         self.activation = activation
 
-    def forward(self, graph_batch, x):
+    def forward(self, blocks, x):
         h = x
-        for l, (layer, graph) in enumerate(zip(self.layers, graph_batch.graphs)):
-            h = layer(graph, h)
+        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
+            h = layer(block, h)
             if l != len(self.layers) - 1:
                 h = self.activation(h)
                 h = self.dropout(h)
@@ -56,6 +69,7 @@ def run(args):
     model = model.to(th_train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
+    loss_fcn.to(th_train_device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     num_epoch = sam.num_epoch()
@@ -67,29 +81,27 @@ def run(args):
     model.train()
     for epoch in range(num_epoch):
 
-        tic_step = time.time()
         for step in range(num_step):
-            tic_sample = time.time()
+            t0 = time.time()
             sam.sample()
             graph_batch = sam.get_next_batch(epoch, step, num_graph)
-            batch_input = sam.get_graph_feat(graph_batch.key)
-            batch_label = sam.get_graph_label(graph_batch.key)
-            toc_sample = time.time()
+            blocks, batch_input, batch_label = to_dgl_blocks(
+                graph_batch.key, num_layer)
+            t1 = time.time()
 
-            tic_train = time.time()
-            batch_pred = model(graph_batch, batch_input)
+            t2 = time.time()
+            batch_pred = model(blocks, batch_input)
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            toc_train = time.time()
+            t3 = time.time()
 
             print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Sample: {:.4f} secs | Train: {:.4f} secs | Time {:.4f} secs'.format(
-                epoch, step, loss.item(), toc_sample - tic_sample, toc_train -
-                tic_train, time.time() - tic_step
+                epoch, step, loss.item(), t1 - t0, t3 - t2, t3 - t0
             ))
 
-            tic_step = time.time()
+            sam.profiler_report(epoch, step)
 
     sam.shutdown()
 
@@ -98,7 +110,7 @@ if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
     argparser.add_argument('--train-device', type=int, default=0,
                            help="")
-    argparser.add_argument('--sample-device', type=int, default=1)
+    argparser.add_argument('--sample-device', type=int, default=-1)
     argparser.add_argument('--dataset-path', type=str,
                            default='/graph-learning/samgraph/papers100M')
     argparser.add_argument('--num-epoch', type=int, default=20)
