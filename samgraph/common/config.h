@@ -47,6 +47,9 @@ class Config {
   static constexpr size_t kKilobytes = 1 * 1024;
 
   static constexpr int kOmpThreadNum = 24;
+
+  static constexpr size_t kAllocScaleFactor = 2;
+  static constexpr size_t kNoScale = 1;
 };
 
 }  // namespace common

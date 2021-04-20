@@ -28,7 +28,6 @@ TaskPtr DoPermutate() {
   if (batch) {
     auto task = std::make_shared<Task>();
     task->key = GpuEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
-    task->cur_input = batch;
     task->output_nodes = batch;
     LOG(DEBUG) << "DoPermutate: process task with key " << task->key;
     return task;
@@ -50,10 +49,10 @@ void DoGpuSample(TaskPtr task) {
   hash_table->Clear(sample_stream);
   CUDA_CALL(cudaStreamSynchronize(sample_stream));
 
-  auto train_nodes = task->output_nodes;
-  size_t num_train_node = train_nodes->shape()[0];
+  auto output_nodes = task->output_nodes;
+  size_t num_train_node = output_nodes->shape()[0];
   hash_table->FillWithUnique(
-      static_cast<const IdType *const>(train_nodes->data()), num_train_node,
+      static_cast<const IdType *const>(output_nodes->data()), num_train_node,
       sample_stream);
   task->graphs.resize(num_layers);
   CUDA_CALL(cudaStreamSynchronize(sample_stream));
@@ -61,11 +60,13 @@ void DoGpuSample(TaskPtr task) {
   const IdType *indptr = static_cast<const IdType *>(dataset->indptr->data());
   const IdType *indices = static_cast<const IdType *>(dataset->indices->data());
 
+  auto cur_input = task->output_nodes;
+
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer t0;
     const int fanout = fanouts[i];
-    const IdType *input = static_cast<const IdType *>(task->cur_input->data());
-    const size_t num_input = task->cur_input->shape()[0];
+    const IdType *input = static_cast<const IdType *>(cur_input->data());
+    const size_t num_input = cur_input->shape()[0];
     LOG(DEBUG) << "CudaSample: begin sample layer " << i;
 
     IdType *out_src;
@@ -169,14 +170,14 @@ void DoGpuSample(TaskPtr task) {
     Profiler::Get()->map_node_time[task->key] += 0;
     Profiler::Get()->map_edge_time[task->key] += map_edges_time;
 
-    task->cur_input = Tensor::FromBlob(
+    cur_input = Tensor::FromBlob(
         (void *)unique, DataType::kI32, {num_unique}, sample_device,
         "cur_input_unique_cuda_" + std::to_string(task->key) + "_" +
             std::to_string(i));
     LOG(DEBUG) << "CudaSample: finish layer " << i;
   }
 
-  task->input_nodes = task->cur_input;
+  task->input_nodes = cur_input;
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }

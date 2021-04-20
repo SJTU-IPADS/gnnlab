@@ -33,7 +33,6 @@ bool RunCpuSampleLoopOnce() {
     Timer t;
     auto task = std::make_shared<Task>();
     task->key = CpuEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
-    task->cur_input = batch;
     task->output_nodes = batch;
     auto fanouts = CpuEngine::Get()->GetFanout();
     auto num_layers = fanouts.size();
@@ -43,14 +42,13 @@ bool RunCpuSampleLoopOnce() {
     auto train_device = CpuEngine::Get()->GetTrainDevice();
     auto work_stream = CpuEngine::Get()->GetWorkStream();
 
-    auto train_nodes = task->output_nodes;
-
     auto hash_table = CpuEngine::Get()->GetHashTable();
     hash_table->Clear();
 
-    size_t num_train_node = train_nodes->shape()[0];
-    hash_table->Populate(static_cast<const IdType *>(train_nodes->data()),
-                         num_train_node);
+    size_t num_train_node = task->output_nodes->shape()[0];
+    hash_table->Populate(
+        static_cast<const IdType *>(task->output_nodes->data()),
+        num_train_node);
 
     task->graphs.resize(num_layers);
 
@@ -58,12 +56,13 @@ bool RunCpuSampleLoopOnce() {
     const IdType *indices =
         static_cast<const IdType *>(dataset->indices->data());
 
+    auto cur_input = task->output_nodes;
+
     for (int i = last_layer_idx; i >= 0; i--) {
       Timer t0;
       const int fanout = fanouts[i];
-      const IdType *input =
-          static_cast<const IdType *>(task->cur_input->data());
-      const size_t num_input = task->cur_input->shape()[0];
+      const IdType *input = static_cast<const IdType *>(cur_input->data());
+      const size_t num_input = cur_input->shape()[0];
       LOG(DEBUG) << "CpuSample: begin sample layer " << i;
 
       IdType *out_src = (IdType *)malloc(num_input * fanout * sizeof(IdType));
@@ -125,7 +124,7 @@ bool RunCpuSampleLoopOnce() {
       train_graph->num_edge = num_out;
 
       task->graphs[i] = train_graph;
-      task->cur_input = Tensor::FromBlob(
+      cur_input = Tensor::FromBlob(
           (void *)unique, DataType::kI32, {num_unique}, CPU_DEVICE_ID,
           "cur_input_unique_cpu_" + std::to_string(task->key) + "_" +
               std::to_string(i));
@@ -145,7 +144,7 @@ bool RunCpuSampleLoopOnce() {
       LOG(DEBUG) << "CpuSample: finish layer " << i;
     }
 
-    task->input_nodes = task->cur_input;
+    task->input_nodes = cur_input;
 
     // Extract feature
     auto input_nodes = task->input_nodes;

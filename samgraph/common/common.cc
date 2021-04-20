@@ -194,51 +194,6 @@ TensorPtr Tensor::FromBlob(void *data, DataType dtype,
   return tensor;
 }
 
-TensorPtr Tensor::ToDevice(const TensorPtr origin, int device,
-                           cudaStream_t stream) {
-  auto tensor = std::make_shared<Tensor>();
-
-  tensor->_dtype = origin->_dtype;
-  tensor->_shape = origin->_shape;
-  tensor->_size = origin->_size;
-  tensor->_device = origin->_device;
-  tensor->_name = origin->_name + "_ToDevice";
-
-  if (device == CPU_DEVICE_ID) {
-    tensor->_data = malloc(origin->_size);
-  } else if (device) {
-    CUDA_CALL(cudaSetDevice(device));
-    CUDA_CALL(cudaMalloc(&tensor->_data, tensor->_size));
-  } else {
-    CHECK(0);
-  }
-
-  if (device == CPU_DEVICE_ID && origin->_device <= CPU_DEVICE_ID) {
-    memcpy(tensor->_data, origin->_data, tensor->_size);
-  } else {
-    cudaMemcpyKind kind;
-    if (device == CPU_DEVICE_ID && origin->_device > CPU_DEVICE_ID) {
-      kind = cudaMemcpyDeviceToHost;
-    } else if (device > CPU_DEVICE_ID && origin->_device <= CPU_DEVICE_ID) {
-      kind = cudaMemcpyHostToDevice;
-    } else if (device > CPU_DEVICE_ID && origin->_device > CPU_DEVICE_ID) {
-      kind = cudaMemcpyDeviceToDevice;
-    } else {
-      CHECK(0);
-    }
-
-    if (stream) {
-      CUDA_CALL(cudaMemcpyAsync(tensor->_data, origin->_data, tensor->_size,
-                                kind, stream));
-      CUDA_CALL(cudaStreamSynchronize(stream));
-    } else {
-      CUDA_CALL(cudaMemcpy(tensor->_data, origin->_data, tensor->_size, kind));
-    }
-  }
-
-  return tensor;
-}
-
 size_t GetDataTypeLength(int dtype) {
   switch (dtype) {
     case kI8:

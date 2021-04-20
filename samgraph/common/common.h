@@ -31,6 +31,15 @@ enum DataType {
 #define CPU_DEVICE_ID (-1)
 #define CPU_DEVICE_MMAP_ID (-2)
 
+enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2 };
+
+struct Context {
+  DeviceType device_type;
+  int device_id;
+};
+
+using StreamHandle = void*;
+
 class Tensor;
 using TensorPtr = std::shared_ptr<Tensor>;
 
@@ -38,24 +47,6 @@ class Tensor {
  public:
   Tensor();
   ~Tensor();
-  // Create a tensor from the file and take the
-  // ownership of the input data
-  static TensorPtr FromMmap(std::string filepath, DataType dtype,
-                            std::vector<size_t> shape, int device,
-                            std::string name, cudaStream_t stream = nullptr);
-  // Create an uninitialized tensor data
-  static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, int device,
-                         std::string name);
-  // Deep slice a tensor
-  static TensorPtr CreateCopy1D(TensorPtr tensor, size_t item_offset,
-                                std::vector<size_t> shape, std::string name,
-                                cudaStream_t stream = nullptr);
-  // From blob
-  static TensorPtr FromBlob(void* data, DataType dtype,
-                            std::vector<size_t> shape, int device,
-                            std::string name);
-  static TensorPtr ToDevice(const TensorPtr origin, int device,
-                            cudaStream_t stream = nullptr);
 
   bool defined() const { return _data; }
   DataType dtype() const { return _dtype; }
@@ -64,6 +55,18 @@ class Tensor {
   void* mutable_data() { return _data; }
   size_t size() const { return _size; }
   int device() const { return _device; }
+
+  static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, int device,
+                         std::string name);
+  static TensorPtr CreateCopy1D(TensorPtr tensor, size_t item_offset,
+                                std::vector<size_t> shape, std::string name,
+                                cudaStream_t stream = nullptr);
+  static TensorPtr FromMmap(std::string filepath, DataType dtype,
+                            std::vector<size_t> shape, int device,
+                            std::string name, cudaStream_t stream = nullptr);
+  static TensorPtr FromBlob(void* data, DataType dtype,
+                            std::vector<size_t> shape, int device,
+                            std::string name);
 
  private:
   void* _data;
@@ -98,16 +101,14 @@ struct TrainGraph {
   TensorPtr row;
   TensorPtr col;
   TensorPtr val;
-  int num_row;
-  int num_column;
-  int num_edge;
+  size_t num_row;
+  size_t num_column;
+  size_t num_edge;
 };
 
 struct Task {
   // Key of the task
   uint64_t key;
-  // Current input tensor
-  TensorPtr cur_input;
   // Output graph tensor
   std::vector<std::shared_ptr<TrainGraph>> graphs;
   // node ids of the last train graph
@@ -121,11 +122,6 @@ struct Task {
 };
 
 using GraphBatch = Task;
-
-uint64_t EncodeBatchKey(uint64_t epoch_idx, uint64_t batch_idx);
-uint64_t DecodeBatchKey(uint64_t key);
-uint64_t EncodeGraphId(uint64_t key, uint64_t graph_id);
-uint64_t DecodeGraphId(uint64_t key);
 
 size_t GetDataTypeLength(int dtype);
 
