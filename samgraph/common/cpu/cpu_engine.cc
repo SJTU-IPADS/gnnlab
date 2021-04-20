@@ -9,20 +9,20 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-SamGraphCpuEngine::SamGraphCpuEngine() {
+CpuEngine::CpuEngine() {
   _initialize = false;
   _should_shutdown = false;
 }
 
-void SamGraphCpuEngine::Init(std::string dataset_path, int sample_device,
-                             int train_device, size_t batch_size,
-                             std::vector<int> fanout, int num_epoch) {
+void CpuEngine::Init(std::string dataset_path, int sample_device,
+                     int train_device, size_t batch_size,
+                     std::vector<int> fanout, size_t num_epoch) {
   if (_initialize) {
     return;
   }
 
-  SAM_CHECK_EQ(sample_device, CPU_DEVICE_ID);
-  SAM_CHECK_GT(train_device, CPU_DEVICE_ID);
+  CHECK_EQ(sample_device, CPU_DEVICE_ID);
+  CHECK_GT(train_device, CPU_DEVICE_ID);
 
   _sample_device = sample_device;
   _train_device = train_device;
@@ -37,22 +37,20 @@ void SamGraphCpuEngine::Init(std::string dataset_path, int sample_device,
 
   // Create CUDA streams
   CUDA_CALL(cudaSetDevice(_train_device));
-  _work_stream = (cudaStream_t*)malloc(sizeof(cudaStream_t));
-  CUDA_CALL(cudaStreamCreateWithFlags(_work_stream, cudaStreamNonBlocking));
-
-  CUDA_CALL(cudaStreamSynchronize(*_work_stream));
+  CUDA_CALL(cudaStreamCreateWithFlags(&_work_stream, cudaStreamNonBlocking));
+  CUDA_CALL(cudaStreamSynchronize(_work_stream));
 
   _extractor = new Extractor();
   _permutator =
       new CpuPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
-  _num_step = _permutator->num_step();
-  _graph_pool = new GraphPool(Config::kGraphPoolThreshold);
+  _num_step = _permutator->NumStep();
+  _graph_pool = new GraphPool(Config::kPipelineThreshold);
   _hash_table = new ParallelHashTable(_dataset->num_node);
 
   _initialize = true;
 }
 
-void SamGraphCpuEngine::Start() {
+void CpuEngine::Start() {
   std::vector<LoopFunction> func;
 
   // func.push_back(CpuSampleLoop);
@@ -61,10 +59,10 @@ void SamGraphCpuEngine::Start() {
   for (size_t i = 0; i < func.size(); i++) {
     _threads.push_back(new std::thread(func[i]));
   }
-  SAM_LOG(DEBUG) << "Started " << func.size() << " background threads.";
+  LOG(DEBUG) << "Started " << func.size() << " background threads.";
 }
 
-void SamGraphCpuEngine::Shutdown() {
+void CpuEngine::Shutdown() {
   if (_should_shutdown) {
     return;
   }
@@ -90,12 +88,8 @@ void SamGraphCpuEngine::Shutdown() {
 
   delete _dataset;
 
-  if (_work_stream) {
-    CUDA_CALL(cudaStreamSynchronize(*_work_stream));
-    CUDA_CALL(cudaStreamDestroy(*_work_stream));
-    free(_work_stream);
-    _work_stream = nullptr;
-  }
+  CUDA_CALL(cudaStreamSynchronize(_work_stream));
+  CUDA_CALL(cudaStreamDestroy(_work_stream));
 
   if (_permutator) {
     delete _permutator;
@@ -118,7 +112,7 @@ void SamGraphCpuEngine::Shutdown() {
   _should_shutdown = false;
 }
 
-void SamGraphCpuEngine::SampleOnce() { RunCpuSampleLoopOnce(); }
+void CpuEngine::RunSampleOnce() { RunCpuSampleLoopOnce(); }
 
 }  // namespace cpu
 }  // namespace common

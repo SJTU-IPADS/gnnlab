@@ -1,6 +1,7 @@
 #ifndef SAMGRAPH_CUDA_PERMUTATOR_H
 #define SAMGRAPH_CUDA_PERMUTATOR_H
 
+#include <limits>
 #include <memory>
 
 #include "../common.h"
@@ -11,28 +12,32 @@ namespace cuda {
 
 class CudaPermutator {
  public:
-  CudaPermutator(std::shared_ptr<IdTensor> input, int num_epoch,
-                 size_t batch_size, bool drop_last);
-  std::shared_ptr<IdTensor> GetBatch(cudaStream_t stream = nullptr);
+  CudaPermutator(TensorPtr input, size_t num_epoch, size_t batch_size,
+                 bool drop_last);
+  TensorPtr GetBatch(cudaStream_t stream = nullptr);
 
-  inline int cur_epoch() { return _cur_epoch; }
-  inline int num_epoch() { return _num_epoch; }
-  inline size_t cur_step() { return _cur_step; }
-  inline size_t num_step() { return _num_step; }
-  inline size_t num_element() { return _input->shape().front(); }
+  uint64_t Epoch() { return _cur_epoch; }
+  uint64_t Step() { return _cur_step; }
+
+  size_t NumEpoch() { return _num_epoch; }
+  size_t NumStep() { return _num_step; }
 
  private:
-  int _num_epoch;
-  int _cur_epoch;
-
-  std::shared_ptr<IdTensor> _input;
-  std::shared_ptr<IdTensor> _d_input;
-  size_t _num_element;
   bool _drop_last;
+  bool _initialized;
+
+  uint64_t _cur_epoch;
+  uint64_t _cur_step;
+
+  size_t _num_epoch;
+  size_t _num_step;
+
+  TensorPtr _input;
+  TensorPtr _dev_input;
+  size_t _input_size;
+
   size_t _batch_size;
   size_t _last_batch_size;
-  size_t _num_step;
-  size_t _cur_step;
 
   void RePermutate(cudaStream_t stream = nullptr);
 };

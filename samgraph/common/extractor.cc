@@ -16,19 +16,19 @@ Extractor::Extractor() {
 int Extractor::extract(void *dst, const void *src, const IdType *idx,
                        size_t num_idx, size_t dim, DataType dtype) {
   switch (dtype) {
-    case kSamF32:
+    case kF32:
       return _extract(reinterpret_cast<float *>(dst),
                       reinterpret_cast<const float *>(src), idx, num_idx, dim);
-    case kSamI32:
+    case kI32:
       return _extract(reinterpret_cast<int32_t *>(dst),
                       reinterpret_cast<const int32_t *>(src), idx, num_idx,
                       dim);
-    case kSamI64:
+    case kI64:
       return _extract(reinterpret_cast<int64_t *>(dst),
                       reinterpret_cast<const int64_t *>(src), idx, num_idx,
                       dim);
     default:
-      SAM_CHECK(0);
+      CHECK(0);
   }
 
   return 0;

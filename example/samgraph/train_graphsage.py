@@ -10,18 +10,6 @@ import dgl
 import samgraph.torch as sam
 
 
-def to_dgl_blocks(batch_key, num_layers):
-    feat = sam.get_graph_feat(batch_key)
-    label = sam.get_graph_label(batch_key)
-    blocks = []
-    for i in range(num_layers):
-        row = sam.get_graph_row(batch_key, i)
-        col = sam.get_graph_col(batch_key, i)
-        blocks.append(dgl.create_block({('_U', '_V', '_U'): (row, col)}))
-
-    return blocks, feat, label
-
-
 class SAGE(nn.Module):
     def __init__(self,
                  in_feats,
@@ -55,26 +43,25 @@ class SAGE(nn.Module):
 def run(args):
     fanout_list = [int(fanout) for fanout in args.fan_out.split(',')]
 
-    sam.init(args.dataset_path, args.sample_device, args.train_device,
+    sam.init(args.dataset_path, args.sample_device_id, args.train_device_id,
              args.batch_size, fanout_list, args.num_epoch)
 
-    th_train_device = th.device('cuda:%d' % args.train_device)
+    train_device = th.device('cuda:%d' % args.train_device_id)
 
-    in_feat = sam.dataset_num_feat_dim()
-    num_class = sam.dataset_num_class()
+    in_feat = sam.feat_dim()
+    num_class = sam.num_class()
     num_layer = len(fanout_list)
 
     model = SAGE(in_feat, args.num_hidden, num_class,
                  num_layer, F.relu, args.dropout)
-    model = model.to(th_train_device)
+    model = model.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
-    loss_fcn.to(th_train_device)
+    loss_fcn.to(train_device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     num_epoch = sam.num_epoch()
-    num_step = sam.num_step_per_epoch()
-    num_graph = len(fanout_list)
+    num_step = sam.steps_per_epoch()
 
     # sam.start()
 
@@ -84,11 +71,10 @@ def run(args):
         for step in range(num_step):
             t0 = time.time()
             sam.sample()
-            graph_batch = sam.get_next_batch(epoch, step, num_graph)
-            blocks, batch_input, batch_label = to_dgl_blocks(
-                graph_batch.key, num_layer)
+            batch_key = sam.get_next_batch(epoch, step)
             t1 = time.time()
-
+            blocks, batch_input, batch_label = sam.get_dgl_blocks(
+                batch_key, num_layer)
             t2 = time.time()
             batch_pred = model(blocks, batch_input)
             loss = loss_fcn(batch_pred, batch_label)
@@ -97,8 +83,8 @@ def run(args):
             optimizer.step()
             t3 = time.time()
 
-            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Sample: {:.4f} secs | Train: {:.4f} secs | Time {:.4f} secs'.format(
-                epoch, step, loss.item(), t1 - t0, t3 - t2, t3 - t0
+            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Sample {:.4f} secs | Convert {:.4f} secs |  Train {:.4f} secs | Time {:.4f} secs'.format(
+                epoch, step, loss.item(), t1 - t0, t2 - t1, t3 - t2, t3 - t0
             ))
 
             sam.profiler_report(epoch, step)
@@ -108,9 +94,9 @@ def run(args):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument('--train-device', type=int, default=0,
+    argparser.add_argument('--train-device-id', type=int, default=0,
                            help="")
-    argparser.add_argument('--sample-device', type=int, default=-1)
+    argparser.add_argument('--sample-device-id', type=int, default=1)
     argparser.add_argument('--dataset-path', type=str,
                            default='/graph-learning/samgraph/papers100M')
     argparser.add_argument('--num-epoch', type=int, default=20)

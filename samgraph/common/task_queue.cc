@@ -3,31 +3,29 @@
 namespace samgraph {
 namespace common {
 
-SamGraphTaskQueue::SamGraphTaskQueue(CudaQueueType qt, size_t threshold,
-                                     ReadyTable* rt) {
-  _qt = qt;
+TaskQueue::TaskQueue(size_t threshold, ReadyTable* rt) {
   _threshold = threshold;
   _rt = rt;
 }
 
-void SamGraphTaskQueue::AddTask(std::shared_ptr<TaskEntry> task) {
+void TaskQueue::AddTask(std::shared_ptr<Task> task) {
   std::lock_guard<std::mutex> lock(_mutex);
   _q.push_back(task);
 }
 
-size_t SamGraphTaskQueue::PendingLength() {
+size_t TaskQueue::PendingLength() {
   std::lock_guard<std::mutex> lock(_mutex);
   return _q.size();
 }
 
-bool SamGraphTaskQueue::ExceedThreshold() {
+bool TaskQueue::ExceedThreshold() {
   std::lock_guard<std::mutex> lock(_mutex);
   return _q.size() >= _threshold;
 }
 
-std::shared_ptr<TaskEntry> SamGraphTaskQueue::GetTask() {
+std::shared_ptr<Task> TaskQueue::GetTask() {
   std::lock_guard<std::mutex> lock(_mutex);
-  std::shared_ptr<TaskEntry> task;
+  std::shared_ptr<Task> task;
   for (auto it = _q.begin(); it != _q.end(); it++) {
     if (_rt) {
       if (!_rt->IsKeyReady((*it)->key)) {

@@ -16,6 +16,7 @@
 #include "../logging.h"
 #include "../ready_table.h"
 #include "../task_queue.h"
+#include "cuda_common.h"
 #include "cuda_hashtable.h"
 #include "cuda_permutator.h"
 
@@ -23,58 +24,36 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-class SamGraphCudaEngine : public SamGraphEngine {
+class GpuEngine : public Engine {
  public:
-  SamGraphCudaEngine();
+  GpuEngine();
 
   void Init(std::string dataset_path, int sample_device, int train_device,
-            size_t batch_size, std::vector<int> fanout, int num_epoch) override;
+            size_t batch_size, std::vector<int> fanout,
+            size_t num_epoch) override;
   void Start() override;
   void Shutdown() override;
-  void SampleOnce() override;
+  void RunSampleOnce() override;
 
   CudaPermutator* GetPermutator() { return _permutator; }
   Extractor* GetExtractor() { return _extractor; }
-  SamGraphTaskQueue* GetTaskQueue(CudaQueueType queueType) {
-    return _queues[queueType];
-  }
-  ReadyTable* GetSubmitTable() { return _submit_table; }
+  TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
 
-  cudaStream_t* GetSampleStream() { return _sample_stream; }
-  cudaStream_t* GetIdCopyHost2DeviceStream() {
-    return _id_copy_host2device_stream;
-  }
-  cudaStream_t* GetGraphCopyDevice2DeviceStream() {
-    return _graph_copy_device2device_stream;
-  }
-  cudaStream_t* GetIdCopyDevice2HostStream() {
-    return _id_copy_device2host_stream;
-  }
-  cudaStream_t* GetFeatureCopyHost2DeviceStream() {
-    return _feat_copy_host2device_stream;
-  }
+  cudaStream_t GetSampleStream() { return _sample_stream; }
+  cudaStream_t GetCopyStream() { return _copy_stream; }
 
-  static inline SamGraphCudaEngine* GetEngine() {
-    return dynamic_cast<SamGraphCudaEngine*>(SamGraphEngine::_engine);
-  }
+  static GpuEngine* Get() { return dynamic_cast<GpuEngine*>(Engine::_engine); }
 
  private:
   // Task queue
-  std::vector<SamGraphTaskQueue*> _queues;
+  std::vector<TaskQueue*> _queues;
   std::vector<std::thread*> _threads;
   // Cuda streams on sample device
-  cudaStream_t* _sample_stream;
-  cudaStream_t* _id_copy_host2device_stream;
-  cudaStream_t* _graph_copy_device2device_stream;
-  cudaStream_t* _id_copy_device2host_stream;
-  // Cuda streams on train device
-  cudaStream_t* _feat_copy_host2device_stream;
-
+  cudaStream_t _sample_stream;
+  cudaStream_t _copy_stream;
   // Random node batch genrator
   CudaPermutator* _permutator;
-  // Ready table
-  ReadyTable* _submit_table;
   // CPU Extractor
   Extractor* _extractor;
   // Hash table

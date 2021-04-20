@@ -10,7 +10,7 @@ def run(args):
     sam.init(args.dataset_path, args.sample_device, args.train_device,
              args.batch_size, fanout_list, args.num_epoch)
     num_epoch = sam.num_epoch()
-    num_step = sam.num_step_per_epoch()
+    num_step = sam.steps_per_epoch()
 
     # sam.start()
     num_graph = len(fanout_list)

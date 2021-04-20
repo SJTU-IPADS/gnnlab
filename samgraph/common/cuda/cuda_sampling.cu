@@ -175,8 +175,8 @@ void CudaSample(const IdType *indptr, const IdType *indices,
                 const IdType *input, const size_t num_input,
                 const size_t fanout, IdType *out_src, IdType *out_dst,
                 size_t *num_out, cudaStream_t stream, size_t profile_idx) {
-  SAM_LOG(DEBUG) << "CudaSample: begin with num_input " << num_input
-                 << " and fanout " << fanout;
+  LOG(DEBUG) << "CudaSample: begin with num_input " << num_input
+             << " and fanout " << fanout;
   Timer t0;
   const size_t num_tiles =
       (num_input + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
@@ -191,10 +191,10 @@ void CudaSample(const IdType *indptr, const IdType *indices,
   IdType *tmp_dst;
   CUDA_CALL(cudaMalloc(&tmp_src, sizeof(IdType) * num_input * fanout));
   CUDA_CALL(cudaMalloc(&tmp_dst, sizeof(IdType) * num_input * fanout));
-  SAM_LOG(DEBUG) << "CudaSample: cuda tmp_src malloc "
-                 << toReadableSize(num_input * fanout * sizeof(IdType));
-  SAM_LOG(DEBUG) << "CudaSample: cuda tmp_dst malloc "
-                 << toReadableSize(num_input * fanout * sizeof(IdType));
+  LOG(DEBUG) << "CudaSample: cuda tmp_src malloc "
+             << ToReadableSize(num_input * fanout * sizeof(IdType));
+  LOG(DEBUG) << "CudaSample: cuda tmp_dst malloc "
+             << ToReadableSize(num_input * fanout * sizeof(IdType));
 
   sample<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(indptr, indices, input, num_input, fanout,
@@ -205,8 +205,8 @@ void CudaSample(const IdType *indptr, const IdType *indices,
   Timer t1;
   size_t *item_prefix;
   CUDA_CALL(cudaMalloc(&item_prefix, sizeof(size_t) * (num_input + 1)));
-  SAM_LOG(DEBUG) << "CudaSample: cuda item_prefix malloc "
-                 << toReadableSize(sizeof(size_t) * (num_input + 1));
+  LOG(DEBUG) << "CudaSample: cuda item_prefix malloc "
+             << ToReadableSize(sizeof(size_t) * (num_input + 1));
 
   count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(tmp_src, item_prefix, num_input, fanout);
@@ -226,8 +226,8 @@ void CudaSample(const IdType *indptr, const IdType *indices,
                                           item_prefix, item_prefix, grid.x + 1,
                                           stream));
   CUDA_CALL(cudaStreamSynchronize(stream));
-  SAM_LOG(DEBUG) << "CudaSample: cuda workspace malloc "
-                 << toReadableSize(workspace_bytes);
+  LOG(DEBUG) << "CudaSample: cuda workspace malloc "
+             << ToReadableSize(workspace_bytes);
 
   compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(tmp_src, tmp_dst, out_src, out_dst, num_out,
@@ -244,7 +244,7 @@ void CudaSample(const IdType *indptr, const IdType *indices,
   Profiler::Get()->sample_count_edge_time[profile_idx] += count_edge_time;
   Profiler::Get()->sample_compact_edge_time[profile_idx] += compact_edge_time;
 
-  SAM_LOG(DEBUG) << "CudaSample: succeed ";
+  LOG(DEBUG) << "CudaSample: succeed ";
 }
 
 } // namespace cuda

@@ -3,6 +3,8 @@ import os
 import sysconfig
 from enum import IntEnum
 
+from dgl.batch import batch
+
 
 def get_ext_suffix():
     """Determine library extension for various versions of Python."""
@@ -24,46 +26,20 @@ def get_extension_full_path(pkg_path, *args):
     return full_path
 
 
-class Graph(object):
-    def __init__(self, key, graph_id, num_row, num_col, num_edge):
-        self.key = key
-        self.graph_id = graph_id
-        self.num_row = num_row
-        self.num_col = num_col
-        self.num_edge = num_edge
-
-
-class GraphBatch(object):
-    def __init__(self, C_LIB_CTYPES, key, num_graph):
-        self.key = key
-        self.graphs = []
-        for graph_id in range(num_graph):
-            graph_key = C_LIB_CTYPES.samgraph_get_graph_key(key, graph_id)
-            num_row = C_LIB_CTYPES.samgraph_get_graph_num_row(graph_key)
-            num_col = C_LIB_CTYPES.samgraph_get_graph_num_col(graph_key)
-            num_edge = C_LIB_CTYPES.samgraph_get_graph_num_edge(graph_key)
-            self.graphs.append(
-                Graph(graph_key, graph_id, num_row, num_col, num_edge))
-
-
 class SamGraphBasics(object):
     def __init__(self, pkg_path, *args):
         full_path = get_extension_full_path(pkg_path, *args)
         self.C_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
 
-        self.C_LIB_CTYPES.samgraph_num_epoch.restype = ctypes.c_int
+        self.C_LIB_CTYPES.samgraph_num_epoch.restype = ctypes.c_size_t
 
-        self.C_LIB_CTYPES.samgraph_num_step_per_epoch.restype = ctypes.c_size_t
-        self.C_LIB_CTYPES.samgraph_dataset_num_class.restype = ctypes.c_size_t
-        self.C_LIB_CTYPES.samgraph_dataset_num_feat_dim.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_steps_per_epoch.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_num_class.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_feat_dim.restype = ctypes.c_size_t
 
         self.C_LIB_CTYPES.samgraph_get_next_batch.argtypes = (
-            ctypes.c_int, ctypes.c_int)
+            ctypes.c_uint64, ctypes.c_uint64)
         self.C_LIB_CTYPES.samgraph_get_next_batch.restype = ctypes.c_uint64
-
-        self.C_LIB_CTYPES.samgraph_get_graph_key.argtypes = (
-            ctypes.c_uint64, ctypes.c_int)
-        self.C_LIB_CTYPES.samgraph_get_graph_key.restype = ctypes.c_uint64
 
         self.C_LIB_CTYPES.samgraph_get_graph_num_row.argtypes = (
             ctypes.c_uint64,)
@@ -75,7 +51,7 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_col.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_profiler_report.argtypes = (
-            ctypes.c_int, ctypes.c_int)
+            ctypes.c_uint64, ctypes.c_uint64)
 
     def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch):
         num_fanout = len(fanout)
@@ -83,35 +59,38 @@ class SamGraphBasics(object):
         return self.C_LIB_CTYPES.samgraph_init(ctypes.c_char_p(str.encode(path)),
                                                ctypes.c_int(sample_device),
                                                ctypes.c_int(train_device),
-                                               ctypes.c_ulonglong(batch_size),
+                                               ctypes.c_size_t(batch_size),
                                                (ctypes.c_int * num_fanout)(*fanout),
-                                               ctypes.c_ulonglong(num_fanout),
-                                               ctypes.c_int(num_epoch))
+                                               ctypes.c_size_t(num_fanout),
+                                               ctypes.c_size_t(num_epoch))
 
     def start(self):
         return self.C_LIB_CTYPES.samgraph_start()
 
-    def dataset_num_class(self):
-        return self.C_LIB_CTYPES.samgraph_dataset_num_class()
+    def shutdown(self):
+        return self.C_LIB_CTYPES.samgraph_shutdown()
 
-    def dataset_num_feat_dim(self):
-        return self.C_LIB_CTYPES.samgraph_dataset_num_feat_dim()
+    def num_class(self):
+        return self.C_LIB_CTYPES.samgraph_num_class()
+
+    def feat_dim(self):
+        return self.C_LIB_CTYPES.samgraph_feat_dim()
 
     def num_epoch(self):
         return self.C_LIB_CTYPES.samgraph_num_epoch()
 
-    def num_step_per_epoch(self):
-        return self.C_LIB_CTYPES.samgraph_num_step_per_epoch()
+    def steps_per_epoch(self):
+        return self.C_LIB_CTYPES.samgraph_steps_per_epoch()
 
-    def get_next_batch(self, epoch, step, num_graph):
+    def get_next_batch(self, epoch, step):
         batch_key = self.C_LIB_CTYPES.samgraph_get_next_batch(epoch, step)
-        return GraphBatch(self.C_LIB_CTYPES, batch_key, num_graph)
+        return batch_key
 
-    def shutdown(self):
-        return self.C_LIB_CTYPES.samgraph_shutdown()
+    def get_graph_num_row(self, key, graph_id):
+        return self.C_LIB_CTYPES.samgraph_get_graph_num_row(key, graph_id)
 
-    def test_cusparse(self):
-        return self.C_LIB_CTYPES.samgraph_test_cusparse()
+    def get_graph_num_col(self, key, graph_id):
+        return self.C_LIB_CTYPES.samgraph_get_graph_num_col(key, graph_id)
 
     def sample(self):
         return self.C_LIB_CTYPES.samgraph_sample_once()

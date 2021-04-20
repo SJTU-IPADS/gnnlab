@@ -19,45 +19,40 @@ namespace common {
 namespace cpu {
 
 bool RunCpuSampleLoopOnce() {
-  auto graph_pool = SamGraphCpuEngine::GetEngine()->GetGraphPool();
+  auto graph_pool = CpuEngine::Get()->GetGraphPool();
   if (graph_pool->ExceedThreshold()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
   }
 
-  auto p = SamGraphCpuEngine::GetEngine()->GetPermutator();
+  auto p = CpuEngine::Get()->GetPermutator();
   auto batch = p->GetBatch();
 
   if (batch) {
     // Create task entry
     Timer t;
-    auto task = std::make_shared<TaskEntry>();
-    task->key = encodeBatchKey(p->cur_epoch(), p->cur_step());
-    task->train_nodes = batch;
+    auto task = std::make_shared<Task>();
+    task->key = CpuEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
     task->cur_input = batch;
     task->output_nodes = batch;
-    task->epoch = p->cur_epoch();
-    task->step = p->cur_step();
-
-    uint64_t profile_idx = Profiler::GetEntryIndex(task->epoch, task->step);
-    auto fanouts = SamGraphCpuEngine::GetEngine()->GetFanout();
+    auto fanouts = CpuEngine::Get()->GetFanout();
     auto num_layers = fanouts.size();
     auto last_layer_idx = num_layers - 1;
 
-    auto dataset = SamGraphCpuEngine::GetEngine()->GetGraphDataset();
-    auto train_device = SamGraphCpuEngine::GetEngine()->GetTrainDevice();
-    auto work_stream = *SamGraphCpuEngine::GetEngine()->GetWorkStream();
+    auto dataset = CpuEngine::Get()->GetGraphDataset();
+    auto train_device = CpuEngine::Get()->GetTrainDevice();
+    auto work_stream = CpuEngine::Get()->GetWorkStream();
 
-    auto train_nodes = task->train_nodes;
+    auto train_nodes = task->output_nodes;
 
-    auto hash_table = SamGraphCpuEngine::GetEngine()->GetHashTable();
+    auto hash_table = CpuEngine::Get()->GetHashTable();
     hash_table->Clear();
 
     size_t num_train_node = train_nodes->shape()[0];
     hash_table->Populate(static_cast<const IdType *>(train_nodes->data()),
                          num_train_node);
 
-    task->output_graph.resize(num_layers);
+    task->graphs.resize(num_layers);
 
     const IdType *indptr = static_cast<const IdType *>(dataset->indptr->data());
     const IdType *indices =
@@ -69,21 +64,21 @@ bool RunCpuSampleLoopOnce() {
       const IdType *input =
           static_cast<const IdType *>(task->cur_input->data());
       const size_t num_input = task->cur_input->shape()[0];
-      SAM_LOG(DEBUG) << "CpuSample: begin sample layer " << i;
+      LOG(DEBUG) << "CpuSample: begin sample layer " << i;
 
       IdType *out_src = (IdType *)malloc(num_input * fanout * sizeof(IdType));
       IdType *out_dst = (IdType *)malloc(num_input * fanout * sizeof(IdType));
       size_t num_out;
-      SAM_LOG(DEBUG) << "CpuSample: cpu out_src malloc "
-                     << toReadableSize(num_input * fanout * sizeof(IdType));
-      SAM_LOG(DEBUG) << "CpuSample: cpu out_src malloc "
-                     << toReadableSize(num_input * fanout * sizeof(IdType));
+      LOG(DEBUG) << "CpuSample: cpu out_src malloc "
+                 << ToReadableSize(num_input * fanout * sizeof(IdType));
+      LOG(DEBUG) << "CpuSample: cpu out_src malloc "
+                 << ToReadableSize(num_input * fanout * sizeof(IdType));
 
       // Sample a compact coo graph
       CpuSample(indptr, indices, input, num_input, out_src, out_dst, &num_out,
                 fanout);
-      SAM_LOG(DEBUG) << "CpuSample: num_out " << num_out;
-      Profiler::Get()->num_samples[profile_idx] += num_out;
+      LOG(DEBUG) << "CpuSample: num_out " << num_out;
+      Profiler::Get()->num_samples[task->key] += num_out;
       double ns_time = t0.Passed();
 
       Timer t1;
@@ -96,7 +91,7 @@ bool RunCpuSampleLoopOnce() {
 
       Timer t3;
       size_t num_unique = hash_table->NumItem();
-      SAM_LOG(DEBUG) << "CpuSample: num_unique " << num_unique;
+      LOG(DEBUG) << "CpuSample: num_unique " << num_unique;
       IdType *unique = (IdType *)malloc(num_unique * sizeof(IdType));
       hash_table->MapNodes(unique, num_unique);
 
@@ -106,10 +101,10 @@ bool RunCpuSampleLoopOnce() {
       // Mapping edges
       IdType *new_src = (IdType *)malloc(num_out * sizeof(IdType));
       IdType *new_dst = (IdType *)malloc(num_out * sizeof(IdType));
-      SAM_LOG(DEBUG) << "CpuSample: cpu new_src malloc "
-                     << toReadableSize(num_out * sizeof(IdType));
-      SAM_LOG(DEBUG) << "CpuSample: cpu new_src malloc "
-                     << toReadableSize(num_out * sizeof(IdType));
+      LOG(DEBUG) << "CpuSample: cpu new_src malloc "
+                 << ToReadableSize(num_out * sizeof(IdType));
+      LOG(DEBUG) << "CpuSample: cpu new_src malloc "
+                 << ToReadableSize(num_out * sizeof(IdType));
       hash_table->MapEdges(out_src, out_dst, num_out, new_src, new_dst);
 
       double map_edges_time = t4.Passed();
@@ -118,36 +113,36 @@ bool RunCpuSampleLoopOnce() {
 
       auto train_graph = std::make_shared<TrainGraph>();
       train_graph->row = Tensor::FromBlob(
-          new_dst, DataType::kSamI32, {num_out}, CPU_DEVICE_ID,
+          new_dst, DataType::kI32, {num_out}, CPU_DEVICE_ID,
           "train_graph.row_cpu_sample_" + std::to_string(task->key) + "_" +
               std::to_string(i));
       train_graph->col = Tensor::FromBlob(
-          new_src, DataType::kSamI32, {num_out}, CPU_DEVICE_ID,
+          new_src, DataType::kI32, {num_out}, CPU_DEVICE_ID,
           "train_graph.col_cpu_sample_" + std::to_string(task->key) + "_" +
               std::to_string(i));
       train_graph->num_row = num_input;
       train_graph->num_column = num_unique;
       train_graph->num_edge = num_out;
 
-      task->output_graph[i] = train_graph;
+      task->graphs[i] = train_graph;
       task->cur_input = Tensor::FromBlob(
-          (void *)unique, DataType::kSamI32, {num_unique}, CPU_DEVICE_ID,
+          (void *)unique, DataType::kI32, {num_unique}, CPU_DEVICE_ID,
           "cur_input_unique_cpu_" + std::to_string(task->key) + "_" +
               std::to_string(i));
 
       free(out_src);
       free(out_dst);
 
-      Profiler::Get()->ns_time[profile_idx] += ns_time;
-      Profiler::Get()->remap_time[profile_idx] += remap_time;
-      Profiler::Get()->populate_time[profile_idx] += populate_time;
-      Profiler::Get()->map_node_time[profile_idx] += map_nodes_time;
-      Profiler::Get()->map_edge_time[profile_idx] += map_edges_time;
+      Profiler::Get()->ns_time[task->key] += ns_time;
+      Profiler::Get()->remap_time[task->key] += remap_time;
+      Profiler::Get()->populate_time[task->key] += populate_time;
+      Profiler::Get()->map_node_time[task->key] += map_nodes_time;
+      Profiler::Get()->map_edge_time[task->key] += map_edges_time;
 
-      SAM_LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap "
-                     << remap_time;
+      LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap "
+                 << remap_time;
 
-      SAM_LOG(DEBUG) << "CpuSample: finish layer " << i;
+      LOG(DEBUG) << "CpuSample: finish layer " << i;
     }
 
     task->input_nodes = task->cur_input;
@@ -155,8 +150,8 @@ bool RunCpuSampleLoopOnce() {
     // Extract feature
     auto input_nodes = task->input_nodes;
     auto output_nodes = task->output_nodes;
-    SAM_CHECK_EQ(input_nodes->device(), CPU_DEVICE_ID);
-    SAM_CHECK_EQ(output_nodes->device(), CPU_DEVICE_ID);
+    CHECK_EQ(input_nodes->device(), CPU_DEVICE_ID);
+    CHECK_EQ(output_nodes->device(), CPU_DEVICE_ID);
 
     auto feat_dim = dataset->feat->shape()[1];
     auto feat_type = dataset->feat->dtype();
@@ -174,7 +169,7 @@ bool RunCpuSampleLoopOnce() {
         Tensor::Empty(label_type, {num_ouput}, CPU_DEVICE_ID,
                       "task.output_label_cpu" + std::to_string(task->key));
 
-    auto extractor = SamGraphCpuEngine::GetEngine()->GetExtractor();
+    auto extractor = CpuEngine::Get()->GetExtractor();
 
     auto feat_dst = feat->mutable_data();
     auto feat_src = dataset->feat->data();
@@ -187,17 +182,17 @@ bool RunCpuSampleLoopOnce() {
                        label_type);
 
     // Copy graph
-    for (size_t i = 0; i < task->output_graph.size(); i++) {
-      auto graph = task->output_graph[i];
+    for (size_t i = 0; i < task->graphs.size(); i++) {
+      auto graph = task->graphs[i];
       void *train_row;
       void *train_col;
       CUDA_CALL(cudaSetDevice(train_device));
       CUDA_CALL(cudaMalloc(&train_row, graph->row->size()));
       CUDA_CALL(cudaMalloc(&train_col, graph->col->size()));
-      SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
-                     << toReadableSize(graph->row->size());
-      SAM_LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
-                     << toReadableSize(graph->col->size());
+      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
+                 << ToReadableSize(graph->row->size());
+      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
+                 << ToReadableSize(graph->col->size());
 
       CUDA_CALL(cudaMemcpyAsync(train_row, graph->row->data(),
                                 graph->row->size(), cudaMemcpyHostToDevice,
@@ -243,15 +238,13 @@ bool RunCpuSampleLoopOnce() {
     task->output_label = d_label;
 
     // Submit
-    auto graph_pool = SamGraphCpuEngine::GetEngine()->GetGraphPool();
+    auto graph_pool = CpuEngine::Get()->GetGraphPool();
     graph_pool->AddGraphBatch(task->key, task);
 
     double sam_time = t.Passed();
-    Profiler::Get()->sample_time[profile_idx] += sam_time;
+    Profiler::Get()->sample_time[task->key] += sam_time;
 
-    Profiler::Get()->Report(p->cur_epoch(), p->cur_step());
-
-    SAM_LOG(DEBUG) << "CpuSampleLoop: process task with key " << task->key;
+    LOG(DEBUG) << "CpuSampleLoop: process task with key " << task->key;
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
@@ -260,12 +253,11 @@ bool RunCpuSampleLoopOnce() {
 }
 
 void CpuSampleLoop() {
-  auto train_device = SamGraphCpuEngine::GetEngine()->GetTrainDevice();
+  auto train_device = CpuEngine::Get()->GetTrainDevice();
   CUDA_CALL(cudaSetDevice(train_device));
-  while (RunCpuSampleLoopOnce() &&
-         !SamGraphCpuEngine::GetEngine()->ShouldShutdown()) {
+  while (RunCpuSampleLoopOnce() && !CpuEngine::Get()->ShouldShutdown()) {
   }
-  SamGraphCpuEngine::GetEngine()->ReportThreadFinish();
+  CpuEngine::Get()->ReportThreadFinish();
 }
 
 }  // namespace cpu

@@ -12,17 +12,17 @@ enum class LogLevel { TRACE, DEBUG, INFO, WARNING, ERROR, FATAL };
 #define LOG_LEVELS "TDIWEF"
 
 // Always-on checking
-#define SAM_CHECK(x) \
-  if (!(x))          \
+#define CHECK(x) \
+  if (!(x))      \
   common::LogMessageFatal(__FILE__, __LINE__) << "Check failed: " #x << ' '
 
-#define SAM_CHECK_LT(x, y) SAM_CHECK((x) < (y))
-#define SAM_CHECK_GT(x, y) SAM_CHECK((x) > (y))
-#define SAM_CHECK_LE(x, y) SAM_CHECK((x) <= (y))
-#define SAM_CHECK_GE(x, y) SAM_CHECK((x) >= (y))
-#define SAM_CHECK_EQ(x, y) SAM_CHECK((x) == (y))
-#define SAM_CHECK_NE(x, y) SAM_CHECK((x) != (y))
-#define SAM_CHECK_NOTNULL(x)                                 \
+#define CHECK_LT(x, y) CHECK((x) < (y))
+#define CHECK_GT(x, y) CHECK((x) > (y))
+#define CHECK_LE(x, y) CHECK((x) <= (y))
+#define CHECK_GE(x, y) CHECK((x) >= (y))
+#define CHECK_EQ(x, y) CHECK((x) == (y))
+#define CHECK_NE(x, y) CHECK((x) != (y))
+#define CHECK_NOTNULL(x)                                     \
   ((x) == NULL ? common::LogMessageFatal(__FILE__, __LINE__) \
                      << "Check  notnull: " #x << ' ',        \
    (x) : (x))  // NOLINT(*)
@@ -33,11 +33,11 @@ enum class LogLevel { TRACE, DEBUG, INFO, WARNING, ERROR, FATAL };
  *
  * It checks for CUDA errors after invocation of the expression.
  */
-#define CUDA_CALL(func)                                          \
-  {                                                              \
-    cudaError_t e = (func);                                      \
-    SAM_CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading) \
-        << "CUDA: " << cudaGetErrorString(e);                    \
+#define CUDA_CALL(func)                                      \
+  {                                                          \
+    cudaError_t e = (func);                                  \
+    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading) \
+        << "CUDA: " << cudaGetErrorString(e);                \
   }
 
 /*!
@@ -46,17 +46,17 @@ enum class LogLevel { TRACE, DEBUG, INFO, WARNING, ERROR, FATAL };
 #define CUSPARSE_CALL(func)                           \
   {                                                   \
     cusparseStatus_t e = (func);                      \
-    SAM_CHECK(e == CUSPARSE_STATUS_SUCCESS)           \
+    CHECK(e == CUSPARSE_STATUS_SUCCESS)               \
         << "CUSPARSE: " << cusparseGetErrorString(e); \
   }
 
 /*
  * \brief Protected NCCL call.
  */
-#define NCCLCHECK(cmd)                                                      \
-  {                                                                         \
-    ncclResult_t r = (cmd);                                                 \
-    SAM_CHECK(r == ncclSuccess) << "NCCL error: " << ncclGetErrorString(r); \
+#define NCCLCHECK(cmd)                                                  \
+  {                                                                     \
+    ncclResult_t r = (cmd);                                             \
+    CHECK(r == ncclSuccess) << "NCCL error: " << ncclGetErrorString(r); \
   }
 
 class LogMessage : public std::basic_ostringstream<char> {
@@ -81,24 +81,23 @@ class LogMessageFatal : public LogMessage {
   ~LogMessageFatal();
 };
 
-#define _SAM_LOG_TRACE \
+#define _LOG_TRACE \
   common::LogMessage(__FILE__, __LINE__, common::LogLevel::TRACE)
-#define _SAM_LOG_DEBUG \
+#define _LOG_DEBUG \
   common::LogMessage(__FILE__, __LINE__, common::LogLevel::DEBUG)
-#define _SAM_LOG_INFO \
-  common::LogMessage(__FILE__, __LINE__, common::LogLevel::INFO)
-#define _SAM_LOG_WARNING \
+#define _LOG_INFO common::LogMessage(__FILE__, __LINE__, common::LogLevel::INFO)
+#define _LOG_WARNING \
   common::LogMessage(__FILE__, __LINE__, common::LogLevel::WARNING)
-#define _SAM_LOG_ERROR \
+#define _LOG_ERROR \
   common::LogMessage(__FILE__, __LINE__, common::LogLevel::ERROR)
-#define _SAM_LOG_FATAL common::LogMessageFatal(__FILE__, __LINE__)
+#define _LOG_FATAL common::LogMessageFatal(__FILE__, __LINE__)
 
-#define _LOG(severity) _SAM_LOG_##severity
+#define _LOG(severity) _LOG_##severity
 
-#define _LOG_RANK(severity, rank) _SAM_LOG_##severity << "[" << rank << "]: "
+#define _LOG_RANK(severity, rank) _LOG_##severity << "[" << rank << "]: "
 
 #define GET_LOG(_1, _2, NAME, ...) NAME
-#define SAM_LOG(...) GET_LOG(__VA_ARGS__, _LOG_RANK, _LOG)(__VA_ARGS__)
+#define LOG(...) GET_LOG(__VA_ARGS__, _LOG_RANK, _LOG)(__VA_ARGS__)
 
 LogLevel MinLogLevelFromEnv();
 bool LogTimeFromEnv();

@@ -9,64 +9,60 @@ namespace samgraph {
 namespace common {
 
 Profiler::Profiler() {
-  sample_time.resize(kMaxEntries, 0);
-  extract_time.resize(kMaxEntries, 0);
-  copy_time.resize(kMaxEntries, 0);
-  train_time.resize(kMaxEntries, 0);
+  auto num_epoch = Engine::Get()->NumEpoch();
+  auto num_step_per_epoch = Engine::Get()->NumStep();
 
-  ns_time.resize(kMaxEntries, 0);
-  remap_time.resize(kMaxEntries, 0);
-  coo2csr_time.resize(kMaxEntries, 0);
+  _max_entries = num_epoch * num_step_per_epoch;
 
-  graph_copy_time.resize(kMaxEntries, 0);
-  feat_copy_time.resize(kMaxEntries, 0);
+  num_samples.resize(_max_entries, 0);
+  sample_time.resize(_max_entries, 0);
+  copy_time.resize(_max_entries, 0);
 
-  sample_calculation_time.resize(kMaxEntries, 0);
-  sample_count_edge_time.resize(kMaxEntries, 0);
-  sample_compact_edge_time.resize(kMaxEntries, 0);
+  shuffle_time.resize(_max_entries, 0);
+  real_sample_time.resize(_max_entries, 0);
 
-  populate_time.resize(kMaxEntries, 0);
-  map_node_time.resize(kMaxEntries, 0);
-  map_edge_time.resize(kMaxEntries, 0);
+  graph_copy_time.resize(_max_entries, 0);
+  id_copy_time.resize(_max_entries, 0);
+  extract_time.resize(_max_entries, 0);
+  feat_copy_time.resize(_max_entries, 0);
 
-  alloc_val_time.resize(kMaxEntries, 0);
-  fill_val_time.resize(kMaxEntries, 0);
-  csrmm_time.resize(kMaxEntries, 0);
-  csrmm_transpose_time.resize(kMaxEntries, 0);
+  ns_time.resize(_max_entries, 0);
+  remap_time.resize(_max_entries, 0);
 
-  num_samples.resize(kMaxEntries, 0);
+  graph_copy_time.resize(_max_entries, 0);
+  feat_copy_time.resize(_max_entries, 0);
 
-  _num_step_per_epoch = SamGraphEngine::GetEngine()->GetNumStep();
+  sample_calculation_time.resize(_max_entries, 0);
+  sample_count_edge_time.resize(_max_entries, 0);
+  sample_compact_edge_time.resize(_max_entries, 0);
+
+  populate_time.resize(_max_entries, 0);
+  map_node_time.resize(_max_entries, 0);
+  map_edge_time.resize(_max_entries, 0);
 }
 
-void Profiler::Report(size_t epoch, size_t step) {
-  size_t idx = GetEntryIndex(epoch, step);
+void Profiler::Report(uint64_t key) {
+  uint64_t epoch = Engine::Get()->GetEpochFromKey(key);
+  uint64_t step = Engine::Get()->GetStepFromKey(key);
+
 #if PRINT_PROFILE
   printf(
-      "  [PROFILE] Epoch %lu | step %lu | num samples: %lu | sample time: "
-      "%.4lf | extract time: %.4lf | copy time: %.4lf \n",
-      epoch, step, num_samples[idx], sample_time[idx], extract_time[idx],
-      copy_time[idx]);
+      "  [Profile] Epoch %llu | step %llu | num samples: %lu | sample time: "
+      "%.4lf | copy time: %.4lf \n",
+      epoch, step, num_samples[key], sample_time[key], copy_time[key]);
+
+  printf("    [Sample Profile] | shuffle %.4lf | real sampling %.4lf \n",
+         shuffle_time[key], real_sample_time[key]);
+
   printf(
-      "    [SAMPLE PROFILE] | ns time: %.4lf | remap time: %.4lf | coo2csr "
-      "time %.4lf \n",
-      ns_time[idx], remap_time[idx], coo2csr_time[idx]);
-  printf(
-      "    [TRAIN PROFILE]  | alloc val time: %.4lf | fill val time: %.4lf | "
-      "csrmm time: %.4lf | csrmm transpose time: %.4lf\n",
-      alloc_val_time[idx], fill_val_time[idx], csrmm_time[idx],
-      csrmm_transpose_time[idx]);
+      "    [Copy Profile] | graph copy %.4lf  | id copy %.4lf  | extract %.4lf "
+      " | feat copy %.4lf \n",
+      graph_copy_time[key], id_copy_time[key], extract_time[key],
+      feat_copy_time[key]);
 #endif
-  // "ns: %.4lf | remap: %.4lf | populate %.4lf | map nodes: %.4lf | map "
-  // "edges %.4lf |\n",
-  // printf(
-  //     "    [SAMPLE] total %.4lf | sample %.4lf | count edge %.4lf | compact "
-  //     "edge %.4lf \n",
-  //     total, sample_time, count_edge_time, compact_edge_time);
-  // printf("");
 }
 
-void Profiler::ReportAvg(size_t num) {}
+void Profiler::ReportAverage(size_t num) {}
 
 Profiler* Profiler::Get() {
   static Profiler inst;

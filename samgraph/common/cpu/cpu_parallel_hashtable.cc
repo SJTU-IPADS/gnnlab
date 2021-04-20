@@ -28,7 +28,7 @@ void ParallelHashTable::Populate(const IdType *input, const size_t num_input) {
 #pragma omp parallel for num_threads(Config::kOmpThreadNum)
   for (size_t i = 0; i < num_input; i++) {
     IdType id = input[i];
-    SAM_CHECK_LT(id, _capacity);
+    CHECK_LT(id, _capacity);
     const IdType key =
         __sync_val_compare_and_swap(&_table[id].id, Config::kEmptyKey, id);
     if (key == Config::kEmptyKey) {
@@ -40,7 +40,7 @@ void ParallelHashTable::Populate(const IdType *input, const size_t num_input) {
 }
 
 void ParallelHashTable::MapNodes(IdType *output, size_t num_ouput) {
-  SAM_CHECK_LE(num_ouput, _map_offset);
+  CHECK_LE(num_ouput, _map_offset);
 #pragma omp parallel for num_threads(Config::kOmpThreadNum)
   for (size_t i = 0; i < num_ouput; i++) {
     output[i] = _mapping[i].global;
@@ -52,8 +52,8 @@ void ParallelHashTable::MapEdges(const IdType *src, const IdType *dst,
                                  IdType *new_dst) {
 #pragma omp parallel for num_threads(Config::kOmpThreadNum)
   for (size_t i = 0; i < len; i++) {
-    SAM_CHECK_LT(src[i], _capacity);
-    SAM_CHECK_LT(dst[i], _capacity);
+    CHECK_LT(src[i], _capacity);
+    CHECK_LT(dst[i], _capacity);
 
     Bucket &bucket0 = _table[src[i]];
     Bucket &bucket1 = _table[dst[i]];

@@ -95,7 +95,7 @@ setup(
                 'samgraph/common/cuda/cuda_mapping.cu',
                 'samgraph/common/cuda/cuda_permutator.cc',
                 'samgraph/common/cuda/cuda_sampling.cu',
-                'samgraph/torch/ops.cc',
+                'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(
                 here, '3rdparty/cub'), os.path.join(here, '3rdparty/parallel-hashmap')],

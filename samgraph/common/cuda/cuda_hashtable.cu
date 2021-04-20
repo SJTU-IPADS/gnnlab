@@ -274,7 +274,7 @@ OrderedHashTable::~OrderedHashTable() {
 
   CUDA_CALL(cudaFree(_table));
   CUDA_CALL(cudaFree(_mapping));
-  SAM_LOG(INFO) << "free " << t.Passed();
+  LOG(INFO) << "free " << t.Passed();
 }
 
 void OrderedHashTable::Clear(cudaStream_t stream) {
@@ -306,9 +306,8 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   IdType *item_prefix;
   CUDA_CALL(cudaMalloc(&item_prefix, sizeof(IdType) * (num_input + 1)));
-  SAM_LOG(DEBUG)
-      << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
-      << toReadableSize(sizeof(IdType) * (num_input + 1));
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
+             << ToReadableSize(sizeof(IdType) * (num_input + 1));
 
   count_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix,
@@ -323,9 +322,8 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   void *workspace;
   CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
-  SAM_LOG(DEBUG)
-      << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
-      << toReadableSize(sizeof(IdType) * (num_input + 1));
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
+             << ToReadableSize(sizeof(IdType) * (num_input + 1));
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
                                           item_prefix, item_prefix, grid.x + 1,
@@ -334,9 +332,8 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   size_t *d_num_unique;
   CUDA_CALL(cudaMalloc(&d_num_unique, sizeof(size_t)));
-  SAM_LOG(DEBUG)
-      << "OrderedHashTable::FillWithDuplicates cuda d_num_unique malloc "
-      << toReadableSize(sizeof(size_t));
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda d_num_unique malloc "
+             << ToReadableSize(sizeof(size_t));
 
   compact_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize>
       <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix,
@@ -347,8 +344,8 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                             cudaMemcpyDeviceToHost, stream));
   CUDA_CALL(cudaStreamSynchronize(stream));
 
-  SAM_LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique "
-                 << *num_unique;
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique "
+             << *num_unique;
 
   CUDA_CALL(cudaMemcpyAsync(unique, _mapping, sizeof(IdType) * (*num_unique),
                             cudaMemcpyDeviceToDevice, stream));
@@ -382,8 +379,8 @@ void OrderedHashTable::FillWithUnique(const IdType *const input,
   _version++;
   _offset += num_input;
 
-  SAM_LOG(DEBUG) << "OrderedHashTable::FillWithUnique insert " << num_input
-                 << " items, now " << _offset << " in total";
+  LOG(DEBUG) << "OrderedHashTable::FillWithUnique insert " << num_input
+             << " items, now " << _offset << " in total";
 }
 
 } // namespace cuda

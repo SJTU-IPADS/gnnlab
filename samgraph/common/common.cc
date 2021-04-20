@@ -24,7 +24,7 @@ Tensor::~Tensor() {
     return;
   }
 
-  SAM_LOG(DEBUG) << "Tensor " << _name << " has been freed";
+  LOG(DEBUG) << "Tensor " << _name << " has been freed";
   switch (_device) {
     case CPU_DEVICE_ID:
       free(_data);
@@ -37,19 +37,18 @@ Tensor::~Tensor() {
   }
 }
 
-std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
-                                         std::vector<size_t> shape, int device,
-                                         std::string name,
-                                         cudaStream_t stream) {
+TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
+                           std::vector<size_t> shape, int device,
+                           std::string name, cudaStream_t stream) {
   auto tensor = std::make_shared<Tensor>();
   size_t expected_size = std::accumulate(shape.begin(), shape.end(), 1ul,
                                          std::multiplies<size_t>()) *
-                         getDataTypeLength(dtype);
+                         GetDataTypeLength(dtype);
 
   struct stat st;
   stat(filepath.c_str(), &st);
   size_t size = st.st_size;
-  SAM_CHECK_EQ(size, expected_size);
+  CHECK_EQ(size, expected_size);
 
   int fd = open(filepath.c_str(), O_RDONLY, 0);
   void *data = mmap(NULL, size, PROT_READ, MAP_SHARED | MAP_FILE, fd, 0);
@@ -62,8 +61,8 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
     void *d_data;
     CUDA_CALL(cudaSetDevice(device));
     CUDA_CALL(cudaMalloc(&d_data, size));
-    SAM_LOG(DEBUG) << "FromMmap: " << name << " cuda malloc "
-                   << toReadableSize(size);
+    LOG(DEBUG) << "FromMmap: " << name << " cuda malloc "
+               << ToReadableSize(size);
     if (stream) {
       CUDA_CALL(
           cudaMemcpyAsync(d_data, data, size, cudaMemcpyHostToDevice, stream));
@@ -74,14 +73,14 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
     munmap(data, size);
     data = d_data;
   } else if (device == CPU_DEVICE_ID) {
-    SAM_LOG(DEBUG) << "FromMmap: " << name << " cpu malloc "
-                   << toReadableSize(size);
+    LOG(DEBUG) << "FromMmap: " << name << " cpu malloc "
+               << ToReadableSize(size);
     void *new_data = malloc(size);
     memcpy(new_data, data, size);
     munmap(data, size);
     data = new_data;
   } else {
-    SAM_LOG(DEBUG) << "FromMmap: mmap " << toReadableSize(size);
+    LOG(DEBUG) << "FromMmap: mmap " << ToReadableSize(size);
   }
 
   tensor->_dtype = dtype;
@@ -94,26 +93,26 @@ std::shared_ptr<Tensor> Tensor::FromMmap(std::string filepath, DataType dtype,
   return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> shape,
-                                      int device, std::string name) {
+TensorPtr Tensor::Empty(DataType dtype, std::vector<size_t> shape, int device,
+                        std::string name) {
   auto tensor = std::make_shared<Tensor>();
-  SAM_CHECK_GT(shape.size(), 0);
+  CHECK_GT(shape.size(), 0);
   size_t size = std::accumulate(shape.begin(), shape.end(), 1ul,
                                 std::multiplies<size_t>()) *
-                getDataTypeLength(dtype);
+                GetDataTypeLength(dtype);
 
   void *data;
   if (device > CPU_DEVICE_ID) {
     CUDA_CALL(cudaSetDevice(device));
     CUDA_CALL(cudaMalloc(&data, size));
-    SAM_LOG(DEBUG) << "Empty: " << name << " cuda " << device << " malloc "
-                   << toReadableSize(size) << " with addr " << data;
+    LOG(DEBUG) << "Empty: " << name << " cuda " << device << " malloc "
+               << ToReadableSize(size) << " with addr " << data;
   } else if (device == CPU_DEVICE_ID) {
     data = malloc(size);
-    SAM_LOG(DEBUG) << "Empty: " << name << " cpu malloc "
-                   << toReadableSize(size) << " with addr " << data;
+    LOG(DEBUG) << "Empty: " << name << " cpu malloc " << ToReadableSize(size)
+               << " with addr " << data;
   } else {
-    SAM_CHECK(0) << "Unvalid device ID";
+    CHECK(0) << "Unvalid device ID";
   }
 
   tensor->_dtype = dtype;
@@ -126,17 +125,15 @@ std::shared_ptr<Tensor> Tensor::Empty(DataType dtype, std::vector<size_t> shape,
   return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::CreateCopy1D(std::shared_ptr<Tensor> src,
-                                             size_t item_offset,
-                                             std::vector<size_t> shape,
-                                             std::string name,
-                                             cudaStream_t stream) {
-  SAM_CHECK(src && src->defined());
-  SAM_CHECK_GT(shape.size(), 0);
+TensorPtr Tensor::CreateCopy1D(TensorPtr src, size_t item_offset,
+                               std::vector<size_t> shape, std::string name,
+                               cudaStream_t stream) {
+  CHECK(src && src->defined());
+  CHECK_GT(shape.size(), 0);
   auto tensor = std::make_shared<Tensor>();
   size_t size = std::accumulate(shape.begin(), shape.end(), 1ul,
                                 std::multiplies<size_t>()) *
-                getDataTypeLength(src->_dtype);
+                GetDataTypeLength(src->_dtype);
 
   tensor->_dtype = src->_dtype;
   tensor->_shape = shape;
@@ -145,8 +142,8 @@ std::shared_ptr<Tensor> Tensor::CreateCopy1D(std::shared_ptr<Tensor> src,
   size_t copy_offset = item_offset *
                        std::accumulate(shape.begin() + 1, shape.end(), 1ul,
                                        std::multiplies<size_t>()) *
-                       getDataTypeLength(src->_dtype);
-  SAM_CHECK_LE(copy_offset + size, src->_size);
+                       GetDataTypeLength(src->_dtype);
+  CHECK_LE(copy_offset + size, src->_size);
 
   auto device = src->_device;
   auto src_data = static_cast<const void *>(
@@ -162,14 +159,14 @@ std::shared_ptr<Tensor> Tensor::CreateCopy1D(std::shared_ptr<Tensor> src,
     } else {
       CUDA_CALL(cudaMemcpy(data, src_data, size, cudaMemcpyDeviceToDevice));
     }
-    SAM_LOG(DEBUG) << "CreateCopy1D: " << name << " cuda " << device
-                   << " malloc " << toReadableSize(size);
+    LOG(DEBUG) << "CreateCopy1D: " << name << " cuda " << device << " malloc "
+               << ToReadableSize(size);
   } else {
     data = malloc(tensor->_size);
     memcpy(data, src_data, size);
     device = CPU_DEVICE_ID;
-    SAM_LOG(DEBUG) << "CreateCopy1D: " << name << " cpu malloc "
-                   << toReadableSize(size);
+    LOG(DEBUG) << "CreateCopy1D: " << name << " cpu malloc "
+               << ToReadableSize(size);
   }
 
   tensor->_data = data;
@@ -179,13 +176,13 @@ std::shared_ptr<Tensor> Tensor::CreateCopy1D(std::shared_ptr<Tensor> src,
   return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype,
-                                         std::vector<size_t> shape, int device,
-                                         std::string name) {
+TensorPtr Tensor::FromBlob(void *data, DataType dtype,
+                           std::vector<size_t> shape, int device,
+                           std::string name) {
   auto tensor = std::make_shared<Tensor>();
   size_t size = std::accumulate(shape.begin(), shape.end(), 1ul,
                                 std::multiplies<size_t>()) *
-                getDataTypeLength(dtype);
+                GetDataTypeLength(dtype);
 
   tensor->_dtype = dtype;
   tensor->_shape = shape;
@@ -197,8 +194,8 @@ std::shared_ptr<Tensor> Tensor::FromBlob(void *data, DataType dtype,
   return tensor;
 }
 
-std::shared_ptr<Tensor> Tensor::ToDevice(const std::shared_ptr<Tensor> origin,
-                                         int device, cudaStream_t stream) {
+TensorPtr Tensor::ToDevice(const TensorPtr origin, int device,
+                           cudaStream_t stream) {
   auto tensor = std::make_shared<Tensor>();
 
   tensor->_dtype = origin->_dtype;
@@ -213,7 +210,7 @@ std::shared_ptr<Tensor> Tensor::ToDevice(const std::shared_ptr<Tensor> origin,
     CUDA_CALL(cudaSetDevice(device));
     CUDA_CALL(cudaMalloc(&tensor->_data, tensor->_size));
   } else {
-    SAM_CHECK(0);
+    CHECK(0);
   }
 
   if (device == CPU_DEVICE_ID && origin->_device <= CPU_DEVICE_ID) {
@@ -227,7 +224,7 @@ std::shared_ptr<Tensor> Tensor::ToDevice(const std::shared_ptr<Tensor> origin,
     } else if (device > CPU_DEVICE_ID && origin->_device > CPU_DEVICE_ID) {
       kind = cudaMemcpyDeviceToDevice;
     } else {
-      SAM_CHECK(0);
+      CHECK(0);
     }
 
     if (stream) {
@@ -242,39 +239,26 @@ std::shared_ptr<Tensor> Tensor::ToDevice(const std::shared_ptr<Tensor> origin,
   return tensor;
 }
 
-uint64_t encodeBatchKey(uint64_t epoch_idx, uint64_t batch_idx) {
-  return ((epoch_idx << Config::kEpochOffset) |
-          (batch_idx << Config::kBatchOffset));
-}
-
-uint64_t encodeGraphID(uint64_t key, uint64_t graph_id) {
-  return (key & Config::kBatchKeyMask) | (graph_id & Config::kGraphKeyMask);
-}
-
-uint64_t decodeBatchKey(uint64_t key) { return key & Config::kBatchKeyMask; }
-
-uint64_t decodeGraphID(uint64_t key) { return key & Config::kGraphKeyMask; }
-
-size_t getDataTypeLength(int dtype) {
+size_t GetDataTypeLength(int dtype) {
   switch (dtype) {
-    case kSamI8:
-    case kSamU8:
+    case kI8:
+    case kU8:
       return 1ul;
-    case kSamF16:
+    case kF16:
       return 2ul;
-    case kSamF32:
-    case kSamI32:
+    case kF32:
+    case kI32:
       return 4ul;
-    case kSamI64:
-    case kSamF64:
+    case kI64:
+    case kF64:
       return 8ul;
     default:
-      SAM_CHECK(0) << "Unsupported data type: " << dtype;
+      CHECK(0) << "Unsupported data type: " << dtype;
   }
   return 4ul;
 }
 
-std::string toReadableSize(size_t size_in_bytes) {
+std::string ToReadableSize(size_t size_in_bytes) {
   char buf[Config::kBufferSize];
   if (size_in_bytes > Config::kGigabytes) {
     double new_size = (float)size_in_bytes / Config::kGigabytes;
