@@ -240,6 +240,9 @@ void DoIdCopy(TaskPtr task) {
       task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
       output_nodes->Ctx(), copy_stream);
 
+  task->input_nodes = input_nodes;
+  task->output_nodes = output_nodes;
+
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;

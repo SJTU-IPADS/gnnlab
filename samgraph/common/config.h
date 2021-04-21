@@ -48,8 +48,8 @@ class Config {
 
   static constexpr int kOmpThreadNum = 24;
 
-  static constexpr size_t kAllocScaleFactor = 2;
-  static constexpr size_t kNoScale = 1;
+  static constexpr size_t kAllocScale = 2;
+  static constexpr size_t kAllocNoScale = 1;
 };
 
 }  // namespace common

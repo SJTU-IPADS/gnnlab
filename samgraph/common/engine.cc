@@ -26,9 +26,11 @@ void Engine::Create(Context sampler_ctx, Context trainer_ctx) {
 
   switch (sampler_ctx.device_type) {
     case kCPU:
+      LOG(INFO) << "Use CPU Engine";
       _engine = new cpu::CpuEngine;
       break;
     case kGPU:
+      LOG(INFO) << "Use GPU Engine";
       _engine = new cuda::GpuEngine;
       break;
     default:
@@ -74,12 +76,16 @@ void Engine::LoadGraphDataset() {
   _dataset->num_edge = meta[Config::kMetaNumEdge];
   _dataset->num_class = meta[Config::kMetaNumClass];
 
-  _dataset->indptr = Tensor::FromMmap(
-      _dataset_path + Config::kInptrFile, DataType::kI32,
-      {meta[Config::kMetaNumNode] + 1}, _sampler_ctx, "dataset.indptr");
-  _dataset->indices = Tensor::FromMmap(
-      _dataset_path + Config::kIndicesFile, DataType::kI32,
-      {meta[Config::kMetaNumEdge]}, _sampler_ctx, "dataset.indices");
+  _dataset->indptr =
+      Tensor::FromMmap(_dataset_path + Config::kInptrFile, DataType::kI32,
+                       {meta[Config::kMetaNumNode] + 1},
+                       _sampler_ctx.device_type == kCPU ? MMAP() : _sampler_ctx,
+                       "dataset.indptr");
+  _dataset->indices =
+      Tensor::FromMmap(_dataset_path + Config::kIndicesFile, DataType::kI32,
+                       {meta[Config::kMetaNumEdge]},
+                       _sampler_ctx.device_type == kCPU ? MMAP() : _sampler_ctx,
+                       "dataset.indices");
   _dataset->feat =
       Tensor::FromMmap(_dataset_path + Config::kFeatFile, DataType::kF32,
                        {meta[Config::kMetaNumNode], meta[Config::kMetaFeatDim]},

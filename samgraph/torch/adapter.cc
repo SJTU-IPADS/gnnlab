@@ -1,3 +1,5 @@
+#include "adapter.h"
+
 #include <ATen/cuda/CUDAContext.h>
 #include <cuda_runtime.h>
 #include <cusparse.h>
@@ -9,7 +11,6 @@
 #include "../common/logging.h"
 #include "../common/profiler.h"
 #include "../common/timer.h"
-#include "ops.h"
 
 namespace samgraph {
 namespace torch {

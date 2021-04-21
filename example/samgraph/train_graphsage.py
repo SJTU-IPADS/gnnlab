@@ -41,14 +41,14 @@ class SAGE(nn.Module):
 
 def run(args):
     configs = {
-        'c':
+        'cpu':
         {
-            's': sam.context(2, 1),
-            't': sam.context(2, 0)
+            'sample': sam.cpu(),
+            'train': sam.gpu()
         },
-        'g': {
-            's': sam.context(0, 0),
-            't': sam.context(2, 0)
+        'gpu': {
+            'sample': sam.gpu(1),
+            'train': sam.gpu(0)
         }
     }
 
@@ -56,11 +56,11 @@ def run(args):
 
     fanout_list = [int(fanout) for fanout in args.fan_out.split(',')]
 
-    sam.init(args.dataset_path, run_config['s'].device_type, run_config['s'].device_id,
-             run_config['t'].device_type, run_config['t'].device_id,
+    sam.init(args.dataset_path, run_config['sample'].device_type, run_config['sample'].device_id,
+             run_config['train'].device_type, run_config['train'].device_id,
              args.batch_size, fanout_list, args.num_epoch)
 
-    train_device = th.device('cuda:%d' % run_config['t'].device_id)
+    train_device = th.device('cuda:%d' % run_config['train'].device_id)
 
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
@@ -108,7 +108,7 @@ def run(args):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument('--run-config', type=str, default='g')
+    argparser.add_argument('--run-config', type=str, default='gpu')
     argparser.add_argument('--dataset-path', type=str,
                            default='/graph-learning/samgraph/papers100M')
     argparser.add_argument('--num-epoch', type=int, default=20)

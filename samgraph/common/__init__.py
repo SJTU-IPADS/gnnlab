@@ -1,7 +1,6 @@
 import ctypes
 import os
 import sysconfig
-from collections import namedtuple
 
 
 def get_ext_suffix():
@@ -24,7 +23,20 @@ def get_extension_full_path(pkg_path, *args):
     return full_path
 
 
-SamGraphContext = namedtuple('SamGraphContext', ['device_type', 'device_id'])
+class SamGraphContext(object):
+    def __init__(self, device_type, device_id):
+        self.device_type = device_type
+        self.device_id = device_id
+
+
+def cpu(device_id=0):
+    kCPU = 0
+    return SamGraphContext(kCPU, device_id)
+
+
+def gpu(device_id=0):
+    kGPU = 2
+    return SamGraphContext(kGPU, device_id)
 
 
 class SamGraphBasics(object):

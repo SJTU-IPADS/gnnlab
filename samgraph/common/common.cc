@@ -85,16 +85,16 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   } else {
   }
   switch (ctx.device_type) {
+    case kCPU:
     case kGPU:
-      tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+      tensor->_data =
+          Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Config::kAllocNoScale);
       Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, nbytes, CPU(),
                                        ctx, stream);
       Device::Get(ctx)->StreamSync(ctx, stream);
       munmap(data, nbytes);
       break;
     case kMMAP:
-    case kCPU:
-      ctx.device_type = kMMAP;
       tensor->_data = data;
       break;
     default:
@@ -152,6 +152,10 @@ TensorPtr Tensor::CreateCopy1D(TensorPtr source, size_t item_offset,
   return output;
 }
 
+Context CPU(int device_id) { return {kCPU, device_id}; }
+Context GPU(int device_id) { return {kGPU, device_id}; }
+Context MMAP(int device_id) { return {kMMAP, device_id}; }
+
 TensorPtr Tensor::FromBlob(void *data, DataType dtype,
                            std::vector<size_t> shape, Context ctx,
                            std::string name) {
@@ -167,10 +171,6 @@ TensorPtr Tensor::FromBlob(void *data, DataType dtype,
 
   return tensor;
 }
-
-Context CPU(int device_id) { return {kCPU, device_id}; }
-Context GPU(int device_id) { return {kGPU, device_id}; }
-Context MMAP(int device_id) { return {kMMAP, device_id}; }
 
 std::string ToReadableSize(size_t nbytes) {
   char buf[Config::kBufferSize];

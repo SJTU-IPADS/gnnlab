@@ -19,11 +19,10 @@ IdType RandomID(const IdType &min, const IdType &max) {
 
 }  // namespace
 
-void CpuFunction::CpuSample(const IdType *const indptr,
-                            const IdType *const indices,
-                            const IdType *const input, const size_t num_input,
-                            IdType *output_src, IdType *output_dst,
-                            size_t *num_ouput, const size_t fanout) {
+void CpuSample(const IdType *const indptr, const IdType *const indices,
+               const IdType *const input, const size_t num_input,
+               IdType *output_src, IdType *output_dst, size_t *num_ouput,
+               const size_t fanout) {
   bool all_has_fanout = true;
 
 #pragma omp parallel for num_threads(Config::kOmpThreadNum) reduction  (&&:all_has_fanout)

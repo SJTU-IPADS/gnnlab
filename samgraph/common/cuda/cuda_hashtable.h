@@ -1,6 +1,8 @@
 #ifndef SAMGRAPH_CUDA_HASHTABLE_H
 #define SAMGRAPH_CUDA_HASHTABLE_H
 
+#include <cuda_runtime.h>
+
 #include <cassert>
 
 #include "../common.h"

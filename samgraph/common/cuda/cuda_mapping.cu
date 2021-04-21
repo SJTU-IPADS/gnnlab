@@ -45,12 +45,10 @@ map_edge_ids(const IdType *const global_src, IdType *const new_global_src,
   }
 }
 
-void GpuFunction::MapEdges(const IdType *const global_src,
-                           IdType *const new_global_src,
-                           const IdType *const global_dst,
-                           IdType *const new_global_dst, const size_t num_edges,
-                           DeviceOrderedHashTable table, Context ctx,
-                           StreamHandle stream) {
+void MapEdges(const IdType *const global_src, IdType *const new_global_src,
+              const IdType *const global_dst, IdType *const new_global_dst,
+              const size_t num_edges, DeviceOrderedHashTable table, Context ctx,
+              StreamHandle stream) {
   const size_t num_tiles =
       (num_edges + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
   const dim3 grid(num_tiles, 2);

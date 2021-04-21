@@ -172,11 +172,10 @@ __global__ void compact_edge(const IdType *tmp_src, const IdType *tmp_dst,
   }
 }
 
-void GpuFunction::GpuSample(const IdType *indptr, const IdType *indices,
-                            const IdType *input, const size_t num_input,
-                            const size_t fanout, IdType *out_src,
-                            IdType *out_dst, size_t *num_out, Context ctx,
-                            StreamHandle stream, uint64_t task_key) {
+void GpuSample(const IdType *indptr, const IdType *indices, const IdType *input,
+               const size_t num_input, const size_t fanout, IdType *out_src,
+               IdType *out_dst, size_t *num_out, Context ctx,
+               StreamHandle stream, uint64_t task_key) {
   LOG(DEBUG) << "GpuSample: begin with num_input " << num_input
              << " and fanout " << fanout;
   Timer t0;
