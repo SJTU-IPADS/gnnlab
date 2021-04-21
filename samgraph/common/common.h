@@ -120,9 +120,9 @@ struct Task {
 
 using GraphBatch = Task;
 
-Context CPU(int device_id = 0) { return {kCPU, device_id}; }
-Context GPU(int device_id = 0) { return {kGPU, device_id}; }
-Context MMAP(int device_id = 0) { return {kMMAP, device_id}; }
+Context CPU(int device_id = 0);
+Context GPU(int device_id = 0);
+Context MMAP(int device_id = 0);
 
 std::string ToReadableSize(size_t nbytes);
 

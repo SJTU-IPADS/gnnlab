@@ -168,6 +168,10 @@ TensorPtr Tensor::FromBlob(void *data, DataType dtype,
   return tensor;
 }
 
+Context CPU(int device_id) { return {kCPU, device_id}; }
+Context GPU(int device_id) { return {kGPU, device_id}; }
+Context MMAP(int device_id) { return {kMMAP, device_id}; }
+
 std::string ToReadableSize(size_t nbytes) {
   char buf[Config::kBufferSize];
   if (nbytes > Config::kGigabytes) {
