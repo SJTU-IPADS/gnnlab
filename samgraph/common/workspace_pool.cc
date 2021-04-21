@@ -116,15 +116,15 @@ WorkspacePool::WorkspacePool(DeviceType device_type,
 }
 
 WorkspacePool::~WorkspacePool() {
-  for (size_t i = 0; i < _array.size(); ++i) {
-    if (_array[i] != nullptr) {
-      Context ctx;
-      ctx.device_type = _device_type;
-      ctx.device_id = static_cast<int>(i);
-      _array[i]->Release(ctx, _device.get());
-      delete _array[i];
-    }
-  }
+  // for (size_t i = 0; i < _array.size(); ++i) {
+  //   if (_array[i] != nullptr) {
+  //     Context ctx;
+  //     ctx.device_type = _device_type;
+  //     ctx.device_id = static_cast<int>(i);
+  //     _array[i]->Release(ctx, _device.get());
+  //     delete _array[i];
+  //   }
+  // }
 }
 
 void *WorkspacePool::AllocWorkspace(Context ctx, size_t size, size_t scale) {

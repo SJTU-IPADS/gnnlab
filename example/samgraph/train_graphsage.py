@@ -39,20 +39,21 @@ class SAGE(nn.Module):
         return h
 
 
-def run(args):
-    configs = {
-        'cpu':
-        {
+def get_config(index):
+    if index == 'cpu':
+        return {
             'sample': sam.cpu(),
-            'train': sam.gpu()
-        },
-        'gpu': {
+            'train': sam.gpu(0)
+        }
+    else:
+        return {
             'sample': sam.gpu(1),
             'train': sam.gpu(0)
         }
-    }
 
-    run_config = configs[args.run_config]
+
+def run(args):
+    run_config = get_config(args.run_config)
 
     fanout_list = [int(fanout) for fanout in args.fan_out.split(',')]
 
@@ -108,7 +109,7 @@ def run(args):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument('--run-config', type=str, default='gpu')
+    argparser.add_argument('--run-config', type=str, default='cpu')
     argparser.add_argument('--dataset-path', type=str,
                            default='/graph-learning/samgraph/papers100M')
     argparser.add_argument('--num-epoch', type=int, default=20)

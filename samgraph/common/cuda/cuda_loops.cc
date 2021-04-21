@@ -250,6 +250,7 @@ void DoIdCopy(TaskPtr task) {
 
 void DoFeatureExtract(TaskPtr task) {
   auto dataset = GpuEngine::Get()->GetGraphDataset();
+
   auto input_nodes = task->input_nodes;
   auto output_nodes = task->output_nodes;
 
@@ -326,21 +327,21 @@ bool RunGpuSampleLoopOnce() {
 
   Timer t0;
   auto task = DoPermutate();
-  if (!task) {
+  if (task) {
+    double shuffle_time = t0.Passed();
+
+    Timer t1;
+    DoGpuSample(task);
+    double sample_time = t1.Passed();
+
+    next_q->AddTask(task);
+
+    Profiler::Get()->sample_time[task->key] = shuffle_time + sample_time;
+    Profiler::Get()->shuffle_time[task->key] = shuffle_time;
+    Profiler::Get()->real_sample_time[task->key] = sample_time;
+  } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-    return true;
   }
-  double shuffle_time = t0.Passed();
-
-  Timer t1;
-  DoGpuSample(task);
-  double sample_time = t1.Passed();
-
-  next_q->AddTask(task);
-
-  Profiler::Get()->sample_time[task->key] = shuffle_time + sample_time;
-  Profiler::Get()->shuffle_time[task->key] = shuffle_time;
-  Profiler::Get()->real_sample_time[task->key] = sample_time;
 
   return true;
 }
