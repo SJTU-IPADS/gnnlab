@@ -82,7 +82,6 @@ setup(
                 'samgraph/common/ready_table.cc',
                 'samgraph/common/task_queue.cc',
                 'samgraph/common/workspace_pool.cc',
-                'samgraph/common/cpu/cpu_convert.cc',
                 'samgraph/common/cpu/cpu_device.cc',
                 'samgraph/common/cpu/cpu_engine.cc',
                 'samgraph/common/cpu/cpu_loops.cc',
