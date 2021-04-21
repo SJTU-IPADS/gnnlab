@@ -1,9 +1,7 @@
 import ctypes
 import os
 import sysconfig
-from enum import IntEnum
-
-from dgl.batch import batch
+from collections import namedtuple
 
 
 def get_ext_suffix():
@@ -24,6 +22,9 @@ def get_extension_full_path(pkg_path, *args):
     dir_path = os.path.join(os.path.dirname(pkg_path), *args[:-1])
     full_path = os.path.join(dir_path, args[-1] + get_ext_suffix())
     return full_path
+
+
+SamGraphContext = namedtuple('SamGraphContext', ['device_type', 'device_id'])
 
 
 class SamGraphBasics(object):
@@ -53,12 +54,15 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_profiler_report.argtypes = (
             ctypes.c_uint64, ctypes.c_uint64)
 
-    def init(self, path, sample_device, train_device, batch_size, fanout, num_epoch):
+    def init(self, path, sample_device_type, sample_device_id, train_device_type, train_device_id, batch_size, fanout, num_epoch):
         num_fanout = len(fanout)
 
         return self.C_LIB_CTYPES.samgraph_init(ctypes.c_char_p(str.encode(path)),
-                                               ctypes.c_int(sample_device),
-                                               ctypes.c_int(train_device),
+                                               ctypes.c_int(
+                                                   sample_device_type),
+                                               ctypes.c_int(sample_device_id),
+                                               ctypes.c_int(train_device_type),
+                                               ctypes.c_int(train_device_id),
                                                ctypes.c_size_t(batch_size),
                                                (ctypes.c_int * num_fanout)(*fanout),
                                                ctypes.c_size_t(num_fanout),

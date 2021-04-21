@@ -13,7 +13,7 @@ class CpuPermutator {
  public:
   CpuPermutator(TensorPtr input, int num_epoch, size_t batch_size,
                 bool drop_last);
-  TensorPtr GetBatch(cudaStream_t stream = nullptr);
+  TensorPtr GetBatch();
 
   uint64_t Epoch() { return _cur_epoch; }
   uint64_t Step() { return _cur_step; }
@@ -31,7 +31,7 @@ class CpuPermutator {
   size_t _num_epoch;
   size_t _num_step;
 
-  TensorPtr _input;
+  TensorPtr _data;
   size_t _input_size;
 
   size_t _batch_size;

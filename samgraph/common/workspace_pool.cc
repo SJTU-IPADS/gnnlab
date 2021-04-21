@@ -1,6 +1,7 @@
 #include "workspace_pool.h"
 
 #include <memory>
+#include <unordered_map>
 
 #include "device.h"
 #include "logging.h"
@@ -27,12 +28,12 @@ class WorkspacePool::Pool {
   }
 
   // allocate from pool
-  void *Alloc(Context ctx, Device *device, size_t nbytes, size_t scale_factor) {
+  void *Alloc(Context ctx, Device *device, size_t nbytes, size_t scale) {
     // Allocate align to page.
+    std::lock_guard<std::mutex> lock(_mutex);
     nbytes = (nbytes + (kWorkspacePageSize - 1)) / kWorkspacePageSize *
              kWorkspacePageSize;
     if (nbytes == 0) nbytes = kWorkspacePageSize;
-    nbytes *= scale_factor;
 
     Entry e;
     if (_free_list.size() == 1) {
@@ -47,6 +48,7 @@ class WorkspacePool::Pool {
         e = *(it + 1);
         _free_list.erase(it + 1);
       } else {
+        nbytes *= scale;
         e.data = device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment);
         e.size = nbytes;
       }
@@ -57,6 +59,7 @@ class WorkspacePool::Pool {
 
   // free resource back to pool
   void Free(void *data) {
+    std::lock_guard<std::mutex> lock(_mutex);
     Entry e;
     if (_allocated.back().data == data) {
       // quick path, last allocated.
@@ -101,13 +104,16 @@ class WorkspacePool::Pool {
 
   std::vector<Entry> _free_list;
   std::vector<Entry> _allocated;
+  std::mutex _mutex;
 
   constexpr static size_t kListSize = 100;
 };
 
 WorkspacePool::WorkspacePool(DeviceType device_type,
                              std::shared_ptr<Device> device)
-    : _device_type(device_type), _device(device) {}
+    : _device_type(device_type), _device(device) {
+  std::fill(_array.begin(), _array.end(), nullptr);
+}
 
 WorkspacePool::~WorkspacePool() {
   for (size_t i = 0; i < _array.size(); ++i) {
@@ -121,15 +127,17 @@ WorkspacePool::~WorkspacePool() {
   }
 }
 
-void *WorkspacePool::AllocWorkspace(Context ctx, size_t size,
-                                    size_t scale_factor) {
-  if (static_cast<size_t>(ctx.device_id) >= _array.size()) {
-    _array.resize(ctx.device_id + 1, nullptr);
+void *WorkspacePool::AllocWorkspace(Context ctx, size_t size, size_t scale) {
+  if (_array[ctx.device_id] != nullptr) {
+    return _array[ctx.device_id]->Alloc(ctx, _device.get(), size, scale);
   }
+
+  std::lock_guard<std::mutex> lock(_mutex);
   if (_array[ctx.device_id] == nullptr) {
     _array[ctx.device_id] = new Pool();
   }
-  return _array[ctx.device_id]->Alloc(ctx, _device.get(), size, scale_factor);
+
+  return _array[ctx.device_id]->Alloc(ctx, _device.get(), size, scale);
 }
 
 void WorkspacePool::FreeWorkspace(Context ctx, void *ptr) {

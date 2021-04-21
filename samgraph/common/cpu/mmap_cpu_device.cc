@@ -38,14 +38,13 @@ void MmapCpuDevice::StreamSync(Context ctx, StreamHandle stream) {
   LOG(FATAL) << "Device does not support StreamSync api";
 }
 
-void *MmapCpuDevice::AllocWorkspace(Context ctx, size_t nbytes,
-                                    size_t scale_factor) {
+void *MmapCpuDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
   LOG(FATAL) << "Device does not support AllocWorkspace api";
   return nullptr;
 }
 
-void MmapCpuDevice::FreeWorkspace(Context ctx, void *data) {
-  LOG(FATAL) << "Device does not support FreeWorkspace api";
+void MmapCpuDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
+  munmap(data, nbytes);
 }
 
 const std::shared_ptr<MmapCpuDevice> &MmapCpuDevice::Global() {

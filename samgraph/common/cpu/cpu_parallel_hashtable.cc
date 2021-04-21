@@ -3,7 +3,9 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "../common.h"
 #include "../config.h"
+#include "../device.h"
 #include "../logging.h"
 #include "../timer.h"
 
@@ -12,16 +14,18 @@ namespace common {
 namespace cpu {
 
 ParallelHashTable::ParallelHashTable(size_t sz) {
-  _table = (Bucket *)malloc(sz * sizeof(Bucket));
-  _mapping = (Mapping *)malloc(sz * sizeof(Mapping));
+  _table = static_cast<Bucket *>(
+      Device::Get(CPU())->AllocDataSpace(CPU(), sz * sizeof(Bucket)));
+  _mapping = static_cast<Mapping *>(
+      Device::Get(CPU())->AllocDataSpace(CPU(), sz * sizeof(Mapping)));
 
   _map_offset = 0;
   _capacity = sz;
 }
 
 ParallelHashTable::~ParallelHashTable() {
-  free(_table);
-  free(_mapping);
+  Device::Get(CPU())->FreeDataSpace(CPU(), _table);
+  Device::Get(CPU())->FreeDataSpace(CPU(), _mapping);
 }
 
 void ParallelHashTable::Populate(const IdType *input, const size_t num_input) {
@@ -63,7 +67,7 @@ void ParallelHashTable::MapEdges(const IdType *src, const IdType *dst,
   }
 }
 
-void ParallelHashTable::Clear() {
+void ParallelHashTable::Reset() {
   _map_offset = 0;
 #pragma omp parallel for num_threads(Config::kOmpThreadNum)
   for (size_t i = 0; i < _capacity; i++) {

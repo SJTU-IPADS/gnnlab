@@ -43,14 +43,18 @@ struct CpuMemoryPool : public WorkspacePool {
   CpuMemoryPool() : WorkspacePool(kCPU, CpuDevice::Global()) {}
 };
 
-void *CpuDevice::AllocWorkspace(Context ctx, size_t nbytes,
-                                size_t scale_factor) {
-  return ThreadLocalStore<CpuMemoryPool>::Get()->AllocWorkspace(ctx, nbytes,
-                                                                scale_factor);
+std::shared_ptr<WorkspacePool> &CpuWorkspacePool() {
+  static std::shared_ptr<WorkspacePool> inst =
+      std::make_shared<WorkspacePool>(kCPU, CpuDevice::Global());
+  return inst;
 }
 
-void CpuDevice::FreeWorkspace(Context ctx, void *data) {
-  ThreadLocalStore<CpuMemoryPool>::Get()->FreeWorkspace(ctx, data);
+void *CpuDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
+  return CpuWorkspacePool()->AllocWorkspace(ctx, nbytes, scale);
+}
+
+void CpuDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
+  CpuWorkspacePool()->FreeWorkspace(ctx, data);
 }
 
 }  // namespace cpu

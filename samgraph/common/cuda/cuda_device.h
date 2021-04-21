@@ -1,5 +1,5 @@
-#ifndef SAMGRAPH_CUDA_DEVICE_H
-#define SAMGRAPH_CUDA_DEVICE_H
+#ifndef SAMGRAPH_GPU_DEVICE_H
+#define SAMGRAPH_GPU_DEVICE_H
 
 #include <cuda_runtime.h>
 
@@ -9,15 +9,15 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-class CudaDevice final : public Device {
+class GpuDevice final : public Device {
  public:
   void SetDevice(Context ctx) override;
-  void *AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) override;
+  void *AllocDataSpace(Context ctx, size_t nbytes,
+                       size_t alignment = kAllocAlignment) override;
   void FreeDataSpace(Context ctx, void *ptr) override;
-  void *AllocWorkspace(
-      Context ctx, size_t nbytes,
-      size_t scale_factor = Config::kAllocScaleFactor) override;
-  void FreeWorkspace(Context ctx, void *ptr) override;
+  void *AllocWorkspace(Context ctx, size_t nbytes,
+                       size_t scale = Config::kAllocScaleFactor) override;
+  void FreeWorkspace(Context ctx, void *ptr, size_t nbytes = 0) override;
   void CopyDataFromTo(const void *from, size_t from_offset, void *to,
                       size_t to_offset, size_t nbytes, Context ctx_from,
                       Context ctx_to, StreamHandle stream) override;
@@ -28,15 +28,17 @@ class CudaDevice final : public Device {
   void SyncStreamFromTo(Context ctx, StreamHandle event_src,
                         StreamHandle event_dst) override;
 
-  static const std::shared_ptr<CudaDevice> &Global();
+  static const std::shared_ptr<GpuDevice> &Global();
 
  private:
-  static void GpuCopy(const void *from, void *to, size_t size,
+  static void GpuCopy(const void *from, void *to, size_t nbytes,
                       cudaMemcpyKind kind, cudaStream_t stream);
+  static void GpuCopyPeer(const void *from, int from_device, void *to,
+                          int to_device, size_t nbytes, cudaStream_t stream);
 };
 
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph
 
-#endif  // SAMGRAPH_CUDA_DEVICE_H
+#endif  // SAMGRAPH_GPU_DEVICE_H

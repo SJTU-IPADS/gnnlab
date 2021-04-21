@@ -7,6 +7,7 @@
 #include <iostream>
 #include <numeric>
 
+#include "../device.h"
 #include "../logging.h"
 #include "../profiler.h"
 #include "../timer.h"
@@ -34,39 +35,44 @@ bool RunCpuSampleLoopOnce() {
     auto task = std::make_shared<Task>();
     task->key = CpuEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
     task->output_nodes = batch;
+
     auto fanouts = CpuEngine::Get()->GetFanout();
     auto num_layers = fanouts.size();
     auto last_layer_idx = num_layers - 1;
 
     auto dataset = CpuEngine::Get()->GetGraphDataset();
-    auto train_device = CpuEngine::Get()->GetTrainDevice();
+    auto trainer_ctx = CpuEngine::Get()->GetTrainerCtx();
+    auto cpu_device = Device::Get(CPU());
+    auto trainer_device = Device::Get(trainer_ctx);
     auto work_stream = CpuEngine::Get()->GetWorkStream();
 
     auto hash_table = CpuEngine::Get()->GetHashTable();
-    hash_table->Clear();
+    hash_table->Reset();
 
-    size_t num_train_node = task->output_nodes->shape()[0];
+    size_t num_train_node = task->output_nodes->Shape()[0];
     hash_table->Populate(
-        static_cast<const IdType *>(task->output_nodes->data()),
+        static_cast<const IdType *>(task->output_nodes->Data()),
         num_train_node);
 
     task->graphs.resize(num_layers);
 
-    const IdType *indptr = static_cast<const IdType *>(dataset->indptr->data());
+    const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
     const IdType *indices =
-        static_cast<const IdType *>(dataset->indices->data());
+        static_cast<const IdType *>(dataset->indices->Data());
 
     auto cur_input = task->output_nodes;
 
     for (int i = last_layer_idx; i >= 0; i--) {
       Timer t0;
       const int fanout = fanouts[i];
-      const IdType *input = static_cast<const IdType *>(cur_input->data());
-      const size_t num_input = cur_input->shape()[0];
+      const IdType *input = static_cast<const IdType *>(cur_input->Data());
+      const size_t num_input = cur_input->Shape()[0];
       LOG(DEBUG) << "CpuSample: begin sample layer " << i;
 
-      IdType *out_src = (IdType *)malloc(num_input * fanout * sizeof(IdType));
-      IdType *out_dst = (IdType *)malloc(num_input * fanout * sizeof(IdType));
+      IdType *out_src = static_cast<IdType *>(cpu_device->AllocWorkspace(
+          CPU(), num_input * fanout * sizeof(IdType)));
+      IdType *out_dst = static_cast<IdType *>(cpu_device->AllocWorkspace(
+          CPU(), num_input * fanout * sizeof(IdType)));
       size_t num_out;
       LOG(DEBUG) << "CpuSample: cpu out_src malloc "
                  << ToReadableSize(num_input * fanout * sizeof(IdType));
@@ -91,15 +97,18 @@ bool RunCpuSampleLoopOnce() {
       Timer t3;
       size_t num_unique = hash_table->NumItem();
       LOG(DEBUG) << "CpuSample: num_unique " << num_unique;
-      IdType *unique = (IdType *)malloc(num_unique * sizeof(IdType));
+      IdType *unique = static_cast<IdType *>(
+          cpu_device->AllocWorkspace(CPU(), num_unique * sizeof(IdType)));
       hash_table->MapNodes(unique, num_unique);
 
       double map_nodes_time = t3.Passed();
 
       Timer t4;
       // Mapping edges
-      IdType *new_src = (IdType *)malloc(num_out * sizeof(IdType));
-      IdType *new_dst = (IdType *)malloc(num_out * sizeof(IdType));
+      IdType *new_src = static_cast<IdType *>(
+          cpu_device->AllocWorkspace(CPU(), num_out * sizeof(IdType)));
+      IdType *new_dst = static_cast<IdType *>(
+          cpu_device->AllocWorkspace(CPU(), num_out * sizeof(IdType)));
       LOG(DEBUG) << "CpuSample: cpu new_src malloc "
                  << ToReadableSize(num_out * sizeof(IdType));
       LOG(DEBUG) << "CpuSample: cpu new_src malloc "
@@ -112,11 +121,11 @@ bool RunCpuSampleLoopOnce() {
 
       auto train_graph = std::make_shared<TrainGraph>();
       train_graph->row = Tensor::FromBlob(
-          new_dst, DataType::kI32, {num_out}, CPU_DEVICE_ID,
+          new_dst, DataType::kI32, {num_out}, CPU(),
           "train_graph.row_cpu_sample_" + std::to_string(task->key) + "_" +
               std::to_string(i));
       train_graph->col = Tensor::FromBlob(
-          new_src, DataType::kI32, {num_out}, CPU_DEVICE_ID,
+          new_src, DataType::kI32, {num_out}, CPU(),
           "train_graph.col_cpu_sample_" + std::to_string(task->key) + "_" +
               std::to_string(i));
       train_graph->num_row = num_input;
@@ -124,13 +133,13 @@ bool RunCpuSampleLoopOnce() {
       train_graph->num_edge = num_out;
 
       task->graphs[i] = train_graph;
-      cur_input = Tensor::FromBlob(
-          (void *)unique, DataType::kI32, {num_unique}, CPU_DEVICE_ID,
-          "cur_input_unique_cpu_" + std::to_string(task->key) + "_" +
-              std::to_string(i));
+      cur_input =
+          Tensor::FromBlob((void *)unique, DataType::kI32, {num_unique}, CPU(),
+                           "cur_input_unique_cpu_" + std::to_string(task->key) +
+                               "_" + std::to_string(i));
 
-      free(out_src);
-      free(out_dst);
+      cpu_device->FreeWorkspace(CPU(), out_src);
+      cpu_device->FreeWorkspace(CPU(), out_dst);
 
       Profiler::Get()->ns_time[task->key] += ns_time;
       Profiler::Get()->remap_time[task->key] += remap_time;
@@ -149,92 +158,79 @@ bool RunCpuSampleLoopOnce() {
     // Extract feature
     auto input_nodes = task->input_nodes;
     auto output_nodes = task->output_nodes;
-    CHECK_EQ(input_nodes->device(), CPU_DEVICE_ID);
-    CHECK_EQ(output_nodes->device(), CPU_DEVICE_ID);
 
-    auto feat_dim = dataset->feat->shape()[1];
-    auto feat_type = dataset->feat->dtype();
-    auto label_type = dataset->label->dtype();
+    auto feat_dim = dataset->feat->Shape()[1];
+    auto feat_type = dataset->feat->Type();
+    auto label_type = dataset->label->Type();
 
-    auto input_data = reinterpret_cast<const IdType *>(input_nodes->data());
-    auto output_data = reinterpret_cast<const IdType *>(output_nodes->data());
-    auto num_input = input_nodes->shape()[0];
-    auto num_ouput = output_nodes->shape()[0];
+    auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+    auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+    auto num_input = input_nodes->Shape()[0];
+    auto num_ouput = output_nodes->Shape()[0];
 
     auto feat =
-        Tensor::Empty(feat_type, {num_input, feat_dim}, CPU_DEVICE_ID,
+        Tensor::Empty(feat_type, {num_input, feat_dim}, CPU(),
                       "task.input_feat_cpu_" + std::to_string(task->key));
     auto label =
-        Tensor::Empty(label_type, {num_ouput}, CPU_DEVICE_ID,
+        Tensor::Empty(label_type, {num_ouput}, CPU(),
                       "task.output_label_cpu" + std::to_string(task->key));
 
     auto extractor = CpuEngine::Get()->GetExtractor();
 
-    auto feat_dst = feat->mutable_data();
-    auto feat_src = dataset->feat->data();
+    auto feat_dst = feat->MutableData();
+    auto feat_src = dataset->feat->Data();
     extractor->extract(feat_dst, feat_src, input_data, num_input, feat_dim,
                        feat_type);
 
-    auto label_dst = label->mutable_data();
-    auto label_src = dataset->label->data();
+    auto label_dst = label->MutableData();
+    auto label_src = dataset->label->Data();
     extractor->extract(label_dst, label_src, output_data, num_ouput, 1,
                        label_type);
 
     // Copy graph
     for (size_t i = 0; i < task->graphs.size(); i++) {
       auto graph = task->graphs[i];
-      void *train_row;
-      void *train_col;
-      CUDA_CALL(cudaSetDevice(train_device));
-      CUDA_CALL(cudaMalloc(&train_row, graph->row->size()));
-      CUDA_CALL(cudaMalloc(&train_col, graph->col->size()));
-      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
-                 << ToReadableSize(graph->row->size());
-      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
-                 << ToReadableSize(graph->col->size());
-
-      CUDA_CALL(cudaMemcpyAsync(train_row, graph->row->data(),
-                                graph->row->size(), cudaMemcpyHostToDevice,
-                                work_stream));
-      CUDA_CALL(cudaStreamSynchronize(work_stream));
-
-      CUDA_CALL(cudaMemcpyAsync(train_col, graph->col->data(),
-                                graph->col->size(), cudaMemcpyHostToDevice,
-                                work_stream));
-      CUDA_CALL(cudaStreamSynchronize(work_stream));
-
-      graph->row = Tensor::FromBlob(
-          train_row, graph->row->dtype(), graph->row->shape(), train_device,
+      auto train_row = Tensor::Empty(
+          graph->row->Type(), graph->row->Shape(), trainer_ctx,
           "train_graph.row_cuda_train_" + std::to_string(task->key) + "_" +
               std::to_string(i));
-      graph->col = Tensor::FromBlob(
-          train_col, graph->col->dtype(), graph->col->shape(), train_device,
+      auto train_col = Tensor::Empty(
+          graph->col->Type(), graph->col->Shape(), trainer_ctx,
           "train_graph.col_cuda_train_" + std::to_string(task->key) + "_" +
               std::to_string(i));
+      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
+                 << ToReadableSize(graph->row->NumBytes());
+      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
+                 << ToReadableSize(graph->col->NumBytes());
+
+      trainer_device->CopyDataFromTo(
+          graph->row->Data(), 0, train_row->MutableData(), 0,
+          graph->row->NumBytes(), CPU(), trainer_ctx, work_stream);
+      trainer_device->CopyDataFromTo(
+          graph->col->Data(), 0, train_col->MutableData(), 0,
+          graph->col->NumBytes(), CPU(), trainer_ctx, work_stream);
+      trainer_device->StreamSync(trainer_ctx, work_stream);
     }
 
-    CUDA_CALL(cudaStreamSynchronize(work_stream));
-
     // Copy data
-    auto d_feat =
-        Tensor::Empty(feat->dtype(), feat->shape(), train_device,
+    auto train_feat =
+        Tensor::Empty(feat->Type(), feat->Shape(), trainer_ctx,
                       "task.train_feat_cuda_" + std::to_string(task->key));
-    auto d_label =
-        Tensor::Empty(label->dtype(), label->shape(), train_device,
+    auto train_label =
+        Tensor::Empty(label->Type(), label->Shape(), trainer_ctx,
                       "task.train_label_cuda" + std::to_string(task->key));
 
-    CUDA_CALL(cudaMemcpyAsync(d_feat->mutable_data(), feat->data(),
-                              feat->size(), cudaMemcpyHostToDevice,
-                              work_stream));
-    CUDA_CALL(cudaStreamSynchronize(work_stream));
+    trainer_device->CopyDataFromTo(feat->Data(), 0, train_feat->MutableData(),
+                                   0, feat->NumBytes(), CPU(), trainer_ctx,
+                                   work_stream);
 
-    CUDA_CALL(cudaMemcpyAsync(d_label->mutable_data(), label->data(),
-                              label->size(), cudaMemcpyHostToDevice,
-                              work_stream));
-    CUDA_CALL(cudaStreamSynchronize(work_stream));
+    trainer_device->CopyDataFromTo(label->Data(), 0, train_label->MutableData(),
+                                   0, label->NumBytes(), CPU(), trainer_ctx,
+                                   work_stream);
+    trainer_device->StreamSync(trainer_ctx, work_stream);
 
-    task->input_feat = d_feat;
-    task->output_label = d_label;
+    task->input_feat = train_feat;
+    task->output_label = train_label;
 
     // Submit
     auto graph_pool = CpuEngine::Get()->GetGraphPool();
@@ -252,8 +248,6 @@ bool RunCpuSampleLoopOnce() {
 }
 
 void CpuSampleLoop() {
-  auto train_device = CpuEngine::Get()->GetTrainDevice();
-  CUDA_CALL(cudaSetDevice(train_device));
   while (RunCpuSampleLoopOnce() && !CpuEngine::Get()->ShouldShutdown()) {
   }
   CpuEngine::Get()->ReportThreadFinish();

@@ -19,15 +19,20 @@ namespace common {
 
 Engine* Engine::_engine = nullptr;
 
-void Engine::Create(int device) {
+void Engine::Create(Context sampler_ctx, Context trainer_ctx) {
   if (_engine) {
     return;
   }
 
-  if (device < 0) {
-    _engine = new cpu::CpuEngine;
-  } else {
-    _engine = new cuda::GpuEngine;
+  switch (sampler_ctx.device_type) {
+    case kCPU:
+      _engine = new cpu::CpuEngine;
+      break;
+    case kGPU:
+      _engine = new cuda::GpuEngine;
+      break;
+    default:
+      CHECK(0);
   }
 }
 
@@ -71,26 +76,27 @@ void Engine::LoadGraphDataset() {
 
   _dataset->indptr = Tensor::FromMmap(
       _dataset_path + Config::kInptrFile, DataType::kI32,
-      {meta[Config::kMetaNumNode] + 1}, _sample_device, "dataset.indptr");
+      {meta[Config::kMetaNumNode] + 1}, _sampler_ctx, "dataset.indptr");
   _dataset->indices = Tensor::FromMmap(
       _dataset_path + Config::kIndicesFile, DataType::kI32,
-      {meta[Config::kMetaNumEdge]}, _sample_device, "dataset.indices");
+      {meta[Config::kMetaNumEdge]}, _sampler_ctx, "dataset.indices");
   _dataset->feat =
       Tensor::FromMmap(_dataset_path + Config::kFeatFile, DataType::kF32,
                        {meta[Config::kMetaNumNode], meta[Config::kMetaFeatDim]},
-                       CPU_DEVICE_MMAP_ID, "dataset.feat");
-  _dataset->label = Tensor::FromMmap(
-      _dataset_path + Config::kLabelFile, DataType::kI64,
-      {meta[Config::kMetaNumNode]}, CPU_DEVICE_MMAP_ID, "dataset.label");
+                       MMAP(), "dataset.feat");
+  _dataset->label =
+      Tensor::FromMmap(_dataset_path + Config::kLabelFile, DataType::kI64,
+                       {meta[Config::kMetaNumNode]}, MMAP(), "dataset.label");
+
   _dataset->train_set = Tensor::FromMmap(
       _dataset_path + Config::kTrainSetFile, DataType::kI32,
-      {meta[Config::kMetaNumTrainSet]}, CPU_DEVICE_ID, "dataset.train_set");
+      {meta[Config::kMetaNumTrainSet]}, CPU(), "dataset.train_set");
   _dataset->test_set = Tensor::FromMmap(
       _dataset_path + Config::kTestSetFile, DataType::kI32,
-      {meta[Config::kMetaNumTestSet]}, CPU_DEVICE_ID, "dataset.test_set");
+      {meta[Config::kMetaNumTestSet]}, CPU(), "dataset.test_set");
   _dataset->valid_set = Tensor::FromMmap(
       _dataset_path + Config::kValidSetFile, DataType::kI32,
-      {meta[Config::kMetaNumValidSet]}, CPU_DEVICE_ID, "dataset.valid_set");
+      {meta[Config::kMetaNumValidSet]}, CPU(), "dataset.valid_set");
 
   double loading_time = t.Passed();
   LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path << ") successfully ("

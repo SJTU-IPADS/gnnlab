@@ -19,7 +19,7 @@ class CpuEngine : public Engine {
  public:
   CpuEngine();
 
-  void Init(std::string dataset_path, int sample_device, int train_device,
+  void Init(std::string dataset_path, Context sampler_ctx, Context trainer_ctx,
             size_t batch_size, std::vector<int> fanout,
             size_t num_epoch) override;
   void Start() override;

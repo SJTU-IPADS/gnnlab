@@ -7,6 +7,7 @@
 #include <numeric>
 #include <thread>
 
+#include "../device.h"
 #include "../logging.h"
 #include "../profiler.h"
 #include "../timer.h"
@@ -42,61 +43,58 @@ void DoGpuSample(TaskPtr task) {
   auto last_layer_idx = num_layers - 1;
 
   auto dataset = GpuEngine::Get()->GetGraphDataset();
-  auto sample_device = GpuEngine::Get()->GetSampleDevice();
+  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
   auto sample_stream = GpuEngine::Get()->GetSampleStream();
 
   OrderedHashTable *hash_table = GpuEngine::Get()->GetHashtable();
-  hash_table->Clear(sample_stream);
-  CUDA_CALL(cudaStreamSynchronize(sample_stream));
+  hash_table->Reset(sample_stream);
 
   auto output_nodes = task->output_nodes;
-  size_t num_train_node = output_nodes->shape()[0];
+  size_t num_train_node = output_nodes->Shape()[0];
   hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->data()), num_train_node,
+      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
       sample_stream);
   task->graphs.resize(num_layers);
-  CUDA_CALL(cudaStreamSynchronize(sample_stream));
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->data());
+  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
+  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
 
   auto cur_input = task->output_nodes;
 
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer t0;
     const int fanout = fanouts[i];
-    const IdType *input = static_cast<const IdType *>(cur_input->data());
-    const size_t num_input = cur_input->shape()[0];
-    LOG(DEBUG) << "CudaSample: begin sample layer " << i;
+    const IdType *input = static_cast<const IdType *>(cur_input->Data());
+    const size_t num_input = cur_input->Shape()[0];
+    LOG(DEBUG) << "DoGpuSample: begin sample layer " << i;
 
-    IdType *out_src;
-    IdType *out_dst;
-    size_t *num_out;
-    size_t host_num_out;
+    IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+    IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+    size_t *num_out = static_cast<size_t *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    size_t num_samples;
 
-    CUDA_CALL(cudaMalloc(&out_src, num_input * fanout * sizeof(IdType)));
-    CUDA_CALL(cudaMalloc(&out_dst, num_input * fanout * sizeof(IdType)));
-    CUDA_CALL(cudaMalloc(&num_out, sizeof(size_t)));
-    LOG(DEBUG) << "CudaSample: size of out_src " << num_input * fanout;
-    LOG(DEBUG) << "CudaSample: cuda out_src malloc "
+    LOG(DEBUG) << "DoGpuSample: size of out_src " << num_input * fanout;
+    LOG(DEBUG) << "DoGpuSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "CudaSample: cuda out_dst malloc "
+    LOG(DEBUG) << "DoGpuSample: cuda out_dst malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "CudaSample: cuda num_out malloc "
+    LOG(DEBUG) << "DoGpuSample: cuda num_out malloc "
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
-    CudaSample((const IdType *)indptr, (const IdType *)indices,
-               (const IdType *)input, (const size_t)num_input,
-               (const size_t)fanout, (IdType *)out_src, (IdType *)out_dst,
-               (size_t *)num_out, (cudaStream_t)sample_stream, task->key);
+    GpuSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+              num_out, sampler_ctx, sample_stream, task->key);
     // Get nnz
-    CUDA_CALL(cudaMemcpyAsync(
-        (void *)&host_num_out, (const void *)num_out, (size_t)sizeof(size_t),
-        (cudaMemcpyKind)cudaMemcpyDeviceToHost, (cudaStream_t)sample_stream));
-    CUDA_CALL(cudaStreamSynchronize(sample_stream));
-    LOG(DEBUG) << "CudaSample: "
-               << "layer " << i << " number of samples " << host_num_out;
+    sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),
+                                   sampler_ctx, CPU(), sample_stream);
+    sampler_device->StreamSync(sampler_ctx, sample_stream);
+
+    LOG(DEBUG) << "DoGpuSample: "
+               << "layer " << i << " number of samples " << num_samples;
 
     double ns_time = t0.Passed();
 
@@ -104,16 +102,15 @@ void DoGpuSample(TaskPtr task) {
     Timer t2;
 
     // Populate the hash table with newly sampled nodes
-    IdType *unique;
+    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
     size_t num_unique;
 
-    CUDA_CALL(cudaMalloc(
-        &unique, (host_num_out + hash_table->NumItems()) * sizeof(IdType)));
-    LOG(DEBUG) << "CudaSample: cuda unique malloc "
-               << ToReadableSize((host_num_out + +hash_table->NumItems()) *
+    LOG(DEBUG) << "GpuSample: cuda unique malloc "
+               << ToReadableSize((num_samples + +hash_table->NumItems()) *
                                  sizeof(IdType));
 
-    hash_table->FillWithDuplicates(out_dst, host_num_out, unique, &num_unique,
+    hash_table->FillWithDuplicates(out_dst, num_samples, unique, &num_unique,
                                    sample_stream);
 
     double populate_time = t2.Passed();
@@ -121,22 +118,19 @@ void DoGpuSample(TaskPtr task) {
     Timer t3;
 
     // Mapping edges
-    IdType *new_src;
-    IdType *new_dst;
+    IdType *new_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_samples * sizeof(IdType)));
+    IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_samples * sizeof(IdType)));
 
-    CUDA_CALL(cudaMalloc(&new_src, host_num_out * sizeof(IdType)));
-    CUDA_CALL(cudaMalloc(&new_dst, host_num_out * sizeof(IdType)));
-    LOG(DEBUG) << "CudaSample: size of new_src " << host_num_out;
-    LOG(DEBUG) << "CudaSample: cuda new_src malloc "
-               << ToReadableSize(host_num_out * sizeof(IdType));
-    LOG(DEBUG) << "CudaSample: cuda new_dst malloc "
-               << ToReadableSize(host_num_out * sizeof(IdType));
+    LOG(DEBUG) << "GpuSample: size of new_src " << num_samples;
+    LOG(DEBUG) << "GpuSample: cuda new_src malloc "
+               << ToReadableSize(num_samples * sizeof(IdType));
+    LOG(DEBUG) << "GpuSample: cuda new_dst malloc "
+               << ToReadableSize(num_samples * sizeof(IdType));
 
-    MapEdges((const IdType *)out_src, (IdType *const)new_src,
-             (const IdType *const)out_dst, (IdType *const)new_dst,
-             (const size_t)host_num_out,
-             (DeviceOrderedHashTable)hash_table->DeviceHandle(),
-             (cudaStream_t)sample_stream);
+    MapEdges(out_src, new_src, out_dst, new_dst, num_samples,
+             hash_table->DeviceHandle(), sampler_ctx, sample_stream);
 
     double map_edges_time = t3.Passed();
     double remap_time = t1.Passed();
@@ -144,26 +138,26 @@ void DoGpuSample(TaskPtr task) {
     auto train_graph = std::make_shared<TrainGraph>();
     train_graph->num_row = num_unique;
     train_graph->num_column = num_input;
-    train_graph->num_edge = host_num_out;
+    train_graph->num_edge = num_samples;
     train_graph->col = Tensor::FromBlob(
-        new_src, DataType::kI32, {host_num_out}, sample_device,
+        new_src, DataType::kI32, {num_samples}, sampler_ctx,
         "train_graph.row_cuda_sample_" + std::to_string(task->key) + "_" +
             std::to_string(i));
     train_graph->row = Tensor::FromBlob(
-        new_dst, DataType::kI32, {host_num_out}, sample_device,
+        new_dst, DataType::kI32, {num_samples}, sampler_ctx,
         "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
             std::to_string(i));
 
     task->graphs[i] = train_graph;
 
     // Do some clean jobs
-    CUDA_CALL(cudaFree(out_src));
-    CUDA_CALL(cudaFree(out_dst));
-    CUDA_CALL(cudaFree(num_out));
+    sampler_device->FreeWorkspace(sampler_ctx, out_src);
+    sampler_device->FreeWorkspace(sampler_ctx, out_dst);
+    sampler_device->FreeWorkspace(sampler_ctx, num_out);
 
     LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap " << remap_time;
 
-    Profiler::Get()->num_samples[task->key] += host_num_out;
+    Profiler::Get()->num_samples[task->key] += num_samples;
     Profiler::Get()->ns_time[task->key] += ns_time;
     Profiler::Get()->remap_time[task->key] += remap_time;
     Profiler::Get()->populate_time[task->key] += populate_time;
@@ -171,10 +165,10 @@ void DoGpuSample(TaskPtr task) {
     Profiler::Get()->map_edge_time[task->key] += map_edges_time;
 
     cur_input = Tensor::FromBlob(
-        (void *)unique, DataType::kI32, {num_unique}, sample_device,
+        (void *)unique, DataType::kI32, {num_unique}, sampler_ctx,
         "cur_input_unique_cuda_" + std::to_string(task->key) + "_" +
             std::to_string(i));
-    LOG(DEBUG) << "CudaSample: finish layer " << i;
+    LOG(DEBUG) << "GpuSample: finish layer " << i;
   }
 
   task->input_nodes = cur_input;
@@ -183,68 +177,70 @@ void DoGpuSample(TaskPtr task) {
 }
 
 void DoGraphCopy(TaskPtr task) {
-  auto train_device = GpuEngine::Get()->GetTrainDevice();
+  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
+  auto trainer_ctx = GpuEngine::Get()->GetTrainerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GpuEngine::Get()->GetCopyStream();
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
-    void *train_row;
-    void *train_col;
-    CUDA_CALL(cudaSetDevice(train_device));
-    CUDA_CALL(cudaMalloc(&train_row, graph->row->size()));
-    CUDA_CALL(cudaMalloc(&train_col, graph->col->size()));
+    auto train_row =
+        Tensor::Empty(graph->row->Type(), graph->row->Shape(), trainer_ctx,
+                      "train_graph.row_cuda_train_" +
+                          std::to_string(task->key) + "_" + std::to_string(i));
+    auto train_col =
+        Tensor::Empty(graph->col->Type(), graph->col->Shape(), trainer_ctx,
+                      "train_graph.col_cuda_train_" +
+                          std::to_string(task->key) + "_" + std::to_string(i));
+
     LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
-               << ToReadableSize(graph->row->size());
+               << ToReadableSize(graph->row->NumBytes());
     LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
-               << ToReadableSize(graph->col->size());
+               << ToReadableSize(graph->col->NumBytes());
 
-    CUDA_CALL(cudaMemcpyAsync(train_row, graph->row->data(), graph->row->size(),
-                              cudaMemcpyDeviceToDevice, copy_stream));
-    CUDA_CALL(cudaStreamSynchronize(copy_stream));
+    sampler_device->CopyDataFromTo(graph->row->Data(), 0,
+                                   train_row->MutableData(), 0,
+                                   graph->row->NumBytes(), graph->row->Ctx(),
+                                   train_row->Ctx(), copy_stream);
+    sampler_device->CopyDataFromTo(graph->col->Data(), 0,
+                                   train_col->MutableData(), 0,
+                                   graph->col->NumBytes(), graph->col->Ctx(),
+                                   train_col->Ctx(), copy_stream);
+    sampler_device->StreamSync(trainer_ctx, copy_stream);
 
-    CUDA_CALL(cudaMemcpyAsync(train_col, graph->col->data(), graph->col->size(),
-                              cudaMemcpyDeviceToDevice, copy_stream));
-    CUDA_CALL(cudaStreamSynchronize(copy_stream));
-
-    graph->row = Tensor::FromBlob(
-        train_row, graph->row->dtype(), graph->row->shape(), train_device,
-        "train_graph.row_cuda_train_" + std::to_string(task->key) + "_" +
-            std::to_string(i));
-    graph->col = Tensor::FromBlob(
-        train_col, graph->col->dtype(), graph->col->shape(), train_device,
-        "train_graph.col_cuda_train_" + std::to_string(task->key) + "_" +
-            std::to_string(i));
+    graph->row = train_row;
+    graph->col = train_col;
   }
-
-  CUDA_CALL(cudaStreamSynchronize(copy_stream));
 
   LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
 }
 
 void DoIdCopy(TaskPtr task) {
+  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GpuEngine::Get()->GetCopyStream();
 
-  void *input_nodes = malloc(task->input_nodes->size());
-  void *output_nodes = malloc(task->output_nodes->size());
+  auto input_nodes =
+      Tensor::Empty(task->input_nodes->Type(), task->input_nodes->Shape(),
+                    CPU(), "task.input_nodes_cpu_" + std::to_string(task->key));
+  auto output_nodes = Tensor::Empty(
+      task->output_nodes->Type(), task->output_nodes->Shape(), CPU(),
+      "task.output_nodes_cpu_" + std::to_string(task->key));
   LOG(DEBUG) << "IdCopyDevice2Host input_nodes cpu malloc "
-             << ToReadableSize(task->input_nodes->size());
+             << ToReadableSize(input_nodes->NumBytes());
   LOG(DEBUG) << "IdCopyDevice2Host output_nodes cpu malloc "
-             << ToReadableSize(task->output_nodes->size());
+             << ToReadableSize(output_nodes->NumBytes());
 
-  CUDA_CALL(cudaMemcpyAsync(input_nodes, task->input_nodes->data(),
-                            task->input_nodes->size(), cudaMemcpyDeviceToHost,
-                            copy_stream));
-  CUDA_CALL(cudaMemcpyAsync(output_nodes, task->output_nodes->data(),
-                            task->output_nodes->size(), cudaMemcpyDeviceToHost,
-                            copy_stream));
-  CUDA_CALL(cudaStreamSynchronize(copy_stream));
+  sampler_device->CopyDataFromTo(
+      task->input_nodes->Data(), 0, input_nodes->MutableData(), 0,
+      task->input_nodes->NumBytes(), task->input_nodes->Ctx(),
+      input_nodes->Ctx(), copy_stream);
+  sampler_device->CopyDataFromTo(
+      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
+      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
+      output_nodes->Ctx(), copy_stream);
 
-  task->input_nodes = Tensor::FromBlob(
-      input_nodes, task->input_nodes->dtype(), task->input_nodes->shape(),
-      CPU_DEVICE_ID, "task.input_nodes_cpu_" + std::to_string(task->key));
-  task->output_nodes = Tensor::FromBlob(
-      output_nodes, task->output_nodes->dtype(), task->output_nodes->shape(),
-      CPU_DEVICE_ID, "task.output_nodes_cpu_" + std::to_string(task->key));
+  sampler_device->StreamSync(sampler_ctx, copy_stream);
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -253,37 +249,35 @@ void DoFeatureExtract(TaskPtr task) {
   auto dataset = GpuEngine::Get()->GetGraphDataset();
   auto input_nodes = task->input_nodes;
   auto output_nodes = task->output_nodes;
-  CHECK_EQ(input_nodes->device(), CPU_DEVICE_ID);
-  CHECK_EQ(output_nodes->device(), CPU_DEVICE_ID);
 
   auto feat = dataset->feat;
   auto label = dataset->label;
 
-  auto feat_dim = dataset->feat->shape()[1];
-  auto feat_type = dataset->feat->dtype();
-  auto label_type = dataset->label->dtype();
+  auto feat_dim = dataset->feat->Shape()[1];
+  auto feat_type = dataset->feat->Type();
+  auto label_type = dataset->label->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->data());
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->data());
-  auto num_input = input_nodes->shape()[0];
-  auto num_ouput = output_nodes->shape()[0];
+  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto num_input = input_nodes->Shape()[0];
+  auto num_ouput = output_nodes->Shape()[0];
 
   task->input_feat =
-      Tensor::Empty(feat_type, {num_input, feat_dim}, CPU_DEVICE_ID,
+      Tensor::Empty(feat_type, {num_input, feat_dim}, CPU(),
                     "task.input_feat_cpu_" + std::to_string(task->key));
   task->output_label =
-      Tensor::Empty(label_type, {num_ouput}, CPU_DEVICE_ID,
+      Tensor::Empty(label_type, {num_ouput}, CPU(),
                     "task.output_label_cpu" + std::to_string(task->key));
 
   auto extractor = GpuEngine::Get()->GetExtractor();
 
-  auto feat_dst = task->input_feat->mutable_data();
-  auto feat_src = dataset->feat->data();
+  auto feat_dst = task->input_feat->MutableData();
+  auto feat_src = dataset->feat->Data();
   extractor->extract(feat_dst, feat_src, input_data, num_input, feat_dim,
                      feat_type);
 
-  auto label_dst = task->output_label->mutable_data();
-  auto label_src = dataset->label->data();
+  auto label_dst = task->output_label->MutableData();
+  auto label_src = dataset->label->Data();
   extractor->extract(label_dst, label_src, output_data, num_ouput, 1,
                      label_type);
 
@@ -291,31 +285,30 @@ void DoFeatureExtract(TaskPtr task) {
 }
 
 void DoFeatureCopy(TaskPtr task) {
-  auto train_device = GpuEngine::Get()->GetTrainDevice();
-  CUDA_CALL(cudaSetDevice(train_device));
+  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  auto trainer_ctx = GpuEngine::Get()->GetTrainerCtx();
   auto copy_stream = GpuEngine::Get()->GetCopyStream();
 
-  auto feat = task->input_feat;
-  auto label = task->output_label;
+  auto cpu_feat = task->input_feat;
+  auto cpu_label = task->output_label;
 
-  auto d_feat =
-      Tensor::Empty(feat->dtype(), feat->shape(), train_device,
+  auto train_feat =
+      Tensor::Empty(cpu_feat->Type(), cpu_feat->Shape(), trainer_ctx,
                     "task.train_feat_cuda_" + std::to_string(task->key));
-  auto d_label =
-      Tensor::Empty(label->dtype(), label->shape(), train_device,
+  auto train_label =
+      Tensor::Empty(cpu_label->Type(), cpu_label->Shape(), trainer_ctx,
                     "task.train_label_cuda" + std::to_string(task->key));
+  sampler_device->CopyDataFromTo(cpu_feat->Data(), 0, train_feat->MutableData(),
+                                 0, cpu_feat->NumBytes(), cpu_feat->Ctx(),
+                                 train_feat->Ctx(), copy_stream);
+  sampler_device->CopyDataFromTo(
+      cpu_label->Data(), 0, train_label->MutableData(), 0,
+      cpu_label->NumBytes(), cpu_label->Ctx(), train_label->Ctx(), copy_stream);
+  sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-  CUDA_CALL(cudaMemcpyAsync(d_feat->mutable_data(), feat->data(), feat->size(),
-                            cudaMemcpyHostToDevice, copy_stream));
-  CUDA_CALL(cudaStreamSynchronize(copy_stream));
-
-  CUDA_CALL(cudaMemcpyAsync(d_label->mutable_data(), label->data(),
-                            label->size(), cudaMemcpyHostToDevice,
-                            copy_stream));
-  CUDA_CALL(cudaStreamSynchronize(copy_stream));
-
-  task->input_feat = d_feat;
-  task->output_label = d_label;
+  task->input_feat = train_feat;
+  task->output_label = train_label;
 
   LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
 }

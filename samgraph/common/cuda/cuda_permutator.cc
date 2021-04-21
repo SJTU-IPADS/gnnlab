@@ -7,6 +7,7 @@
 #include <numeric>
 #include <random>
 
+#include "../device.h"
 #include "../logging.h"
 #include "cuda_engine.h"
 
@@ -16,28 +17,28 @@ namespace cuda {
 
 CudaPermutator::CudaPermutator(TensorPtr input, size_t num_epoch,
                                size_t batch_size, bool drop_last) {
-  _input_size = input->shape().front();
-  CHECK_EQ(input->shape().size(), 1);
+  _num_data = input->Shape().front();
+  CHECK_EQ(input->Shape().size(), 1);
 
   _num_epoch = num_epoch;
   _cur_epoch = 0;
 
-  _input = input;
-  _dev_input = Tensor::Empty(input->dtype(), input->shape(),
-                             Engine::Get()->GetSampleDevice(),
-                             "cuda_permutator d_input");
+  _data = input;
+  _gpu_data = Tensor::Empty(input->Type(), input->Shape(),
+                            Engine::Get()->GetSamplerCtx(),
+                            "cuda_permutator_dev_input");
 
   _drop_last = drop_last;
-  _num_step = drop_last ? (_input_size / batch_size)
-                        : ((_input_size - 1) / batch_size) + 1;
+  _num_step =
+      drop_last ? (_num_data / batch_size) : ((_num_data - 1) / batch_size) + 1;
   _batch_size = batch_size;
-  _last_batch_size = drop_last ? batch_size : _input_size % batch_size;
+  _last_batch_size = drop_last ? batch_size : _num_data % batch_size;
 
   _initialized = false;
   _cur_step = _num_step;
 }
 
-void CudaPermutator::RePermutate(cudaStream_t stream) {
+void CudaPermutator::RePermutate(StreamHandle stream) {
   if (!_initialized) {
     _cur_epoch = 0;
     _initialized = true;
@@ -52,14 +53,14 @@ void CudaPermutator::RePermutate(cudaStream_t stream) {
   }
 
   auto seed = std::chrono::system_clock::now().time_since_epoch().count();
-  void *data = _input->mutable_data();
+  void *data = _data->MutableData();
 
   auto g = std::default_random_engine(seed);
 
-  for (size_t i = _input_size - 1; i > 0; i--) {
+  for (size_t i = _num_data - 1; i > 0; i--) {
     std::uniform_int_distribution<size_t> d(0, i);
     size_t candidate = d(g);
-    switch (_input->dtype()) {
+    switch (_data->Type()) {
       case kI32:
         std::swap((reinterpret_cast<int *>(data))[i],
                   (reinterpret_cast<int *>(data))[candidate]);
@@ -75,18 +76,15 @@ void CudaPermutator::RePermutate(cudaStream_t stream) {
     }
   }
 
-  if (stream) {
-    CUDA_CALL(cudaMemcpyAsync(_dev_input->mutable_data(), _input->data(),
-                              _dev_input->size(), cudaMemcpyHostToDevice,
-                              stream));
-    CUDA_CALL(cudaStreamSynchronize(stream));
-  } else {
-    CUDA_CALL(cudaMemcpy(_dev_input->mutable_data(), _input->data(),
-                         _dev_input->size(), cudaMemcpyHostToDevice));
-  }
+  auto device = Device::Get(_gpu_data->Ctx());
+  device->CopyDataFromTo(_data->Data(), 0, _gpu_data->MutableData(), 0,
+                         _gpu_data->NumBytes(), _data->Ctx(), _gpu_data->Ctx(),
+                         stream);
+
+  device->StreamSync(_gpu_data->Ctx(), stream);
 }
 
-TensorPtr CudaPermutator::GetBatch(cudaStream_t stream) {
+TensorPtr CudaPermutator::GetBatch(StreamHandle stream) {
   _cur_step++;
   if (_cur_step >= _num_step) {
     RePermutate(stream);
@@ -99,8 +97,8 @@ TensorPtr CudaPermutator::GetBatch(cudaStream_t stream) {
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  return Tensor::CreateCopy1D(_dev_input, offset, {size},
-                              "random_permutation_batch", stream);
+  return Tensor::CreateCopy1D(_gpu_data, offset, {size},
+                              "cuda_permutator_batch", stream);
 }
 
 }  // namespace cuda

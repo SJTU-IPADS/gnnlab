@@ -16,11 +16,19 @@ namespace common {
 
 extern "C" {
 
-void samgraph_init(const char *path, int sample_device, int train_device,
-                   size_t batch_size, int *fanout, size_t num_fanout,
-                   size_t num_epoch) {
-  Engine::Create(sample_device);
-  Engine::Get()->Init(path, sample_device, train_device, batch_size,
+void samgraph_init(const char *path, int sample_device_type, int sample_device,
+                   int train_device_type, int train_device, size_t batch_size,
+                   int *fanout, size_t num_fanout, size_t num_epoch) {
+  Context sampler_ctx;
+  sampler_ctx.device_type = static_cast<DeviceType>(sample_device_type);
+  sampler_ctx.device_id = sample_device;
+
+  Context train_ctx;
+  train_ctx.device_type = static_cast<DeviceType>(train_device_type);
+  train_ctx.device_id = train_device;
+
+  Engine::Create(sampler_ctx, train_ctx);
+  Engine::Get()->Init(path, sampler_ctx, train_ctx, batch_size,
                       std::vector<int>(fanout, fanout + num_fanout), num_epoch);
   LOG(DEBUG) << "SamGraph has been initialied successfully";
 #if PROFILE_CUDA_KERNELS
@@ -52,7 +60,7 @@ size_t samgraph_num_class() {
 
 size_t samgraph_feat_dim() {
   CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
-  return Engine::Get()->GetGraphDataset()->feat->shape().at(1);
+  return Engine::Get()->GetGraphDataset()->feat->Shape().at(1);
 }
 
 uint64_t samgraph_get_next_batch(uint64_t epoch, uint64_t step) {

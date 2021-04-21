@@ -2,8 +2,10 @@
 #include <cstdio>
 
 #include <cub/cub.cuh>
+#include <cuda_runtime.h>
 
 #include "../common.h"
+#include "../device.h"
 #include "../logging.h"
 #include "../timer.h"
 #include "cuda_hashtable.h"
@@ -72,8 +74,8 @@ private:
   }
 
   inline __device__ MapItem GetMapItem(const IdType pos) {
-    assert(pos < this->_mapping_size);
-    return const_cast<MapItem>(this->_mapping + pos);
+    assert(pos < this->_map_size);
+    return const_cast<MapItem>(this->_map + pos);
   }
 };
 
@@ -242,47 +244,53 @@ compact_hashmap(const IdType *const items, const size_t num_items,
 
 // DeviceOrderedHashTable implementation
 DeviceOrderedHashTable::DeviceOrderedHashTable(const Bucket *const table,
-                                               const Mapping *const mapping,
+                                               const Mapping *const map,
                                                const size_t size,
                                                const size_t mapping_size)
-    : _table(table), _mapping(mapping), _size(size),
-      _mapping_size(mapping_size) {}
+    : _table(table), _map(map), _size(size), _map_size(mapping_size) {}
 
 DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
-  return DeviceOrderedHashTable(_table, _mapping, _size, _mapping_size);
+  return DeviceOrderedHashTable(_table, _map, _size, _map_size);
 }
 
 // OrderedHashTable implementation
-OrderedHashTable::OrderedHashTable(const size_t size, int device,
-                                   cudaStream_t stream, const size_t scale)
-    : _table(nullptr), _size(TableSize(size, scale)), _mapping_size(size),
-      _device(device), _version(0), _offset(0) {
+OrderedHashTable::OrderedHashTable(const size_t size, Context ctx,
+                                   StreamHandle stream, const size_t scale)
+    : _table(nullptr), _size(TableSize(size, scale)), _map_size(size),
+      _ctx(ctx), _version(0), _offset(0) {
   // make sure we will at least as many buckets as items.
-  CUDA_CALL(cudaMalloc(&_table, sizeof(Bucket) * _size));
-  CUDA_CALL(cudaMalloc(&_mapping, sizeof(Mapping) * _mapping_size));
+  auto device = Device::Get(_ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+
+  _table = static_cast<Bucket *>(
+      device->AllocDataSpace(_ctx, sizeof(Bucket) * _size));
+  _map = static_cast<Mapping *>(
+      device->AllocDataSpace(_ctx, sizeof(Mapping) * _map_size));
 
   CUDA_CALL(cudaMemsetAsync(_table, (int)Config::kEmptyKey,
-                            sizeof(Bucket) * _size, stream));
-  CUDA_CALL(cudaMemsetAsync(_mapping, (int)Config::kEmptyKey,
-                            sizeof(Mapping) * _mapping_size, stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
+                            sizeof(Bucket) * _size, cu_stream));
+  CUDA_CALL(cudaMemsetAsync(_map, (int)Config::kEmptyKey,
+                            sizeof(Mapping) * _map_size, cu_stream));
+  device->StreamSync(_ctx, stream);
 }
 
 OrderedHashTable::~OrderedHashTable() {
-  cudaDeviceSynchronize();
   Timer t;
 
-  CUDA_CALL(cudaFree(_table));
-  CUDA_CALL(cudaFree(_mapping));
-  LOG(INFO) << "free " << t.Passed();
+  auto device = Device::Get(_ctx);
+  device->FreeDataSpace(_ctx, _table);
+  device->FreeDataSpace(_ctx, _map);
+
+  LOG(DEBUG) << "free " << t.Passed();
 }
 
-void OrderedHashTable::Clear(cudaStream_t stream) {
+void OrderedHashTable::Reset(StreamHandle stream) {
+  auto cu_stream = static_cast<cudaStream_t>(stream);
   CUDA_CALL(cudaMemsetAsync(_table, (int)Config::kEmptyKey,
-                            sizeof(Bucket) * _size, stream));
-  CUDA_CALL(cudaMemsetAsync(_mapping, (int)Config::kEmptyKey,
-                            sizeof(Mapping) * _mapping_size, stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
+                            sizeof(Bucket) * _size, cu_stream));
+  CUDA_CALL(cudaMemsetAsync(_map, (int)Config::kEmptyKey,
+                            sizeof(Mapping) * _map_size, cu_stream));
+  Device::Get(_ctx)->StreamSync(_ctx, stream);
   _version = 0;
   _offset = 0;
 }
@@ -291,7 +299,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                                           const size_t num_input,
                                           IdType *const unique,
                                           size_t *const num_unique,
-                                          cudaStream_t stream) {
+                                          StreamHandle stream) {
   const size_t num_tiles =
       (num_input + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
 
@@ -299,61 +307,64 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
   const dim3 block(Config::kCudaBlockSize);
 
   auto device_table = MutableDeviceOrderedHashTable(this);
+  auto device = Device::Get(_ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
 
   generate_hashmap_duplicates<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(input, num_input, device_table, _version);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(input, num_input, device_table, _version);
+  device->StreamSync(_ctx, stream);
 
-  IdType *item_prefix;
-  CUDA_CALL(cudaMalloc(&item_prefix, sizeof(IdType) * (num_input + 1)));
+  IdType *item_prefix = static_cast<IdType *>(
+      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1)));
   LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
-             << ToReadableSize(sizeof(IdType) * (num_input + 1));
+             << ToReadableSize(sizeof(IdType) * (grid.x + 1));
 
   count_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix,
-                                   _version);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(input, num_input, device_table,
+                                      item_prefix, _version);
+  device->StreamSync(_ctx, stream);
 
   size_t workspace_bytes;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       nullptr, workspace_bytes, static_cast<IdType *>(nullptr),
-      static_cast<IdType *>(nullptr), grid.x + 1, stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      static_cast<IdType *>(nullptr), grid.x + 1, cu_stream));
+  device->StreamSync(_ctx, stream);
 
-  void *workspace;
-  CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
+  void *workspace = device->AllocWorkspace(_ctx, workspace_bytes);
   LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
              << ToReadableSize(sizeof(IdType) * (num_input + 1));
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
                                           item_prefix, item_prefix, grid.x + 1,
-                                          stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
+                                          cu_stream));
+  device->StreamSync(_ctx, stream);
 
-  size_t *d_num_unique;
-  CUDA_CALL(cudaMalloc(&d_num_unique, sizeof(size_t)));
-  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda d_num_unique malloc "
-             << ToReadableSize(sizeof(size_t));
+  size_t *gpu_num_unique =
+      static_cast<size_t *>(device->AllocWorkspace(_ctx, sizeof(size_t)));
+  LOG(DEBUG)
+      << "OrderedHashTable::FillWithDuplicates cuda gpu_num_unique malloc "
+      << ToReadableSize(sizeof(size_t));
 
   compact_hashmap<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(input, num_input, device_table, item_prefix,
-                                   d_num_unique, _offset, _version);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(input, num_input, device_table,
+                                      item_prefix, gpu_num_unique, _offset,
+                                      _version);
+  device->StreamSync(_ctx, stream);
 
-  CUDA_CALL(cudaMemcpyAsync(num_unique, d_num_unique, sizeof(size_t),
-                            cudaMemcpyDeviceToHost, stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
+  device->CopyDataFromTo(gpu_num_unique, 0, num_unique, 0, sizeof(size_t), _ctx,
+                         CPU(), stream);
+  device->StreamSync(_ctx, stream);
 
   LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique "
              << *num_unique;
 
-  CUDA_CALL(cudaMemcpyAsync(unique, _mapping, sizeof(IdType) * (*num_unique),
-                            cudaMemcpyDeviceToDevice, stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
+  device->CopyDataFromTo(_map, 0, unique, 0, sizeof(IdType) * (*num_unique),
+                         _ctx, _ctx, stream);
+  device->StreamSync(_ctx, stream);
 
-  CUDA_CALL(cudaFree(workspace));
-  CUDA_CALL(cudaFree(item_prefix));
-  CUDA_CALL(cudaFree(d_num_unique));
+  device->FreeWorkspace(_ctx, gpu_num_unique);
+  device->FreeWorkspace(_ctx, item_prefix);
+  device->FreeWorkspace(_ctx, workspace);
 
   _version++;
   _offset = *num_unique;
@@ -361,7 +372,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
 void OrderedHashTable::FillWithUnique(const IdType *const input,
                                       const size_t num_input,
-                                      cudaStream_t stream) {
+                                      StreamHandle stream) {
 
   const size_t num_tiles =
       (num_input + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
@@ -370,11 +381,12 @@ void OrderedHashTable::FillWithUnique(const IdType *const input,
   const dim3 block(Config::kCudaBlockSize);
 
   auto device_table = MutableDeviceOrderedHashTable(this);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
 
   generate_hashmap_unique<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(input, num_input, device_table, _offset,
-                                   _version);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(input, num_input, device_table, _offset,
+                                      _version);
+  Device::Get(_ctx)->StreamSync(_ctx, stream);
 
   _version++;
   _offset += num_input;

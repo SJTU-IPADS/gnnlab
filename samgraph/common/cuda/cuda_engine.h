@@ -1,8 +1,6 @@
 #ifndef SAMGRAPH_CUDA_ENGINE_H
 #define SAMGRAPH_CUDA_ENGINE_H
 
-#include <cuda_runtime.h>
-
 #include <atomic>
 #include <memory>
 #include <string>
@@ -28,7 +26,7 @@ class GpuEngine : public Engine {
  public:
   GpuEngine();
 
-  void Init(std::string dataset_path, int sample_device, int train_device,
+  void Init(std::string dataset_path, Context sampler_ctx, Context trainer_ctx,
             size_t batch_size, std::vector<int> fanout,
             size_t num_epoch) override;
   void Start() override;
@@ -40,8 +38,8 @@ class GpuEngine : public Engine {
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
 
-  cudaStream_t GetSampleStream() { return _sample_stream; }
-  cudaStream_t GetCopyStream() { return _copy_stream; }
+  StreamHandle GetSampleStream() { return _sample_stream; }
+  StreamHandle GetCopyStream() { return _copy_stream; }
 
   static GpuEngine* Get() { return dynamic_cast<GpuEngine*>(Engine::_engine); }
 
@@ -50,8 +48,8 @@ class GpuEngine : public Engine {
   std::vector<TaskQueue*> _queues;
   std::vector<std::thread*> _threads;
   // Cuda streams on sample device
-  cudaStream_t _sample_stream;
-  cudaStream_t _copy_stream;
+  StreamHandle _sample_stream;
+  StreamHandle _copy_stream;
   // Random node batch genrator
   CudaPermutator* _permutator;
   // CPU Extractor

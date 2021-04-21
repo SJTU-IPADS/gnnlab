@@ -1,8 +1,6 @@
 #ifndef SAMGRAPH_CUDA_HASHTABLE_H
 #define SAMGRAPH_CUDA_HASHTABLE_H
 
-#include <cuda_runtime.h>
-
 #include <cassert>
 
 #include "../common.h"
@@ -28,10 +26,10 @@ class DeviceOrderedHashTable {
     IdType local;
   };
 
-  typedef const Bucket* ConstIterator;
+  typedef const Bucket *ConstIterator;
 
-  DeviceOrderedHashTable(const DeviceOrderedHashTable& other) = default;
-  DeviceOrderedHashTable& operator=(const DeviceOrderedHashTable& other) =
+  DeviceOrderedHashTable(const DeviceOrderedHashTable &other) = default;
+  DeviceOrderedHashTable &operator=(const DeviceOrderedHashTable &other) =
       default;
 
   inline __device__ ConstIterator Search(const IdType id) const {
@@ -40,13 +38,13 @@ class DeviceOrderedHashTable {
   }
 
  protected:
-  const Bucket* _table;
-  const Mapping* _mapping;
+  const Bucket *_table;
+  const Mapping *_map;
   size_t _size;
-  size_t _mapping_size;
+  size_t _map_size;
 
-  explicit DeviceOrderedHashTable(const Bucket* const table,
-                                  const Mapping* const mapping,
+  explicit DeviceOrderedHashTable(const Bucket *const table,
+                                  const Mapping *const mapping,
                                   const size_t size, const size_t mapping_size);
 
   inline __device__ IdType SearchForPosition(const IdType id) const {
@@ -76,34 +74,34 @@ class OrderedHashTable {
   using Bucket = typename DeviceOrderedHashTable::Bucket;
   using Mapping = typename DeviceOrderedHashTable::Mapping;
 
-  OrderedHashTable(const size_t size, int device, cudaStream_t stream,
+  OrderedHashTable(const size_t size, Context ctx, StreamHandle stream,
                    const size_t scale = kDefaultScale);
 
   ~OrderedHashTable();
 
   // Disable copying
-  OrderedHashTable(const OrderedHashTable& other) = delete;
-  OrderedHashTable& operator=(const OrderedHashTable& other) = delete;
+  OrderedHashTable(const OrderedHashTable &other) = delete;
+  OrderedHashTable &operator=(const OrderedHashTable &other) = delete;
 
-  void Clear(cudaStream_t stream);
+  void Reset(StreamHandle stream);
 
-  void FillWithDuplicates(const IdType* const input, const size_t num_input,
-                          IdType* const unique, size_t* const num_unique,
-                          cudaStream_t stream);
+  void FillWithDuplicates(const IdType *const input, const size_t num_input,
+                          IdType *const unique, size_t *const num_unique,
+                          StreamHandle stream);
 
-  void FillWithUnique(const IdType* const input, const size_t num_input,
-                      cudaStream_t stream);
+  void FillWithUnique(const IdType *const input, const size_t num_input,
+                      StreamHandle stream);
 
   size_t NumItems() const { return _offset; }
 
   DeviceOrderedHashTable DeviceHandle() const;
 
  private:
-  Bucket* _table;
-  Mapping* _mapping;
+  Bucket *_table;
+  Mapping *_map;
   size_t _size;
-  size_t _mapping_size;
-  int _device;
+  size_t _map_size;
+  Context _ctx;
 
   IdType _version;
   IdType _offset;

@@ -1,8 +1,6 @@
 #ifndef SAMGRAPH_COMMON_H
 #define SAMGRAPH_COMMON_H
 
-#include <cuda_runtime.h>
-
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -28,9 +26,6 @@ enum DataType {
   kI64 = 6,
 };
 
-#define CPU_DEVICE_ID (-1)
-#define CPU_DEVICE_MMAP_ID (-2)
-
 enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2 };
 
 struct Context {
@@ -48,32 +43,34 @@ class Tensor {
   Tensor();
   ~Tensor();
 
-  bool defined() const { return _data; }
-  DataType dtype() const { return _dtype; }
-  const std::vector<size_t>& shape() const { return _shape; }
-  const void* data() const { return _data; }
-  void* mutable_data() { return _data; }
-  size_t size() const { return _size; }
-  int device() const { return _device; }
+  bool Defined() const { return _data; }
+  DataType Type() const { return _dtype; }
+  const std::vector<size_t>& Shape() const { return _shape; }
+  const void* Data() const { return _data; }
+  void* MutableData() { return _data; }
+  size_t NumBytes() const { return _nbytes; }
+  Context Ctx() const { return _ctx; }
 
-  static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, int device,
+  static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
                          std::string name);
   static TensorPtr CreateCopy1D(TensorPtr tensor, size_t item_offset,
                                 std::vector<size_t> shape, std::string name,
-                                cudaStream_t stream = nullptr);
+                                StreamHandle stream = nullptr);
   static TensorPtr FromMmap(std::string filepath, DataType dtype,
-                            std::vector<size_t> shape, int device,
-                            std::string name, cudaStream_t stream = nullptr);
+                            std::vector<size_t> shape, Context ctx,
+                            std::string name, StreamHandle stream = nullptr);
   static TensorPtr FromBlob(void* data, DataType dtype,
-                            std::vector<size_t> shape, int device,
+                            std::vector<size_t> shape, Context ctx,
                             std::string name);
 
  private:
   void* _data;
-  int _device;
   DataType _dtype;
-  size_t _size;
+  Context _ctx;
+
+  size_t _nbytes;
   std::vector<size_t> _shape;
+
   std::string _name;
 };
 
@@ -123,9 +120,11 @@ struct Task {
 
 using GraphBatch = Task;
 
-size_t GetDataTypeLength(int dtype);
+Context CPU(int device_id = 0) { return {kCPU, device_id}; }
+Context GPU(int device_id = 0) { return {kGPU, device_id}; }
+Context MMAP(int device_id = 0) { return {kMMAP, device_id}; }
 
-std::string ToReadableSize(size_t size_in_bytes);
+std::string ToReadableSize(size_t nbytes);
 
 }  // namespace common
 }  // namespace samgraph

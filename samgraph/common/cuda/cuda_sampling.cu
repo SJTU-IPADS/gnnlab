@@ -8,6 +8,7 @@
 
 #include "../common.h"
 #include "../config.h"
+#include "../device.h"
 #include "../logging.h"
 #include "../profiler.h"
 #include "../timer.h"
@@ -171,11 +172,12 @@ __global__ void compact_edge(const IdType *tmp_src, const IdType *tmp_dst,
   }
 }
 
-void CudaSample(const IdType *indptr, const IdType *indices,
-                const IdType *input, const size_t num_input,
-                const size_t fanout, IdType *out_src, IdType *out_dst,
-                size_t *num_out, cudaStream_t stream, size_t profile_idx) {
-  LOG(DEBUG) << "CudaSample: begin with num_input " << num_input
+void GpuFunction::GpuSample(const IdType *indptr, const IdType *indices,
+                            const IdType *input, const size_t num_input,
+                            const size_t fanout, IdType *out_src,
+                            IdType *out_dst, size_t *num_out, Context ctx,
+                            StreamHandle stream, uint64_t task_key) {
+  LOG(DEBUG) << "GpuSample: begin with num_input " << num_input
              << " and fanout " << fanout;
   Timer t0;
   const size_t num_tiles =
@@ -187,64 +189,66 @@ void CudaSample(const IdType *indptr, const IdType *indices,
       std::chrono::system_clock::now().time_since_epoch().count();
   seed = 10ul;
 
-  IdType *tmp_src;
-  IdType *tmp_dst;
-  CUDA_CALL(cudaMalloc(&tmp_src, sizeof(IdType) * num_input * fanout));
-  CUDA_CALL(cudaMalloc(&tmp_dst, sizeof(IdType) * num_input * fanout));
-  LOG(DEBUG) << "CudaSample: cuda tmp_src malloc "
+  auto sampler_device = Device::Get(ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+
+  IdType *tmp_src = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
+  IdType *tmp_dst = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
+  LOG(DEBUG) << "GpuSample: cuda tmp_src malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
-  LOG(DEBUG) << "CudaSample: cuda tmp_dst malloc "
+  LOG(DEBUG) << "GpuSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
   sample<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(indptr, indices, input, num_input, fanout,
-                                   tmp_src, tmp_dst, seed);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
+                                      tmp_src, tmp_dst, seed);
+  sampler_device->StreamSync(ctx, stream);
   double sample_time = t0.Passed();
 
   Timer t1;
-  size_t *item_prefix;
-  CUDA_CALL(cudaMalloc(&item_prefix, sizeof(size_t) * (num_input + 1)));
-  LOG(DEBUG) << "CudaSample: cuda item_prefix malloc "
-             << ToReadableSize(sizeof(size_t) * (num_input + 1));
+  size_t *item_prefix = static_cast<size_t *>(
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * (grid.x + 1)));
+  LOG(DEBUG) << "GpuSample: cuda item_prefix malloc "
+             << ToReadableSize(sizeof(size_t) * (grid.x + 1));
 
   count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(tmp_src, item_prefix, num_input, fanout);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(tmp_src, item_prefix, num_input, fanout);
+  sampler_device->StreamSync(ctx, stream);
   double count_edge_time = t1.Passed();
 
   Timer t2;
   size_t workspace_bytes;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       nullptr, workspace_bytes, static_cast<size_t *>(nullptr),
-      static_cast<size_t *>(nullptr), grid.x + 1, stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      static_cast<size_t *>(nullptr), grid.x + 1, cu_stream));
+  sampler_device->StreamSync(ctx, stream);
 
-  void *workspace;
-  CUDA_CALL(cudaMalloc(&workspace, workspace_bytes));
+  void *workspace = sampler_device->AllocWorkspace(ctx, workspace_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
                                           item_prefix, item_prefix, grid.x + 1,
-                                          stream));
-  CUDA_CALL(cudaStreamSynchronize(stream));
-  LOG(DEBUG) << "CudaSample: cuda workspace malloc "
+                                          cu_stream));
+  sampler_device->StreamSync(ctx, stream);
+  LOG(DEBUG) << "GpuSample: cuda workspace malloc "
              << ToReadableSize(workspace_bytes);
 
   compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(tmp_src, tmp_dst, out_src, out_dst, num_out,
-                                   item_prefix, num_input, fanout);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src, out_dst,
+                                      num_out, item_prefix, num_input, fanout);
+  sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t2.Passed();
 
-  CUDA_CALL(cudaFree(workspace));
-  CUDA_CALL(cudaFree(item_prefix));
-  CUDA_CALL(cudaFree(tmp_src));
-  CUDA_CALL(cudaFree(tmp_dst));
+  sampler_device->FreeWorkspace(ctx, workspace);
+  sampler_device->FreeWorkspace(ctx, item_prefix);
+  sampler_device->FreeWorkspace(ctx, tmp_src);
+  sampler_device->FreeWorkspace(ctx, tmp_dst);
 
-  Profiler::Get()->sample_calculation_time[profile_idx] += sample_time;
-  Profiler::Get()->sample_count_edge_time[profile_idx] += count_edge_time;
-  Profiler::Get()->sample_compact_edge_time[profile_idx] += compact_edge_time;
+  Profiler::Get()->sample_calculation_time[task_key] += sample_time;
+  Profiler::Get()->sample_count_edge_time[task_key] += count_edge_time;
+  Profiler::Get()->sample_compact_edge_time[task_key] += compact_edge_time;
 
-  LOG(DEBUG) << "CudaSample: succeed ";
+  LOG(DEBUG) << "GpuSample: succeed ";
 }
 
 } // namespace cuda

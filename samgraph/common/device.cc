@@ -13,15 +13,15 @@ namespace common {
 
 class DeviceManager {
  public:
-  static const int kMaxDevice = 32;
+  static constexpr int kMaxDevice = 32;
   static Device* Get(const Context& ctx) { return Get(ctx.device_type); }
   static Device* Get(int dev_type) { return Global()->GetDevice(dev_type); }
 
  private:
-  std::array<Device*, kMaxDevice> _api;
+  std::array<Device*, kMaxDevice> _device;
   std::mutex _mutex;
 
-  DeviceManager() { std::fill(_api.begin(), _api.end(), nullptr); }
+  DeviceManager() { std::fill(_device.begin(), _device.end(), nullptr); }
 
   // Global static variable.
   static DeviceManager* Global() {
@@ -31,23 +31,23 @@ class DeviceManager {
 
   // Get or initialize Device.
   Device* GetDevice(int type) {
-    if (_api[type] != nullptr) return _api[type];
+    if (_device[type] != nullptr) return _device[type];
     std::lock_guard<std::mutex> lock(_mutex);
-    if (_api[type] != nullptr) return _api[type];
+    if (_device[type] != nullptr) return _device[type];
     switch (type) {
       case kCPU:
-        _api[type] = cpu::CpuDevice::Global().get();
+        _device[type] = cpu::CpuDevice::Global().get();
         break;
       case kGPU:
-        _api[type] = cuda::CudaDevice::Global().get();
+        _device[type] = cuda::GpuDevice::Global().get();
         break;
       case kMMAP:
-        _api[type] = cpu::MmapCpuDevice::Global().get();
+        _device[type] = cpu::MmapCpuDevice::Global().get();
         break;
       default:
         CHECK(0);
     }
-    return _api[type];
+    return _device[type];
   }
 };
 
@@ -55,11 +55,13 @@ Device* Device::Get(Context ctx) {
   return DeviceManager::Get(static_cast<int>(ctx.device_type));
 }
 
-void* Device::AllocWorkspace(Context ctx, size_t nbytes, size_t scale_factor) {
+void* Device::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
   return AllocDataSpace(ctx, nbytes, kTempAllocaAlignment);
 }
 
-void Device::FreeWorkspace(Context ctx, void* ptr) { FreeDataSpace(ctx, ptr); }
+void Device::FreeWorkspace(Context ctx, void* ptr, size_t nbytes) {
+  FreeDataSpace(ctx, ptr);
+}
 
 StreamHandle Device::CreateStream(Context ctx) {
   LOG(FATAL) << "Device does not support stream api.";

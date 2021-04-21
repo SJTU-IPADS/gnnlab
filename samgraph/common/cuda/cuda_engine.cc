@@ -6,6 +6,7 @@
 
 #include "../common.h"
 #include "../config.h"
+#include "../device.h"
 #include "../logging.h"
 #include "cuda_common.h"
 #include "cuda_loops.h"
@@ -19,18 +20,15 @@ GpuEngine::GpuEngine() {
   _should_shutdown = false;
 }
 
-void GpuEngine::Init(std::string dataset_path, int sample_device,
-                     int train_device, size_t batch_size,
+void GpuEngine::Init(std::string dataset_path, Context sampler_ctx,
+                     Context trainer_ctx, size_t batch_size,
                      std::vector<int> fanout, size_t num_epoch) {
   if (_initialize) {
     return;
   }
 
-  CHECK_GT(sample_device, CPU_DEVICE_ID);
-  CHECK_GT(train_device, CPU_DEVICE_ID);
-
-  _sample_device = sample_device;
-  _train_device = train_device;
+  _sampler_ctx = sampler_ctx;
+  _trainer_ctx = trainer_ctx;
   _dataset_path = dataset_path;
   _batch_size = batch_size;
   _fanout = fanout;
@@ -41,11 +39,11 @@ void GpuEngine::Init(std::string dataset_path, int sample_device,
   LoadGraphDataset();
 
   // Create CUDA streams
-  CUDA_CALL(cudaSetDevice(_sample_device));
-  CUDA_CALL(cudaStreamCreateWithFlags(&_sample_stream, cudaStreamNonBlocking));
-  CUDA_CALL(cudaStreamCreateWithFlags(&_copy_stream, cudaStreamNonBlocking));
-  CUDA_CALL(cudaStreamSynchronize(_sample_stream));
-  CUDA_CALL(cudaStreamSynchronize(_copy_stream));
+  _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+  _copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _copy_stream);
 
   _extractor = new Extractor();
   _permutator =
@@ -58,7 +56,7 @@ void GpuEngine::Init(std::string dataset_path, int sample_device,
                                                   _fanout.end(), 1ul,
                                                   std::multiplies<size_t>());
   _hashtable =
-      new OrderedHashTable(predict_node_num, sample_device, _sample_stream, 3);
+      new OrderedHashTable(predict_node_num, sampler_ctx, _sample_stream);
 
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
@@ -111,10 +109,10 @@ void GpuEngine::Shutdown() {
     }
   }
 
-  CUDA_CALL(cudaStreamSynchronize(_sample_stream));
-  CUDA_CALL(cudaStreamSynchronize(_copy_stream));
-  CUDA_CALL(cudaStreamDestroy(_sample_stream));
-  CUDA_CALL(cudaStreamDestroy(_copy_stream));
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _copy_stream);
+  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
+  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _copy_stream);
 
   if (_permutator) {
     delete _permutator;

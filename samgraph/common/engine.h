@@ -17,8 +17,8 @@ typedef void (*LoopFunction)();
 
 class Engine {
  public:
-  virtual void Init(std::string dataset_path, int sample_device,
-                    int train_device, size_t batch_size,
+  virtual void Init(std::string dataset_path, Context sampler_ctx,
+                    Context trainer_ctx, size_t batch_size,
                     std::vector<int> fanout, size_t num_epoch) = 0;
   virtual void Start() = 0;
   virtual void Shutdown() = 0;
@@ -38,8 +38,8 @@ class Engine {
   bool IsInitialized() { return _initialize; }
   bool IsShutdown() { return _should_shutdown; }
 
-  int GetSampleDevice() { return _sample_device; }
-  int GetTrainDevice() { return _train_device; }
+  Context GetSamplerCtx() { return _sampler_ctx; }
+  Context GetTrainerCtx() { return _trainer_ctx; }
 
   const Dataset* GetGraphDataset() { return _dataset; }
 
@@ -51,7 +51,7 @@ class Engine {
 
   void ReportThreadFinish() { _joined_thread_cnt.fetch_add(1); }
 
-  static void Create(int device);
+  static void Create(Context sampler_ctx, Context trainer_ctx);
   static Engine* Get() { return _engine; }
 
  protected:
@@ -60,9 +60,9 @@ class Engine {
   // The engine is going to be shutdowned
   bool _should_shutdown;
   // Sampling engine device
-  int _sample_device;
+  Context _sampler_ctx;
   // Training device
-  int _train_device;
+  Context _trainer_ctx;
   // Dataset path
   std::string _dataset_path;
   // Global graph dataset

@@ -14,13 +14,13 @@ namespace common {
 
 CpuPermutator::CpuPermutator(TensorPtr input, int num_epoch, size_t batch_size,
                              bool drop_last) {
-  size_t num_element = input->shape().front();
-  CHECK_EQ(input->shape().size(), 1);
+  size_t num_element = input->Shape().front();
+  CHECK_EQ(input->Shape().size(), 1);
 
   _num_epoch = num_epoch;
   _cur_epoch = -1;
 
-  _input = input;
+  _data = input;
   _input_size = num_element;
   _drop_last = drop_last;
   _num_step = drop_last ? (num_element / batch_size)
@@ -48,14 +48,14 @@ void CpuPermutator::RePermutate() {
   }
 
   auto seed = std::chrono::system_clock::now().time_since_epoch().count();
-  void *data = _input->mutable_data();
+  void *data = _data->MutableData();
 
   auto g = std::default_random_engine(seed);
 
   for (size_t i = _input_size - 1; i > 0; i--) {
     std::uniform_int_distribution<size_t> d(0, i);
     size_t candidate = d(g);
-    switch (_input->dtype()) {
+    switch (_data->Type()) {
       case kI32:
         std::swap((reinterpret_cast<int *>(data))[i],
                   (reinterpret_cast<int *>(data))[candidate]);
@@ -72,7 +72,7 @@ void CpuPermutator::RePermutate() {
   }
 }
 
-TensorPtr CpuPermutator::GetBatch(cudaStream_t stream) {
+TensorPtr CpuPermutator::GetBatch() {
   _cur_step++;
 
   if (_cur_step >= _num_step) {
@@ -86,8 +86,7 @@ TensorPtr CpuPermutator::GetBatch(cudaStream_t stream) {
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  return Tensor::CreateCopy1D(_input, offset, {size},
-                              "random_permutation_batch", stream);
+  return Tensor::CreateCopy1D(_data, offset, {size}, "cpu_permutator_batch");
 }
 
 }  // namespace common

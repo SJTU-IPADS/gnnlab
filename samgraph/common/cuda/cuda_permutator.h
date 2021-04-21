@@ -14,7 +14,7 @@ class CudaPermutator {
  public:
   CudaPermutator(TensorPtr input, size_t num_epoch, size_t batch_size,
                  bool drop_last);
-  TensorPtr GetBatch(cudaStream_t stream = nullptr);
+  TensorPtr GetBatch(StreamHandle stream = nullptr);
 
   uint64_t Epoch() { return _cur_epoch; }
   uint64_t Step() { return _cur_step; }
@@ -32,14 +32,14 @@ class CudaPermutator {
   size_t _num_epoch;
   size_t _num_step;
 
-  TensorPtr _input;
-  TensorPtr _dev_input;
-  size_t _input_size;
+  TensorPtr _data;
+  TensorPtr _gpu_data;
+  size_t _num_data;
 
   size_t _batch_size;
   size_t _last_batch_size;
 
-  void RePermutate(cudaStream_t stream = nullptr);
+  void RePermutate(StreamHandle stream = nullptr);
 };
 
 }  // namespace cuda

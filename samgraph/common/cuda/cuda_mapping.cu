@@ -2,6 +2,7 @@
 #include <cstdio>
 
 #include "../config.h"
+#include "../device.h"
 #include "cuda_function.h"
 #include "cuda_hashtable.h"
 
@@ -44,19 +45,22 @@ map_edge_ids(const IdType *const global_src, IdType *const new_global_src,
   }
 }
 
-void MapEdges(const IdType *const global_src, IdType *const new_global_src,
-              const IdType *const global_dst, IdType *const new_global_dst,
-              const size_t num_edges, DeviceOrderedHashTable table,
-              cudaStream_t stream) {
+void GpuFunction::MapEdges(const IdType *const global_src,
+                           IdType *const new_global_src,
+                           const IdType *const global_dst,
+                           IdType *const new_global_dst, const size_t num_edges,
+                           DeviceOrderedHashTable table, Context ctx,
+                           StreamHandle stream) {
   const size_t num_tiles =
       (num_edges + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
   const dim3 grid(num_tiles, 2);
   const dim3 block(Config::kCudaBlockSize);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
 
   map_edge_ids<Config::kCudaBlockSize, Config::kCudaTileSize>
-      <<<grid, block, 0, stream>>>(global_src, new_global_src, global_dst,
-                                   new_global_dst, num_edges, table);
-  CUDA_CALL(cudaStreamSynchronize(stream));
+      <<<grid, block, 0, cu_stream>>>(global_src, new_global_src, global_dst,
+                                      new_global_dst, num_edges, table);
+  Device::Get(ctx)->StreamSync(ctx, stream);
 }
 
 } // namespace cuda

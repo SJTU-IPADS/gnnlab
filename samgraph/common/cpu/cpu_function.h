@@ -12,9 +12,6 @@ void CpuSample(const IdType *const indptr, const IdType *const indices,
                IdType *output_src, IdType *output_dst, size_t *num_ouput,
                const size_t fanout);
 
-void ConvertCoo2Csr(const IdType *src, const IdType *dst, IdType *out_indptr,
-                    IdType *out_indices, const size_t m, const size_t nnz);
-
 }  // namespace cpu
 }  // namespace common
 }  // namespace samgraph

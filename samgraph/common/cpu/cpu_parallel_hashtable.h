@@ -26,7 +26,7 @@ class ParallelHashTable {
   void MapNodes(IdType *output, size_t num_output);
   void MapEdges(const IdType *src, const IdType *dst, const size_t len,
                 IdType *new_src, IdType *new_dst);
-  void Clear();
+  void Reset();
   size_t NumItem() const { return _map_offset; }
 
  private:

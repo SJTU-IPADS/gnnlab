@@ -6,7 +6,6 @@ namespace common {
 namespace cpu {
 
 bool RunCpuSampleLoopOnce();
-
 void CpuSampleLoop();
 
 }  // namespace cpu

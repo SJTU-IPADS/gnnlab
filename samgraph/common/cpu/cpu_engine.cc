@@ -1,6 +1,7 @@
 #include "cpu_engine.h"
 
 #include "../config.h"
+#include "../device.h"
 #include "../logging.h"
 #include "../timer.h"
 #include "cpu_loops.h"
@@ -14,18 +15,15 @@ CpuEngine::CpuEngine() {
   _should_shutdown = false;
 }
 
-void CpuEngine::Init(std::string dataset_path, int sample_device,
-                     int train_device, size_t batch_size,
+void CpuEngine::Init(std::string dataset_path, Context sampler_ctx,
+                     Context trainer_ctx, size_t batch_size,
                      std::vector<int> fanout, size_t num_epoch) {
   if (_initialize) {
     return;
   }
 
-  CHECK_EQ(sample_device, CPU_DEVICE_ID);
-  CHECK_GT(train_device, CPU_DEVICE_ID);
-
-  _sample_device = sample_device;
-  _train_device = train_device;
+  _sampler_ctx = sampler_ctx;
+  _trainer_ctx = trainer_ctx;
   _dataset_path = dataset_path;
   _batch_size = batch_size;
   _fanout = fanout;
@@ -36,9 +34,9 @@ void CpuEngine::Init(std::string dataset_path, int sample_device,
   LoadGraphDataset();
 
   // Create CUDA streams
-  CUDA_CALL(cudaSetDevice(_train_device));
-  CUDA_CALL(cudaStreamCreateWithFlags(&_work_stream, cudaStreamNonBlocking));
-  CUDA_CALL(cudaStreamSynchronize(_work_stream));
+  _work_stream = static_cast<cudaStream_t>(
+      Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx));
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _work_stream);
 
   _extractor = new Extractor();
   _permutator =
@@ -88,8 +86,8 @@ void CpuEngine::Shutdown() {
 
   delete _dataset;
 
-  CUDA_CALL(cudaStreamSynchronize(_work_stream));
-  CUDA_CALL(cudaStreamDestroy(_work_stream));
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _work_stream);
+  Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _work_stream);
 
   if (_permutator) {
     delete _permutator;
