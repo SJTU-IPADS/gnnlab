@@ -15,21 +15,22 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-class CpuEngine : public Engine {
+class CPUEngine : public Engine {
  public:
-  CpuEngine();
+  CPUEngine();
 
   void Init() override;
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
+  void Report(uint64_t epoch, uint64_t step) override;
 
-  CpuPermutator* GetPermutator() { return _permutator; }
+  CPUPermutator* GetPermutator() { return _permutator; }
   Extractor* GetExtractor() { return _extractor; }
   cudaStream_t GetWorkStream() { return _work_stream; }
   HashTable* GetHashTable() { return _hash_table; }
 
-  static CpuEngine* Get() { return dynamic_cast<CpuEngine*>(Engine::_engine); }
+  static CPUEngine* Get() { return dynamic_cast<CPUEngine*>(Engine::_engine); }
 
  private:
   // Task queue
@@ -38,7 +39,7 @@ class CpuEngine : public Engine {
   cudaStream_t _work_stream;
 
   // Random node batch genrator
-  CpuPermutator* _permutator;
+  CPUPermutator* _permutator;
   // CPU Extractor
   Extractor* _extractor;
   // Hash table

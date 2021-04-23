@@ -172,11 +172,11 @@ __global__ void compact_edge(const IdType *tmp_src, const IdType *tmp_dst,
   }
 }
 
-void GpuSample(const IdType *indptr, const IdType *indices, const IdType *input,
+void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
                const size_t num_input, const size_t fanout, IdType *out_src,
                IdType *out_dst, size_t *num_out, Context ctx,
                StreamHandle stream, uint64_t task_key) {
-  LOG(DEBUG) << "GpuSample: begin with num_input " << num_input
+  LOG(DEBUG) << "GPUSample: begin with num_input " << num_input
              << " and fanout " << fanout;
   Timer t0;
   const size_t num_tiles =
@@ -195,9 +195,9 @@ void GpuSample(const IdType *indptr, const IdType *indices, const IdType *input,
       sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
   IdType *tmp_dst = static_cast<IdType *>(
       sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
-  LOG(DEBUG) << "GpuSample: cuda tmp_src malloc "
+  LOG(DEBUG) << "GPUSample: cuda tmp_src malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
-  LOG(DEBUG) << "GpuSample: cuda tmp_dst malloc "
+  LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
   sample<Config::kCudaBlockSize, Config::kCudaTileSize>
@@ -209,7 +209,7 @@ void GpuSample(const IdType *indptr, const IdType *indices, const IdType *input,
   Timer t1;
   size_t *item_prefix = static_cast<size_t *>(
       sampler_device->AllocWorkspace(ctx, sizeof(size_t) * (grid.x + 1)));
-  LOG(DEBUG) << "GpuSample: cuda item_prefix malloc "
+  LOG(DEBUG) << "GPUSample: cuda item_prefix malloc "
              << ToReadableSize(sizeof(size_t) * (grid.x + 1));
 
   count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
@@ -229,7 +229,7 @@ void GpuSample(const IdType *indptr, const IdType *indices, const IdType *input,
                                           item_prefix, item_prefix, grid.x + 1,
                                           cu_stream));
   sampler_device->StreamSync(ctx, stream);
-  LOG(DEBUG) << "GpuSample: cuda workspace malloc "
+  LOG(DEBUG) << "GPUSample: cuda workspace malloc "
              << ToReadableSize(workspace_bytes);
 
   compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
@@ -247,7 +247,7 @@ void GpuSample(const IdType *indptr, const IdType *indices, const IdType *input,
   Profiler::Get()->sample_count_edge_time[task_key] += count_edge_time;
   Profiler::Get()->sample_compact_edge_time[task_key] += compact_edge_time;
 
-  LOG(DEBUG) << "GpuSample: succeed ";
+  LOG(DEBUG) << "GPUSample: succeed ";
 }
 
 } // namespace cuda

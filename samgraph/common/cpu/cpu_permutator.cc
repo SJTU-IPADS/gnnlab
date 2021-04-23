@@ -12,7 +12,7 @@
 namespace samgraph {
 namespace common {
 
-CpuPermutator::CpuPermutator(TensorPtr input, int num_epoch, size_t batch_size,
+CPUPermutator::CPUPermutator(TensorPtr input, int num_epoch, size_t batch_size,
                              bool drop_last) {
   size_t num_element = input->Shape().front();
   CHECK_EQ(input->Shape().size(), 1);
@@ -32,7 +32,7 @@ CpuPermutator::CpuPermutator(TensorPtr input, int num_epoch, size_t batch_size,
   _cur_step = _num_step;
 }
 
-void CpuPermutator::RePermutate() {
+void CPUPermutator::RePermutate() {
   _cur_epoch++;
   if (!_initialized) {
     _initialized = true;
@@ -72,7 +72,7 @@ void CpuPermutator::RePermutate() {
   }
 }
 
-TensorPtr CpuPermutator::GetBatch() {
+TensorPtr CPUPermutator::GetBatch() {
   _cur_step++;
 
   if (_cur_step >= _num_step) {

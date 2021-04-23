@@ -38,7 +38,7 @@ size_t samgraph_get_graph_num_col(uint64_t key, int graph_id);
 
 size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id);
 
-void samgraph_profiler_report(uint64_t epoch, uint64_t step);
+void samgraph_report(uint64_t epoch, uint64_t step);
 }
 
 }  // namespace common

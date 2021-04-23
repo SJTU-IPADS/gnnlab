@@ -22,7 +22,7 @@ get_graph_num_row = _basics.get_graph_num_row
 get_graph_num_col = _basics.get_graph_num_col
 shutdown = _basics.shutdown
 sample = _basics.sample
-profiler_report = _basics.profiler_report
+report = _basics.report
 
 
 def get_graph_feat(batch_key):

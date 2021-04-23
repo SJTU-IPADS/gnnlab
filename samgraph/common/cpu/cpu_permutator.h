@@ -9,9 +9,9 @@
 namespace samgraph {
 namespace common {
 
-class CpuPermutator {
+class CPUPermutator {
  public:
-  CpuPermutator(TensorPtr input, int num_epoch, size_t batch_size,
+  CPUPermutator(TensorPtr input, int num_epoch, size_t batch_size,
                 bool drop_last);
   TensorPtr GetBatch();
 

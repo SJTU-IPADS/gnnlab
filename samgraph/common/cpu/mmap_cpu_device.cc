@@ -17,39 +17,39 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-void MmapCpuDevice::SetDevice(Context ctx) {}
+void MmapCPUDevice::SetDevice(Context ctx) {}
 
-void *MmapCpuDevice::AllocDataSpace(Context ctx, size_t nbytes,
+void *MmapCPUDevice::AllocDataSpace(Context ctx, size_t nbytes,
                                     size_t alignment) {
   LOG(FATAL) << "Device does not support AllocDataSpace api";
   return nullptr;
 }
 
-void MmapCpuDevice::FreeDataSpace(Context ctx, void *ptr) {}
+void MmapCPUDevice::FreeDataSpace(Context ctx, void *ptr) {}
 
-void MmapCpuDevice::CopyDataFromTo(const void *from, size_t from_offset,
+void MmapCPUDevice::CopyDataFromTo(const void *from, size_t from_offset,
                                    void *to, size_t to_offset, size_t nbytes,
                                    Context ctx_from, Context ctx_to,
                                    StreamHandle stream) {
   LOG(FATAL) << "Device does not support CopyDataFromTo api";
 }
 
-void MmapCpuDevice::StreamSync(Context ctx, StreamHandle stream) {
+void MmapCPUDevice::StreamSync(Context ctx, StreamHandle stream) {
   LOG(FATAL) << "Device does not support StreamSync api";
 }
 
-void *MmapCpuDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
+void *MmapCPUDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
   LOG(FATAL) << "Device does not support AllocWorkspace api";
   return nullptr;
 }
 
-void MmapCpuDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
+void MmapCPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
   munmap(data, nbytes);
 }
 
-const std::shared_ptr<MmapCpuDevice> &MmapCpuDevice::Global() {
-  static std::shared_ptr<MmapCpuDevice> inst =
-      std::make_shared<MmapCpuDevice>();
+const std::shared_ptr<MmapCPUDevice> &MmapCPUDevice::Global() {
+  static std::shared_ptr<MmapCPUDevice> inst =
+      std::make_shared<MmapCPUDevice>();
   return inst;
 }
 

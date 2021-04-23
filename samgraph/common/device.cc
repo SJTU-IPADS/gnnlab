@@ -36,13 +36,13 @@ class DeviceManager {
     if (_device[type] != nullptr) return _device[type];
     switch (type) {
       case kCPU:
-        _device[type] = cpu::CpuDevice::Global().get();
+        _device[type] = cpu::CPUDevice::Global().get();
         break;
       case kGPU:
-        _device[type] = cuda::GpuDevice::Global().get();
+        _device[type] = cuda::GPUDevice::Global().get();
         break;
       case kMMAP:
-        _device[type] = cpu::MmapCpuDevice::Global().get();
+        _device[type] = cpu::MmapCPUDevice::Global().get();
         break;
       default:
         CHECK(0);

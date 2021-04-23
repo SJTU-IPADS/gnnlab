@@ -53,7 +53,7 @@ class SamGraphBasics(object):
             ctypes.c_uint64,)
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.argtypes = (
             ctypes.c_uint64,)
-        self.C_LIB_CTYPES.samgraph_profiler_report.argtypes = (
+        self.C_LIB_CTYPES.samgraph_report.argtypes = (
             ctypes.c_uint64,
             ctypes.c_uint64)
 
@@ -133,5 +133,5 @@ class SamGraphBasics(object):
     def sample(self):
         return self.C_LIB_CTYPES.samgraph_sample_once()
 
-    def profiler_report(self, epoch, step):
-        return self.C_LIB_CTYPES.samgraph_profiler_report(epoch, step)
+    def report(self, epoch, step):
+        return self.C_LIB_CTYPES.samgraph_report(epoch, step)

@@ -22,14 +22,15 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-class GpuEngine : public Engine {
+class GPUEngine : public Engine {
  public:
-  GpuEngine();
+  GPUEngine();
 
   void Init() override;
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
+  void Report(uint64_t epoch, uint64_t step) override;
 
   CudaPermutator* GetPermutator() { return _permutator; }
   Extractor* GetExtractor() { return _extractor; }
@@ -39,7 +40,7 @@ class GpuEngine : public Engine {
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetCopyStream() { return _copy_stream; }
 
-  static GpuEngine* Get() { return dynamic_cast<GpuEngine*>(Engine::_engine); }
+  static GPUEngine* Get() { return dynamic_cast<GPUEngine*>(Engine::_engine); }
 
  private:
   // Task queue

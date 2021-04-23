@@ -5,6 +5,7 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
 
 import samgraph.torch as sam
 
@@ -87,8 +88,13 @@ def run(args):
         sam.start()
 
     model.train()
-    for epoch in range(num_epoch):
 
+    for epoch in range(num_epoch):
+        sample_times = []
+        convert_times = []
+        train_times = []
+        total_times = []
+        num_samples = []
         for step in range(num_step):
             t0 = time.time()
             if not run_config['pipeline']:
@@ -105,11 +111,22 @@ def run(args):
             optimizer.step()
             t3 = time.time()
 
-            print('Epoch {:05d} | Step {:05d} | Loss {:.4f} | Sample {:.4f} secs | Convert {:.4f} secs |  Train {:.4f} secs | Time {:.4f} secs'.format(
-                epoch, step, loss.item(), t1 - t0, t2 - t1, t3 - t2, t3 - t0
+            sample_times.append(t1 - t0)
+            convert_times.append(t2 - t1)
+            train_times.append(t3 - t2)
+            total_times.append(t3 - t0)
+
+            num_sample = 0
+            for block in blocks:
+                num_sample += block.num_edges()
+            num_samples.append(num_sample)
+
+            print('Epoch {:05d} | Step {:05d} | Samples {:f} | Time {:.4f} secs | Sample Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
+                epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
+                    sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
             ))
 
-            sam.profiler_report(epoch, step)
+            sam.report(epoch, step)
 
     sam.shutdown()
 

@@ -3,8 +3,6 @@
 
 #include <parallel_hashmap/phmap.h>
 
-#include <vector>
-
 #include "cpu_hashtable.h"
 
 namespace samgraph {
@@ -27,10 +25,6 @@ class SimpleHashTable : public HashTable {
   struct Bucket1 {
     IdType global;
   };
-
-  static constexpr int32_t kFilterMask = 0xFFFFFF;
-  static constexpr int32_t kFilterSize = kFilterMask + 1;
-  std::vector<bool> _filter;
 
   phmap::flat_hash_map<IdType, IdType> _o2n_table;
   Bucket1 *_n2o_table;

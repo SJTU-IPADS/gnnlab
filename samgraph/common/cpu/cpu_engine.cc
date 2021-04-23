@@ -13,12 +13,12 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-CpuEngine::CpuEngine() {
+CPUEngine::CPUEngine() {
   _initialize = false;
   _should_shutdown = false;
 }
 
-void CpuEngine::Init() {
+void CPUEngine::Init() {
   if (_initialize) {
     return;
   }
@@ -41,11 +41,11 @@ void CpuEngine::Init() {
 
   _extractor = new Extractor();
   _permutator =
-      new CpuPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
+      new CPUPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _permutator->NumStep();
   _graph_pool = new GraphPool(Config::kPipelineThreshold);
 
-  switch (RunConfig::cpu_hash_table_type) {
+  switch (RunConfig::cpu_hashtable_type) {
     case kSimple:
       _hash_table = new SimpleHashTable(_dataset->num_node);
       break;
@@ -62,10 +62,10 @@ void CpuEngine::Init() {
   _initialize = true;
 }
 
-void CpuEngine::Start() {
+void CPUEngine::Start() {
   std::vector<LoopFunction> func;
 
-  // func.push_back(CpuSampleLoop);
+  // func.push_back(CPUSampleLoop);
 
   // Start background threads
   for (size_t i = 0; i < func.size(); i++) {
@@ -74,7 +74,7 @@ void CpuEngine::Start() {
   LOG(DEBUG) << "Started " << func.size() << " background threads.";
 }
 
-void CpuEngine::Shutdown() {
+void CPUEngine::Shutdown() {
   if (_should_shutdown) {
     return;
   }
@@ -124,7 +124,9 @@ void CpuEngine::Shutdown() {
   _should_shutdown = false;
 }
 
-void CpuEngine::RunSampleOnce() { RunCpuSampleLoopOnce(); }
+void CPUEngine::RunSampleOnce() { RunCPUSampleLoopOnce(); }
+
+void CPUEngine::Report(uint64_t epoch, uint64_t step) {}
 
 }  // namespace cpu
 }  // namespace common

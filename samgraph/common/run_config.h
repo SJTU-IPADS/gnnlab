@@ -5,15 +5,10 @@
 #include <vector>
 
 #include "common.h"
+#include "cpu/cpu_hashtable.h"
 
 namespace samgraph {
 namespace common {
-
-enum CpuHashTableType {
-  kSimple = 0,
-  kParallel,
-  kOptimized,
-};
 
 struct RunConfig {
   static std::string dataset_path;
@@ -22,7 +17,8 @@ struct RunConfig {
   static size_t num_epoch;
   static Context sampler_ctx;
   static Context trainer_ctx;
-  static CpuHashTableType cpu_hash_table_type;
+
+  static cpu::HashTableType cpu_hashtable_type;
 };
 
 }  // namespace common

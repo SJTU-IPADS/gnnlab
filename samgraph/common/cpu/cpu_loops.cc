@@ -22,12 +22,12 @@ namespace cpu {
 using TaskPtr = std::shared_ptr<Task>;
 
 TaskPtr DoPermuate() {
-  auto p = CpuEngine::Get()->GetPermutator();
+  auto p = CPUEngine::Get()->GetPermutator();
   auto batch = p->GetBatch();
 
   if (batch) {
     auto task = std::make_shared<Task>();
-    task->key = CpuEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
+    task->key = CPUEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
     task->output_nodes = batch;
     return task;
   } else {
@@ -35,15 +35,15 @@ TaskPtr DoPermuate() {
   }
 }
 
-void DoCpuSample(TaskPtr task) {
-  auto fanouts = CpuEngine::Get()->GetFanout();
+void DoCPUSample(TaskPtr task) {
+  auto fanouts = CPUEngine::Get()->GetFanout();
   auto num_layers = fanouts.size();
   auto last_layer_idx = num_layers - 1;
 
-  auto dataset = CpuEngine::Get()->GetGraphDataset();
+  auto dataset = CPUEngine::Get()->GetGraphDataset();
   auto cpu_device = Device::Get(CPU());
 
-  auto hash_table = CpuEngine::Get()->GetHashTable();
+  auto hash_table = CPUEngine::Get()->GetHashTable();
   hash_table->Reset();
 
   size_t num_train_node = task->output_nodes->Shape()[0];
@@ -62,22 +62,22 @@ void DoCpuSample(TaskPtr task) {
     const int fanout = fanouts[i];
     const IdType *input = static_cast<const IdType *>(cur_input->Data());
     const size_t num_input = cur_input->Shape()[0];
-    LOG(DEBUG) << "CpuSample: begin sample layer " << i;
+    LOG(DEBUG) << "CPUSample: begin sample layer " << i;
 
     IdType *out_src = static_cast<IdType *>(
         cpu_device->AllocWorkspace(CPU(), num_input * fanout * sizeof(IdType)));
     IdType *out_dst = static_cast<IdType *>(
         cpu_device->AllocWorkspace(CPU(), num_input * fanout * sizeof(IdType)));
     size_t num_out;
-    LOG(DEBUG) << "CpuSample: cpu out_src malloc "
+    LOG(DEBUG) << "CPUSample: cpu out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "CpuSample: cpu out_src malloc "
+    LOG(DEBUG) << "CPUSample: cpu out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
 
     // Sample a compact coo graph
-    CpuSample(indptr, indices, input, num_input, out_src, out_dst, &num_out,
+    CPUSample(indptr, indices, input, num_input, out_src, out_dst, &num_out,
               fanout);
-    LOG(DEBUG) << "CpuSample: num_out " << num_out;
+    LOG(DEBUG) << "CPUSample: num_out " << num_out;
     Profiler::Get()->num_samples[task->key] += num_out;
     double ns_time = t0.Passed();
 
@@ -91,7 +91,7 @@ void DoCpuSample(TaskPtr task) {
 
     Timer t3;
     size_t num_unique = hash_table->NumItems();
-    LOG(DEBUG) << "CpuSample: num_unique " << num_unique;
+    LOG(DEBUG) << "CPUSample: num_unique " << num_unique;
     IdType *unique = static_cast<IdType *>(
         cpu_device->AllocWorkspace(CPU(), num_unique * sizeof(IdType)));
     hash_table->MapNodes(unique, num_unique);
@@ -104,9 +104,9 @@ void DoCpuSample(TaskPtr task) {
         cpu_device->AllocWorkspace(CPU(), num_out * sizeof(IdType)));
     IdType *new_dst = static_cast<IdType *>(
         cpu_device->AllocWorkspace(CPU(), num_out * sizeof(IdType)));
-    LOG(DEBUG) << "CpuSample: cpu new_src malloc "
+    LOG(DEBUG) << "CPUSample: cpu new_src malloc "
                << ToReadableSize(num_out * sizeof(IdType));
-    LOG(DEBUG) << "CpuSample: cpu new_src malloc "
+    LOG(DEBUG) << "CPUSample: cpu new_src malloc "
                << ToReadableSize(num_out * sizeof(IdType));
     hash_table->MapEdges(out_src, out_dst, num_out, new_src, new_dst);
 
@@ -144,14 +144,14 @@ void DoCpuSample(TaskPtr task) {
 
     LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap " << remap_time;
 
-    LOG(DEBUG) << "CpuSample: finish layer " << i;
+    LOG(DEBUG) << "CPUSample: finish layer " << i;
   }
 
   task->input_nodes = cur_input;
 }
 
 void DoFeatureExtract(TaskPtr task) {
-  auto dataset = CpuEngine::Get()->GetGraphDataset();
+  auto dataset = CPUEngine::Get()->GetGraphDataset();
 
   auto input_nodes = task->input_nodes;
   auto output_nodes = task->output_nodes;
@@ -171,7 +171,7 @@ void DoFeatureExtract(TaskPtr task) {
       Tensor::Empty(label_type, {num_ouput}, CPU(),
                     "task.output_label_cpu" + std::to_string(task->key));
 
-  auto extractor = CpuEngine::Get()->GetExtractor();
+  auto extractor = CPUEngine::Get()->GetExtractor();
 
   auto feat_dst = feat->MutableData();
   auto feat_src = dataset->feat->Data();
@@ -188,9 +188,9 @@ void DoFeatureExtract(TaskPtr task) {
 }
 
 void DoGraphCopy(TaskPtr task) {
-  auto trainer_ctx = CpuEngine::Get()->GetTrainerCtx();
+  auto trainer_ctx = CPUEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
-  auto work_stream = CpuEngine::Get()->GetWorkStream();
+  auto work_stream = CPUEngine::Get()->GetWorkStream();
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
@@ -221,9 +221,9 @@ void DoGraphCopy(TaskPtr task) {
 }
 
 void DoFeatureCopy(TaskPtr task) {
-  auto trainer_ctx = CpuEngine::Get()->GetTrainerCtx();
+  auto trainer_ctx = CPUEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
-  auto work_stream = CpuEngine::Get()->GetWorkStream();
+  auto work_stream = CPUEngine::Get()->GetWorkStream();
 
   auto feat = task->input_feat;
   auto label = task->output_label;
@@ -248,8 +248,8 @@ void DoFeatureCopy(TaskPtr task) {
   task->output_label = train_label;
 }
 
-bool RunCpuSampleLoopOnce() {
-  auto graph_pool = CpuEngine::Get()->GetGraphPool();
+bool RunCPUSampleLoopOnce() {
+  auto graph_pool = CPUEngine::Get()->GetGraphPool();
   if (graph_pool->ExceedThreshold()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
@@ -258,7 +258,7 @@ bool RunCpuSampleLoopOnce() {
   Timer t0;
   auto task = DoPermuate();
   if (task) {
-    DoCpuSample(task);
+    DoCPUSample(task);
     DoFeatureExtract(task);
     DoGraphCopy(task);
     DoFeatureCopy(task);
@@ -268,7 +268,7 @@ bool RunCpuSampleLoopOnce() {
     double sam_time = t0.Passed();
     Profiler::Get()->sample_time[task->key] += sam_time;
 
-    LOG(DEBUG) << "CpuSampleLoop: process task with key " << task->key;
+    LOG(DEBUG) << "CPUSampleLoop: process task with key " << task->key;
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
@@ -276,10 +276,10 @@ bool RunCpuSampleLoopOnce() {
   return true;
 }
 
-void CpuSampleLoop() {
-  while (RunCpuSampleLoopOnce() && !CpuEngine::Get()->ShouldShutdown()) {
+void CPUSampleLoop() {
+  while (RunCPUSampleLoopOnce() && !CPUEngine::Get()->ShouldShutdown()) {
   }
-  CpuEngine::Get()->ReportThreadFinish();
+  CPUEngine::Get()->ReportThreadFinish();
 }
 
 }  // namespace cpu

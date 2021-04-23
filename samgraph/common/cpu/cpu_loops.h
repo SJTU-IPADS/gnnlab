@@ -5,8 +5,8 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-bool RunCpuSampleLoopOnce();
-void CpuSampleLoop();
+bool RunCPUSampleLoopOnce();
+void CPUSampleLoop();
 
 }  // namespace cpu
 }  // namespace common

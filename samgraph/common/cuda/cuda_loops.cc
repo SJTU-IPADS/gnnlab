@@ -23,12 +23,12 @@ namespace cuda {
 using TaskPtr = std::shared_ptr<Task>;
 
 TaskPtr DoPermutate() {
-  auto p = GpuEngine::Get()->GetPermutator();
+  auto p = GPUEngine::Get()->GetPermutator();
   auto batch = p->GetBatch();
 
   if (batch) {
     auto task = std::make_shared<Task>();
-    task->key = GpuEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
+    task->key = GPUEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
     task->output_nodes = batch;
     LOG(DEBUG) << "DoPermutate: process task with key " << task->key;
     return task;
@@ -37,17 +37,17 @@ TaskPtr DoPermutate() {
   }
 }
 
-void DoGpuSample(TaskPtr task) {
-  auto fanouts = GpuEngine::Get()->GetFanout();
+void DoGPUSample(TaskPtr task) {
+  auto fanouts = GPUEngine::Get()->GetFanout();
   auto num_layers = fanouts.size();
   auto last_layer_idx = num_layers - 1;
 
-  auto dataset = GpuEngine::Get()->GetGraphDataset();
-  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
+  auto dataset = GPUEngine::Get()->GetGraphDataset();
+  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-  auto sample_stream = GpuEngine::Get()->GetSampleStream();
+  auto sample_stream = GPUEngine::Get()->GetSampleStream();
 
-  OrderedHashTable *hash_table = GpuEngine::Get()->GetHashtable();
+  OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
   hash_table->Reset(sample_stream);
 
   auto output_nodes = task->output_nodes;
@@ -67,7 +67,7 @@ void DoGpuSample(TaskPtr task) {
     const int fanout = fanouts[i];
     const IdType *input = static_cast<const IdType *>(cur_input->Data());
     const size_t num_input = cur_input->Shape()[0];
-    LOG(DEBUG) << "DoGpuSample: begin sample layer " << i;
+    LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
 
     IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_input * fanout * sizeof(IdType)));
@@ -77,23 +77,23 @@ void DoGpuSample(TaskPtr task) {
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
     size_t num_samples;
 
-    LOG(DEBUG) << "DoGpuSample: size of out_src " << num_input * fanout;
-    LOG(DEBUG) << "DoGpuSample: cuda out_src malloc "
+    LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
+    LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGpuSample: cuda out_dst malloc "
+    LOG(DEBUG) << "DoGPUSample: cuda out_dst malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGpuSample: cuda num_out malloc "
+    LOG(DEBUG) << "DoGPUSample: cuda num_out malloc "
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
-    GpuSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+    GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
               num_out, sampler_ctx, sample_stream, task->key);
     // Get nnz
     sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),
                                    sampler_ctx, CPU(), sample_stream);
     sampler_device->StreamSync(sampler_ctx, sample_stream);
 
-    LOG(DEBUG) << "DoGpuSample: "
+    LOG(DEBUG) << "DoGPUSample: "
                << "layer " << i << " number of samples " << num_samples;
 
     double ns_time = t0.Passed();
@@ -106,7 +106,7 @@ void DoGpuSample(TaskPtr task) {
         sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
     size_t num_unique;
 
-    LOG(DEBUG) << "GpuSample: cuda unique malloc "
+    LOG(DEBUG) << "GPUSample: cuda unique malloc "
                << ToReadableSize((num_samples + +hash_table->NumItems()) *
                                  sizeof(IdType));
 
@@ -123,10 +123,10 @@ void DoGpuSample(TaskPtr task) {
     IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_samples * sizeof(IdType)));
 
-    LOG(DEBUG) << "GpuSample: size of new_src " << num_samples;
-    LOG(DEBUG) << "GpuSample: cuda new_src malloc "
+    LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
+    LOG(DEBUG) << "GPUSample: cuda new_src malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
-    LOG(DEBUG) << "GpuSample: cuda new_dst malloc "
+    LOG(DEBUG) << "GPUSample: cuda new_dst malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
 
     MapEdges(out_src, new_src, out_dst, new_dst, num_samples,
@@ -168,7 +168,7 @@ void DoGpuSample(TaskPtr task) {
         (void *)unique, DataType::kI32, {num_unique}, sampler_ctx,
         "cur_input_unique_cuda_" + std::to_string(task->key) + "_" +
             std::to_string(i));
-    LOG(DEBUG) << "GpuSample: finish layer " << i;
+    LOG(DEBUG) << "GPUSample: finish layer " << i;
   }
 
   task->input_nodes = cur_input;
@@ -177,10 +177,10 @@ void DoGpuSample(TaskPtr task) {
 }
 
 void DoGraphCopy(TaskPtr task) {
-  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
-  auto trainer_ctx = GpuEngine::Get()->GetTrainerCtx();
+  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
+  auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-  auto copy_stream = GpuEngine::Get()->GetCopyStream();
+  auto copy_stream = GPUEngine::Get()->GetCopyStream();
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
@@ -216,9 +216,9 @@ void DoGraphCopy(TaskPtr task) {
 }
 
 void DoIdCopy(TaskPtr task) {
-  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
+  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-  auto copy_stream = GpuEngine::Get()->GetCopyStream();
+  auto copy_stream = GPUEngine::Get()->GetCopyStream();
 
   auto input_nodes =
       Tensor::Empty(task->input_nodes->Type(), task->input_nodes->Shape(),
@@ -249,7 +249,7 @@ void DoIdCopy(TaskPtr task) {
 }
 
 void DoFeatureExtract(TaskPtr task) {
-  auto dataset = GpuEngine::Get()->GetGraphDataset();
+  auto dataset = GPUEngine::Get()->GetGraphDataset();
 
   auto input_nodes = task->input_nodes;
   auto output_nodes = task->output_nodes;
@@ -273,7 +273,7 @@ void DoFeatureExtract(TaskPtr task) {
       Tensor::Empty(label_type, {num_ouput}, CPU(),
                     "task.output_label_cpu" + std::to_string(task->key));
 
-  auto extractor = GpuEngine::Get()->GetExtractor();
+  auto extractor = GPUEngine::Get()->GetExtractor();
 
   auto feat_dst = task->input_feat->MutableData();
   auto feat_src = dataset->feat->Data();
@@ -289,10 +289,10 @@ void DoFeatureExtract(TaskPtr task) {
 }
 
 void DoFeatureCopy(TaskPtr task) {
-  auto sampler_ctx = GpuEngine::Get()->GetSamplerCtx();
+  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-  auto trainer_ctx = GpuEngine::Get()->GetTrainerCtx();
-  auto copy_stream = GpuEngine::Get()->GetCopyStream();
+  auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();
+  auto copy_stream = GPUEngine::Get()->GetCopyStream();
 
   auto cpu_feat = task->input_feat;
   auto cpu_label = task->output_label;
@@ -317,9 +317,9 @@ void DoFeatureCopy(TaskPtr task) {
   LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
 }
 
-bool RunGpuSampleLoopOnce() {
+bool RunGPUSampleLoopOnce() {
   auto next_op = kDataCopy;
-  auto next_q = GpuEngine::Get()->GetTaskQueue(next_op);
+  auto next_q = GPUEngine::Get()->GetTaskQueue(next_op);
   if (next_q->ExceedThreshold()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
@@ -331,7 +331,7 @@ bool RunGpuSampleLoopOnce() {
     double shuffle_time = t0.Passed();
 
     Timer t1;
-    DoGpuSample(task);
+    DoGPUSample(task);
     double sample_time = t1.Passed();
 
     next_q->AddTask(task);
@@ -347,14 +347,14 @@ bool RunGpuSampleLoopOnce() {
 }
 
 bool RunDataCopyLoopOnce() {
-  auto graph_pool = GpuEngine::Get()->GetGraphPool();
+  auto graph_pool = GPUEngine::Get()->GetGraphPool();
   if (graph_pool->ExceedThreshold()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
   }
 
   auto this_op = kDataCopy;
-  auto q = GpuEngine::Get()->GetTaskQueue(this_op);
+  auto q = GPUEngine::Get()->GetTaskQueue(this_op);
   auto task = q->GetTask();
 
   if (task) {
@@ -391,16 +391,16 @@ bool RunDataCopyLoopOnce() {
   return true;
 }
 
-void GpuSampleLoop() {
-  while (RunGpuSampleLoopOnce() && !GpuEngine::Get()->ShouldShutdown()) {
+void GPUSampleLoop() {
+  while (RunGPUSampleLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
   }
-  GpuEngine::Get()->ReportThreadFinish();
+  GPUEngine::Get()->ReportThreadFinish();
 }
 
 void DataCopyLoop() {
-  while (RunDataCopyLoopOnce() && !GpuEngine::Get()->ShouldShutdown()) {
+  while (RunDataCopyLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
   }
-  GpuEngine::Get()->ReportThreadFinish();
+  GPUEngine::Get()->ReportThreadFinish();
 }
 
 }  // namespace cuda

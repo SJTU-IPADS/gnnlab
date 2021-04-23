@@ -9,7 +9,7 @@ size_t RunConfig::batch_size;
 size_t RunConfig::num_epoch;
 Context RunConfig::sampler_ctx;
 Context RunConfig::trainer_ctx;
-CpuHashTableType RunConfig::cpu_hash_table_type;
+cpu::HashTableType RunConfig::cpu_hashtable_type;
 
 }  // namespace common
 }  // namespace samgraph

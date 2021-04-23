@@ -10,11 +10,11 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-void GpuDevice::SetDevice(Context ctx) {
+void GPUDevice::SetDevice(Context ctx) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
 }
 
-void *GpuDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
+void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   void *ret;
   CHECK_EQ(256 % alignment, 0U);
   CUDA_CALL(cudaSetDevice(ctx.device_id));
@@ -22,12 +22,12 @@ void *GpuDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   return ret;
 }
 
-void GpuDevice::FreeDataSpace(Context ctx, void *ptr) {
+void GPUDevice::FreeDataSpace(Context ctx, void *ptr) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   CUDA_CALL(cudaFree(ptr));
 }
 
-void GpuDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
+void GPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
                                size_t to_offset, size_t nbytes,
                                Context ctx_from, Context ctx_to,
                                StreamHandle stream) {
@@ -37,41 +37,41 @@ void GpuDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
   if (ctx_from.device_type == kGPU && ctx_to.device_type == kGPU) {
     CUDA_CALL(cudaSetDevice(ctx_from.device_id));
     if (ctx_from.device_id == ctx_to.device_id) {
-      GpuCopy(from, to, nbytes, cudaMemcpyDeviceToDevice, cu_stream);
+      GPUCopy(from, to, nbytes, cudaMemcpyDeviceToDevice, cu_stream);
     } else {
-      GpuCopyPeer(from, ctx_from.device_id, to, ctx_to.device_id, nbytes,
+      GPUCopyPeer(from, ctx_from.device_id, to, ctx_to.device_id, nbytes,
                   cu_stream);
     }
   } else if (ctx_from.device_type == kGPU && ctx_to.device_type == kCPU) {
     CUDA_CALL(cudaSetDevice(ctx_from.device_id));
-    GpuCopy(from, to, nbytes, cudaMemcpyDeviceToHost, cu_stream);
+    GPUCopy(from, to, nbytes, cudaMemcpyDeviceToHost, cu_stream);
   } else if (ctx_from.device_type == kCPU && ctx_to.device_type == kGPU) {
     CUDA_CALL(cudaSetDevice(ctx_to.device_id));
-    GpuCopy(from, to, nbytes, cudaMemcpyHostToDevice, cu_stream);
+    GPUCopy(from, to, nbytes, cudaMemcpyHostToDevice, cu_stream);
   } else {
     LOG(FATAL) << "expect copy from/to GPU or between GPU";
   }
 }
 
-const std::shared_ptr<GpuDevice> &GpuDevice::Global() {
-  static std::shared_ptr<GpuDevice> inst = std::make_shared<GpuDevice>();
+const std::shared_ptr<GPUDevice> &GPUDevice::Global() {
+  static std::shared_ptr<GPUDevice> inst = std::make_shared<GPUDevice>();
   return inst;
 }
 
-StreamHandle GpuDevice::CreateStream(Context ctx) {
+StreamHandle GPUDevice::CreateStream(Context ctx) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   cudaStream_t retval;
   CUDA_CALL(cudaStreamCreateWithFlags(&retval, cudaStreamNonBlocking));
   return static_cast<StreamHandle>(retval);
 }
 
-void GpuDevice::FreeStream(Context ctx, StreamHandle stream) {
+void GPUDevice::FreeStream(Context ctx, StreamHandle stream) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   cudaStream_t cu_stream = static_cast<cudaStream_t>(stream);
   CUDA_CALL(cudaStreamDestroy(cu_stream));
 }
 
-void GpuDevice::SyncStreamFromTo(Context ctx, StreamHandle event_src,
+void GPUDevice::SyncStreamFromTo(Context ctx, StreamHandle event_src,
                                  StreamHandle event_dst) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   cudaStream_t src_stream = static_cast<cudaStream_t>(event_src);
@@ -83,14 +83,14 @@ void GpuDevice::SyncStreamFromTo(Context ctx, StreamHandle event_src,
   CUDA_CALL(cudaEventDestroy(evt));
 }
 
-void GpuDevice::StreamSync(Context ctx, StreamHandle stream) {
+void GPUDevice::StreamSync(Context ctx, StreamHandle stream) {
   if (stream != 0) {
     CUDA_CALL(cudaSetDevice(ctx.device_id));
     CUDA_CALL(cudaStreamSynchronize(static_cast<cudaStream_t>(stream)));
   }
 }
 
-void GpuDevice::GpuCopy(const void *from, void *to, size_t nbytes,
+void GPUDevice::GPUCopy(const void *from, void *to, size_t nbytes,
                         cudaMemcpyKind kind, cudaStream_t stream) {
   if (stream != 0) {
     CUDA_CALL(cudaMemcpyAsync(to, from, nbytes, kind, stream));
@@ -99,7 +99,7 @@ void GpuDevice::GpuCopy(const void *from, void *to, size_t nbytes,
   }
 }
 
-void GpuDevice::GpuCopyPeer(const void *from, int from_device, void *to,
+void GPUDevice::GPUCopyPeer(const void *from, int from_device, void *to,
                             int to_device, size_t nbytes, cudaStream_t stream) {
   if (stream != 0) {
     cudaMemcpyPeerAsync(to, from_device, from, to_device, nbytes, stream);
@@ -108,18 +108,18 @@ void GpuDevice::GpuCopyPeer(const void *from, int from_device, void *to,
   }
 }
 
-std::shared_ptr<WorkspacePool> &GpuWorkspacePool() {
+std::shared_ptr<WorkspacePool> &GPUWorkspacePool() {
   static std::shared_ptr<WorkspacePool> inst =
-      std::make_shared<WorkspacePool>(kCPU, GpuDevice::Global());
+      std::make_shared<WorkspacePool>(kCPU, GPUDevice::Global());
   return inst;
 }
 
-void *GpuDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
-  return GpuWorkspacePool()->AllocWorkspace(ctx, nbytes, scale);
+void *GPUDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
+  return GPUWorkspacePool()->AllocWorkspace(ctx, nbytes, scale);
 }
 
-void GpuDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
-  GpuWorkspacePool()->FreeWorkspace(ctx, data);
+void GPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
+  GPUWorkspacePool()->FreeWorkspace(ctx, data);
 }
 
 }  // namespace cuda

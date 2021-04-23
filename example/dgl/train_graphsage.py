@@ -63,13 +63,17 @@ def run():
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.003)
+    num_epoch = 20
 
-    sample_times = []
-    copy_times  = []
-    train_times = []
-    total_times = []
-    num_samples = []
-    for epoch in range(2):
+    model.train()
+
+    for epoch in range(num_epoch):
+        sample_times = []
+        copy_times = []
+        train_times = []
+        total_times = []
+        num_samples = []
+
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
             t1 = time.time()

@@ -28,11 +28,11 @@ void Engine::Create() {
   switch (RunConfig::sampler_ctx.device_type) {
     case kCPU:
       LOG(INFO) << "Use CPU Engine";
-      _engine = new cpu::CpuEngine;
+      _engine = new cpu::CPUEngine;
       break;
     case kGPU:
       LOG(INFO) << "Use GPU Engine";
-      _engine = new cuda::GpuEngine;
+      _engine = new cuda::GPUEngine;
       break;
     default:
       CHECK(0);

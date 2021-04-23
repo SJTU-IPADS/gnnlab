@@ -16,12 +16,12 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-GpuEngine::GpuEngine() {
+GPUEngine::GPUEngine() {
   _initialize = false;
   _should_shutdown = false;
 }
 
-void GpuEngine::Init() {
+void GPUEngine::Init() {
   if (_initialize) {
     return;
   }
@@ -66,10 +66,10 @@ void GpuEngine::Init() {
   _initialize = true;
 }
 
-void GpuEngine::Start() {
+void GPUEngine::Start() {
   std::vector<LoopFunction> func;
 
-  func.push_back(GpuSampleLoop);
+  func.push_back(GPUSampleLoop);
   func.push_back(DataCopyLoop);
 
   // Start background threads
@@ -79,7 +79,7 @@ void GpuEngine::Start() {
   LOG(DEBUG) << "Started " << func.size() << " background threads.";
 }
 
-void GpuEngine::Shutdown() {
+void GPUEngine::Shutdown() {
   if (_should_shutdown) {
     return;
   }
@@ -129,10 +129,12 @@ void GpuEngine::Shutdown() {
   _should_shutdown = false;
 }
 
-void GpuEngine::RunSampleOnce() {
-  RunGpuSampleLoopOnce();
+void GPUEngine::RunSampleOnce() {
+  RunGPUSampleLoopOnce();
   RunDataCopyLoopOnce();
 }
+
+void GPUEngine::Report(uint64_t epoch, uint64_t step) {}
 
 }  // namespace cuda
 }  // namespace common

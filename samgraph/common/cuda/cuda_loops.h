@@ -5,10 +5,10 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-void GpuSampleLoop();
+void GPUSampleLoop();
 void DataCopyLoop();
 
-bool RunGpuSampleLoopOnce();
+bool RunGPUSampleLoopOnce();
 bool RunDataCopyLoopOnce();
 
 }  // namespace cuda

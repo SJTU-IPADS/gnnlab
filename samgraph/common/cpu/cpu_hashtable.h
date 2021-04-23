@@ -7,6 +7,8 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
+enum HashTableType { kSimple = 0, kParallel, kOptimized };
+
 class HashTable {
  public:
   virtual ~HashTable() {}

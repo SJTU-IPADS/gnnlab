@@ -9,7 +9,7 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-class GpuDevice final : public Device {
+class GPUDevice final : public Device {
  public:
   void SetDevice(Context ctx) override;
   void *AllocDataSpace(Context ctx, size_t nbytes,
@@ -28,12 +28,12 @@ class GpuDevice final : public Device {
   void SyncStreamFromTo(Context ctx, StreamHandle event_src,
                         StreamHandle event_dst) override;
 
-  static const std::shared_ptr<GpuDevice> &Global();
+  static const std::shared_ptr<GPUDevice> &Global();
 
  private:
-  static void GpuCopy(const void *from, void *to, size_t nbytes,
+  static void GPUCopy(const void *from, void *to, size_t nbytes,
                       cudaMemcpyKind kind, cudaStream_t stream);
-  static void GpuCopyPeer(const void *from, int from_device, void *to,
+  static void GPUCopyPeer(const void *from, int from_device, void *to,
                           int to_device, size_t nbytes, cudaStream_t stream);
 };
 

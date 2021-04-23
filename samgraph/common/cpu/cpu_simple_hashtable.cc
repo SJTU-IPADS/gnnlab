@@ -7,7 +7,7 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-SimpleHashTable::SimpleHashTable(size_t sz) : _filter(kFilterSize, false) {
+SimpleHashTable::SimpleHashTable(size_t sz) {
   _n2o_table = static_cast<Bucket1 *>(
       Device::Get(CPU())->AllocDataSpace(CPU(), sz * sizeof(Bucket1)));
   _num_items = 0;
@@ -24,7 +24,6 @@ void SimpleHashTable::Populate(const IdType *input, const size_t num_input) {
     auto res = _o2n_table.insert({oid, nid});
     if (res.second) {
       _n2o_table[nid].global = oid;
-      _filter[nid & kFilterMask] = true;
       _num_items++;
     }
   }

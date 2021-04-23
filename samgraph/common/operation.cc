@@ -29,8 +29,8 @@ void samgraph_config(const char *path, int sampler_type, int sampler_device,
       Context{static_cast<DeviceType>(sampler_type), sampler_device};
   RunConfig::trainer_ctx =
       Context{static_cast<DeviceType>(trainer_type), trainer_device};
-  RunConfig::cpu_hash_table_type =
-      static_cast<CpuHashTableType>(cpu_hashtable_type);
+  RunConfig::cpu_hashtable_type =
+      static_cast<cpu::HashTableType>(cpu_hashtable_type);
 }
 
 void samgraph_init() {
@@ -109,9 +109,11 @@ void samgraph_shutdown() {
   return;
 }
 
-void samgraph_profiler_report(uint64_t epoch, uint64_t step) {
-  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
-  Profiler::Get()->Report(key);
+void samgraph_report(uint64_t epoch, uint64_t step) {
+  const char *env_var_val = getenv("SAMGRAPH_PRINT_PROFILE");
+  if (env_var_val != nullptr && std::string(env_var_val) != "0") {
+    Engine::Get()->Report(epoch, step);
+  }
 }
 }
 }  // namespace common

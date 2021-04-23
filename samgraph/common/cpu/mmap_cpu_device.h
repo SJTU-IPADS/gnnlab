@@ -7,7 +7,7 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-class MmapCpuDevice final : public Device {
+class MmapCPUDevice final : public Device {
  public:
   void SetDevice(Context ctx) override;
   void *AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) override;
@@ -21,7 +21,7 @@ class MmapCpuDevice final : public Device {
 
   void StreamSync(Context ctx, StreamHandle stream) override;
 
-  static const std::shared_ptr<MmapCpuDevice> &Global();
+  static const std::shared_ptr<MmapCPUDevice> &Global();
 };
 
 }  // namespace cpu
