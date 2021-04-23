@@ -39,33 +39,38 @@ class SAGE(nn.Module):
         return h
 
 
-def get_config(index):
-    if index == 'cpu':
-        return {
-            'sample': sam.cpu(),
-            'train': sam.gpu(0)
-        }
+def get_run_config(args):
+    run_config = {}
+    run_config['type'] = 'cpu'
+    run_config['cpu_hashtable_type'] = 0
+    run_config['pipeline'] = False
+
+    if run_config['type'] == 'cpu':
+        run_config['sampler_ctx'] = sam.cpu()
+        run_config['trainer_ctx'] = sam.gpu(0)
     else:
-        return {
-            'sample': sam.gpu(1),
-            'train': sam.gpu(0)
-        }
+        run_config['sampler_ctx'] = sam.gpu(1)
+        run_config['trainer_ctx'] = sam.gpu(0)
+
+    run_config['dataset_path'] = args.dataset_path
+    run_config['fanout'] = args.fanout
+    run_config['num_fanout'] = run_config['num_layer'] = len(args.fanout)
+    run_config['num_epoch'] = args.num_epoch
+    run_config['batch_size'] = args.batch_size
+
+    return run_config
 
 
 def run(args):
-    run_config = get_config(args.run_config)
+    run_config = get_run_config(args)
 
-    fanout_list = [int(fanout) for fanout in args.fan_out.split(',')]
+    sam.config(run_config)
+    sam.init()
 
-    sam.init(args.dataset_path, run_config['sample'].device_type, run_config['sample'].device_id,
-             run_config['train'].device_type, run_config['train'].device_id,
-             args.batch_size, fanout_list, args.num_epoch)
-
-    train_device = th.device('cuda:%d' % run_config['train'].device_id)
-
+    train_device = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
-    num_layer = len(fanout_list)
+    num_layer = run_config['num_layer']
 
     model = SAGE(in_feat, args.num_hidden, num_class,
                  num_layer, F.relu, args.dropout)
@@ -78,14 +83,16 @@ def run(args):
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
 
-    # sam.start()
+    if run_config['pipeline']:
+        sam.start()
 
     model.train()
     for epoch in range(num_epoch):
 
         for step in range(num_step):
             t0 = time.time()
-            sam.sample()
+            if not run_config['pipeline']:
+                sam.sample()
             batch_key = sam.get_next_batch(epoch, step)
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
@@ -109,12 +116,12 @@ def run(args):
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument('--run-config', type=str, default='cpu')
     argparser.add_argument('--dataset-path', type=str,
                            default='/graph-learning/samgraph/papers100M')
     argparser.add_argument('--num-epoch', type=int, default=20)
     argparser.add_argument('--num-hidden', type=int, default=256)
-    argparser.add_argument('--fan-out', type=str, default='15,10,5')
+    argparser.add_argument('--fanout', nargs='+',
+                           type=int, default=[15, 10, 5])
     argparser.add_argument('--batch-size', type=int, default=8192)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)

@@ -9,9 +9,12 @@ namespace common {
 
 extern "C" {
 
-void samgraph_init(const char *path, int sample_device_type, int sample_device,
-                   int train_device_type, int train_device, size_t batch_size,
-                   int *fanout, size_t num_fanout, size_t num_epoch);
+void samgraph_config(const char *path, int sampler_type, int sampler_device,
+                     int trainer_type, int trainer_device, size_t batch_size,
+                     int *fanout, size_t num_fanout, size_t num_epoch,
+                     int cpu_hashtable_type);
+
+void samgraph_init();
 
 void samgraph_start();
 

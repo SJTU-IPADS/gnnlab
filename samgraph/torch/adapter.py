@@ -10,6 +10,7 @@ from samgraph.common import SamGraphBasics as _SamGraphBasics
 from samgraph.common import cpu, gpu
 _basics = _SamGraphBasics(__file__, 'c_lib')
 
+config = _basics.config
 init = _basics.init
 start = _basics.start
 num_class = _basics.num_class

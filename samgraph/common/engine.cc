@@ -12,6 +12,7 @@
 #include "cpu/cpu_engine.h"
 #include "cuda/cuda_engine.h"
 #include "logging.h"
+#include "run_config.h"
 #include "timer.h"
 
 namespace samgraph {
@@ -19,12 +20,12 @@ namespace common {
 
 Engine* Engine::_engine = nullptr;
 
-void Engine::Create(Context sampler_ctx, Context trainer_ctx) {
+void Engine::Create() {
   if (_engine) {
     return;
   }
 
-  switch (sampler_ctx.device_type) {
+  switch (RunConfig::sampler_ctx.device_type) {
     case kCPU:
       LOG(INFO) << "Use CPU Engine";
       _engine = new cpu::CpuEngine;

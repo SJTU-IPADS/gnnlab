@@ -8,6 +8,7 @@
 #include "../config.h"
 #include "../device.h"
 #include "../logging.h"
+#include "../run_config.h"
 #include "cuda_common.h"
 #include "cuda_loops.h"
 
@@ -20,19 +21,17 @@ GpuEngine::GpuEngine() {
   _should_shutdown = false;
 }
 
-void GpuEngine::Init(std::string dataset_path, Context sampler_ctx,
-                     Context trainer_ctx, size_t batch_size,
-                     std::vector<int> fanout, size_t num_epoch) {
+void GpuEngine::Init() {
   if (_initialize) {
     return;
   }
 
-  _sampler_ctx = sampler_ctx;
-  _trainer_ctx = trainer_ctx;
-  _dataset_path = dataset_path;
-  _batch_size = batch_size;
-  _fanout = fanout;
-  _num_epoch = num_epoch;
+  _sampler_ctx = RunConfig::sampler_ctx;
+  _trainer_ctx = RunConfig::trainer_ctx;
+  _dataset_path = RunConfig::dataset_path;
+  _batch_size = RunConfig::batch_size;
+  _fanout = RunConfig::fanout;
+  _num_epoch = RunConfig::num_epoch;
   _joined_thread_cnt = 0;
 
   // Load the target graph data
@@ -56,7 +55,7 @@ void GpuEngine::Init(std::string dataset_path, Context sampler_ctx,
                                                   _fanout.end(), 1ul,
                                                   std::multiplies<size_t>());
   _hashtable =
-      new OrderedHashTable(predict_node_num, sampler_ctx, _sample_stream);
+      new OrderedHashTable(predict_node_num, _sampler_ctx, _sample_stream);
 
   // Create queues
   for (int i = 0; i < QueueNum; i++) {

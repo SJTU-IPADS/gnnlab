@@ -26,9 +26,7 @@ class GpuEngine : public Engine {
  public:
   GpuEngine();
 
-  void Init(std::string dataset_path, Context sampler_ctx, Context trainer_ctx,
-            size_t batch_size, std::vector<int> fanout,
-            size_t num_epoch) override;
+  void Init() override;
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;

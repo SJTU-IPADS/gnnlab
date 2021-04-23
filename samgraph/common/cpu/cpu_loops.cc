@@ -41,10 +41,7 @@ void DoCpuSample(TaskPtr task) {
   auto last_layer_idx = num_layers - 1;
 
   auto dataset = CpuEngine::Get()->GetGraphDataset();
-  auto trainer_ctx = CpuEngine::Get()->GetTrainerCtx();
   auto cpu_device = Device::Get(CPU());
-  auto trainer_device = Device::Get(trainer_ctx);
-  auto work_stream = CpuEngine::Get()->GetWorkStream();
 
   auto hash_table = CpuEngine::Get()->GetHashTable();
   hash_table->Reset();
@@ -93,7 +90,7 @@ void DoCpuSample(TaskPtr task) {
     double populate_time = t2.Passed();
 
     Timer t3;
-    size_t num_unique = hash_table->NumItem();
+    size_t num_unique = hash_table->NumItems();
     LOG(DEBUG) << "CpuSample: num_unique " << num_unique;
     IdType *unique = static_cast<IdType *>(
         cpu_device->AllocWorkspace(CPU(), num_unique * sizeof(IdType)));

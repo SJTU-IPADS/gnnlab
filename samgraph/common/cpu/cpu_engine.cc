@@ -3,8 +3,11 @@
 #include "../config.h"
 #include "../device.h"
 #include "../logging.h"
+#include "../run_config.h"
 #include "../timer.h"
 #include "cpu_loops.h"
+#include "cpu_parallel_hashtable.h"
+#include "cpu_simple_hashtable.h"
 
 namespace samgraph {
 namespace common {
@@ -15,19 +18,17 @@ CpuEngine::CpuEngine() {
   _should_shutdown = false;
 }
 
-void CpuEngine::Init(std::string dataset_path, Context sampler_ctx,
-                     Context trainer_ctx, size_t batch_size,
-                     std::vector<int> fanout, size_t num_epoch) {
+void CpuEngine::Init() {
   if (_initialize) {
     return;
   }
 
-  _sampler_ctx = sampler_ctx;
-  _trainer_ctx = trainer_ctx;
-  _dataset_path = dataset_path;
-  _batch_size = batch_size;
-  _fanout = fanout;
-  _num_epoch = num_epoch;
+  _sampler_ctx = RunConfig::sampler_ctx;
+  _trainer_ctx = RunConfig::trainer_ctx;
+  _dataset_path = RunConfig::dataset_path;
+  _batch_size = RunConfig::batch_size;
+  _fanout = RunConfig::fanout;
+  _num_epoch = RunConfig::num_epoch;
   _joined_thread_cnt = 0;
 
   // Load the target graph data
@@ -43,7 +44,20 @@ void CpuEngine::Init(std::string dataset_path, Context sampler_ctx,
       new CpuPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _permutator->NumStep();
   _graph_pool = new GraphPool(Config::kPipelineThreshold);
-  _hash_table = new ParallelHashTable(_dataset->num_node);
+
+  switch (RunConfig::cpu_hash_table_type) {
+    case kSimple:
+      _hash_table = new SimpleHashTable(_dataset->num_node);
+      break;
+    case kParallel:
+      _hash_table = new ParallelHashTable(_dataset->num_node);
+      break;
+    case kOptimized:
+      CHECK(0);
+      break;
+    default:
+      CHECK(0);
+  }
 
   _initialize = true;
 }

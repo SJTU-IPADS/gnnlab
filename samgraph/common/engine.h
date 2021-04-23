@@ -17,9 +17,7 @@ typedef void (*LoopFunction)();
 
 class Engine {
  public:
-  virtual void Init(std::string dataset_path, Context sampler_ctx,
-                    Context trainer_ctx, size_t batch_size,
-                    std::vector<int> fanout, size_t num_epoch) = 0;
+  virtual void Init() = 0;
   virtual void Start() = 0;
   virtual void Shutdown() = 0;
   virtual void RunSampleOnce() = 0;
@@ -51,7 +49,7 @@ class Engine {
 
   void ReportThreadFinish() { _joined_thread_cnt.fetch_add(1); }
 
-  static void Create(Context sampler_ctx, Context trainer_ctx);
+  static void Create();
   static Engine* Get() { return _engine; }
 
  protected:

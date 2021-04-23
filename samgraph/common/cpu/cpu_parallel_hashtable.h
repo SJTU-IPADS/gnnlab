@@ -8,32 +8,32 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-class ParallelHashTable {
+class ParallelHashTable : public HashTable {
  public:
-  struct Bucket {
-    IdType id;
-    IdType local;
-  };
-
-  struct Mapping {
-    IdType global;
-  };
-
   ParallelHashTable(size_t sz);
   ~ParallelHashTable();
 
   void Populate(const IdType *input, const size_t num_input);
-  void MapNodes(IdType *output, size_t num_output);
+  void MapNodes(IdType *output, size_t num_output) override;
   void MapEdges(const IdType *src, const IdType *dst, const size_t len,
-                IdType *new_src, IdType *new_dst);
-  void Reset();
-  size_t NumItem() const { return _map_offset; }
+                IdType *new_src, IdType *new_dst) override;
+  void Reset() override;
+  size_t NumItems() const override { return _num_items; }
 
  private:
-  Bucket *_table;
-  Mapping *_mapping;
+  struct Bucket0 {
+    IdType id;
+    IdType local;
+  };
 
-  IdType _map_offset;
+  struct Bucket1 {
+    IdType global;
+  };
+
+  Bucket0 *_o2n_table;
+  Bucket1 *_n2o_table;
+
+  IdType _num_items;
   size_t _capacity;
 };
 

@@ -8,7 +8,7 @@
 #include "../engine.h"
 #include "../extractor.h"
 #include "../logging.h"
-#include "cpu_parallel_hashtable.h"
+#include "cpu_hashtable.h"
 #include "cpu_permutator.h"
 
 namespace samgraph {
@@ -19,9 +19,7 @@ class CpuEngine : public Engine {
  public:
   CpuEngine();
 
-  void Init(std::string dataset_path, Context sampler_ctx, Context trainer_ctx,
-            size_t batch_size, std::vector<int> fanout,
-            size_t num_epoch) override;
+  void Init() override;
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
@@ -29,7 +27,7 @@ class CpuEngine : public Engine {
   CpuPermutator* GetPermutator() { return _permutator; }
   Extractor* GetExtractor() { return _extractor; }
   cudaStream_t GetWorkStream() { return _work_stream; }
-  ParallelHashTable* GetHashTable() { return _hash_table; }
+  HashTable* GetHashTable() { return _hash_table; }
 
   static CpuEngine* Get() { return dynamic_cast<CpuEngine*>(Engine::_engine); }
 
@@ -44,7 +42,7 @@ class CpuEngine : public Engine {
   // CPU Extractor
   Extractor* _extractor;
   // Hash table
-  ParallelHashTable* _hash_table;
+  HashTable* _hash_table;
 };
 
 }  // namespace cpu

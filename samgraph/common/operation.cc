@@ -10,26 +10,32 @@
 #include "logging.h"
 #include "macros.h"
 #include "profiler.h"
+#include "run_config.h"
 
 namespace samgraph {
 namespace common {
 
 extern "C" {
 
-void samgraph_init(const char *path, int sample_device_type, int sample_device,
-                   int train_device_type, int train_device, size_t batch_size,
-                   int *fanout, size_t num_fanout, size_t num_epoch) {
-  Context sampler_ctx;
-  sampler_ctx.device_type = static_cast<DeviceType>(sample_device_type);
-  sampler_ctx.device_id = sample_device;
+void samgraph_config(const char *path, int sampler_type, int sampler_device,
+                     int trainer_type, int trainer_device, size_t batch_size,
+                     int *fanout, size_t num_fanout, size_t num_epoch,
+                     int cpu_hashtable_type) {
+  RunConfig::dataset_path = path;
+  RunConfig::fanout = std::vector<int>(fanout, fanout + num_fanout);
+  RunConfig::batch_size = batch_size;
+  RunConfig::num_epoch = num_epoch;
+  RunConfig::sampler_ctx =
+      Context{static_cast<DeviceType>(sampler_type), sampler_device};
+  RunConfig::trainer_ctx =
+      Context{static_cast<DeviceType>(trainer_type), trainer_device};
+  RunConfig::cpu_hash_table_type =
+      static_cast<CpuHashTableType>(cpu_hashtable_type);
+}
 
-  Context train_ctx;
-  train_ctx.device_type = static_cast<DeviceType>(train_device_type);
-  train_ctx.device_id = train_device;
-
-  Engine::Create(sampler_ctx, train_ctx);
-  Engine::Get()->Init(path, sampler_ctx, train_ctx, batch_size,
-                      std::vector<int>(fanout, fanout + num_fanout), num_epoch);
+void samgraph_init() {
+  Engine::Create();
+  Engine::Get()->Init();
   LOG(DEBUG) << "SamGraph has been initialied successfully";
 #if PROFILE_CUDA_KERNELS
   CUDA_CALL(cudaProfilerStart());

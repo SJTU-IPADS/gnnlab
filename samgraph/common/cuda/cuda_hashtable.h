@@ -17,54 +17,56 @@ class OrderedHashTable;
 
 class DeviceOrderedHashTable {
  public:
-  struct Bucket {
+  struct Bucket0 {
     IdType key;
     IdType local;
     IdType index;
     IdType version;
   };
 
-  struct Mapping {
-    IdType local;
+  struct Bucket1 {
+    IdType global;
   };
 
-  typedef const Bucket *ConstIterator;
+  typedef const Bucket0 *ConstIterator;
 
   DeviceOrderedHashTable(const DeviceOrderedHashTable &other) = default;
   DeviceOrderedHashTable &operator=(const DeviceOrderedHashTable &other) =
       default;
 
-  inline __device__ ConstIterator Search(const IdType id) const {
-    const IdType pos = SearchForPosition(id);
-    return &_table[pos];
+  inline __device__ ConstIterator Search0(const IdType id) const {
+    const IdType pos = SearchForPosition0(id);
+    return &_o2n_table[pos];
   }
 
  protected:
-  const Bucket *_table;
-  const Mapping *_map;
-  size_t _size;
-  size_t _map_size;
+  const Bucket0 *_o2n_table;
+  const Bucket1 *_n2o_table;
+  size_t _o2n_size;
+  size_t _n2o_size;
 
-  explicit DeviceOrderedHashTable(const Bucket *const table,
-                                  const Mapping *const mapping,
-                                  const size_t size, const size_t mapping_size);
+  explicit DeviceOrderedHashTable(const Bucket0 *const o2n_table,
+                                  const Bucket1 *const n2o_table,
+                                  const size_t o2n_size, const size_t n2o_size);
 
-  inline __device__ IdType SearchForPosition(const IdType id) const {
-    IdType pos = Hash(id);
+  inline __device__ IdType SearchForPosition0(const IdType id) const {
+    IdType pos = Hash0(id);
 
     // linearly scan for matching entry
     IdType delta = 1;
-    while (_table[pos].key != id) {
-      assert(_table[pos].key != Config::kEmptyKey);
-      pos = Hash(pos + delta);
+    while (_o2n_table[pos].key != id) {
+      assert(_o2n_table[pos].key != Config::kEmptyKey);
+      pos = Hash0(pos + delta);
       delta += 1;
     }
-    assert(pos < _size);
+    assert(pos < _o2n_size);
 
     return pos;
   }
 
-  inline __device__ IdType Hash(const IdType id) const { return id % _size; }
+  inline __device__ IdType Hash0(const IdType id) const {
+    return id % _o2n_size;
+  }
 
   friend class OrderedHashTable;
 };
@@ -73,8 +75,8 @@ class OrderedHashTable {
  public:
   static constexpr size_t kDefaultScale = 3;
 
-  using Bucket = typename DeviceOrderedHashTable::Bucket;
-  using Mapping = typename DeviceOrderedHashTable::Mapping;
+  using Bucket0 = typename DeviceOrderedHashTable::Bucket0;
+  using Bucket1 = typename DeviceOrderedHashTable::Bucket1;
 
   OrderedHashTable(const size_t size, Context ctx, StreamHandle stream,
                    const size_t scale = kDefaultScale);
@@ -94,19 +96,20 @@ class OrderedHashTable {
   void FillWithUnique(const IdType *const input, const size_t num_input,
                       StreamHandle stream);
 
-  size_t NumItems() const { return _offset; }
+  size_t NumItems() const { return _num_items; }
 
   DeviceOrderedHashTable DeviceHandle() const;
 
  private:
-  Bucket *_table;
-  Mapping *_map;
-  size_t _size;
-  size_t _map_size;
   Context _ctx;
 
+  Bucket0 *_o2n_table;
+  Bucket1 *_n2o_table;
+  size_t _o2n_size;
+  size_t _n2o_size;
+
   IdType _version;
-  IdType _offset;
+  IdType _num_items;
 };
 
 }  // namespace cuda
