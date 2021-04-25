@@ -10,7 +10,7 @@
 namespace samgraph {
 namespace common {
 
-class Config {
+class Constant {
  public:
   static const std::string kMetaFile;
   static const std::string kFeatFile;
@@ -32,24 +32,17 @@ class Config {
   static constexpr int kCudaBlockSize = 256;
   static constexpr size_t kCudaTileSize = 1024;
 
-  static constexpr size_t kPipelineThreshold = 5;
-
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
-
-  static constexpr uint8_t kEpochOffset = 48;
-  static constexpr uint8_t kBatchOffset = 16;
-  static constexpr uint64_t kBatchKeyMask = ~0xffff;
-  static constexpr uint64_t kGraphKeyMask = 0xffff;
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;
   static constexpr size_t kMegabytes = 1 * 1024 * 1024;
   static constexpr size_t kKilobytes = 1 * 1024;
 
-  static constexpr int kOmpThreadNum = 24;
-
   static constexpr size_t kAllocScale = 2;
   static constexpr size_t kAllocNoScale = 1;
+
+  static const std::string kEnvProfileLevel;
 };
 
 }  // namespace common

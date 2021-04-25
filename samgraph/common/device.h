@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "common.h"
-#include "config.h"
+#include "constant.h"
 
 namespace samgraph {
 namespace common {
@@ -23,7 +23,7 @@ class Device {
                                size_t alignment = kAllocAlignment) = 0;
   virtual void FreeDataSpace(Context ctx, void *ptr) = 0;
   virtual void *AllocWorkspace(Context ctx, size_t nbytes,
-                               size_t scale = Config::kAllocScale);
+                               size_t scale = Constant::kAllocScale);
   virtual void FreeWorkspace(Context ctx, void *ptr, size_t nbytes = 0);
   virtual void CopyDataFromTo(const void *from, size_t from_offset, void *to,
                               size_t to_offset, size_t nbytes, Context ctx_from,

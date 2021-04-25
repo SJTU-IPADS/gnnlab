@@ -8,17 +8,13 @@ namespace common {
 
 class Extractor {
  public:
-  Extractor();
-
-  int extract(void *dst, const void *src, const IdType *idx, size_t num_idx,
-              size_t dim, DataType dtype);
+  void Extract(void *dst, const void *src, const IdType *idx, size_t num_idx,
+               size_t dim, DataType dtype);
 
  private:
   template <typename T>
-  int _extract(T *dst, const T *src, const IdType *idx, size_t num_idx,
-               size_t dim);
-
-  int _num_threads;
+  void DoExtract(T *dst, const T *src, const IdType *idx, size_t num_idx,
+                 size_t dim);
 };
 
 }  // namespace common

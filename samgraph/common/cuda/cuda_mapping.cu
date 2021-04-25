@@ -1,7 +1,7 @@
 #include <cassert>
 #include <cstdio>
 
-#include "../config.h"
+#include "../constant.h"
 #include "../device.h"
 #include "cuda_function.h"
 #include "cuda_hashtable.h"
@@ -16,14 +16,14 @@ __device__ void map_node_ids(const IdType *const global,
                              const DeviceOrderedHashTable &table) {
   assert(BLOCK_SIZE == blockDim.x);
 
-  using Bucket = typename OrderedHashTable::Bucket;
+  using Bucket = typename OrderedHashTable::BukcetO2N;
 
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = min(TILE_SIZE * (blockIdx.x + 1), num_input);
 
   for (size_t idx = threadIdx.x + block_start; idx < block_end;
        idx += BLOCK_SIZE) {
-    const Bucket &bucket = *table.Search(global[idx]);
+    const Bucket &bucket = *table.SearchO2N(global[idx]);
     new_global[idx] = bucket.local;
   }
 }
@@ -50,12 +50,12 @@ void MapEdges(const IdType *const global_src, IdType *const new_global_src,
               const size_t num_edges, DeviceOrderedHashTable table, Context ctx,
               StreamHandle stream) {
   const size_t num_tiles =
-      (num_edges + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
+      (num_edges + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
   const dim3 grid(num_tiles, 2);
-  const dim3 block(Config::kCudaBlockSize);
+  const dim3 block(Constant::kCudaBlockSize);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
-  map_edge_ids<Config::kCudaBlockSize, Config::kCudaTileSize>
+  map_edge_ids<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(global_src, new_global_src, global_dst,
                                       new_global_dst, num_edges, table);
   Device::Get(ctx)->StreamSync(ctx, stream);

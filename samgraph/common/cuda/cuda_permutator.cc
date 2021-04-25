@@ -97,8 +97,8 @@ TensorPtr CudaPermutator::GetBatch(StreamHandle stream) {
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  return Tensor::CreateCopy1D(_gpu_data, offset, {size},
-                              "cuda_permutator_batch", stream);
+  return Tensor::Copy1D(_gpu_data, offset, {size}, "cuda_permutator_batch",
+                        stream);
 }
 
 }  // namespace cuda

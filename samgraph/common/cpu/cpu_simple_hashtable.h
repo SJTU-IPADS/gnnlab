@@ -22,12 +22,12 @@ class SimpleHashTable : public HashTable {
   size_t NumItems() const override { return _num_items; }
 
  private:
-  struct Bucket1 {
+  struct BucketN2O {
     IdType global;
   };
 
   phmap::flat_hash_map<IdType, IdType> _o2n_table;
-  Bucket1 *_n2o_table;
+  BucketN2O *_n2o_table;
   size_t _num_items;
 };
 

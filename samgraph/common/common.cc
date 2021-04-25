@@ -11,7 +11,7 @@
 #include <cstring>
 #include <numeric>
 
-#include "config.h"
+#include "constant.h"
 #include "device.h"
 #include "logging.h"
 
@@ -87,8 +87,8 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   switch (ctx.device_type) {
     case kCPU:
     case kGPU:
-      tensor->_data =
-          Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Config::kAllocNoScale);
+      tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes,
+                                                       Constant::kAllocNoScale);
       Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, nbytes, CPU(),
                                        ctx, stream);
       Device::Get(ctx)->StreamSync(ctx, stream);
@@ -120,9 +120,9 @@ TensorPtr Tensor::Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
   return tensor;
 }
 
-TensorPtr Tensor::CreateCopy1D(TensorPtr source, size_t item_offset,
-                               std::vector<size_t> shape, std::string name,
-                               StreamHandle stream) {
+TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
+                         std::vector<size_t> shape, std::string name,
+                         StreamHandle stream) {
   CHECK(source && source->Defined());
   CHECK_GT(shape.size(), 0);
 
@@ -173,23 +173,32 @@ TensorPtr Tensor::FromBlob(void *data, DataType dtype,
 }
 
 std::string ToReadableSize(size_t nbytes) {
-  char buf[Config::kBufferSize];
-  if (nbytes > Config::kGigabytes) {
-    double new_size = (float)nbytes / Config::kGigabytes;
+  char buf[Constant::kBufferSize];
+  if (nbytes > Constant::kGigabytes) {
+    double new_size = (float)nbytes / Constant::kGigabytes;
     sprintf(buf, "%.2lf GB", new_size);
     return std::string(buf);
-  } else if (nbytes > Config::kMegabytes) {
-    double new_size = (float)nbytes / Config::kMegabytes;
+  } else if (nbytes > Constant::kMegabytes) {
+    double new_size = (float)nbytes / Constant::kMegabytes;
     sprintf(buf, "%.2lf MB", new_size);
     return std::string(buf);
-  } else if (nbytes > Config::kKilobytes) {
-    double new_size = (float)nbytes / Config::kKilobytes;
+  } else if (nbytes > Constant::kKilobytes) {
+    double new_size = (float)nbytes / Constant::kKilobytes;
     sprintf(buf, "%.2lf KB", new_size);
     return std::string(buf);
   } else {
     double new_size = (float)nbytes;
     sprintf(buf, "%.2lf Bytes", new_size);
     return std::string(buf);
+  }
+}
+
+std::string GetEnv(std::string key) {
+  const char *env_var_val = getenv(key.c_str());
+  if (env_var_val != nullptr) {
+    return std::string(env_var_val);
+  } else {
+    return "";
   }
 }
 

@@ -16,8 +16,8 @@ class GraphPool {
   ~GraphPool();
 
   std::shared_ptr<GraphBatch> GetGraphBatch(uint64_t key);
-  void AddGraphBatch(uint64_t key, std::shared_ptr<GraphBatch> batch);
-  bool ExceedThreshold();
+  void Submit(uint64_t key, std::shared_ptr<GraphBatch> batch);
+  bool Full();
 
  private:
   bool _stop;

@@ -19,6 +19,9 @@ struct RunConfig {
   static Context trainer_ctx;
 
   static cpu::HashTableType cpu_hashtable_type;
+
+  static size_t kPipelineDepth;
+  static int kOMPThreadNum;
 };
 
 }  // namespace common

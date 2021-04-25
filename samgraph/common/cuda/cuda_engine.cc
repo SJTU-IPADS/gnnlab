@@ -5,7 +5,7 @@
 #include <numeric>
 
 #include "../common.h"
-#include "../config.h"
+#include "../constant.h"
 #include "../device.h"
 #include "../logging.h"
 #include "../run_config.h"
@@ -48,7 +48,7 @@ void GPUEngine::Init() {
   _permutator =
       new CudaPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _permutator->NumStep();
-  _graph_pool = new GraphPool(Config::kPipelineThreshold);
+  _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
   size_t predict_node_num =
       _batch_size + _batch_size * std::accumulate(_fanout.begin(),
@@ -60,7 +60,7 @@ void GPUEngine::Init() {
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
-    _queues.push_back(new TaskQueue(Config::kPipelineThreshold, nullptr));
+    _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth, nullptr));
   }
 
   _initialize = true;
@@ -134,7 +134,9 @@ void GPUEngine::RunSampleOnce() {
   RunDataCopyLoopOnce();
 }
 
-void GPUEngine::Report(uint64_t epoch, uint64_t step) {}
+void GPUEngine::Report(uint64_t epoch, uint64_t step) {
+  Engine::Report(epoch, step);
+}
 
 }  // namespace cuda
 }  // namespace common

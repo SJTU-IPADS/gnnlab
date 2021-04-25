@@ -21,7 +21,7 @@ class Engine {
   virtual void Start() = 0;
   virtual void Shutdown() = 0;
   virtual void RunSampleOnce() = 0;
-  virtual void Report(uint64_t epoch, uint64_t step) {}
+  virtual void Report(uint64_t epoch, uint64_t step);
 
   std::vector<int> GetFanout() { return _fanout; }
   size_t NumEpoch() { return _num_epoch; }

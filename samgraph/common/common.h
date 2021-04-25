@@ -12,10 +12,7 @@ namespace samgraph {
 namespace common {
 
 using IdType = unsigned int;
-using SignedIdType = int;
 
-// Keep the order consistent with DMLC/mshadow
-// https://github.com/dmlc/mshadow/blob/master/mshadow/base.h
 enum DataType {
   kF32 = 0,
   kF64 = 1,
@@ -53,9 +50,9 @@ class Tensor {
 
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
                          std::string name);
-  static TensorPtr CreateCopy1D(TensorPtr tensor, size_t item_offset,
-                                std::vector<size_t> shape, std::string name,
-                                StreamHandle stream = nullptr);
+  static TensorPtr Copy1D(TensorPtr tensor, size_t item_offset,
+                          std::vector<size_t> shape, std::string name,
+                          StreamHandle stream = nullptr);
   static TensorPtr FromMmap(std::string filepath, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name, StreamHandle stream = nullptr);
@@ -125,6 +122,8 @@ Context GPU(int device_id = 0);
 Context MMAP(int device_id = 0);
 
 std::string ToReadableSize(size_t nbytes);
+
+std::string GetEnv(std::string key);
 
 }  // namespace common
 }  // namespace samgraph

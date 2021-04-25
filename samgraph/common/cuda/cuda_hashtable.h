@@ -6,7 +6,7 @@
 #include <cassert>
 
 #include "../common.h"
-#include "../config.h"
+#include "../constant.h"
 #include "../logging.h"
 
 namespace samgraph {
@@ -17,46 +17,46 @@ class OrderedHashTable;
 
 class DeviceOrderedHashTable {
  public:
-  struct Bucket0 {
+  struct BukcetO2N {
     IdType key;
     IdType local;
     IdType index;
     IdType version;
   };
 
-  struct Bucket1 {
+  struct BucketN2O {
     IdType global;
   };
 
-  typedef const Bucket0 *ConstIterator;
+  typedef const BukcetO2N *ConstIterator;
 
   DeviceOrderedHashTable(const DeviceOrderedHashTable &other) = default;
   DeviceOrderedHashTable &operator=(const DeviceOrderedHashTable &other) =
       default;
 
-  inline __device__ ConstIterator Search0(const IdType id) const {
-    const IdType pos = SearchForPosition0(id);
+  inline __device__ ConstIterator SearchO2N(const IdType id) const {
+    const IdType pos = SearchForPositionO2N(id);
     return &_o2n_table[pos];
   }
 
  protected:
-  const Bucket0 *_o2n_table;
-  const Bucket1 *_n2o_table;
+  const BukcetO2N *_o2n_table;
+  const BucketN2O *_n2o_table;
   size_t _o2n_size;
   size_t _n2o_size;
 
-  explicit DeviceOrderedHashTable(const Bucket0 *const o2n_table,
-                                  const Bucket1 *const n2o_table,
+  explicit DeviceOrderedHashTable(const BukcetO2N *const o2n_table,
+                                  const BucketN2O *const n2o_table,
                                   const size_t o2n_size, const size_t n2o_size);
 
-  inline __device__ IdType SearchForPosition0(const IdType id) const {
-    IdType pos = Hash0(id);
+  inline __device__ IdType SearchForPositionO2N(const IdType id) const {
+    IdType pos = HashO2N(id);
 
     // linearly scan for matching entry
     IdType delta = 1;
     while (_o2n_table[pos].key != id) {
-      assert(_o2n_table[pos].key != Config::kEmptyKey);
-      pos = Hash0(pos + delta);
+      assert(_o2n_table[pos].key != Constant::kEmptyKey);
+      pos = HashO2N(pos + delta);
       delta += 1;
     }
     assert(pos < _o2n_size);
@@ -64,7 +64,7 @@ class DeviceOrderedHashTable {
     return pos;
   }
 
-  inline __device__ IdType Hash0(const IdType id) const {
+  inline __device__ IdType HashO2N(const IdType id) const {
     return id % _o2n_size;
   }
 
@@ -75,8 +75,8 @@ class OrderedHashTable {
  public:
   static constexpr size_t kDefaultScale = 3;
 
-  using Bucket0 = typename DeviceOrderedHashTable::Bucket0;
-  using Bucket1 = typename DeviceOrderedHashTable::Bucket1;
+  using BukcetO2N = typename DeviceOrderedHashTable::BukcetO2N;
+  using BucketN2O = typename DeviceOrderedHashTable::BucketN2O;
 
   OrderedHashTable(const size_t size, Context ctx, StreamHandle stream,
                    const size_t scale = kDefaultScale);
@@ -103,8 +103,8 @@ class OrderedHashTable {
  private:
   Context _ctx;
 
-  Bucket0 *_o2n_table;
-  Bucket1 *_n2o_table;
+  BukcetO2N *_o2n_table;
+  BucketN2O *_n2o_table;
   size_t _o2n_size;
   size_t _n2o_size;
 

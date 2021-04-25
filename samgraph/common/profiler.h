@@ -2,47 +2,60 @@
 #define SAMGRAPH_PROFILER_H
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace samgraph {
 namespace common {
 
+enum LogItem {
+  // L1
+  kLogL1NumSample = 0,
+  kLogL1SampleTime,
+  kLogL1CopyTime,
+  // L2
+  kLogL2ShuffleTime,
+  kLogL2CoreSampleTime,
+  kLogL2IdRemapTime,
+  kLogL2GraphCopyTime,
+  kLogL2IdCopyTime,
+  kLogL2ExtractTime,
+  kLogL2FeatCopyTime,
+  // L3
+  kLogL3SampleCooTime,
+  kLogL3SampleCountEdgeTime,
+  kLogL3SampleCompactEdgesTime,
+  kLogL3RemapPopulateTime,
+  kLogL3RemapMapNodeTime,
+  kLogL3RemapMapEdgeTime,
+  // Number of items
+  kLogNumItemsNotARealValue
+};
+
+struct LogData {
+  std::vector<double> vals;
+  double sum;
+  size_t cnt;
+  std::vector<bool> bitmap;
+
+  LogData();
+};
+
 class Profiler {
  public:
   Profiler();
-
+  void Log(uint64_t key, LogItem item, double value);
+  void LogAdd(uint64_t key, LogItem item, double value);
   void Report(uint64_t key);
-  void ReportAverage(size_t num);
+  void ReportAverage(uint64_t key);
 
-  static Profiler* Get();
-
-  // Top Level
-  std::vector<size_t> num_samples;
-  std::vector<double> sample_time;
-  std::vector<double> copy_time;
-
-  // Second Level
-  std::vector<double> shuffle_time;
-  std::vector<double> real_sample_time;
-
-  std::vector<double> graph_copy_time;
-  std::vector<double> id_copy_time;
-  std::vector<double> extract_time;
-  std::vector<double> feat_copy_time;
-
-  std::vector<double> ns_time;
-  std::vector<double> remap_time;
-
-  std::vector<double> sample_calculation_time;
-  std::vector<double> sample_count_edge_time;
-  std::vector<double> sample_compact_edge_time;
-
-  std::vector<double> populate_time;
-  std::vector<double> map_node_time;
-  std::vector<double> map_edge_time;
+  static Profiler &Get();
 
  private:
-  size_t _max_entries;
+  void Output(uint64_t key, std::string tag);
+
+  std::vector<LogData> _data;
+  std::vector<double> _output_buf;
 };
 
 }  // namespace common

@@ -3,7 +3,7 @@
 #include <thread>
 
 #include "common.h"
-#include "config.h"
+#include "constant.h"
 #include "logging.h"
 
 namespace samgraph {
@@ -31,7 +31,7 @@ std::shared_ptr<GraphBatch> GraphPool::GetGraphBatch(uint64_t key) {
   return nullptr;
 }
 
-void GraphPool::AddGraphBatch(uint64_t key, std::shared_ptr<GraphBatch> batch) {
+void GraphPool::Submit(uint64_t key, std::shared_ptr<GraphBatch> batch) {
   std::lock_guard<std::mutex> lock(_mutex);
   CHECK(!_stop);
   CHECK_EQ(_pool.count(key), 0);
@@ -40,7 +40,7 @@ void GraphPool::AddGraphBatch(uint64_t key, std::shared_ptr<GraphBatch> batch) {
   LOG(DEBUG) << "GraphPool: Add batch with key " << key;
 }
 
-bool GraphPool::ExceedThreshold() {
+bool GraphPool::Full() {
   std::lock_guard<std::mutex> lock(_mutex);
   return _pool.size() >= _threshold;
 }

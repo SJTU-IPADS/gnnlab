@@ -18,7 +18,7 @@ size_t TaskQueue::PendingLength() {
   return _q.size();
 }
 
-bool TaskQueue::ExceedThreshold() {
+bool TaskQueue::Full() {
   std::lock_guard<std::mutex> lock(_mutex);
   return _q.size() >= _threshold;
 }

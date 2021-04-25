@@ -7,7 +7,7 @@
 #include <curand_kernel.h>
 
 #include "../common.h"
-#include "../config.h"
+#include "../constant.h"
 #include "../device.h"
 #include "../logging.h"
 #include "../profiler.h"
@@ -63,8 +63,8 @@ __global__ void sample(const IdType *indptr, const IdType *indices,
         }
 
         for (; j < fanout; ++j) {
-          tmp_src[index * fanout + j] = Config::kEmptyKey;
-          tmp_dst[index * fanout + j] = Config::kEmptyKey;
+          tmp_src[index * fanout + j] = Constant::kEmptyKey;
+          tmp_dst[index * fanout + j] = Constant::kEmptyKey;
         }
       } else {
         for (size_t j = 0; j < fanout; ++j) {
@@ -101,7 +101,7 @@ __global__ void count_edge(IdType *edge_src, size_t *item_prefix,
        index += BLOCK_SIZE) {
     if (index < num_input) {
       for (size_t j = 0; j < fanout; j++) {
-        if (edge_src[index * fanout + j] != Config::kEmptyKey) {
+        if (edge_src[index * fanout + j] != Constant::kEmptyKey) {
           ++count;
         }
       }
@@ -146,7 +146,7 @@ __global__ void compact_edge(const IdType *tmp_src, const IdType *tmp_dst,
     size_t item_per_thread = 0;
     if (index < num_input) {
       for (size_t j = 0; j < fanout; j++) {
-        if (tmp_src[index * fanout + j] != Config::kEmptyKey) {
+        if (tmp_src[index * fanout + j] != Constant::kEmptyKey) {
           item_per_thread++;
         }
       }
@@ -180,9 +180,9 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
              << " and fanout " << fanout;
   Timer t0;
   const size_t num_tiles =
-      (num_input + Config::kCudaTileSize - 1) / Config::kCudaTileSize;
+      (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
   const dim3 grid(num_tiles);
-  const dim3 block(Config::kCudaBlockSize);
+  const dim3 block(Constant::kCudaBlockSize);
 
   unsigned long seed =
       std::chrono::system_clock::now().time_since_epoch().count();
@@ -200,7 +200,7 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
-  sample<Config::kCudaBlockSize, Config::kCudaTileSize>
+  sample<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
                                       tmp_src, tmp_dst, seed);
   sampler_device->StreamSync(ctx, stream);
@@ -212,7 +212,7 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
   LOG(DEBUG) << "GPUSample: cuda item_prefix malloc "
              << ToReadableSize(sizeof(size_t) * (grid.x + 1));
 
-  count_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
+  count_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(tmp_src, item_prefix, num_input, fanout);
   sampler_device->StreamSync(ctx, stream);
   double count_edge_time = t1.Passed();
@@ -232,7 +232,7 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
   LOG(DEBUG) << "GPUSample: cuda workspace malloc "
              << ToReadableSize(workspace_bytes);
 
-  compact_edge<Config::kCudaBlockSize, Config::kCudaTileSize>
+  compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src, out_dst,
                                       num_out, item_prefix, num_input, fanout);
   sampler_device->StreamSync(ctx, stream);
@@ -242,10 +242,6 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
   sampler_device->FreeWorkspace(ctx, item_prefix);
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
-
-  Profiler::Get()->sample_calculation_time[task_key] += sample_time;
-  Profiler::Get()->sample_count_edge_time[task_key] += count_edge_time;
-  Profiler::Get()->sample_compact_edge_time[task_key] += compact_edge_time;
 
   LOG(DEBUG) << "GPUSample: succeed ";
 }

@@ -21,17 +21,17 @@ class ParallelHashTable : public HashTable {
   size_t NumItems() const override { return _num_items; }
 
  private:
-  struct Bucket0 {
+  struct BukcetO2N {
     IdType id;
     IdType local;
   };
 
-  struct Bucket1 {
+  struct BucketN2O {
     IdType global;
   };
 
-  Bucket0 *_o2n_table;
-  Bucket1 *_n2o_table;
+  BukcetO2N *_o2n_table;
+  BucketN2O *_n2o_table;
 
   IdType _num_items;
   size_t _capacity;

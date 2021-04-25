@@ -2,7 +2,8 @@
 #include <random>
 
 #include "../common.h"
-#include "../config.h"
+#include "../constant.h"
+#include "../run_config.h"
 #include "cpu_function.h"
 
 namespace samgraph {
@@ -25,7 +26,7 @@ void CPUSample(const IdType *const indptr, const IdType *const indices,
                const size_t fanout) {
   bool all_has_fanout = true;
 
-#pragma omp parallel for num_threads(Config::kOmpThreadNum) reduction  (&&:all_has_fanout)
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum) reduction  (&&:all_has_fanout)
   for (size_t i = 0; i < num_input; ++i) {
     const IdType rid = input[i];
     const IdType off = indptr[rid];
@@ -41,8 +42,8 @@ void CPUSample(const IdType *const indptr, const IdType *const indices,
       }
 
       for (; j < fanout; ++j) {
-        output_src[i * fanout + j] = Config::kEmptyKey;
-        output_dst[i * fanout + j] = Config::kEmptyKey;
+        output_src[i * fanout + j] = Constant::kEmptyKey;
+        output_dst[i * fanout + j] = Constant::kEmptyKey;
       }
     } else {
       // reservoir algorithm
@@ -64,9 +65,9 @@ void CPUSample(const IdType *const indptr, const IdType *const indices,
   if (!all_has_fanout) {
     IdType *output_src_end =
         std::remove_if(output_src, output_src + num_input * fanout,
-                       [](IdType num) { return num == Config::kEmptyKey; });
+                       [](IdType num) { return num == Constant::kEmptyKey; });
     std::remove_if(output_dst, output_dst + num_input * fanout,
-                   [](IdType num) { return num == Config::kEmptyKey; });
+                   [](IdType num) { return num == Constant::kEmptyKey; });
 
     *num_ouput = output_src_end - output_src;
   } else {

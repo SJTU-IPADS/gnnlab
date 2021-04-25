@@ -1,72 +1,128 @@
 #include "profiler.h"
 
 #include <cstdio>
+#include <numeric>
 
+#include "common.h"
+#include "constant.h"
 #include "engine.h"
 #include "macros.h"
+#include "run_config.h"
 
 namespace samgraph {
 namespace common {
 
+LogData::LogData() {
+  size_t num_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
+  vals.resize(num_logs);
+  bitmap.resize(num_logs);
+  sum = 0;
+  cnt = 0;
+}
+
 Profiler::Profiler() {
-  auto num_epoch = Engine::Get()->NumEpoch();
-  auto num_step_per_epoch = Engine::Get()->NumStep();
+  size_t num_items = static_cast<size_t>(kLogNumItemsNotARealValue);
+  size_t num_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
+  _data.resize(num_items);
+  _output_buf.resize(num_logs);
+}
 
-  _max_entries = num_epoch * num_step_per_epoch;
+void Profiler::Log(uint64_t key, LogItem item, double val) {
+  int item_idx = static_cast<int>(item);
+  _data[item_idx].vals[key] = val;
+  _data[item_idx].sum += val;
+  _data[item_idx].cnt = _data[item_idx].bitmap[key] ? _data[item_idx].cnt
+                                                    : _data[item_idx].cnt + 1;
+  _data[item_idx].bitmap[key] = true;
+}
 
-  num_samples.resize(_max_entries, 0);
-  sample_time.resize(_max_entries, 0);
-  copy_time.resize(_max_entries, 0);
-
-  shuffle_time.resize(_max_entries, 0);
-  real_sample_time.resize(_max_entries, 0);
-
-  graph_copy_time.resize(_max_entries, 0);
-  id_copy_time.resize(_max_entries, 0);
-  extract_time.resize(_max_entries, 0);
-  feat_copy_time.resize(_max_entries, 0);
-
-  ns_time.resize(_max_entries, 0);
-  remap_time.resize(_max_entries, 0);
-
-  graph_copy_time.resize(_max_entries, 0);
-  feat_copy_time.resize(_max_entries, 0);
-
-  sample_calculation_time.resize(_max_entries, 0);
-  sample_count_edge_time.resize(_max_entries, 0);
-  sample_compact_edge_time.resize(_max_entries, 0);
-
-  populate_time.resize(_max_entries, 0);
-  map_node_time.resize(_max_entries, 0);
-  map_edge_time.resize(_max_entries, 0);
+void Profiler::LogAdd(uint64_t key, LogItem item, double val) {
+  int item_idx = static_cast<int>(item);
+  _data[item_idx].vals[key] = val;
+  _data[item_idx].sum += val;
+  _data[item_idx].cnt = _data[item_idx].bitmap[key] ? _data[item_idx].cnt
+                                                    : _data[item_idx].cnt + 1;
+  _data[item_idx].bitmap[key] = true;
 }
 
 void Profiler::Report(uint64_t key) {
+  size_t num_items = static_cast<size_t>(kLogNumItemsNotARealValue);
+  for (size_t i = 0; i < num_items; i++) {
+    _output_buf[i] = _data[i].vals[key];
+  }
+  Output(key, "");
+}
+
+void Profiler::ReportAverage(uint64_t key) {
+  size_t num_items = static_cast<size_t>(kLogNumItemsNotARealValue);
+  for (size_t i = 0; i < num_items; i++) {
+    _output_buf[i] = _data[i].sum / (_data[i].cnt == 0 ? 1 : _data[i].cnt);
+  }
+
+  Output(key, "AVG");
+}
+
+Profiler& Profiler::Get() {
+  static Profiler inst;
+  return inst;
+}
+
+void Profiler::Output(uint64_t key, std::string tag) {
   uint64_t epoch = Engine::Get()->GetEpochFromKey(key);
   uint64_t step = Engine::Get()->GetStepFromKey(key);
 
-#if PRINT_PROFILE
-  printf(
-      "  [Profile] Epoch %llu | step %llu | num samples: %lu | sample time: "
-      "%.4lf | copy time: %.4lf \n",
-      epoch, step, num_samples[key], sample_time[key], copy_time[key]);
+  std::string env_level = GetEnv(Constant::kEnvProfileLevel);
 
-  printf("    [Sample Profile] | shuffle %.4lf | real sampling %.4lf \n",
-         shuffle_time[key], real_sample_time[key]);
+  int level = 0;
+  if (env_level == "1") {
+    level = 1;
+  } else if (env_level == "2") {
+    level = 2;
+  } else if (env_level == "3") {
+    level = 3;
+  }
 
-  printf(
-      "    [Copy Profile] | graph copy %.4lf  | id copy %.4lf  | extract %.4lf "
-      " | feat copy %.4lf \n",
-      graph_copy_time[key], id_copy_time[key], extract_time[key],
-      feat_copy_time[key]);
-#endif
-}
+  if (level >= 1) {
+    printf(
+        "  [Profile L1 %s] Epoch %llu | step %llu |"
+        " sample %.4lf |"
+        " copy %.4lf |\n",
+        tag.c_str(), epoch, step, _output_buf[kLogL1SampleTime],
+        _output_buf[kLogL1CopyTime]);
+  }
 
-void Profiler::ReportAverage(size_t num) {}
+  if (level >= 2) {
+    printf(
+        "  [Profile L2 %s]"
+        " shuffle %.4lf |"
+        " core sample %.4lf |"
+        " id remap %.4lf |"
+        " graph copy %.4lf |"
+        " id copy %.4lf |"
+        " extract %.4lf |"
+        " feat copy %.4lf |\n",
+        tag.c_str(), _output_buf[kLogL2ShuffleTime],
+        _output_buf[kLogL2CoreSampleTime], _output_buf[kLogL2IdRemapTime],
+        _output_buf[kLogL2GraphCopyTime], _output_buf[kLogL2IdCopyTime],
+        _output_buf[kLogL2ExtractTime], _output_buf[kLogL2FeatCopyTime]);
+  }
 
-Profiler* Profiler::Get() {
-  static Profiler inst;
-  return &inst;
+  if (level >= 3) {
+    printf(
+        "  [Profile L3 %s]"
+        " sample coo %.4lf |"
+        " count edge %.4lf |"
+        " compact edge %.4lf |"
+        " remap populate %.4lf |"
+        " remap mapnode %.4lf |"
+        " remap mapedge %.4lf\n",
+        tag.c_str(), _output_buf[kLogL3SampleCooTime],
+        _output_buf[kLogL3SampleCountEdgeTime],
+        _output_buf[kLogL3SampleCompactEdgesTime],
+        _output_buf[kLogL3RemapPopulateTime],
+        _output_buf[kLogL3RemapMapNodeTime],
+        _output_buf[kLogL3RemapMapEdgeTime]);
+  }
 }
 
 }  // namespace common

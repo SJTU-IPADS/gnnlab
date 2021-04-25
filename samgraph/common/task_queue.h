@@ -17,7 +17,7 @@ class TaskQueue {
 
   void AddTask(std::shared_ptr<Task>);
   std::shared_ptr<Task> GetTask();
-  bool ExceedThreshold();
+  bool Full();
   size_t PendingLength();
 
  private:

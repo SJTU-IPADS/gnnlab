@@ -121,12 +121,13 @@ def run(args):
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
 
-            print('Epoch {:05d} | Step {:05d} | Samples {:f} | Time {:.4f} secs | Sample Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
+            print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
                 epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
                     sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
             ))
 
-            sam.report(epoch, step)
+            if step % args.report_per_n:
+                sam.report(epoch, step)
 
     sam.shutdown()
 
@@ -142,6 +143,7 @@ if __name__ == '__main__':
     argparser.add_argument('--batch-size', type=int, default=8192)
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--report-per-n', type=int, default=1)
 
     args = argparser.parse_args()
     run(args)

@@ -86,7 +86,7 @@ TensorPtr CPUPermutator::GetBatch() {
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  return Tensor::CreateCopy1D(_data, offset, {size}, "cpu_permutator_batch");
+  return Tensor::Copy1D(_data, offset, {size}, "cpu_permutator_batch");
 }
 
 }  // namespace common

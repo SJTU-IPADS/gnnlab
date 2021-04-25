@@ -8,8 +8,8 @@ namespace common {
 namespace cpu {
 
 SimpleHashTable::SimpleHashTable(size_t sz) {
-  _n2o_table = static_cast<Bucket1 *>(
-      Device::Get(CPU())->AllocDataSpace(CPU(), sz * sizeof(Bucket1)));
+  _n2o_table = static_cast<BucketN2O *>(
+      Device::Get(CPU())->AllocDataSpace(CPU(), sz * sizeof(BucketN2O)));
   _num_items = 0;
 }
 

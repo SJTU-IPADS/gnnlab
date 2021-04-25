@@ -1,6 +1,6 @@
 #include "cpu_engine.h"
 
-#include "../config.h"
+#include "../constant.h"
 #include "../device.h"
 #include "../logging.h"
 #include "../run_config.h"
@@ -43,7 +43,7 @@ void CPUEngine::Init() {
   _permutator =
       new CPUPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _permutator->NumStep();
-  _graph_pool = new GraphPool(Config::kPipelineThreshold);
+  _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
   switch (RunConfig::cpu_hashtable_type) {
     case kSimple:
@@ -126,7 +126,9 @@ void CPUEngine::Shutdown() {
 
 void CPUEngine::RunSampleOnce() { RunCPUSampleLoopOnce(); }
 
-void CPUEngine::Report(uint64_t epoch, uint64_t step) {}
+void CPUEngine::Report(uint64_t epoch, uint64_t step) {
+  Engine::Report(epoch, step);
+}
 
 }  // namespace cpu
 }  // namespace common

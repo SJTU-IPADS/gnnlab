@@ -96,7 +96,7 @@ void DoGPUSample(TaskPtr task) {
     LOG(DEBUG) << "DoGPUSample: "
                << "layer " << i << " number of samples " << num_samples;
 
-    double ns_time = t0.Passed();
+    double sample_coo_time = t0.Passed();
 
     Timer t1;
     Timer t2;
@@ -155,14 +155,13 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
 
-    LOG(DEBUG) << "layer " << i << " ns " << ns_time << " remap " << remap_time;
+    LOG(DEBUG) << "layer " << i << " ns " << sample_coo_time << " remap "
+               << remap_time;
 
-    Profiler::Get()->num_samples[task->key] += num_samples;
-    Profiler::Get()->ns_time[task->key] += ns_time;
-    Profiler::Get()->remap_time[task->key] += remap_time;
-    Profiler::Get()->populate_time[task->key] += populate_time;
-    Profiler::Get()->map_node_time[task->key] += 0;
-    Profiler::Get()->map_edge_time[task->key] += map_edges_time;
+    Profiler::Get().LogAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogAdd(task->key, kLogL3RemapPopulateTime, populate_time);
+    Profiler::Get().LogAdd(task->key, kLogL3RemapMapNodeTime, 0);
+    Profiler::Get().LogAdd(task->key, kLogL3RemapMapEdgeTime, map_edges_time);
 
     cur_input = Tensor::FromBlob(
         (void *)unique, DataType::kI32, {num_unique}, sampler_ctx,
@@ -277,12 +276,12 @@ void DoFeatureExtract(TaskPtr task) {
 
   auto feat_dst = task->input_feat->MutableData();
   auto feat_src = dataset->feat->Data();
-  extractor->extract(feat_dst, feat_src, input_data, num_input, feat_dim,
+  extractor->Extract(feat_dst, feat_src, input_data, num_input, feat_dim,
                      feat_type);
 
   auto label_dst = task->output_label->MutableData();
   auto label_src = dataset->label->Data();
-  extractor->extract(label_dst, label_src, output_data, num_ouput, 1,
+  extractor->Extract(label_dst, label_src, output_data, num_ouput, 1,
                      label_type);
 
   LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
@@ -320,7 +319,7 @@ void DoFeatureCopy(TaskPtr task) {
 bool RunGPUSampleLoopOnce() {
   auto next_op = kDataCopy;
   auto next_q = GPUEngine::Get()->GetTaskQueue(next_op);
-  if (next_q->ExceedThreshold()) {
+  if (next_q->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
   }
@@ -332,13 +331,14 @@ bool RunGPUSampleLoopOnce() {
 
     Timer t1;
     DoGPUSample(task);
-    double sample_time = t1.Passed();
+    double core_sample_time = t1.Passed();
 
     next_q->AddTask(task);
 
-    Profiler::Get()->sample_time[task->key] = shuffle_time + sample_time;
-    Profiler::Get()->shuffle_time[task->key] = shuffle_time;
-    Profiler::Get()->real_sample_time[task->key] = sample_time;
+    Profiler::Get().Log(task->key, kLogL1SampleTime,
+                        shuffle_time + core_sample_time);
+    Profiler::Get().Log(task->key, kLogL2ShuffleTime, shuffle_time);
+    Profiler::Get().Log(task->key, kLogL2CoreSampleTime, core_sample_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
@@ -348,7 +348,7 @@ bool RunGPUSampleLoopOnce() {
 
 bool RunDataCopyLoopOnce() {
   auto graph_pool = GPUEngine::Get()->GetGraphPool();
-  if (graph_pool->ExceedThreshold()) {
+  if (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
   }
@@ -375,14 +375,15 @@ bool RunDataCopyLoopOnce() {
     double feat_copy_time = t3.Passed();
 
     LOG(DEBUG) << "Submit: process task with key " << task->key;
-    graph_pool->AddGraphBatch(task->key, task);
+    graph_pool->Submit(task->key, task);
 
-    Profiler::Get()->copy_time[task->key] =
-        graph_copy_time + id_copy_time + extract_time + feat_copy_time;
-    Profiler::Get()->graph_copy_time[task->key] = graph_copy_time;
-    Profiler::Get()->id_copy_time[task->key] = id_copy_time;
-    Profiler::Get()->extract_time[task->key] = extract_time;
-    Profiler::Get()->feat_copy_time[task->key] = feat_copy_time;
+    Profiler::Get().Log(
+        task->key, kLogL1CopyTime,
+        graph_copy_time + id_copy_time + extract_time + feat_copy_time);
+    Profiler::Get().Log(task->key, kLogL2GraphCopyTime, graph_copy_time);
+    Profiler::Get().Log(task->key, kLogL2IdCopyTime, id_copy_time);
+    Profiler::Get().Log(task->key, kLogL2ExtractTime, extract_time);
+    Profiler::Get().Log(task->key, kLogL2FeatCopyTime, feat_copy_time);
 
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));

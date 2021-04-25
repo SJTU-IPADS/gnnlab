@@ -37,7 +37,7 @@ void samgraph_init() {
   Engine::Create();
   Engine::Get()->Init();
   LOG(DEBUG) << "SamGraph has been initialied successfully";
-#if PROFILE_CUDA_KERNELS
+#if USE_CUDA_PRFILE
   CUDA_CALL(cudaProfilerStart());
 #endif
   return;
@@ -103,17 +103,14 @@ size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
 void samgraph_shutdown() {
   Engine::Get()->Shutdown();
   LOG(DEBUG) << "SamGraph has been completely shutdown now";
-#if PROFILE_CUDA_KERNELS
+#if USE_CUDA_PRFILE
   CUDA_CALL(cudaProfilerStop());
 #endif
   return;
 }
 
 void samgraph_report(uint64_t epoch, uint64_t step) {
-  const char *env_var_val = getenv("SAMGRAPH_PRINT_PROFILE");
-  if (env_var_val != nullptr && std::string(env_var_val) != "0") {
-    Engine::Get()->Report(epoch, step);
-  }
+  Engine::Get()->Report(epoch, step);
 }
 }
 }  // namespace common

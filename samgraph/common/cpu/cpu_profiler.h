@@ -5,7 +5,7 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-class CPUProfiler {}
+struct CPUProfiler {}
 
 }  // namespace cpu
 }  // namespace common

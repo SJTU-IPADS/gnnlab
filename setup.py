@@ -71,7 +71,7 @@ setup(
             name='samgraph.torch.c_lib',
             sources=[
                 'samgraph/common/common.cc',
-                'samgraph/common/config.cc',
+                'samgraph/common/constant.cc',
                 'samgraph/common/device.cc',
                 'samgraph/common/engine.cc',
                 'samgraph/common/extractor.cc',
