@@ -23,7 +23,7 @@ Engine* Engine::_engine = nullptr;
 
 void Engine::Report(uint64_t epoch, uint64_t step) {
   uint64_t key = Engine::GetBatchKey(epoch, step);
-  Profiler::Get().Report(key);
+  Profiler::Get().ReportAverage(key);
 }
 
 void Engine::Create() {

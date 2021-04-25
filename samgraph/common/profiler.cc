@@ -56,10 +56,12 @@ void Profiler::Report(uint64_t key) {
 void Profiler::ReportAverage(uint64_t key) {
   size_t num_items = static_cast<size_t>(kLogNumItemsNotARealValue);
   for (size_t i = 0; i < num_items; i++) {
-    _output_buf[i] = _data[i].sum / (_data[i].cnt == 0 ? 1 : _data[i].cnt);
+    double sum = _data[i].sum - _data[i].vals[0];
+    size_t cnt = _data[i].cnt <= 1 ? 1 : _data[i].cnt - 1;
+    _output_buf[i] = sum / cnt;
   }
 
-  Output(key, "AVG");
+  Output(key, "avg");
 }
 
 Profiler& Profiler::Get() {
@@ -84,7 +86,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
 
   if (level >= 1) {
     printf(
-        "  [Profile L1%s] Epoch %llu | step %llu |"
+        "  [Profile L1-%s %llu %llu]"
         " sample %.4lf |"
         " copy %.4lf\n",
         tag.c_str(), epoch, step, _output_buf[kLogL1SampleTime],
@@ -93,7 +95,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
 
   if (level >= 2) {
     printf(
-        "  [Profile L2%s]"
+        "  [Profile L2-%s %llu %llu]"
         " shuffle %.4lf |"
         " core sample %.4lf |"
         " id remap %.4lf |"
@@ -101,7 +103,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
         " id copy %.4lf |"
         " extract %.4lf |"
         " feat copy %.4lf\n",
-        tag.c_str(), _output_buf[kLogL2ShuffleTime],
+        tag.c_str(), epoch, step, _output_buf[kLogL2ShuffleTime],
         _output_buf[kLogL2CoreSampleTime], _output_buf[kLogL2IdRemapTime],
         _output_buf[kLogL2GraphCopyTime], _output_buf[kLogL2IdCopyTime],
         _output_buf[kLogL2ExtractTime], _output_buf[kLogL2FeatCopyTime]);
@@ -109,14 +111,14 @@ void Profiler::Output(uint64_t key, std::string tag) {
 
   if (level >= 3) {
     printf(
-        "  [Profile L3%s]"
+        "  [Profile L3-%s %llu %llu]"
         " sample coo %.4lf |"
         " count edge %.4lf |"
         " compact edge %.4lf |"
         " remap populate %.4lf |"
         " remap mapnode %.4lf |"
         " remap mapedge %.4lf\n",
-        tag.c_str(), _output_buf[kLogL3SampleCooTime],
+        tag.c_str(), epoch, step, _output_buf[kLogL3SampleCooTime],
         _output_buf[kLogL3SampleCountEdgeTime],
         _output_buf[kLogL3SampleCompactEdgesTime],
         _output_buf[kLogL3RemapPopulateTime],
