@@ -32,7 +32,7 @@ class CPUPermutator {
   size_t _num_step;
 
   TensorPtr _data;
-  size_t _input_size;
+  size_t _num_data;
 
   size_t _batch_size;
   size_t _last_batch_size;
