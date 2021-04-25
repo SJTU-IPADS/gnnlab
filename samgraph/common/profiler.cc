@@ -38,7 +38,7 @@ void Profiler::Log(uint64_t key, LogItem item, double val) {
 
 void Profiler::LogAdd(uint64_t key, LogItem item, double val) {
   int item_idx = static_cast<int>(item);
-  _data[item_idx].vals[key] = val;
+  _data[item_idx].vals[key] += val;
   _data[item_idx].sum += val;
   _data[item_idx].cnt = _data[item_idx].bitmap[key] ? _data[item_idx].cnt
                                                     : _data[item_idx].cnt + 1;

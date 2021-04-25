@@ -78,7 +78,7 @@ void DoCPUSample(TaskPtr task) {
     CPUSample(indptr, indices, input, num_input, out_src, out_dst, &num_out,
               fanout);
     LOG(DEBUG) << "CPUSample: num_out " << num_out;
-    double sample_coo_time = t0.Passed();
+    double core_sample_time = t0.Passed();
 
     Timer t1;
     Timer t2;
@@ -135,13 +135,11 @@ void DoCPUSample(TaskPtr task) {
     cpu_device->FreeWorkspace(CPU(), out_src);
     cpu_device->FreeWorkspace(CPU(), out_dst);
 
+    Profiler::Get().LogAdd(task->key, kLogL2CoreSampleTime, core_sample_time);
     Profiler::Get().LogAdd(task->key, kLogL2IdRemapTime, remap_time);
     Profiler::Get().LogAdd(task->key, kLogL3RemapPopulateTime, populate_time);
     Profiler::Get().LogAdd(task->key, kLogL3RemapMapNodeTime, map_nodes_time);
     Profiler::Get().LogAdd(task->key, kLogL3RemapMapEdgeTime, map_edges_time);
-
-    LOG(DEBUG) << "layer " << i << " ns " << sample_coo_time << " remap "
-               << remap_time;
 
     LOG(DEBUG) << "CPUSample: finish layer " << i;
   }
@@ -261,7 +259,7 @@ bool RunCPUSampleLoopOnce() {
 
     Timer t1;
     DoCPUSample(task);
-    double core_sample_time = t1.Passed();
+    double sample_time = t1.Passed();
 
     Timer t2;
     DoFeatureExtract(task);
@@ -278,9 +276,8 @@ bool RunCPUSampleLoopOnce() {
     graph_pool->Submit(task->key, task);
 
     Profiler::Get().Log(task->key, kLogL1SampleTime,
-                        shuffle_time + core_sample_time);
+                        shuffle_time + sample_time);
     Profiler::Get().Log(task->key, kLogL2ShuffleTime, shuffle_time);
-    Profiler::Get().Log(task->key, kLogL2CoreSampleTime, core_sample_time);
     Profiler::Get().Log(task->key, kLogL1CopyTime,
                         extract_time + graph_copy_time + feat_copy_time);
     Profiler::Get().Log(task->key, kLogL2ExtractTime, extract_time);

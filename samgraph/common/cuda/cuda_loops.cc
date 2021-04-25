@@ -96,7 +96,7 @@ void DoGPUSample(TaskPtr task) {
     LOG(DEBUG) << "DoGPUSample: "
                << "layer " << i << " number of samples " << num_samples;
 
-    double sample_coo_time = t0.Passed();
+    double core_sample_time = t0.Passed();
 
     Timer t1;
     Timer t2;
@@ -155,9 +155,7 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
 
-    LOG(DEBUG) << "layer " << i << " ns " << sample_coo_time << " remap "
-               << remap_time;
-
+    Profiler::Get().LogAdd(task->key, kLogL2CoreSampleTime, core_sample_time);
     Profiler::Get().LogAdd(task->key, kLogL2IdRemapTime, remap_time);
     Profiler::Get().LogAdd(task->key, kLogL3RemapPopulateTime, populate_time);
     Profiler::Get().LogAdd(task->key, kLogL3RemapMapNodeTime, 0);
@@ -331,14 +329,13 @@ bool RunGPUSampleLoopOnce() {
 
     Timer t1;
     DoGPUSample(task);
-    double core_sample_time = t1.Passed();
+    double sample_time = t1.Passed();
 
     next_q->AddTask(task);
 
     Profiler::Get().Log(task->key, kLogL1SampleTime,
-                        shuffle_time + core_sample_time);
+                        shuffle_time + sample_time);
     Profiler::Get().Log(task->key, kLogL2ShuffleTime, shuffle_time);
-    Profiler::Get().Log(task->key, kLogL2CoreSampleTime, core_sample_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
