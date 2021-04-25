@@ -65,7 +65,7 @@ void CPUEngine::Init() {
 void CPUEngine::Start() {
   std::vector<LoopFunction> func;
 
-  // func.push_back(CPUSampleLoop);
+  func.push_back(CPUSampleLoop);
 
   // Start background threads
   for (size_t i = 0; i < func.size(); i++) {

@@ -86,7 +86,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
 
   if (level >= 1) {
     printf(
-        "  [Profile L1-%s %llu %llu]"
+        "  [Profile L1-%s %lu %lu]"
         " sample %.4lf |"
         " copy %.4lf\n",
         tag.c_str(), epoch, step, _output_buf[kLogL1SampleTime],
@@ -95,7 +95,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
 
   if (level >= 2) {
     printf(
-        "  [Profile L2-%s %llu %llu]"
+        "  [Profile L2-%s %lu %lu]"
         " shuffle %.4lf |"
         " core sample %.4lf |"
         " id remap %.4lf |"
@@ -111,7 +111,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
 
   if (level >= 3) {
     printf(
-        "  [Profile L3-%s %llu %llu]"
+        "  [Profile L3-%s %lu %lu]"
         " sample coo %.4lf |"
         " count edge %.4lf |"
         " compact edge %.4lf |"
