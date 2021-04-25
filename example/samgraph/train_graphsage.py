@@ -126,7 +126,7 @@ def run(args):
                     sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
             ))
 
-            if step % args.report_per_n:
+            if step % args.report_per_n == 0:
                 sam.report(epoch, step)
 
     sam.shutdown()
