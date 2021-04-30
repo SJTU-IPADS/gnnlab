@@ -18,7 +18,6 @@ import numpy as np
 
 class GCN(nn.Module):
     def __init__(self,
-                 g,
                  in_feats,
                  n_hidden,
                  n_classes,
@@ -26,7 +25,6 @@ class GCN(nn.Module):
                  activation,
                  dropout):
         super(GCN, self).__init__()
-        self.g = g
         self.layers = nn.ModuleList()
         # input layer
         self.layers.append(GraphConv(in_feats, n_hidden, activation=activation))
@@ -37,12 +35,12 @@ class GCN(nn.Module):
         self.layers.append(GraphConv(n_hidden, n_classes))
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, features):
+    def forward(self, blocks, features):
         h = features
         for i, layer in enumerate(self.layers):
             if i != 0:
                 h = self.dropout(h)
-            h = layer(self.g, h)
+            h = layer(blocks[i], h)
         return h
 
 def run():
@@ -64,7 +62,7 @@ def run():
         drop_last=True,
         num_workers=0)
 
-    model = GCN(g, in_feats, 32, n_classes, 3, F.relu, 0.5)
+    model = GCN(in_feats, 256, n_classes, 2, F.relu, 0.5)
     model = model.to(device)
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
@@ -89,7 +87,7 @@ def run():
             t2 = time.time()
 
             # Compute loss and prediction
-            batch_pred = model(batch_inputs)
+            batch_pred = model(blocks, batch_inputs)
             loss = loss_fcn(batch_pred, batch_labels)
             optimizer.zero_grad()
             loss.backward()
@@ -101,7 +99,7 @@ def run():
             train_times.append(t3 - t2)
             total_times.append(t3 - t0)
 
-            num_samples = 0
+            num_sample = 0
             for block in blocks:
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
