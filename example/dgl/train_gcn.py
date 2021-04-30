@@ -64,7 +64,7 @@ def run():
         drop_last=True,
         num_workers=0)
 
-    model = GCN(g, in_feats, 256, n_classes, 3, F.relu, 0.5)
+    model = GCN(g, in_feats, 32, n_classes, 3, F.relu, 0.5)
     model = model.to(device)
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
@@ -89,7 +89,7 @@ def run():
             t2 = time.time()
 
             # Compute loss and prediction
-            batch_pred = model(blocks)
+            batch_pred = model(batch_inputs)
             loss = loss_fcn(batch_pred, batch_labels)
             optimizer.zero_grad()
             loss.backward()
