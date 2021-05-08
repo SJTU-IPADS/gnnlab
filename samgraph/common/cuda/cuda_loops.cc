@@ -1,7 +1,6 @@
 #include "cuda_loops.h"
 
 #include <cuda_runtime.h>
-#include <cusparse.h>
 
 #include <chrono>
 #include <numeric>

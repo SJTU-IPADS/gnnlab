@@ -1,7 +1,7 @@
 CC=/usr/local/cuda/bin/nvcc
 FLAGS=-std=c++14 -g -G
 
-all: csrmm csrmm_bp compact_edge sample curand hash_table d2d macro timer inheritance
+all: csrmm csrmm_bp compact_edge sample curand hash_table d2d macro timer inheritance sort
 
 csrmm: csrmm.cc common.h
 	$(CC) $(FLAGS) -o csrmm -lcusparse csrmm.cc
@@ -32,6 +32,9 @@ inheritance: inheritance.cc
 
 timer: timer.cc
 	$(CC) $(FLAGS) timer.cc -o timer
+
+sort: sort.cc
+	g++ -fopenmp sort.cc -o sort
 
 .PHONY: clean
 clean:
