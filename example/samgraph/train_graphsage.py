@@ -1,4 +1,3 @@
-import argparse
 import time
 import dgl.nn.pytorch as dglnn
 import torch as th
@@ -40,11 +39,13 @@ class SAGE(nn.Module):
         return h
 
 
-def get_run_config(args):
+def get_run_config():
     run_config = {}
-    run_config['type'] = 'cpu'
-    run_config['cpu_hashtable_type'] = 0
+    run_config['type'] = 'gpu'
+    run_config['cpu_hashtable_type'] = 1
     run_config['pipeline'] = False
+    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     if run_config['type'] == 'cpu':
         run_config['sampler_ctx'] = sam.cpu()
@@ -53,17 +54,21 @@ def get_run_config(args):
         run_config['sampler_ctx'] = sam.gpu(1)
         run_config['trainer_ctx'] = sam.gpu(0)
 
-    run_config['dataset_path'] = args.dataset_path
-    run_config['fanout'] = args.fanout
-    run_config['num_fanout'] = run_config['num_layer'] = len(args.fanout)
-    run_config['num_epoch'] = args.num_epoch
-    run_config['batch_size'] = args.batch_size
+    run_config['fanout'] = [15, 10, 5]
+    run_config['num_fanout'] = run_config['num_layer'] = len(
+        run_config['fanout'])
+    run_config['num_epoch'] = 20
+    run_config['num_hidden'] = 256
+    run_config['batch_size'] = 8192
+    run_config['lr'] = 0.003
+    run_config['dropout'] = 0.5
+    run_config['report_per_count'] = 1
 
     return run_config
 
 
-def run(args):
-    run_config = get_run_config(args)
+def run():
+    run_config = get_run_config()
 
     sam.config(run_config)
     sam.init()
@@ -73,13 +78,13 @@ def run(args):
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
 
-    model = SAGE(in_feat, args.num_hidden, num_class,
-                 num_layer, F.relu, args.dropout)
+    model = SAGE(in_feat, run_config['num_hidden'], num_class,
+                 num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn.to(train_device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -113,7 +118,7 @@ def run(args):
 
             sample_times.append(t1 - t0)
             convert_times.append(t2 - t1)
-            train_times.append(t3 - t2)
+            train_times.append((t3 - t2) + (t2 - t1))
             total_times.append(t3 - t0)
 
             num_sample = 0
@@ -126,24 +131,11 @@ def run(args):
                     sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
             ))
 
-            if step % args.report_per_n == 0:
+            if step % run_config['report_per_count'] == 0:
                 sam.report(epoch, step)
 
     sam.shutdown()
 
 
 if __name__ == '__main__':
-    argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument('--dataset-path', type=str,
-                           default='/graph-learning/samgraph/papers100M')
-    argparser.add_argument('--num-epoch', type=int, default=20)
-    argparser.add_argument('--num-hidden', type=int, default=256)
-    argparser.add_argument('--fanout', nargs='+',
-                           type=int, default=[15, 10, 5])
-    argparser.add_argument('--batch-size', type=int, default=8192)
-    argparser.add_argument('--lr', type=float, default=0.003)
-    argparser.add_argument('--dropout', type=float, default=0.5)
-    argparser.add_argument('--report-per-n', type=int, default=1)
-
-    args = argparser.parse_args()
-    run(args)
+    run()
