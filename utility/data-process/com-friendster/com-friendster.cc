@@ -251,7 +251,6 @@ void writeMetaFile() {
 
 void writeCSRToFile(std::vector<uint32_t> &indptr,
                     std::vector<uint32_t> &indices) {
-  return;
   std::string indptr_path = output_dir + "indptr.bin";
   std::string indices_path = output_dir + "indices.bin";
   std::ofstream ofs0(indptr_path, std::ofstream::out | std::ofstream::binary |
