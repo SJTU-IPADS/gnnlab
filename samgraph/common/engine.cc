@@ -19,6 +19,15 @@
 namespace samgraph {
 namespace common {
 
+namespace {
+
+bool FileExist(const std::string& filepath) {
+  std::ifstream f(filepath);
+  return f.good();
+}
+
+}  // namespace
+
 Engine* Engine::_engine = nullptr;
 
 void Engine::Report(uint64_t epoch, uint64_t step) {
@@ -93,13 +102,27 @@ void Engine::LoadGraphDataset() {
                        {meta[Constant::kMetaNumEdge]},
                        _sampler_ctx.device_type == kCPU ? MMAP() : _sampler_ctx,
                        "dataset.indices");
-  _dataset->feat = Tensor::FromMmap(
-      _dataset_path + Constant::kFeatFile, DataType::kF32,
-      {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, MMAP(),
-      "dataset.feat");
-  _dataset->label =
-      Tensor::FromMmap(_dataset_path + Constant::kLabelFile, DataType::kI64,
-                       {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.label");
+
+  if (FileExist(_dataset_path + Constant::kFeatFile)) {
+    _dataset->feat = Tensor::FromMmap(
+        _dataset_path + Constant::kFeatFile, DataType::kF32,
+        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, MMAP(),
+        "dataset.feat");
+  } else {
+    _dataset->feat = Tensor::Empty(
+        DataType::kF32,
+        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, CPU(),
+        "dataset.feat");
+  }
+
+  if (FileExist(_dataset_path + Constant::kLabelFile)) {
+    _dataset->label = Tensor::FromMmap(
+        _dataset_path + Constant::kLabelFile, DataType::kI64,
+        {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.label");
+  } else {
+    _dataset->label = Tensor::Empty(
+        DataType::kI64, {meta[Constant::kMetaNumNode]}, CPU(), "dataset.label");
+  }
 
   _dataset->train_set = Tensor::FromMmap(
       _dataset_path + Constant::kTrainSetFile, DataType::kI32,

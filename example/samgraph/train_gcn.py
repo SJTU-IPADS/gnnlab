@@ -1,10 +1,8 @@
-import argparse
 import time
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import dgl.nn.pytorch as dglnn
 import numpy as np
 from dgl.nn.pytorch import GraphConv
 
