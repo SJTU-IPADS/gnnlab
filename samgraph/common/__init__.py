@@ -39,6 +39,14 @@ def gpu(device_id=0):
     return SamGraphContext(kGPU, device_id)
 
 
+def simple_hashtable():
+    return 0
+
+
+def parallel_hashtable():
+    return 1
+
+
 class SamGraphBasics(object):
     def __init__(self, pkg_path, *args):
         full_path = get_extension_full_path(pkg_path, *args)

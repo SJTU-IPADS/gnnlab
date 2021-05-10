@@ -7,7 +7,7 @@ import dgl
 
 from samgraph.torch import c_lib
 from samgraph.common import SamGraphBasics as _SamGraphBasics
-from samgraph.common import cpu, gpu
+from samgraph.common import cpu, gpu, simple_hashtable, parallel_hashtable
 _basics = _SamGraphBasics(__file__, 'c_lib')
 
 config = _basics.config

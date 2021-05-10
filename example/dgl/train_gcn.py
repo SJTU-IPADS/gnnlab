@@ -16,6 +16,7 @@ import fastgraph
 import time
 import numpy as np
 
+
 class GCN(nn.Module):
     def __init__(self,
                  in_feats,
@@ -27,10 +28,12 @@ class GCN(nn.Module):
         super(GCN, self).__init__()
         self.layers = nn.ModuleList()
         # input layer
-        self.layers.append(GraphConv(in_feats, n_hidden, activation=activation))
+        self.layers.append(
+            GraphConv(in_feats, n_hidden, activation=activation))
         # hidden layers
-        for i in range(n_layers - 1):
-            self.layers.append(GraphConv(n_hidden, n_hidden, activation=activation))
+        for i in range(1, n_layers - 1):
+            self.layers.append(
+                GraphConv(n_hidden, n_hidden, activation=activation))
         # output layer
         self.layers.append(GraphConv(n_hidden, n_classes))
         self.dropout = nn.Dropout(p=dropout)
@@ -43,31 +46,57 @@ class GCN(nn.Module):
             h = layer(blocks[i], h)
         return h
 
-def run():
-    device  = torch.device('cuda:0')
 
-    dataset = fastgraph.Papers100M('/graph-learning/samgraph/papers100M')
+def get_run_config():
+    run_config = {}
+    run_config['pipeline'] = False
+    run_config['device'] = 'cuda:0'
+    run_config['dataset'] = 'Papers100M'
+    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    # run_config['dataset'] = 'Com-Friendster'
+    # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+
+    run_config['fanout'] = [15, 10, 5]
+    run_config['num_fanout'] = run_config['num_layer'] = len(
+        run_config['fanout'])
+    run_config['num_epoch'] = 20
+    run_config['num_hidden'] = 256
+    run_config['batch_size'] = 8192
+    run_config['lr'] = 0.003
+    run_config['dropout'] = 0.5
+    run_config['report_per_count'] = 1
+
+    return run_config
+
+
+def run():
+    run_config = get_run_config()
+    device = torch.device(run_config['device'])
+
+    dataset = fastgraph.dataset(
+        run_config['dataset'], run_config['dataset_path'])
     g = dataset.to_dgl_graph()
     train_nids = dataset.train_set
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
-    sampler = dgl.dataloading.MultiLayerNeighborSampler([15, 10, 5])
+    sampler = dgl.dataloading.MultiLayerNeighborSampler(run_config['fanout'])
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nids,
         sampler,
-        batch_size=8192,
+        batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=True,
         num_workers=0)
 
-    model = GCN(in_feats, 256, n_classes, 2, F.relu, 0.5)
+    model = GCN(in_feats, run_config['num_hidden'],
+                n_classes, run_config['num_layer'], F.relu, run_config['dropout'])
     model = model.to(device)
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=0.003)
-    num_epoch = 20
+    optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
+    num_epoch = run_config['num_epoch']
 
     model.train()
 

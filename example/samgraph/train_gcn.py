@@ -42,11 +42,12 @@ class GCN(nn.Module):
 def get_run_config():
     run_config = {}
     run_config['type'] = 'gpu'
-    run_config['cpu_hashtable_type'] = 0
+    run_config['cpu_hashtable_type'] = sam.simple_hashtable()
+    # run_config['cpu_hashtable_type'] = sam.parallel_hashtable()
     run_config['pipeline'] = False
     # run_config['pipeline'] = True
-    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
-    run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     if run_config['type'] == 'cpu':
         run_config['sampler_ctx'] = sam.cpu()
@@ -56,6 +57,7 @@ def get_run_config():
         run_config['trainer_ctx'] = sam.gpu(0)
 
     run_config['fanout'] = [15, 10, 5]
+    run_config['fanout'] = [10, 5]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
     run_config['num_epoch'] = 20
@@ -129,7 +131,7 @@ def run():
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
 
-            print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
+            print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
                 epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
                     sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
             ))

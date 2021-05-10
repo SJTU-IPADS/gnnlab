@@ -1,8 +1,8 @@
-from setuptools import find_packages, setup
+from setuptools import setup
 
 setup(
     name='fastgraph',
-    packages=find_packages(),
+    packages=['fastgraph'],
     version='0.1.0',
     description='Fast graph dataset loading tools',
 )
