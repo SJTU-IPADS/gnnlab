@@ -52,9 +52,14 @@ def get_run_config():
     run_config['pipeline'] = False
     run_config['device'] = 'cuda:0'
     run_config['dataset'] = 'Papers100M'
-    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset'] = 'Com-Friendster'
-    # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+
+    if run_config['dataset'] == 'Papers100M':
+        run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    elif run_config['dataset'] == 'Com-Friendster':
+        run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+    else:
+        assert(False)
 
     run_config['fanout'] = [15, 10, 5]
     run_config['num_fanout'] = run_config['num_layer'] = len(
