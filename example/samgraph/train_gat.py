@@ -1,46 +1,56 @@
-import time
 import torch as th
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
+from dgl.nn import GATConv
+import time
+import torch.nn.functional as F
 import numpy as np
-from dgl.nn.pytorch import GraphConv
-
 import samgraph.torch as sam
 
 
-class GCN(nn.Module):
+class GAT(nn.Module):
     def __init__(self,
-                 in_feats,
-                 n_hidden,
-                 n_classes,
-                 n_layers,
+                 num_layers,
+                 in_dim,
+                 num_hidden,
+                 num_classes,
+                 heads,
                  activation,
-                 dropout):
-        super(GCN, self).__init__()
-        self.layers = nn.ModuleList()
-        # input layer
-        self.layers.append(
-            GraphConv(in_feats, n_hidden, activation=activation))
+                 feat_drop,
+                 attn_drop,
+                 negative_slope,
+                 residual):
+        super(GAT, self).__init__()
+        self.num_layers = num_layers
+        self.gat_layers = nn.ModuleList()
+        self.activation = activation
+        # input projection (no residual)
+        self.gat_layers.append(GATConv(
+            in_dim, num_hidden, heads[0],
+            feat_drop, attn_drop, negative_slope, False, self.activation))
         # hidden layers
-        for i in range(n_layers - 2):
-            self.layers.append(
-                GraphConv(n_hidden, n_hidden, activation=activation))
-        # output layer
-        self.layers.append(GraphConv(n_hidden, n_classes))
-        self.dropout = nn.Dropout(p=dropout)
+        for l in range(1, num_layers - 1):
+            # due to multi-head, the in_dim = num_hidden * num_heads
+            self.gat_layers.append(GATConv(
+                num_hidden * heads[l-1], num_hidden, heads[l],
+                feat_drop, attn_drop, negative_slope, residual, self.activation))
+        # output projection
+        self.gat_layers.append(GATConv(
+            num_hidden * heads[-2], num_classes, heads[-1],
+            feat_drop, attn_drop, negative_slope, residual, None))
 
-    def forward(self, blocks, features):
-        h = features
-        for i, layer in enumerate(self.layers):
-            if i != 0:
-                h = self.dropout(h)
-            h = layer(blocks[i], h)
-        return h
+    def forward(self, blocks, inputs):
+        h = inputs
+        for l in range(self.num_layers - 1):
+            h = self.gat_layers[l](blocks[l], h).flatten(1)
+        # output projection
+        logits = self.gat_layers[-1](blocks[-1], h).mean(1)
+        return logits
 
 
 def get_run_config():
     run_config = {}
+
     run_config['type'] = 'gpu'
     run_config['cpu_hashtable_type'] = sam.simple_hashtable()
     # run_config['cpu_hashtable_type'] = sam.parallel_hashtable()
@@ -56,14 +66,20 @@ def get_run_config():
         run_config['sampler_ctx'] = sam.gpu(1)
         run_config['trainer_ctx'] = sam.gpu(0)
 
-    run_config['fanout'] = [15, 10, 5]
-    run_config['num_fanout'] = run_config['num_layer'] = len(
+    run_config['fanout'] = [10, 5]
+    run_config['num_fanout'] = run_config['num_layers'] = len(
         run_config['fanout'])
     run_config['num_epoch'] = 20
+    run_config['num_heads'] = 8
+    run_config['num_out_heads'] = 1
+    run_config['num_hidden'] = 32
+    run_config['residual'] = False
+    run_config['in_drop'] = 0.6
+    run_config['attn-drop'] = 0.6
+    run_config['lr'] = 0.005
+    run_config['weight_decay'] = 5e-4
+    run_config['negative_slope'] = 0.2
     run_config['batch_size'] = 8192
-    run_config['num_hidden'] = 256
-    run_config['lr'] = 0.003
-    run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
 
     return run_config
@@ -76,17 +92,20 @@ def run():
     sam.init()
 
     train_device = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
-    in_feat = sam.feat_dim()
-    num_class = sam.num_class()
-    num_layer = run_config['num_layer']
+    in_feats = sam.feat_dim()
+    n_classes = sam.num_class()
+    num_layers = run_config['num_layers']
 
-    model = GCN(in_feat, run_config['num_hidden'], num_class,
-                num_layer, F.relu, run_config['dropout'])
+    heads = ([run_config['num_heads']] * run_config['num_layers']) + \
+        [run_config['num_out_heads']]
+    model = GAT(run_config['num_layers'], in_feats, run_config['num_hidden'], n_classes, heads, F.elu,
+                run_config['in_drop'], run_config['attn-drop'], run_config['negative_slope'], run_config['residual'])
     model = model.to(train_device)
-
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(train_device)
-    optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
+    optimizer = optim.Adam(model.parameters(
+    ), lr=run_config['lr'], weight_decay=run_config['weight_decay'])
+    num_epoch = run_config['num_epoch']
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -102,6 +121,7 @@ def run():
         train_times = []
         total_times = []
         num_samples = []
+
         for step in range(num_step):
             t0 = time.time()
             if not run_config['pipeline']:
@@ -109,7 +129,7 @@ def run():
             batch_key = sam.get_next_batch(epoch, step)
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
-                batch_key, num_layer)
+                batch_key, num_layers)
             t2 = time.time()
 
             # Compute loss and prediction
@@ -136,6 +156,7 @@ def run():
             ))
             if step % run_config['report_per_count'] == 0:
                 sam.report(epoch, step)
+
     sam.shutdown()
 
 

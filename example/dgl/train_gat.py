@@ -30,7 +30,7 @@ class GAT(nn.Module):
             in_dim, num_hidden, heads[0],
             feat_drop, attn_drop, negative_slope, False, self.activation))
         # hidden layers
-        for l in range(1, num_layers):
+        for l in range(1, num_layers - 1):
             # due to multi-head, the in_dim = num_hidden * num_heads
             self.gat_layers.append(GATConv(
                 num_hidden * heads[l-1], num_hidden, heads[l],
@@ -42,7 +42,7 @@ class GAT(nn.Module):
 
     def forward(self, blocks, inputs):
         h = inputs
-        for l in range(self.num_layers):
+        for l in range(self.num_layers - 1):
             h = self.gat_layers[l](blocks[l], h).flatten(1)
         # output projection
         logits = self.gat_layers[-1](blocks[-1], h).mean(1)
@@ -63,13 +63,12 @@ def get_run_config():
     else:
         assert(False)
 
-    run_config['fanout'] = [5]
-    run_config['num_fanout'] = run_config['num_layer'] = len(
+    run_config['fanout'] = [10, 5]
+    run_config['num_fanout'] = run_config['num_layers'] = len(
         run_config['fanout'])
     run_config['num_epoch'] = 20
     run_config['num_heads'] = 8
     run_config['num_out_heads'] = 1
-    run_config['num_layers'] = 1
     run_config['num_hidden'] = 32
     run_config['residual'] = False
     run_config['in_drop'] = 0.6
