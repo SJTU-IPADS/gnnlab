@@ -1,3 +1,4 @@
+import argparse
 import time
 import dgl.nn.pytorch as dglnn
 import torch as th
@@ -39,7 +40,45 @@ class SAGE(nn.Module):
         return h
 
 
+def parse_args():
+    argparser = argparse.ArgumentParser("GraphSage Training")
+    argparser.add_argument('--parse-args', action='store_true', default=False)
+    argparser.add_argument('--type', type=str, default='gpu')
+    argparser.add_argument('--cpu-hashtable-type', type=int,
+                           default=sam.simple_hashtable())
+    argparser.add_argument('--pipeline', action='store_true', default=False)
+    argparser.add_argument('--dataset-path', type=str,
+                           default='/graph-learning/samgraph/papers100M')
+
+    argparser.add_argument('--num-epoch', type=int, default=20)
+    argparser.add_argument('--fanout', nargs='+',
+                           type=int, default=[15, 10, 5])
+    argparser.add_argument('--batch-size', type=int, default=8192)
+    argparser.add_argument('--num-hidden', type=int, default=256)
+    argparser.add_argument('--lr', type=float, default=0.003)
+    argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--report-per-count', type=int, default=1)
+    argparser.add_argument('--report-last', action='store_true', default=False)
+
+    run_config = vars(argparser.parse_args())
+    if run_config['type'] == 'cpu':
+        run_config['sampler_ctx'] = sam.cpu()
+        run_config['trainer_ctx'] = sam.gpu(0)
+    else:
+        run_config['sampler_ctx'] = sam.gpu(1)
+        run_config['trainer_ctx'] = sam.gpu(0)
+
+    run_config['num_fanout'] = run_config['num_layer'] = len(
+        run_config['fanout'])
+
+    return run_config
+
+
 def get_run_config():
+    args_run_config = parse_args()
+    if args_run_config['parse_args']:
+        return args_run_config
+
     run_config = {}
     run_config['type'] = 'gpu'
     run_config['cpu_hashtable_type'] = sam.simple_hashtable()
@@ -64,6 +103,7 @@ def get_run_config():
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
+    run_config['report_last'] = False
 
     return run_config
 
@@ -127,13 +167,21 @@ def run():
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
 
-            print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
-                epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
-                    sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
-            ))
+            if not run_config['report_last']:
+                print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
+                    epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
+                        sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
+                ))
 
-            if step % run_config['report_per_count'] == 0:
-                sam.report(epoch, step)
+                if step % run_config['report_per_count'] == 0:
+                    sam.report(epoch, step)
+            else:
+                if epoch == (num_epoch - 1) and step == (num_step - 1):
+                    print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
+                        epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
+                            sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
+                    ))
+                    sam.report(epoch, step)
 
     sam.shutdown()
 
