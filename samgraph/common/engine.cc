@@ -91,6 +91,7 @@ void Engine::LoadGraphDataset() {
   _dataset->num_node = meta[Constant::kMetaNumNode];
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
   _dataset->num_class = meta[Constant::kMetaNumClass];
+  _dataset->weighted_edge = false;
 
   _dataset->indptr =
       Tensor::FromMmap(_dataset_path + Constant::kInptrFile, DataType::kI32,

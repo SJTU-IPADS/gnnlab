@@ -13,6 +13,12 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
                IdType *out_dst, size_t *num_out, Context ctx,
                StreamHandle stream, uint64_t task_key);
 
+void GPUWeightedSample(const IdType *indptr, const IdType *indices,
+                       const IdType *input, const size_t num_input,
+                       const size_t fanout, IdType *out_src, IdType *out_dst,
+                       size_t *num_out, Context ctx, StreamHandle stream,
+                       uint64_t task_key);
+
 void MapEdges(const IdType *const global_src, IdType *const new_global_src,
               const IdType *const global_dst, IdType *const new_global_dst,
               const size_t num_edges, DeviceOrderedHashTable mapping,

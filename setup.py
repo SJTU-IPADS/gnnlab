@@ -99,6 +99,7 @@ setup(
                 'samgraph/common/cuda/cuda_mapping.cu',
                 'samgraph/common/cuda/cuda_permutator.cc',
                 'samgraph/common/cuda/cuda_sampling.cu',
+                'samgraph/common/cuda/cuda_weighted_sampling.cu',
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(

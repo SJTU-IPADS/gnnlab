@@ -71,13 +71,14 @@ class Tensor {
   std::string _name;
 };
 
-// Graph dataset that should be loaded from the .
+// Graph dataset that should be loaded from the disk using MMAP.
 struct Dataset {
   // Graph topology data
   TensorPtr indptr;
   TensorPtr indices;
   size_t num_node;
   size_t num_edge;
+  bool weighted_edge;
 
   // Node feature and label
   size_t num_class;
