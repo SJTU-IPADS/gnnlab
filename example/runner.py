@@ -44,10 +44,16 @@ class Runner(object):
         here = os.path.dirname(os.path.abspath(__file__))
         print(here)
         app_path = '{:s}/samgraph/train_graphsage.py'.format(here)
+
+        total_cnt = len(self.config['batch_size_candidates']) * len(
+            self.config['num_hidden_candidates']) * len(self.config['fanout_candidates'])
+        cnt = 0
+        tic = time.time()
         for batch_size in self.config['batch_size_candidates']:
             for num_hidden in self.config['num_hidden_candidates']:
                 for fanout in self.config['fanout_candidates']:
-                    print("Running test with batch", batch_size,
+                    cnt += 1
+                    print("({:d}/{:d}, {:.0f} secs)".format(cnt, total_cnt, time.time() - tic), "Running test with batch", batch_size,
                           "num_hidden", num_hidden, "fanout", ' '.join(f'{f}' for f in fanout), '...')
                     try:
                         process = subprocess.run(
@@ -61,14 +67,21 @@ class Runner(object):
                         data = self.parse_result(output)
 
                         self.output_data.append({
+                            'success': True,
                             'batch_size': batch_size,
                             'num_hidden': num_hidden,
                             'fanout': ' '.join(f'{f}' for f in fanout),
                             **data
                         })
                     except subprocess.CalledProcessError as e:
-                        print(e)
+                        self.output_data.append({
+                            'success': False,
+                            'batch_size': batch_size,
+                            'num_hidden': num_hidden,
+                            'fanout': ' '.join(f'{f}' for f in fanout)
+                        })
                         error = process.stderr.decode('utf-8')
+                        print(e)
                         print(error)
 
         self.write_file()
