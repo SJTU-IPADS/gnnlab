@@ -111,10 +111,7 @@ setup(
                         '-Ofast',
                         # '-O0',
                         '-Wall', '-fopenmp', '-march=native'],
-                'nvcc': ['-std=c++14', '-g',
-                         # '-arch=sm_35', # K40m
-                         '-arch=sm_70',  # V100
-                         '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
+                'nvcc': ['-std=c++14', '-g', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
             })
     ],
     # $ setup.py publish support.
