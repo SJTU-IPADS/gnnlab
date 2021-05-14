@@ -173,6 +173,12 @@ void runMapEdges(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
     new_edge_list[new_start + i] = {o2n_hashtable[ctx.e_list[i].first],
                                     o2n_hashtable[ctx.e_list[i].second]};
   }
+
+  // Add self-loop
+  for (size_t i = 0; i < ctx.v_cnt; i++) {
+    uint32_t new_nodeid = o2n_hashtable[ctx.v_list[i]];
+    new_edge_list[new_start + ctx.e_cnt + i] = {new_nodeid, new_nodeid};
+  }
 }
 
 void GenerateAndWriteNodeSet(std::vector<uint32_t> &indptr) {
@@ -321,6 +327,8 @@ int main() {
 
     e_cnt_prefix_sum[i] = e_sum;
     e_sum += thread_ctx[i]->e_cnt;
+    // Add self-loop
+    e_sum += thread_ctx[i]->v_cnt;
   }
 
   std::vector<uint32_t> o2n_hashtable(max_nodeid + 1);
@@ -334,6 +342,8 @@ int main() {
   printf("populate %.4f\n", populate_time);
 
   Timer t3;
+  // Add self-loop
+  num_edges += num_nodes;
   std::vector<std::pair<uint32_t, uint32_t>> new_edge_list(num_edges);
 
   for (size_t i = 0; i < num_threads; i++) {
