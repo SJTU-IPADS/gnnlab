@@ -43,6 +43,7 @@ class Constant {
   static constexpr size_t kAllocNoScale = 1;
 
   static const std::string kEnvProfileLevel;
+  static const std::string kEnvStartCudaProfiler;
 };
 
 }  // namespace common

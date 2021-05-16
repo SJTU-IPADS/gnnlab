@@ -21,6 +21,8 @@ const std::string Constant::kMetaNumTestSet = "NUM_TEST_SET";
 const std::string Constant::kMetaNumValidSet = "NUM_VALID_SET";
 
 const std::string Constant::kEnvProfileLevel = "SAMGRAPH_PROFILE_LEVEL";
+const std::string Constant::kEnvStartCudaProfiler =
+    "SAMGRAPH_START_CUDA_PROFILER";
 
 }  // namespace common
 }  // namespace samgraph

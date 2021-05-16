@@ -20,6 +20,8 @@ struct RunConfig {
 
   static cpu::HashTableType cpu_hashtable_type;
 
+  static bool start_cuda_profiler;
+
   static size_t kPipelineDepth;
   static int kOMPThreadNum;
 };

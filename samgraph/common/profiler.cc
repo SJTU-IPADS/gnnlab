@@ -6,7 +6,6 @@
 #include "common.h"
 #include "constant.h"
 #include "engine.h"
-#include "macros.h"
 #include "run_config.h"
 
 namespace samgraph {

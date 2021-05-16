@@ -1,14 +1,16 @@
 #include "operation.h"
 
 #include <cuda_profiler_api.h>
+#include <cuda_runtime.h>
 
 #include <string>
 #include <vector>
 
+#include "common.h"
+#include "constant.h"
 #include "cpu/cpu_loops.h"
 #include "engine.h"
 #include "logging.h"
-#include "macros.h"
 #include "profiler.h"
 #include "run_config.h"
 
@@ -37,10 +39,15 @@ void samgraph_init() {
   Engine::Create();
   Engine::Get()->Init();
   LOG(DEBUG) << "SamGraph has been initialied successfully";
-#if USE_CUDA_PRFILE
-  CUDA_CALL(cudaProfilerStart());
-#endif
-  return;
+
+  std::string start_cuda_profiler = GetEnv(Constant::kEnvStartCudaProfiler);
+  if (start_cuda_profiler == "ON" || start_cuda_profiler == "1") {
+    RunConfig::start_cuda_profiler = true;
+  }
+
+  if (RunConfig::start_cuda_profiler) {
+    CUDA_CALL(cudaProfilerStart());
+  }
 }
 
 void samgraph_start() {
@@ -103,10 +110,9 @@ size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
 void samgraph_shutdown() {
   Engine::Get()->Shutdown();
   LOG(DEBUG) << "SamGraph has been completely shutdown now";
-#if USE_CUDA_PRFILE
-  CUDA_CALL(cudaProfilerStop());
-#endif
-  return;
+  if (RunConfig::start_cuda_profiler) {
+    CUDA_CALL(cudaProfilerStop());
+  }
 }
 
 void samgraph_report(uint64_t epoch, uint64_t step) {
