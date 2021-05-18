@@ -78,6 +78,10 @@ struct Dataset {
   TensorPtr indices;
   size_t num_node;
   size_t num_edge;
+
+  TensorPtr in_degrees;
+  TensorPtr out_degrees;
+
   bool weighted_edge;
 
   // Node feature and label
@@ -125,6 +129,7 @@ Context MMAP(int device_id = 0);
 std::string ToReadableSize(size_t nbytes);
 
 std::string GetEnv(std::string key);
+std::string GetTime();
 
 }  // namespace common
 }  // namespace samgraph

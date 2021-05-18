@@ -102,6 +102,7 @@ def run():
         copy_times = []
         train_times = []
         total_times = []
+        num_nodes = []
         num_samples = []
 
         t0 = time.time()
@@ -130,9 +131,10 @@ def run():
             for block in blocks:
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
+            num_nodes.append(blocks[0].num_src_nodes())
 
-            print('Epoch {:05d} | Step {:05d} | Samples {:f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
+            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+                epoch, step, np.mean(num_nodes[1:]), np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
 

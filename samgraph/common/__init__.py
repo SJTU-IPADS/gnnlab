@@ -143,3 +143,6 @@ class SamGraphBasics(object):
 
     def report(self, epoch, step):
         return self.C_LIB_CTYPES.samgraph_report(epoch, step)
+
+    def report_node_access(self):
+        return self.C_LIB_CTYPES.samgraph_report_node_access()

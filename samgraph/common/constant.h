@@ -21,6 +21,9 @@ class Constant {
   static const std::string kTestSetFile;
   static const std::string kValidSetFile;
 
+  static const std::string kInDegreeFile;
+  static const std::string kOutDegreeFile;
+
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;
   static const std::string kMetaFeatDim;
@@ -43,7 +46,12 @@ class Constant {
   static constexpr size_t kAllocNoScale = 1;
 
   static const std::string kEnvProfileLevel;
-  static const std::string kEnvStartCudaProfiler;
+  static const std::string kEnvProfileCuda;
+  static const std::string kEnvLogNodeAccess;
+
+  static const std::string kNodeAccessLogFile;
+  static const std::string kNodeAccessFrequencyFile;
+  static const std::string kNodeAccessFileSuffix;
 };
 
 }  // namespace common

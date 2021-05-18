@@ -1,11 +1,20 @@
 #include "profiler.h"
 
 #include <cstdio>
+#include <fstream>
 #include <numeric>
+#include <unordered_map>
+
+#ifdef __linux__
+#include <parallel/algorithm>
+#else
+#include <algorithm>
+#endif
 
 #include "common.h"
 #include "constant.h"
 #include "engine.h"
+#include "logging.h"
 #include "run_config.h"
 
 namespace samgraph {
@@ -24,6 +33,7 @@ Profiler::Profiler() {
   size_t num_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
   _data.resize(num_items);
   _output_buf.resize(num_logs);
+  _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
 }
 
 void Profiler::Log(uint64_t key, LogItem item, double val) {
@@ -42,6 +52,13 @@ void Profiler::LogAdd(uint64_t key, LogItem item, double val) {
   _data[item_idx].cnt = _data[item_idx].bitmap[key] ? _data[item_idx].cnt
                                                     : _data[item_idx].cnt + 1;
   _data[item_idx].bitmap[key] = true;
+}
+
+void Profiler::LogNodeAccess(const IdType *input, size_t num_input) {
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+  for (size_t i = 0; i < num_input; ++i) {
+    _node_access[input[i]]++;
+  }
 }
 
 void Profiler::Report(uint64_t key) {
@@ -63,7 +80,66 @@ void Profiler::ReportAverage(uint64_t key) {
   Output(key, "avg");
 }
 
-Profiler& Profiler::Get() {
+void Profiler::ReportNodeAccess() {
+  LOG(INFO) << "Writing the node access data to file...";
+
+  const IdType *in_degrees = static_cast<const IdType *>(
+      Engine::Get()->GetGraphDataset()->in_degrees->Data());
+  const IdType *out_degrees = static_cast<const IdType *>(
+      Engine::Get()->GetGraphDataset()->out_degrees->Data());
+  std::ofstream ofs0(Constant::kNodeAccessLogFile + GetTime() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs1(Constant::kNodeAccessFrequencyFile + GetTime() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc);
+
+  std::vector<std::pair<size_t, IdType>> records;    // (degree, id)
+  std::vector<std::pair<size_t, size_t>> frequency;  // (frequency, count)
+  std::unordered_map<size_t, size_t> frequency_map;
+
+  for (IdType nodeid = 0; nodeid < _node_access.size(); nodeid++) {
+    if (_node_access[nodeid] > 0) {
+      records.push_back({_node_access[nodeid], nodeid});
+      frequency_map[_node_access[nodeid]]++;
+    }
+  }
+
+  for (auto &p : frequency_map) {
+    frequency.push_back({p.second, p.first});
+  }
+
+#ifdef __linux__
+  __gnu_parallel::sort(records.begin(), records.end(),
+                       std::greater<std::pair<size_t, IdType>>());
+  __gnu_parallel::sort(frequency.begin(), frequency.end(),
+                       std::greater<std::pair<size_t, size_t>>());
+#else
+  std::sort(records.begin(), records.end(),
+            std::greater<std::pair<size_t, IdType>>());
+  std::sort(frequency.begin(), frequency.end(),
+            std::greater<std::pair<size_t, size_t>>());
+#endif
+
+  for (auto &p : records) {
+    IdType nodeid = p.second;
+    size_t access = p.first;
+    ofs0 << nodeid << " " << access << " " << in_degrees[nodeid] << " "
+         << out_degrees[nodeid] << "\n";
+  }
+
+  for (auto &p : frequency) {
+    size_t frequency = p.second;
+    size_t count = p.first;
+
+    ofs1 << frequency << " " << count << "\n";
+  }
+
+  ofs0.close();
+  ofs1.close();
+}
+
+Profiler &Profiler::Get() {
   static Profiler inst;
   return inst;
 }
@@ -87,9 +163,17 @@ void Profiler::Output(uint64_t key, std::string tag) {
     printf(
         "  [Profile L1-%s %lu %lu]"
         " sample %.4lf |"
-        " copy %.4lf\n",
+        " copy %.4lf |"
+        " feature nbytes %s |"
+        " label nbytes %s |"
+        " id nbytes %s |"
+        " graph nbytes %s \n",
         tag.c_str(), epoch, step, _output_buf[kLogL1SampleTime],
-        _output_buf[kLogL1CopyTime]);
+        _output_buf[kLogL1CopyTime],
+        ToReadableSize(_output_buf[kLogL1FeatureBytes]).c_str(),
+        ToReadableSize(_output_buf[kLogL1LabelBytes]).c_str(),
+        ToReadableSize(_output_buf[kLogL1IdBytes]).c_str(),
+        ToReadableSize(_output_buf[kLogL1GraphBytes]).c_str());
   }
 
   if (level >= 2) {

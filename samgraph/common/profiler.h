@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "common.h"
+
 namespace samgraph {
 namespace common {
 
@@ -13,6 +15,10 @@ enum LogItem {
   kLogL1NumSample = 0,
   kLogL1SampleTime,
   kLogL1CopyTime,
+  kLogL1FeatureBytes,
+  kLogL1LabelBytes,
+  kLogL1IdBytes,
+  kLogL1GraphBytes,
   // L2
   kLogL2ShuffleTime,
   kLogL2CoreSampleTime,
@@ -46,8 +52,11 @@ class Profiler {
   Profiler();
   void Log(uint64_t key, LogItem item, double value);
   void LogAdd(uint64_t key, LogItem item, double value);
+  void LogNodeAccess(const IdType *input, size_t num_input);
+
   void Report(uint64_t key);
   void ReportAverage(uint64_t key);
+  void ReportNodeAccess();
 
   static Profiler &Get();
 
@@ -56,6 +65,8 @@ class Profiler {
 
   std::vector<LogData> _data;
   std::vector<double> _output_buf;
+
+  std::vector<size_t> _node_access;
 };
 
 }  // namespace common

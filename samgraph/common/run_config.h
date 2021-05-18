@@ -20,10 +20,14 @@ struct RunConfig {
 
   static cpu::HashTableType cpu_hashtable_type;
 
-  static bool start_cuda_profiler;
+  // Environment variables
+  static bool option_profile_cuda;
+  static bool option_log_node_access;
 
   static size_t kPipelineDepth;
   static int kOMPThreadNum;
+
+  static void LoadConfigFromEnv();
 };
 
 }  // namespace common

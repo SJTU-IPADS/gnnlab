@@ -214,6 +214,9 @@ void DoGraphCopy(TaskPtr task) {
 
     graph->row = train_row;
     graph->col = train_col;
+
+    Profiler::Get().LogAdd(task->key, kLogL1GraphBytes,
+                           train_row->NumBytes() + train_col->NumBytes());
   }
 }
 
@@ -243,6 +246,9 @@ void DoFeatureCopy(TaskPtr task) {
 
   task->input_feat = train_feat;
   task->output_label = train_label;
+
+  Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
+  Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
 }
 
 bool RunCPUSampleLoopOnce() {

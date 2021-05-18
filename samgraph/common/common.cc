@@ -7,9 +7,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>  // chrono::system_clock
 #include <cstdlib>
 #include <cstring>
+#include <ctime>    // localtime
+#include <iomanip>  // put_time
 #include <numeric>
+#include <sstream>  // stringstream
+#include <string>   // string
 
 #include "constant.h"
 #include "device.h"
@@ -200,6 +205,15 @@ std::string GetEnv(std::string key) {
   } else {
     return "";
   }
+}
+
+std::string GetTime() {
+  auto now = std::chrono::system_clock::now();
+  auto in_time_t = std::chrono::system_clock::to_time_t(now);
+
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&in_time_t), "%Y%m%dT%H%M%S%");
+  return ss.str();
 }
 
 }  // namespace common

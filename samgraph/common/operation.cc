@@ -38,20 +38,17 @@ void samgraph_config(const char *path, int sampler_type, int sampler_device,
 void samgraph_init() {
   Engine::Create();
   Engine::Get()->Init();
+  RunConfig::LoadConfigFromEnv();
+
   LOG(DEBUG) << "SamGraph has been initialied successfully";
-
-  std::string start_cuda_profiler = GetEnv(Constant::kEnvStartCudaProfiler);
-  if (start_cuda_profiler == "ON" || start_cuda_profiler == "1") {
-    RunConfig::start_cuda_profiler = true;
-  }
-
-  if (RunConfig::start_cuda_profiler) {
-    CUDA_CALL(cudaProfilerStart());
-  }
 }
 
 void samgraph_start() {
   CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
+  if (RunConfig::option_profile_cuda) {
+    CUDA_CALL(cudaProfilerStart());
+  }
+
   Engine::Get()->Start();
   LOG(DEBUG) << "SamGraph has been started successfully";
 }
@@ -110,13 +107,19 @@ size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
 void samgraph_shutdown() {
   Engine::Get()->Shutdown();
   LOG(DEBUG) << "SamGraph has been completely shutdown now";
-  if (RunConfig::start_cuda_profiler) {
+  if (RunConfig::option_profile_cuda) {
     CUDA_CALL(cudaProfilerStop());
   }
 }
 
 void samgraph_report(uint64_t epoch, uint64_t step) {
   Engine::Get()->Report(epoch, step);
+}
+
+void samgraph_report_node_access() {
+  if (RunConfig::option_log_node_access) {
+    Profiler::Get().ReportNodeAccess();
+  }
 }
 }
 }  // namespace common

@@ -42,7 +42,6 @@ class Runner(object):
 
     def run(self):
         here = os.path.dirname(os.path.abspath(__file__))
-        print(here)
         app_path = '{:s}/samgraph/train_graphsage.py'.format(here)
 
         total_cnt = len(self.config['batch_size_candidates']) * len(
@@ -58,7 +57,7 @@ class Runner(object):
                     try:
                         process = subprocess.run(
                             ['python', app_path, '--parse-args', '--report-last', '--num-epoch', '1', '--batch-size',
-                                str(batch_size), '--num-hidden', str(num_hidden), '--fanout'] + [str(f) for f in fanout],
+                                str(batch_size), '--num-hidden', str(num_hidden), '--dataset-path', self.config['dataset_path'], '--fanout'] + [str(f) for f in fanout],
                             capture_output=True,
                             env=ENV
                         )
@@ -88,6 +87,8 @@ class Runner(object):
 
     def parse_result(self, output):
         data = {}
+        data['num_nodes'] = re.search(
+            r'Nodes ([0-9]+)', output).group(1)
         data['num_samples'] = re.search(
             r'Samples ([0-9]+)', output).group(1)
         data['total_time'] = re.search(
@@ -114,6 +115,14 @@ class Runner(object):
             r'feat copy ([0-9]+\.[0-9]+)', output).group(1)
         data['convert_time'] = re.search(
             r'Convert Time ([0-9]+\.[0-9]+)', output).group(1)
+        data['feature_nbytes'] = re.search(
+            r'feature nbytes ([0-9]+\.[0-9]+ [A-Za-z]+)', output).group(1)
+        data['label_nbytes'] = re.search(
+            r'label nbytes ([0-9]+\.[0-9]+ [A-Za-z]+)', output).group(1)
+        data['id_nbytes'] = re.search(
+            r'id nbytes ([0-9]+\.[0-9]+ [A-Za-z]+)', output).group(1)
+        data['graph_nbytes'] = re.search(
+            r'graph nbytes ([0-9]+\.[0-9]+ [A-Za-z]+)', output).group(1)
         return data
 
     def write_file(self):
@@ -124,15 +133,18 @@ class Runner(object):
 def get_config():
     config = {}
 
-    config['batch_size_candidates'] = [8192]
+    config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    # config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+    config['batch_size_candidates'] = [8192, 16384, 32768]
     config['num_hidden_candidates'] = [256]
+    config['fanout_candidates'] = [[10, 10, 10, 5]]
 
-    fanout_candidates = generate_permutation(
-        elements=[20, 15, 10, 5], min_len=1, max_len=4)
-    fanout_candidates.sort(key=lambda x: (len(x), x))
-    for fanout in fanout_candidates:
-        fanout.reverse()
-    config['fanout_candidates'] = fanout_candidates
+    # fanout_candidates = generate_permutation(
+    #     elements=[20, 15, 10, 5], min_len=1, max_len=4)
+    # fanout_candidates.sort(key=lambda x: (len(x), x))
+    # for fanout in fanout_candidates:
+    #     fanout.reverse()
+    # config['fanout_candidates'] = fanout_candidates
 
     return config
 

@@ -135,6 +135,13 @@ void Engine::LoadGraphDataset() {
       _dataset_path + Constant::kValidSetFile, DataType::kI32,
       {meta[Constant::kMetaNumValidSet]}, CPU(), "dataset.valid_set");
 
+  _dataset->in_degrees = Tensor::FromMmap(
+      _dataset_path + Constant::kInDegreeFile, DataType::kI32,
+      {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.in_degrees");
+  _dataset->out_degrees = Tensor::FromMmap(
+      _dataset_path + Constant::kOutDegreeFile, DataType::kI32,
+      {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.out_degrees");
+
   double loading_time = t.Passed();
   LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path << ") successfully ("
             << loading_time << " secs)";

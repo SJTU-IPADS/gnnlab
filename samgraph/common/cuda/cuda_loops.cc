@@ -9,6 +9,7 @@
 #include "../device.h"
 #include "../logging.h"
 #include "../profiler.h"
+#include "../run_config.h"
 #include "../timer.h"
 #include "cuda_common.h"
 #include "cuda_engine.h"
@@ -213,6 +214,9 @@ void DoGraphCopy(TaskPtr task) {
 
     graph->row = train_row;
     graph->col = train_col;
+
+    Profiler::Get().LogAdd(task->key, kLogL1GraphBytes,
+                           train_row->NumBytes() + train_col->NumBytes());
   }
 
   LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
@@ -245,6 +249,9 @@ void DoIdCopy(TaskPtr task) {
 
   task->input_nodes = input_nodes;
   task->output_nodes = output_nodes;
+
+  Profiler::Get().LogAdd(task->key, kLogL1IdBytes,
+                         input_nodes->NumBytes() + output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
@@ -288,6 +295,10 @@ void DoFeatureExtract(TaskPtr task) {
   extractor->Extract(label_dst, label_src, output_data, num_ouput, 1,
                      label_type);
 
+  if (RunConfig::option_log_node_access) {
+    Profiler::Get().LogNodeAccess(input_data, num_input);
+  }
+
   LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
 }
 
@@ -316,6 +327,9 @@ void DoFeatureCopy(TaskPtr task) {
 
   task->input_feat = train_feat;
   task->output_label = train_label;
+
+  Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
+  Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
 
   LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
 }

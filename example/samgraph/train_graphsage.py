@@ -97,7 +97,7 @@ def get_run_config():
     run_config['fanout'] = [15, 10, 5]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 20
+    run_config['num_epoch'] = 1
     run_config['num_hidden'] = 256
     run_config['batch_size'] = 8192
     run_config['lr'] = 0.003
@@ -140,7 +140,9 @@ def run():
         convert_times = []
         train_times = []
         total_times = []
+        num_nodes = []
         num_samples = []
+
         for step in range(num_step):
             t0 = time.time()
             if not run_config['pipeline']:
@@ -166,10 +168,11 @@ def run():
             for block in blocks:
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
+            num_nodes.append(blocks[0].num_src_nodes())
 
             if not run_config['report_last']:
-                print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
-                    epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
+                print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
+                    epoch, step, np.mean(num_nodes[1:]), np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
                         sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
                 ))
 
@@ -177,12 +180,13 @@ def run():
                     sam.report(epoch, step)
             else:
                 if epoch == (num_epoch - 1) and step == (num_step - 1):
-                    print('Epoch {:05d} | Step {:05d} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
-                        epoch, step, np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
+                    print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample + Copy Time {:.4f} secs | Convert Time {:.4f} secs |  Train Time {:.4f} secs | Loss {:.4f} '.format(
+                        epoch, step, np.mean(num_nodes[1:]), np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(
                             sample_times[1:]), np.mean(convert_times[1:]), np.mean(train_times[1:]), loss
                     ))
                     sam.report(epoch, step)
 
+    sam.report_node_access()
     sam.shutdown()
 
 
