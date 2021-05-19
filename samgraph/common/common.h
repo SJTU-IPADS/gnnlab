@@ -129,6 +129,7 @@ Context MMAP(int device_id = 0);
 std::string ToReadableSize(size_t nbytes);
 
 std::string GetEnv(std::string key);
+bool IsEnvSet(std::string key);
 std::string GetTime();
 
 }  // namespace common

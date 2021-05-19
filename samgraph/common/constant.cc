@@ -26,9 +26,12 @@ const std::string Constant::kMetaNumValidSet = "NUM_VALID_SET";
 const std::string Constant::kEnvProfileLevel = "SAMGRAPH_PROFILE_LEVEL";
 const std::string Constant::kEnvProfileCuda = "SAMGRAPH_PROFILE_CUDA";
 const std::string Constant::kEnvLogNodeAccess = "SAMGRAPH_LOG_NODE_ACCESS";
+const std::string Constant::kEnvSanityCheck = "SAMGRAPH_SANITY_CHECK";
 
 const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";
+const std::string Constant::kNodeAccessSimilarityFile =
+    "node_access_similarity";
 const std::string Constant::kNodeAccessFileSuffix = ".txt";
 
 }  // namespace common

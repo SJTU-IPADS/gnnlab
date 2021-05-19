@@ -23,6 +23,7 @@ struct RunConfig {
   // Environment variables
   static bool option_profile_cuda;
   static bool option_log_node_access;
+  static bool option_sanity_check;
 
   static size_t kPipelineDepth;
   static int kOMPThreadNum;

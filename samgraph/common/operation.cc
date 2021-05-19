@@ -33,12 +33,13 @@ void samgraph_config(const char *path, int sampler_type, int sampler_device,
       Context{static_cast<DeviceType>(trainer_type), trainer_device};
   RunConfig::cpu_hashtable_type =
       static_cast<cpu::HashTableType>(cpu_hashtable_type);
+
+  RunConfig::LoadConfigFromEnv();
 }
 
 void samgraph_init() {
   Engine::Create();
   Engine::Get()->Init();
-  RunConfig::LoadConfigFromEnv();
 
   LOG(DEBUG) << "SamGraph has been initialied successfully";
 }

@@ -176,6 +176,8 @@ void DoGPUSample(TaskPtr task) {
   }
 
   task->input_nodes = cur_input;
+  Profiler::Get().Log(task->key, kLogL1NumNode,
+                      static_cast<double>(task->input_nodes->Shape()[0]));
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
@@ -296,7 +298,7 @@ void DoFeatureExtract(TaskPtr task) {
                      label_type);
 
   if (RunConfig::option_log_node_access) {
-    Profiler::Get().LogNodeAccess(input_data, num_input);
+    Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
   }
 
   LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;

@@ -207,6 +207,16 @@ std::string GetEnv(std::string key) {
   }
 }
 
+bool IsEnvSet(std::string key) {
+  std::string val = GetEnv(key);
+  if (val == "ON" || val == "1") {
+    LOG(INFO) << "Environment variable " << key << " is set to " << val;
+    return true;
+  } else {
+    return false;
+  }
+}
+
 std::string GetTime() {
   auto now = std::chrono::system_clock::now();
   auto in_time_t = std::chrono::system_clock::to_time_t(now);

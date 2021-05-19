@@ -39,6 +39,8 @@ class CudaPermutator {
   size_t _batch_size;
   size_t _last_batch_size;
 
+  IdType *_sanity_check_map;
+
   void RePermutate(StreamHandle stream = nullptr);
 };
 

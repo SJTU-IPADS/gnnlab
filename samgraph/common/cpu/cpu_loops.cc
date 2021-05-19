@@ -145,6 +145,8 @@ void DoCPUSample(TaskPtr task) {
   }
 
   task->input_nodes = cur_input;
+  Profiler::Get().Log(task->key, kLogL1NumNode,
+                      static_cast<double>(task->input_nodes->Shape()[0]));
 }
 
 void DoFeatureExtract(TaskPtr task) {

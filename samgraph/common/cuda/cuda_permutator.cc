@@ -9,7 +9,9 @@
 
 #include "../device.h"
 #include "../logging.h"
+#include "../run_config.h"
 #include "cuda_engine.h"
+#include "cuda_function.h"
 
 namespace samgraph {
 namespace common {
@@ -36,6 +38,15 @@ CudaPermutator::CudaPermutator(TensorPtr input, size_t num_epoch,
 
   _initialized = false;
   _cur_step = _num_step;
+
+  if (RunConfig::option_sanity_check) {
+    auto ctx = Engine::Get()->GetSamplerCtx();
+    auto device = Device::Get(ctx);
+    auto num_node = Engine::Get()->GetGraphDataset()->num_node;
+    _sanity_check_map = static_cast<IdType *>(
+        device->AllocDataSpace(ctx, num_node * sizeof(IdType)));
+    CUDA_CALL(cudaMemset(_sanity_check_map, 0, sizeof(IdType) * num_node));
+  }
 }
 
 void CudaPermutator::RePermutate(StreamHandle stream) {
@@ -81,6 +92,13 @@ void CudaPermutator::RePermutate(StreamHandle stream) {
                          _gpu_data->NumBytes(), _data->Ctx(), _gpu_data->Ctx(),
                          stream);
 
+  if (RunConfig::option_sanity_check) {
+    auto num_node = Engine::Get()->GetGraphDataset()->num_node;
+    auto cu_stream = static_cast<cudaStream_t>(stream);
+    CUDA_CALL(cudaMemsetAsync(_sanity_check_map, 0, sizeof(IdType) * num_node,
+                              cu_stream));
+  }
+
   device->StreamSync(_gpu_data->Ctx(), stream);
 }
 
@@ -97,8 +115,17 @@ TensorPtr CudaPermutator::GetBatch(StreamHandle stream) {
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  return Tensor::Copy1D(_gpu_data, offset, {size}, "cuda_permutator_batch",
-                        stream);
+  auto tensor = Tensor::Copy1D(_gpu_data, offset, {size},
+                               "cuda_permutator_batch", stream);
+
+  if (RunConfig::option_sanity_check) {
+    LOG(INFO) << "Doing batch sanity check";
+    GPUBatchSanityCheck(_sanity_check_map,
+                        static_cast<const IdType *>(tensor->Data()), size,
+                        tensor->Ctx(), stream);
+  }
+
+  return tensor;
 }
 
 }  // namespace cuda

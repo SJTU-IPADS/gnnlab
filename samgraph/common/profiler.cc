@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <numeric>
 #include <unordered_map>
 
@@ -34,6 +35,8 @@ Profiler::Profiler() {
   _data.resize(num_items);
   _output_buf.resize(num_logs);
   _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _similarity.resize(num_logs);
 }
 
 void Profiler::Log(uint64_t key, LogItem item, double val) {
@@ -54,11 +57,32 @@ void Profiler::LogAdd(uint64_t key, LogItem item, double val) {
   _data[item_idx].bitmap[key] = true;
 }
 
-void Profiler::LogNodeAccess(const IdType *input, size_t num_input) {
+void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
+                             size_t num_input) {
 #pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
   for (size_t i = 0; i < num_input; ++i) {
     _node_access[input[i]]++;
   }
+
+  size_t similarity_count = 0;
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum) reduction(+:similarity_count)
+  for (size_t i = 0; i < num_input; ++i) {
+    if (_last_visit[input[i]]) {
+      similarity_count++;
+    }
+  }
+
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+  for (size_t i = 0; i < _last_visit.size(); ++i) {
+    _last_visit[i] = 0;
+  }
+
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+  for (size_t i = 0; i < num_input; ++i) {
+    _last_visit[input[i]] = 1;
+  }
+
+  _similarity[key] = similarity_count;
 }
 
 void Profiler::Report(uint64_t key) {
@@ -93,22 +117,70 @@ void Profiler::ReportNodeAccess() {
   std::ofstream ofs1(Constant::kNodeAccessFrequencyFile + GetTime() +
                          Constant::kNodeAccessFileSuffix,
                      std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs2(Constant::kNodeAccessSimilarityFile + GetTime() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc);
 
-  std::vector<std::pair<size_t, IdType>> records;    // (degree, id)
-  std::vector<std::pair<size_t, size_t>> frequency;  // (frequency, count)
+  // (frequency, nodeid)
+  std::vector<std::pair<size_t, IdType>> records;
+  // (frequency, count): how many nodes are accessed 'frequency' time
+  std::vector<std::pair<size_t, size_t>> frequency;
+  // (frequency, count): how many nodes are accessed 'frequency' time
   std::unordered_map<size_t, size_t> frequency_map;
+  // (frequency, sum indegree)
+  std::unordered_map<size_t, size_t> sum_indegree_map;
+  // (frequency, min indegree)
+  std::unordered_map<size_t, IdType> min_indegree_map;
+  // (frequency, max indegree)
+  std::unordered_map<size_t, IdType> max_indegree_map;
+  // (frequency, sum outdegree)
+  std::unordered_map<size_t, size_t> sum_outdegree_map;
+  // (frequency, min outdegree)
+  std::unordered_map<size_t, IdType> min_outdegree_map;
+  // (frequency, max indegree)
+  std::unordered_map<size_t, IdType> max_outdegree_map;
+  // how many nodes are accessed
+  double count_sum = 0;
+  // how many times are nodes accessed
+  double access_sum = 0;
+  // count's prefix sum
+  double count_percentage_prefix_sum = 0;
+  // access's prefix sum
+  double access_percentage_prefix_sum = 0;
 
   for (IdType nodeid = 0; nodeid < _node_access.size(); nodeid++) {
     if (_node_access[nodeid] > 0) {
-      records.push_back({_node_access[nodeid], nodeid});
-      frequency_map[_node_access[nodeid]]++;
+      size_t frequency = _node_access[nodeid];
+      count_sum++;
+      records.push_back({frequency, nodeid});
+      frequency_map[frequency]++;
+      access_sum += frequency;
+
+      if (min_indegree_map[frequency] == 0) {
+        min_indegree_map[frequency] = std::numeric_limits<IdType>::max();
+      }
+      if (min_outdegree_map[frequency] == 0) {
+        min_outdegree_map[frequency] = std::numeric_limits<IdType>::max();
+      }
+
+      sum_indegree_map[frequency] += in_degrees[nodeid];
+      min_indegree_map[frequency] =
+          std::min(min_indegree_map[frequency], in_degrees[nodeid]);
+      max_indegree_map[frequency] =
+          std::max(max_indegree_map[frequency], in_degrees[nodeid]);
+      sum_outdegree_map[frequency] += out_degrees[nodeid];
+      min_outdegree_map[frequency] =
+          std::min(min_outdegree_map[frequency], out_degrees[nodeid]);
+      max_outdegree_map[frequency] =
+          std::max(min_outdegree_map[frequency], out_degrees[nodeid]);
     }
   }
 
   for (auto &p : frequency_map) {
-    frequency.push_back({p.second, p.first});
+    frequency.push_back({p.first, p.second});
   }
 
+  // Sorted by frequency
 #ifdef __linux__
   __gnu_parallel::sort(records.begin(), records.end(),
                        std::greater<std::pair<size_t, IdType>>());
@@ -129,14 +201,40 @@ void Profiler::ReportNodeAccess() {
   }
 
   for (auto &p : frequency) {
-    size_t frequency = p.second;
-    size_t count = p.first;
+    size_t frequency = p.first;
+    size_t count = p.second;
+    double count_percentage = static_cast<double>(count) / count_sum;
+    count_percentage_prefix_sum += count_percentage;
 
-    ofs1 << frequency << " " << count << "\n";
+    size_t access = frequency * count;
+    double access_percentage = static_cast<double>(access) / access_sum;
+    access_percentage_prefix_sum += access_percentage;
+
+    double average_indegree = static_cast<double>(sum_indegree_map[frequency]) /
+                              static_cast<double>(count);
+    double average_outdegree =
+        static_cast<double>(sum_outdegree_map[frequency]) /
+        static_cast<double>(count);
+
+    ofs1 << frequency << " " << count << " " << count_percentage << " "
+         << count_percentage_prefix_sum << " " << access << " "
+         << access_percentage << " " << access_percentage_prefix_sum << " "
+         << min_indegree_map[frequency] << " " << average_indegree << " "
+         << max_indegree_map[frequency] << " " << min_outdegree_map[frequency]
+         << " " << average_outdegree << " " << max_outdegree_map[frequency]
+         << "\n";
+  }
+
+  for (size_t i = 0; i < _similarity.size(); i++) {
+    double similarity_percentage =
+        _similarity[i] / _data[kLogL1NumNode].vals[i];
+    ofs2 << i << " " << _data[kLogL1NumNode].vals[i] << " " << _similarity[i]
+         << " " << similarity_percentage << "\n";
   }
 
   ofs0.close();
   ofs1.close();
+  ofs2.close();
 }
 
 Profiler &Profiler::Get() {

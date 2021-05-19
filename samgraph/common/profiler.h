@@ -13,6 +13,7 @@ namespace common {
 enum LogItem {
   // L1
   kLogL1NumSample = 0,
+  kLogL1NumNode,
   kLogL1SampleTime,
   kLogL1CopyTime,
   kLogL1FeatureBytes,
@@ -52,7 +53,7 @@ class Profiler {
   Profiler();
   void Log(uint64_t key, LogItem item, double value);
   void LogAdd(uint64_t key, LogItem item, double value);
-  void LogNodeAccess(const IdType *input, size_t num_input);
+  void LogNodeAccess(uint64_t key, const IdType *input, size_t num_input);
 
   void Report(uint64_t key);
   void ReportAverage(uint64_t key);
@@ -67,6 +68,8 @@ class Profiler {
   std::vector<double> _output_buf;
 
   std::vector<size_t> _node_access;
+  std::vector<int> _last_visit;
+  std::vector<size_t> _similarity;
 };
 
 }  // namespace common

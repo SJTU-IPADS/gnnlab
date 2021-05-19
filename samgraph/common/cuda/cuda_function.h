@@ -24,6 +24,10 @@ void MapEdges(const IdType *const global_src, IdType *const new_global_src,
               const size_t num_edges, DeviceOrderedHashTable mapping,
               Context ctx, StreamHandle stream);
 
+void GPUBatchSanityCheck(IdType *map, const IdType *input,
+                         const size_t num_input, Context ctx,
+                         StreamHandle stream);
+
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph
