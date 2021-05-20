@@ -107,6 +107,9 @@ void Profiler::ReportAverage(uint64_t key) {
 void Profiler::ReportNodeAccess() {
   LOG(INFO) << "Writing the node access data to file...";
 
+  double num_nodes =
+      static_cast<double>(Engine::Get()->GetGraphDataset()->num_node);
+
   const IdType *in_degrees = static_cast<const IdType *>(
       Engine::Get()->GetGraphDataset()->in_degrees->Data());
   const IdType *out_degrees = static_cast<const IdType *>(
@@ -203,7 +206,7 @@ void Profiler::ReportNodeAccess() {
   for (auto &p : frequency) {
     size_t frequency = p.first;
     size_t count = p.second;
-    double count_percentage = static_cast<double>(count) / count_sum;
+    double count_percentage = static_cast<double>(count) / num_nodes;
     count_percentage_prefix_sum += count_percentage;
 
     size_t access = frequency * count;
