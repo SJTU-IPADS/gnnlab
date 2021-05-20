@@ -18,6 +18,7 @@
 #endif
 
 std::string dataset = "papers100M";
+// std::string dataset = "com-friendster";
 std::unordered_map<std::string, size_t> dataset2nodes = {
     {"com-friendster", 65608366}, {"papers100M", 111059956}};
 std::unordered_map<std::string, size_t> dataset2edges = {
@@ -25,32 +26,24 @@ std::unordered_map<std::string, size_t> dataset2edges = {
 
 size_t num_nodes = dataset2nodes[dataset];
 size_t num_edges = dataset2edges[dataset];
+size_t num_threads = 24;
 
-std::string indptr_filepath =
-    "/graph-learning/samgraph/" + dataset + "/indptr.bin";
-std::string indices_filepath =
-    "/graph-learning/samgraph/" + dataset + "/indices.bin";
-std::string out0_filepath =
-    "/graph-learning/samgraph/" + dataset + "/degrees.txt";
-std::string out1_filepath =
-    "/graph-learning/samgraph/" + dataset + "/out_degrees.bin";
-std::string out2_filepath =
-    "/graph-learning/samgraph/" + dataset + "/in_degrees.bin";
-std::string out3_filepath =
-    "/graph-learning/samgraph/" + dataset + "/in_degree_frequency.txt";
-std::string out4_filepath =
-    "/graph-learning/samgraph/" + dataset + "/out_degree_frequency.txt";
+std::string dataroot = "/graph-learning/samgraph/";
+std::string prefix = dataroot + dataset + "/";
 
-int main() {
+std::string indptr_filepath = prefix + "indptr.bin";
+std::string indices_filepath = prefix + "indices.bin";
+std::string out0_filepath = prefix + "degrees.txt";
+std::string out1_filepath = prefix + "out_degrees.bin";
+std::string out2_filepath = prefix + "in_degrees.bin";
+std::string out3_filepath = prefix + "in_degree_frequency.txt";
+std::string out4_filepath = prefix + "out_degree_frequency.txt";
+std::string out5_filepath = prefix + "nodes_sorted_by_in_degree.bin";
+
+void loadGraph(uint32_t **indptr, uint32_t **indices) {
   int fd;
   struct stat st;
   size_t nbytes;
-
-  uint32_t *indptr;
-  uint32_t *indices;
-
-  size_t num_threads = 24;
-  omp_set_num_threads(num_threads);
 
   fd = open(indptr_filepath.c_str(), O_RDONLY, 0);
   stat(indptr_filepath.c_str(), &st);
@@ -61,7 +54,7 @@ int main() {
     exit(1);
   }
 
-  indptr =
+  *indptr =
       (uint32_t *)mmap(NULL, nbytes, PROT_READ, MAP_SHARED | MAP_FILE, fd, 0);
   mlock(indptr, nbytes);
   close(fd);
@@ -74,14 +67,15 @@ int main() {
     exit(1);
   }
 
-  indices =
+  *indices =
       (uint32_t *)mmap(NULL, nbytes, PROT_READ, MAP_SHARED | MAP_FILE, fd, 0);
   mlock(indices, nbytes);
   close(fd);
+}
 
-  std::vector<uint32_t> out_degrees(num_nodes, 0);
-  std::vector<uint32_t> in_degrees(num_nodes, 0);
-
+void getNodeDegrees(const uint32_t *indptr, const uint32_t *indices,
+                    std::vector<uint32_t> &in_degrees,
+                    std::vector<uint32_t> &out_degrees) {
   std::vector<std::vector<uint32_t>> in_degrees_per_thread(
       num_threads, std::vector<uint32_t>(num_nodes, 0));
 
@@ -102,7 +96,31 @@ int main() {
       in_degrees[i] += in_degrees_per_thread[k][i];
     }
   }
+}
 
+void degreesToFile(const std::vector<uint32_t> &in_degrees,
+                   const std::vector<uint32_t> &out_degrees) {
+  std::ofstream ofs0(out0_filepath, std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs1(out1_filepath, std::ofstream::out | std::ofstream::binary |
+                                        std::ofstream::trunc);
+  std::ofstream ofs2(out2_filepath, std::ofstream::out | std::ofstream::binary |
+                                        std::ofstream::trunc);
+
+  for (uint32_t i = 0; i < num_nodes; i++) {
+    ofs0 << i << " " << out_degrees[i] << " " << in_degrees[i] << "\n";
+  }
+
+  ofs1.write((const char *)out_degrees.data(),
+             out_degrees.size() * sizeof(uint32_t));
+  ofs2.write((const char *)in_degrees.data(),
+             in_degrees.size() * sizeof(uint32_t));
+  ofs0.close();
+  ofs1.close();
+  ofs2.close();
+}
+
+void degreeFrequencyToFile(const std::vector<uint32_t> &in_degrees,
+                           const std::vector<uint32_t> &out_degrees) {
   std::unordered_map<uint32_t, size_t> indegree_frequency_map;
   std::unordered_map<uint32_t, size_t> outdegree_frequency_map;
 
@@ -142,22 +160,8 @@ int main() {
             std::greater<std::pair<uint32_t, size_t>>());
 #endif
 
-  std::ofstream ofs0(out0_filepath, std::ofstream::out | std::ofstream::trunc);
-  std::ofstream ofs1(out1_filepath, std::ofstream::out | std::ofstream::binary |
-                                        std::ofstream::trunc);
-  std::ofstream ofs2(out2_filepath, std::ofstream::out | std::ofstream::binary |
-                                        std::ofstream::trunc);
   std::ofstream ofs3(out3_filepath, std::ofstream::out | std::ofstream::trunc);
   std::ofstream ofs4(out4_filepath, std::ofstream::out | std::ofstream::trunc);
-
-  for (uint32_t i = 0; i < num_nodes; i++) {
-    ofs0 << i << " " << out_degrees[i] << " " << in_degrees[i] << "\n";
-  }
-
-  ofs1.write((const char *)out_degrees.data(),
-             out_degrees.size() * sizeof(uint32_t));
-  ofs2.write((const char *)in_degrees.data(),
-             in_degrees.size() * sizeof(uint32_t));
 
   for (auto &p : indegree_frequency) {
     uint32_t degree = p.first;
@@ -193,9 +197,50 @@ int main() {
          << outdegree_edge_frequency_percentage_prefix_sum << "\n";
   }
 
-  ofs0.close();
-  ofs1.close();
-  ofs2.close();
   ofs3.close();
   ofs4.close();
+}
+
+void sortedNodesToFile(const std::vector<uint32_t> &in_degrees) {
+  std::vector<std::pair<uint32_t, uint32_t>> in_degrees_ids_list;
+  for (uint32_t i = 0; i < in_degrees.size(); i++) {
+    in_degrees_ids_list.emplace_back(in_degrees[i], i);
+  }
+
+#ifdef __linux__
+  __gnu_parallel::sort(in_degrees_ids_list.begin(), in_degrees_ids_list.end(),
+                       std::greater<std::pair<uint32_t, uint32_t>>());
+#else
+  std::sort(in_degrees_ids_list.begin(), in_degrees_ids_list.end(),
+            std::greater<std::pair<uint32_t, uint32_t>>());
+#endif
+
+  std::vector<uint32_t> nodes_sorted_by_in_degree;
+
+  for (size_t i = 0; i < in_degrees_ids_list.size(); i++) {
+    nodes_sorted_by_in_degree.push_back(in_degrees_ids_list[i].second);
+  }
+
+  std::ofstream ofs5(out5_filepath, std::ofstream::out | std::ofstream::binary |
+                                        std::ofstream::trunc);
+
+  ofs5.write((const char *)nodes_sorted_by_in_degree.data(),
+             nodes_sorted_by_in_degree.size() * sizeof(uint32_t));
+
+  ofs5.close();
+}
+
+int main() {
+  uint32_t *indptr;
+  uint32_t *indices;
+  std::vector<uint32_t> in_degrees(num_nodes, 0);
+  std::vector<uint32_t> out_degrees(num_nodes, 0);
+
+  omp_set_num_threads(num_threads);
+
+  loadGraph(&indptr, &indices);
+  getNodeDegrees(indptr, indices, in_degrees, out_degrees);
+  degreesToFile(in_degrees, out_degrees);
+  degreeFrequencyToFile(in_degrees, out_degrees);
+  sortedNodesToFile(in_degrees);
 }

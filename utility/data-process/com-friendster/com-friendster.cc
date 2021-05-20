@@ -115,8 +115,8 @@ size_t locateLineEnd(File f, size_t off) {
   return off;
 }
 
-void runGraphLoad(ThreadCtx &ctx, RawGraph &raw_graph, size_t v_start,
-                  size_t v_end, size_t e_start, size_t e_end) {
+void threadLoadGraph(ThreadCtx &ctx, RawGraph &raw_graph, size_t v_start,
+                     size_t v_end, size_t e_start, size_t e_end) {
   std::string str;
   auto vfile = raw_graph.vfile;
   auto efile = raw_graph.efile;
@@ -159,16 +159,17 @@ void runGraphLoad(ThreadCtx &ctx, RawGraph &raw_graph, size_t v_start,
   }
 }
 
-void runPopulateHashtable(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
-                          uint32_t new_start) {
+void threadPopulateHashtable(ThreadCtx &ctx,
+                             std::vector<uint32_t> &o2n_hashtable,
+                             uint32_t new_start) {
   for (size_t i = 0; i < ctx.v_cnt; i++) {
     o2n_hashtable[ctx.v_list[i]] = new_start + i;
   }
 }
 
-void runMapEdges(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
-                 std::vector<std::pair<uint32_t, uint32_t>> &new_edge_list,
-                 uint32_t new_start) {
+void threadMapEdges(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
+                    std::vector<std::pair<uint32_t, uint32_t>> &new_edge_list,
+                    uint32_t new_start) {
   for (size_t i = 0; i < ctx.e_cnt; i++) {
     new_edge_list[new_start + i] = {o2n_hashtable[ctx.e_list[i].first],
                                     o2n_hashtable[ctx.e_list[i].second]};
@@ -181,7 +182,7 @@ void runMapEdges(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
   }
 }
 
-void GenerateAndWriteNodeSet(std::vector<uint32_t> &indptr) {
+void generateNodeSet(std::vector<uint32_t> &indptr) {
   std::vector<bool> bitmap(num_nodes, false);
   std::vector<uint32_t> train_set;
   std::vector<uint32_t> test_set;
@@ -271,7 +272,7 @@ void writeCSRToFile(std::vector<uint32_t> &indptr,
   ofs1.close();
 }
 
-void Join(std::vector<std::thread> &threads) {
+void JoinThreads(std::vector<std::thread> &threads) {
   for (size_t i = 0; i < num_threads; i++) {
     threads[i].join();
   }
@@ -307,11 +308,11 @@ int main() {
     size_t e_start = locateLineStart(efile, i * efile_partition_nbytes);
     size_t e_end = locateLineEnd(efile, (i + 1) * efile_partition_nbytes);
 
-    threads.emplace_back(runGraphLoad, std::ref(*thread_ctx[i]),
+    threads.emplace_back(threadLoadGraph, std::ref(*thread_ctx[i]),
                          std::ref(raw_graph), v_start, v_end, e_start, e_end);
   }
 
-  Join(threads);
+  JoinThreads(threads);
   double read_file_time = t1.Passed();
   printf("read file %.4f\n", read_file_time);
 
@@ -333,11 +334,11 @@ int main() {
 
   std::vector<uint32_t> o2n_hashtable(max_nodeid + 1);
   for (size_t i = 0; i < num_threads; i++) {
-    threads.emplace_back(runPopulateHashtable, std::ref(*thread_ctx[i]),
+    threads.emplace_back(threadPopulateHashtable, std::ref(*thread_ctx[i]),
                          std::ref(o2n_hashtable), v_cnt_prefix_sum[i]);
   }
 
-  Join(threads);
+  JoinThreads(threads);
   double populate_time = t2.Passed();
   printf("populate %.4f\n", populate_time);
 
@@ -347,12 +348,12 @@ int main() {
   std::vector<std::pair<uint32_t, uint32_t>> new_edge_list(num_edges);
 
   for (size_t i = 0; i < num_threads; i++) {
-    threads.emplace_back(runMapEdges, std::ref(*thread_ctx[i]),
+    threads.emplace_back(threadMapEdges, std::ref(*thread_ctx[i]),
                          std::ref(o2n_hashtable), std::ref(new_edge_list),
                          e_cnt_prefix_sum[i]);
   }
 
-  Join(threads);
+  JoinThreads(threads);
   double map_edges_time = t3.Passed();
   printf("map edges %.4f\n", map_edges_time);
 
@@ -401,7 +402,7 @@ int main() {
   printf("write file %.4f \n", write_file_time);
 
   Timer t6;
-  GenerateAndWriteNodeSet(indptr);
+  generateNodeSet(indptr);
   double generate_nodeset_time = t6.Passed();
 
   writeMetaFile();
