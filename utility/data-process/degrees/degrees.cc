@@ -38,7 +38,7 @@ std::string out1_filepath = prefix + "out_degrees.bin";
 std::string out2_filepath = prefix + "in_degrees.bin";
 std::string out3_filepath = prefix + "in_degree_frequency.txt";
 std::string out4_filepath = prefix + "out_degree_frequency.txt";
-std::string out5_filepath = prefix + "nodes_sorted_by_in_degree.bin";
+std::string out5_filepath = prefix + "sorted_nodes_by_in_degree.bin";
 
 void loadGraph(uint32_t **indptr, uint32_t **indices) {
   int fd;
