@@ -8,10 +8,23 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
-std::string dataset = "com-friendster";
-size_t num_nodes = 65608366;
+#ifdef __linux__
+#include <parallel/algorithm>
+#else
+#include <algorithm>
+#endif
+
+std::string dataset = "papers100M";
+std::unordered_map<std::string, size_t> dataset2nodes = {
+    {"com-friendster", 65608366}, {"papers100M", 111059956}};
+std::unordered_map<std::string, size_t> dataset2edges = {
+    {"com-friendster", 1871675501}, {"papers100M", 1726745828}};
+
+size_t num_nodes = dataset2nodes[dataset];
+size_t num_edges = dataset2edges[dataset];
 
 std::string indptr_filepath =
     "/graph-learning/samgraph/" + dataset + "/indptr.bin";
@@ -23,6 +36,10 @@ std::string out1_filepath =
     "/graph-learning/samgraph/" + dataset + "/out_degrees.bin";
 std::string out2_filepath =
     "/graph-learning/samgraph/" + dataset + "/in_degrees.bin";
+std::string out3_filepath =
+    "/graph-learning/samgraph/" + dataset + "/in_degree_frequency.txt";
+std::string out4_filepath =
+    "/graph-learning/samgraph/" + dataset + "/out_degree_frequency.txt";
 
 int main() {
   int fd;
@@ -86,11 +103,52 @@ int main() {
     }
   }
 
+  std::unordered_map<uint32_t, size_t> indegree_frequency_map;
+  std::unordered_map<uint32_t, size_t> outdegree_frequency_map;
+
+  std::vector<std::pair<uint32_t, size_t>> indegree_frequency;
+  std::vector<std::pair<uint32_t, size_t>> outdegree_frequency;
+
+  double indegree_node_frequency_percentage_prefix_sum = 0;
+  double outdegree_node_frequency_percentage_prefix_sum = 0;
+  double indegree_edge_frequency_percentage_prefix_sum = 0;
+  double outdegree_edge_frequency_percentage_prefix_sum = 0;
+
+  for (size_t i = 0; i < in_degrees.size(); i++) {
+    indegree_frequency_map[in_degrees[i]]++;
+  }
+
+  for (size_t i = 0; i < out_degrees.size(); i++) {
+    outdegree_frequency_map[out_degrees[i]]++;
+  }
+
+  for (auto &p : indegree_frequency_map) {
+    indegree_frequency.emplace_back(p.first, p.second);
+  }
+
+  for (auto &p : outdegree_frequency_map) {
+    outdegree_frequency.emplace_back(p.first, p.second);
+  }
+
+#ifdef __linux__
+  __gnu_parallel::sort(indegree_frequency.begin(), indegree_frequency.end(),
+                       std::greater<std::pair<uint32_t, size_t>>());
+  __gnu_parallel::sort(outdegree_frequency.begin(), outdegree_frequency.end(),
+                       std::greater<std::pair<uint32_t, size_t>>());
+#else
+  std::sort(indegree_frequency.begin(), indegree_frequency.end(),
+            std::greater<std::pair<uint32_t, size_t>>());
+  std::sort(outdegree_frequency.begin(), outdegree_frequency.end(),
+            std::greater<std::pair<uint32_t, size_t>>());
+#endif
+
   std::ofstream ofs0(out0_filepath, std::ofstream::out | std::ofstream::trunc);
   std::ofstream ofs1(out1_filepath, std::ofstream::out | std::ofstream::binary |
                                         std::ofstream::trunc);
   std::ofstream ofs2(out2_filepath, std::ofstream::out | std::ofstream::binary |
                                         std::ofstream::trunc);
+  std::ofstream ofs3(out3_filepath, std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs4(out4_filepath, std::ofstream::out | std::ofstream::trunc);
 
   for (uint32_t i = 0; i < num_nodes; i++) {
     ofs0 << i << " " << out_degrees[i] << " " << in_degrees[i] << "\n";
@@ -101,7 +159,43 @@ int main() {
   ofs2.write((const char *)in_degrees.data(),
              in_degrees.size() * sizeof(uint32_t));
 
+  for (auto &p : indegree_frequency) {
+    uint32_t degree = p.first;
+    size_t frequency = p.second;
+
+    double node_percentage =
+        static_cast<double>(frequency) / static_cast<double>(num_nodes);
+    double edge_percentage = static_cast<double>(degree * frequency) /
+                             static_cast<double>(num_edges);
+    indegree_node_frequency_percentage_prefix_sum += node_percentage;
+    indegree_edge_frequency_percentage_prefix_sum += edge_percentage;
+
+    ofs3 << degree << " " << frequency << " " << node_percentage << " "
+         << indegree_node_frequency_percentage_prefix_sum << " "
+         << edge_percentage << " "
+         << indegree_edge_frequency_percentage_prefix_sum << "\n";
+  }
+
+  for (auto &p : outdegree_frequency) {
+    uint32_t degree = p.first;
+    size_t frequency = p.second;
+
+    double node_percentage =
+        static_cast<double>(frequency) / static_cast<double>(num_nodes);
+    double edge_percentage = static_cast<double>(degree * frequency) /
+                             static_cast<double>(num_edges);
+    outdegree_node_frequency_percentage_prefix_sum += node_percentage;
+    outdegree_edge_frequency_percentage_prefix_sum += edge_percentage;
+
+    ofs4 << degree << " " << frequency << " " << node_percentage << " "
+         << outdegree_node_frequency_percentage_prefix_sum << " "
+         << edge_percentage << " "
+         << outdegree_edge_frequency_percentage_prefix_sum << "\n";
+  }
+
   ofs0.close();
   ofs1.close();
   ofs2.close();
+  ofs3.close();
+  ofs4.close();
 }
