@@ -5,7 +5,6 @@
 #include <memory>
 
 #include "../logging.h"
-#include "../thread_local.h"
 #include "../workspace_pool.h"
 
 namespace samgraph {

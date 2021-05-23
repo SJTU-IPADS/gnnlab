@@ -8,7 +8,6 @@
 
 #include "common.h"
 #include "constant.h"
-#include "cpu/cpu_loops.h"
 #include "engine.h"
 #include "logging.h"
 #include "profiler.h"
@@ -22,7 +21,7 @@ extern "C" {
 void samgraph_config(const char *path, int sampler_type, int sampler_device,
                      int trainer_type, int trainer_device, size_t batch_size,
                      int *fanout, size_t num_fanout, size_t num_epoch,
-                     int cpu_hashtable_type) {
+                     int cpu_hashtable_type, double cache_percentage) {
   RunConfig::dataset_path = path;
   RunConfig::fanout = std::vector<int>(fanout, fanout + num_fanout);
   RunConfig::batch_size = batch_size;
@@ -31,8 +30,8 @@ void samgraph_config(const char *path, int sampler_type, int sampler_device,
       Context{static_cast<DeviceType>(sampler_type), sampler_device};
   RunConfig::trainer_ctx =
       Context{static_cast<DeviceType>(trainer_type), trainer_device};
-  RunConfig::cpu_hashtable_type =
-      static_cast<cpu::HashTableType>(cpu_hashtable_type);
+  RunConfig::cpu_hashtable_type = cpu_hashtable_type;
+  RunConfig::cache_percentage = cache_percentage;
 
   RunConfig::LoadConfigFromEnv();
 }

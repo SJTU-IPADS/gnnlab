@@ -9,14 +9,14 @@
 
 #include "../common.h"
 #include "../engine.h"
-#include "../extractor.h"
 #include "../graph_pool.h"
 #include "../logging.h"
 #include "../ready_table.h"
 #include "../task_queue.h"
+#include "cuda_cache.h"
 #include "cuda_common.h"
 #include "cuda_hashtable.h"
-#include "cuda_permutator.h"
+#include "cuda_shuffler.h"
 
 namespace samgraph {
 namespace common {
@@ -32,10 +32,10 @@ class GPUEngine : public Engine {
   void RunSampleOnce() override;
   void Report(uint64_t epoch, uint64_t step) override;
 
-  CudaPermutator* GetPermutator() { return _permutator; }
-  Extractor* GetExtractor() { return _extractor; }
+  GPUShuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
+  GPUCache* GetDataCache() { return _data_cache; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetCopyStream() { return _copy_stream; }
@@ -50,11 +50,11 @@ class GPUEngine : public Engine {
   StreamHandle _sample_stream;
   StreamHandle _copy_stream;
   // Random node batch genrator
-  CudaPermutator* _permutator;
-  // CPU Extractor
-  Extractor* _extractor;
+  GPUShuffler* _shuffler;
   // Hash table
   OrderedHashTable* _hashtable;
+  // Feature cache in GPU
+  GPUCache* _data_cache;
 };
 
 }  // namespace cuda

@@ -5,20 +5,20 @@
 #include <vector>
 
 #include "common.h"
-#include "cpu/cpu_hashtable.h"
 
 namespace samgraph {
 namespace common {
 
 struct RunConfig {
+  // Configs passed from application
   static std::string dataset_path;
   static std::vector<int> fanout;
   static size_t batch_size;
   static size_t num_epoch;
   static Context sampler_ctx;
   static Context trainer_ctx;
-
-  static cpu::HashTableType cpu_hashtable_type;
+  static int cpu_hashtable_type;
+  static double cache_percentage;
 
   // Environment variables
   static bool option_profile_cuda;
@@ -28,6 +28,7 @@ struct RunConfig {
   static size_t kPipelineDepth;
   static int kOMPThreadNum;
 
+  static inline bool UseGPUCache() { return cache_percentage > 0; }
   static void LoadConfigFromEnv();
 };
 

@@ -44,10 +44,9 @@ void GPUEngine::Init() {
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _copy_stream);
 
-  _extractor = new Extractor();
-  _permutator =
-      new CudaPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
-  _num_step = _permutator->NumStep();
+  _shuffler =
+      new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
+  _num_step = _shuffler->NumStep();
   _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
   size_t predict_node_num =
@@ -56,6 +55,16 @@ void GPUEngine::Init() {
                                                   std::multiplies<size_t>());
   _hashtable =
       new OrderedHashTable(predict_node_num, _sampler_ctx, _sample_stream);
+
+  if (RunConfig::UseGPUCache()) {
+    _data_cache = new GPUCache(
+        _trainer_ctx, _dataset->feat->Data(), _dataset->feat->Type(),
+        _dataset->feat->Shape()[1],
+        static_cast<const IdType*>(_dataset->sorted_nodes_by_in_degree->Data()),
+        _dataset->num_node, RunConfig::cache_percentage);
+  } else {
+    _data_cache = nullptr;
+  }
 
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
@@ -98,8 +107,6 @@ void GPUEngine::Shutdown() {
     _threads[i] = nullptr;
   }
 
-  delete _dataset;
-
   // free queue
   for (size_t i = 0; i < QueueNum; i++) {
     if (_queues[i]) {
@@ -113,15 +120,18 @@ void GPUEngine::Shutdown() {
   Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
   Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _copy_stream);
 
-  if (_permutator) {
-    delete _permutator;
-    _permutator = nullptr;
+  delete _dataset;
+  delete _shuffler;
+  delete _graph_pool;
+
+  if (_data_cache != nullptr) {
+    delete _data_cache;
   }
 
-  if (_graph_pool) {
-    delete _graph_pool;
-    _graph_pool = nullptr;
-  }
+  _dataset = nullptr;
+  _shuffler = nullptr;
+  _graph_pool = nullptr;
+  _data_cache = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;

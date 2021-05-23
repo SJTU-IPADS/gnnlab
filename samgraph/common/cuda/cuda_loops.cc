@@ -7,6 +7,7 @@
 #include <thread>
 
 #include "../device.h"
+#include "../function.h"
 #include "../logging.h"
 #include "../profiler.h"
 #include "../run_config.h"
@@ -22,15 +23,15 @@ namespace cuda {
 
 using TaskPtr = std::shared_ptr<Task>;
 
-TaskPtr DoPermutate() {
-  auto p = GPUEngine::Get()->GetPermutator();
-  auto batch = p->GetBatch();
+TaskPtr DoShuffle() {
+  auto s = GPUEngine::Get()->GetShuffler();
+  auto batch = s->GetBatch();
 
   if (batch) {
     auto task = std::make_shared<Task>();
-    task->key = GPUEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
+    task->key = GPUEngine::Get()->GetBatchKey(s->Epoch(), s->Step());
     task->output_nodes = batch;
-    LOG(DEBUG) << "DoPermutate: process task with key " << task->key;
+    LOG(DEBUG) << "DoShuffle: process task with key " << task->key;
     return task;
   } else {
     return nullptr;
@@ -136,8 +137,8 @@ void DoGPUSample(TaskPtr task) {
     LOG(DEBUG) << "GPUSample: cuda new_dst malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
 
-    MapEdges(out_src, new_src, out_dst, new_dst, num_samples,
-             hash_table->DeviceHandle(), sampler_ctx, sample_stream);
+    GPUMapEdges(out_src, new_src, out_dst, new_dst, num_samples,
+                hash_table->DeviceHandle(), sampler_ctx, sample_stream);
 
     double map_edges_time = t3.Passed();
     double remap_time = t1.Passed();
@@ -285,17 +286,15 @@ void DoFeatureExtract(TaskPtr task) {
       Tensor::Empty(label_type, {num_ouput}, CPU(),
                     "task.output_label_cpu" + std::to_string(task->key));
 
-  auto extractor = GPUEngine::Get()->GetExtractor();
-
   auto feat_dst = task->input_feat->MutableData();
   auto feat_src = dataset->feat->Data();
-  extractor->Extract(feat_dst, feat_src, input_data, num_input, feat_dim,
-                     feat_type);
+
+  cpu::CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
+                  feat_type);
 
   auto label_dst = task->output_label->MutableData();
   auto label_src = dataset->label->Data();
-  extractor->Extract(label_dst, label_src, output_data, num_ouput, 1,
-                     label_type);
+  cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
 
   if (RunConfig::option_log_node_access) {
     Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
@@ -345,7 +344,7 @@ bool RunGPUSampleLoopOnce() {
   }
 
   Timer t0;
-  auto task = DoPermutate();
+  auto task = DoShuffle();
   if (task) {
     double shuffle_time = t0.Passed();
 

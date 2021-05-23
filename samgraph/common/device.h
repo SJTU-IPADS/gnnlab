@@ -27,7 +27,7 @@ class Device {
   virtual void FreeWorkspace(Context ctx, void *ptr, size_t nbytes = 0);
   virtual void CopyDataFromTo(const void *from, size_t from_offset, void *to,
                               size_t to_offset, size_t nbytes, Context ctx_from,
-                              Context ctx_to, StreamHandle stream) = 0;
+                              Context ctx_to, StreamHandle stream = 0) = 0;
 
   virtual StreamHandle CreateStream(Context ctx);
   virtual void FreeStream(Context ctx, StreamHandle stream);

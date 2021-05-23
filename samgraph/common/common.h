@@ -81,6 +81,7 @@ struct Dataset {
 
   TensorPtr in_degrees;
   TensorPtr out_degrees;
+  TensorPtr sorted_nodes_by_in_degree;
 
   bool weighted_edge;
 
@@ -126,7 +127,13 @@ Context CPU(int device_id = 0);
 Context GPU(int device_id = 0);
 Context MMAP(int device_id = 0);
 
+size_t GetDataTypeBytes(DataType dtype);
+size_t GetTensorBytes(DataType dtype, const std::vector<size_t> shape);
+size_t GetTensorBytes(DataType dtype,
+                      std::vector<size_t>::const_iterator shape_start,
+                      std::vector<size_t>::const_iterator shape_end);
 std::string ToReadableSize(size_t nbytes);
+std::string ToPercentage(double percentage);
 
 std::string GetEnv(std::string key);
 bool IsEnvSet(std::string key);

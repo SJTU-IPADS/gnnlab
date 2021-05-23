@@ -12,7 +12,9 @@ size_t RunConfig::batch_size;
 size_t RunConfig::num_epoch;
 Context RunConfig::sampler_ctx;
 Context RunConfig::trainer_ctx;
-cpu::HashTableType RunConfig::cpu_hashtable_type;
+int RunConfig::cpu_hashtable_type = 0;
+double RunConfig::cache_percentage = 0.0f;
+
 bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;
 bool RunConfig::option_sanity_check = false;

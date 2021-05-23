@@ -21,13 +21,13 @@ namespace cpu {
 
 using TaskPtr = std::shared_ptr<Task>;
 
-TaskPtr DoPermuate() {
-  auto p = CPUEngine::Get()->GetPermutator();
-  auto batch = p->GetBatch();
+TaskPtr DoShuffle() {
+  auto s = CPUEngine::Get()->GetShuffler();
+  auto batch = s->GetBatch();
 
   if (batch) {
     auto task = std::make_shared<Task>();
-    task->key = CPUEngine::Get()->GetBatchKey(p->Epoch(), p->Step());
+    task->key = CPUEngine::Get()->GetBatchKey(s->Epoch(), s->Step());
     task->output_nodes = batch;
     return task;
   } else {
@@ -170,17 +170,13 @@ void DoFeatureExtract(TaskPtr task) {
       Tensor::Empty(label_type, {num_ouput}, CPU(),
                     "task.output_label_cpu" + std::to_string(task->key));
 
-  auto extractor = CPUEngine::Get()->GetExtractor();
-
   auto feat_dst = feat->MutableData();
   auto feat_src = dataset->feat->Data();
-  extractor->Extract(feat_dst, feat_src, input_data, num_input, feat_dim,
-                     feat_type);
+  CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim, feat_type);
 
   auto label_dst = label->MutableData();
   auto label_src = dataset->label->Data();
-  extractor->Extract(label_dst, label_src, output_data, num_ouput, 1,
-                     label_type);
+  CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
 
   task->input_feat = feat;
   task->output_label = label;
@@ -261,7 +257,7 @@ bool RunCPUSampleLoopOnce() {
   }
 
   Timer t0;
-  auto task = DoPermuate();
+  auto task = DoShuffle();
   if (task) {
     double shuffle_time = t0.Passed();
 

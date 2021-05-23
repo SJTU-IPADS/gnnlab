@@ -39,20 +39,19 @@ void CPUEngine::Init() {
       Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx));
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _work_stream);
 
-  _extractor = new Extractor();
-  _permutator =
-      new CPUPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
-  _num_step = _permutator->NumStep();
+  _shuffler =
+      new CPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
+  _num_step = _shuffler->NumStep();
   _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
-  switch (RunConfig::cpu_hashtable_type) {
-    case kSimple:
+  switch (static_cast<TableType>(RunConfig::cpu_hashtable_type)) {
+    case kSimpleTable:
       _hash_table = new SimpleHashTable(_dataset->num_node);
       break;
-    case kParallel:
+    case kParallelTable:
       _hash_table = new ParallelHashTable(_dataset->num_node);
       break;
-    case kOptimized:
+    case kOptimizedTable:
       CHECK(0);
       break;
     default:
@@ -93,30 +92,17 @@ void CPUEngine::Shutdown() {
     _threads[i] = nullptr;
   }
 
-  if (_extractor) {
-    delete _extractor;
-    _extractor = nullptr;
-  }
-
-  delete _dataset;
-
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _work_stream);
   Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _work_stream);
 
-  if (_permutator) {
-    delete _permutator;
-    _permutator = nullptr;
-  }
-
-  if (_graph_pool) {
-    delete _graph_pool;
-    _graph_pool = nullptr;
-  }
-
-  if (_hash_table) {
-    delete _hash_table;
-    _hash_table = nullptr;
-  }
+  delete _dataset;
+  delete _shuffler;
+  delete _graph_pool;
+  delete _hash_table;
+  _dataset = nullptr;
+  _shuffler = nullptr;
+  _graph_pool = nullptr;
+  _hash_table = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;

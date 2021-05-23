@@ -1,4 +1,4 @@
-#include "cuda_permutator.h"
+#include "cuda_shuffler.h"
 
 #include <algorithm>
 #include <chrono>
@@ -17,8 +17,8 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-CudaPermutator::CudaPermutator(TensorPtr input, size_t num_epoch,
-                               size_t batch_size, bool drop_last) {
+GPUShuffler::GPUShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
+                         bool drop_last) {
   _num_data = input->Shape().front();
   CHECK_EQ(input->Shape().size(), 1);
 
@@ -26,9 +26,9 @@ CudaPermutator::CudaPermutator(TensorPtr input, size_t num_epoch,
   _cur_epoch = 0;
 
   _data = input;
-  _gpu_data = Tensor::Empty(input->Type(), input->Shape(),
-                            Engine::Get()->GetSamplerCtx(),
-                            "cuda_permutator_dev_input");
+  _gpu_data =
+      Tensor::Empty(input->Type(), input->Shape(),
+                    Engine::Get()->GetSamplerCtx(), "cuda_shuffler_dev_input");
 
   _drop_last = drop_last;
   _num_step =
@@ -49,7 +49,7 @@ CudaPermutator::CudaPermutator(TensorPtr input, size_t num_epoch,
   }
 }
 
-void CudaPermutator::RePermutate(StreamHandle stream) {
+void GPUShuffler::ReShuffle(StreamHandle stream) {
   if (!_initialized) {
     _cur_epoch = 0;
     _initialized = true;
@@ -102,10 +102,10 @@ void CudaPermutator::RePermutate(StreamHandle stream) {
   device->StreamSync(_gpu_data->Ctx(), stream);
 }
 
-TensorPtr CudaPermutator::GetBatch(StreamHandle stream) {
+TensorPtr GPUShuffler::GetBatch(StreamHandle stream) {
   _cur_step++;
   if (_cur_step >= _num_step) {
-    RePermutate(stream);
+    ReShuffle(stream);
   }
 
   if (_cur_epoch >= _num_epoch) {
@@ -115,8 +115,8 @@ TensorPtr CudaPermutator::GetBatch(StreamHandle stream) {
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  auto tensor = Tensor::Copy1D(_gpu_data, offset, {size},
-                               "cuda_permutator_batch", stream);
+  auto tensor =
+      Tensor::Copy1D(_gpu_data, offset, {size}, "cuda_shuffler_batch", stream);
 
   if (RunConfig::option_sanity_check) {
     LOG(INFO) << "Doing batch sanity check";

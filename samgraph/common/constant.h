@@ -23,6 +23,7 @@ class Constant {
 
   static const std::string kInDegreeFile;
   static const std::string kOutDegreeFile;
+  static const std::string kSortedNodeByInDegreeFile;
 
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;
@@ -36,6 +37,7 @@ class Constant {
   static constexpr size_t kCudaTileSize = 1024;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
+  static constexpr IdType kCacheKey = 1;
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;

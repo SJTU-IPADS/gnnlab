@@ -1,4 +1,4 @@
-#include "cpu_permutator.h"
+#include "cpu_shuffler.h"
 
 #include <algorithm>
 #include <chrono>
@@ -12,8 +12,8 @@
 namespace samgraph {
 namespace common {
 
-CPUPermutator::CPUPermutator(TensorPtr input, int num_epoch, size_t batch_size,
-                             bool drop_last) {
+CPUShuffler::CPUShuffler(TensorPtr input, int num_epoch, size_t batch_size,
+                         bool drop_last) {
   _num_data = input->Shape().front();
   CHECK_EQ(input->Shape().size(), 1);
 
@@ -31,7 +31,7 @@ CPUPermutator::CPUPermutator(TensorPtr input, int num_epoch, size_t batch_size,
   _cur_step = _num_step;
 }
 
-void CPUPermutator::RePermutate() {
+void CPUShuffler::ReShuffle() {
   if (!_initialized) {
     _cur_epoch = 0;
     _initialized = true;
@@ -70,11 +70,11 @@ void CPUPermutator::RePermutate() {
   }
 }
 
-TensorPtr CPUPermutator::GetBatch() {
+TensorPtr CPUShuffler::GetBatch() {
   _cur_step++;
 
   if (_cur_step >= _num_step) {
-    RePermutate();
+    ReShuffle();
   }
 
   if (_cur_epoch >= _num_epoch) {
@@ -84,7 +84,7 @@ TensorPtr CPUPermutator::GetBatch() {
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
 
-  return Tensor::Copy1D(_data, offset, {size}, "cpu_permutator_batch");
+  return Tensor::Copy1D(_data, offset, {size}, "cpu_shuffler_batch");
 }
 
 }  // namespace common

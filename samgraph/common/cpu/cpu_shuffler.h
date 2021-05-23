@@ -1,5 +1,5 @@
-#ifndef SAMGRAPH_CPU_PERMUTATOR_H
-#define SAMGRAPH_CPU_PERMUTATOR_H
+#ifndef SAMGRAPH_CPU_SHUFFLER_H
+#define SAMGRAPH_CPU_SHUFFLER_H
 
 #include <limits>
 #include <memory>
@@ -9,10 +9,10 @@
 namespace samgraph {
 namespace common {
 
-class CPUPermutator {
+class CPUShuffler {
  public:
-  CPUPermutator(TensorPtr input, int num_epoch, size_t batch_size,
-                bool drop_last);
+  CPUShuffler(TensorPtr input, int num_epoch, size_t batch_size,
+              bool drop_last);
   TensorPtr GetBatch();
 
   uint64_t Epoch() { return _cur_epoch; }
@@ -37,10 +37,10 @@ class CPUPermutator {
   size_t _batch_size;
   size_t _last_batch_size;
 
-  void RePermutate();
+  void ReShuffle();
 };
 
 }  // namespace common
 }  // namespace samgraph
 
-#endif  // SAMGRAPH_CPU_PERMUTATOR_H
+#endif  // SAMGRAPH_CPU_SHUFFLER_H

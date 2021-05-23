@@ -12,6 +12,9 @@ void CPUSample(const IdType *const indptr, const IdType *const indices,
                IdType *output_src, IdType *output_dst, size_t *num_ouput,
                const size_t fanout);
 
+void CPUExtract(void *dst, const void *src, const IdType *index,
+                size_t num_index, size_t dim, DataType dtype);
+
 }  // namespace cpu
 }  // namespace common
 }  // namespace samgraph

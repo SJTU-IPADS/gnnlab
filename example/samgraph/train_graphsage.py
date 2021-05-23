@@ -59,6 +59,7 @@ def parse_args():
     argparser.add_argument('--dropout', type=float, default=0.5)
     argparser.add_argument('--report-per-count', type=int, default=1)
     argparser.add_argument('--report-last', action='store_true', default=False)
+    argparser.add_argument('--cache-percentage', type=float, default=0)
 
     run_config = vars(argparser.parse_args())
     if run_config['type'] == 'cpu':
@@ -104,6 +105,7 @@ def get_run_config():
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
     run_config['report_last'] = False
+    run_config['cache_percentage'] = 0
 
     return run_config
 

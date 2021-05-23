@@ -23,33 +23,6 @@
 namespace samgraph {
 namespace common {
 
-size_t GetDataTypeLength(int dtype) {
-  switch (dtype) {
-    case kI8:
-    case kU8:
-      return 1ul;
-    case kF16:
-      return 2ul;
-    case kF32:
-    case kI32:
-      return 4ul;
-    case kI64:
-    case kF64:
-      return 8ul;
-    default:
-      CHECK(0) << "Unsupported data type: " << dtype;
-  }
-  return 4ul;
-}
-
-size_t GetTensorBytes(int dtype,
-                      std::vector<size_t>::const_iterator shape_start,
-                      std::vector<size_t>::const_iterator shape_end) {
-  return std::accumulate(shape_start, shape_end, 1ul,
-                         std::multiplies<size_t>()) *
-         GetDataTypeLength(dtype);
-}
-
 Tensor::Tensor() : _data(nullptr) {}
 
 Tensor::~Tensor() {
@@ -196,6 +169,45 @@ std::string ToReadableSize(size_t nbytes) {
     sprintf(buf, "%.2lf Bytes", new_size);
     return std::string(buf);
   }
+}
+
+std::string ToPercentage(double percentage) {
+  char buf[Constant::kBufferSize];
+  sprintf(buf, "%.2lf %%", percentage * 100);
+  return std::string(buf);
+}
+
+size_t GetDataTypeBytes(DataType dtype) {
+  switch (dtype) {
+    case kI8:
+    case kU8:
+      return 1ul;
+    case kF16:
+      return 2ul;
+    case kF32:
+    case kI32:
+      return 4ul;
+    case kI64:
+    case kF64:
+      return 8ul;
+    default:
+      CHECK(0) << "Unsupported data type: " << dtype;
+  }
+  return 4ul;
+}
+
+size_t GetTensorBytes(DataType dtype, const std::vector<size_t> shape) {
+  return std::accumulate(shape.begin(), shape.end(), 1ul,
+                         std::multiplies<size_t>()) *
+         GetDataTypeBytes(dtype);
+}
+
+size_t GetTensorBytes(DataType dtype,
+                      std::vector<size_t>::const_iterator shape_start,
+                      std::vector<size_t>::const_iterator shape_end) {
+  return std::accumulate(shape_start, shape_end, 1ul,
+                         std::multiplies<size_t>()) *
+         GetDataTypeBytes(dtype);
 }
 
 std::string GetEnv(std::string key) {
