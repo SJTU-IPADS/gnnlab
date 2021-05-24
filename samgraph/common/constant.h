@@ -37,7 +37,6 @@ class Constant {
   static constexpr size_t kCudaTileSize = 1024;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
-  static constexpr IdType kCacheKey = 1;
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;

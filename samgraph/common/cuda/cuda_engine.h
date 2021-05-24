@@ -13,7 +13,7 @@
 #include "../logging.h"
 #include "../ready_table.h"
 #include "../task_queue.h"
-#include "cuda_cache.h"
+#include "cuda_cache_manager.h"
 #include "cuda_common.h"
 #include "cuda_hashtable.h"
 #include "cuda_shuffler.h"
@@ -35,10 +35,11 @@ class GPUEngine : public Engine {
   GPUShuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
-  GPUCache* GetDataCache() { return _data_cache; }
+  GPUCacheManager* GetCacheManager() { return _cache_manager; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
-  StreamHandle GetCopyStream() { return _copy_stream; }
+  StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
+  StreamHandle GetTrainerCopyStream() { return _trainer_copy_stream; }
 
   static GPUEngine* Get() { return dynamic_cast<GPUEngine*>(Engine::_engine); }
 
@@ -48,13 +49,14 @@ class GPUEngine : public Engine {
   std::vector<std::thread*> _threads;
   // Cuda streams on sample device
   StreamHandle _sample_stream;
-  StreamHandle _copy_stream;
+  StreamHandle _sampler_copy_stream;
+  StreamHandle _trainer_copy_stream;
   // Random node batch genrator
   GPUShuffler* _shuffler;
   // Hash table
   OrderedHashTable* _hashtable;
   // Feature cache in GPU
-  GPUCache* _data_cache;
+  GPUCacheManager* _cache_manager;
 };
 
 }  // namespace cuda

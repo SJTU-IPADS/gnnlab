@@ -187,7 +187,7 @@ void DoGraphCopy(TaskPtr task) {
   auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-  auto copy_stream = GPUEngine::Get()->GetCopyStream();
+  auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
@@ -228,7 +228,7 @@ void DoGraphCopy(TaskPtr task) {
 void DoIdCopy(TaskPtr task) {
   auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-  auto copy_stream = GPUEngine::Get()->GetCopyStream();
+  auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
   auto input_nodes =
       Tensor::Empty(task->input_nodes->Type(), task->input_nodes->Shape(),
@@ -304,10 +304,9 @@ void DoFeatureExtract(TaskPtr task) {
 }
 
 void DoFeatureCopy(TaskPtr task) {
-  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
-  auto sampler_device = Device::Get(sampler_ctx);
   auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();
-  auto copy_stream = GPUEngine::Get()->GetCopyStream();
+  auto trainer_device = Device::Get(trainer_ctx);
+  auto copy_stream = GPUEngine::Get()->GetTrainerCopyStream();
 
   auto cpu_feat = task->input_feat;
   auto cpu_label = task->output_label;
@@ -318,13 +317,13 @@ void DoFeatureCopy(TaskPtr task) {
   auto train_label =
       Tensor::Empty(cpu_label->Type(), cpu_label->Shape(), trainer_ctx,
                     "task.train_label_cuda" + std::to_string(task->key));
-  sampler_device->CopyDataFromTo(cpu_feat->Data(), 0, train_feat->MutableData(),
+  trainer_device->CopyDataFromTo(cpu_feat->Data(), 0, train_feat->MutableData(),
                                  0, cpu_feat->NumBytes(), cpu_feat->Ctx(),
                                  train_feat->Ctx(), copy_stream);
-  sampler_device->CopyDataFromTo(
+  trainer_device->CopyDataFromTo(
       cpu_label->Data(), 0, train_label->MutableData(), 0,
       cpu_label->NumBytes(), cpu_label->Ctx(), train_label->Ctx(), copy_stream);
-  sampler_device->StreamSync(sampler_ctx, copy_stream);
+  trainer_device->StreamSync(trainer_ctx, copy_stream);
 
   task->input_feat = train_feat;
   task->output_label = train_label;
@@ -333,6 +332,134 @@ void DoFeatureCopy(TaskPtr task) {
   Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
 
   LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
+}
+
+void DoFeatureCopyWithCache(TaskPtr task) {
+  auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();
+  auto trainer_device = Device::Get(trainer_ctx);
+  auto cpu_device = Device::Get(CPU());
+  auto copy_stream = GPUEngine::Get()->GetTrainerCopyStream();
+
+  auto dataset = GPUEngine::Get()->GetGraphDataset();
+  auto cache_manager = GPUEngine::Get()->GetCacheManager();
+
+  auto input_nodes = task->input_nodes;
+  auto output_nodes = task->output_nodes;
+
+  auto feat = dataset->feat;
+  auto label = dataset->label;
+
+  auto feat_dim = dataset->feat->Shape()[1];
+  auto feat_type = dataset->feat->Type();
+  auto label_type = dataset->label->Type();
+
+  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto num_input = input_nodes->Shape()[0];
+  auto num_ouput = output_nodes->Shape()[0];
+
+  auto train_feat =
+      Tensor::Empty(feat_type, {num_input, feat_dim}, trainer_ctx,
+                    "task.train_feat_cuda_" + std::to_string(task->key));
+
+  // 1. Extract the miss data
+  // feature data has cache, so we only need to extract the miss data
+  void *output_miss = cpu_device->AllocWorkspace(
+      CPU(), GetTensorBytes(feat_type, {num_input, feat_dim}));
+  IdType *output_miss_index = static_cast<IdType *>(
+      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_input));
+  IdType *output_cache_src_index = static_cast<IdType *>(
+      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_input));
+  IdType *output_cache_dst_index = static_cast<IdType *>(
+      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_input));
+  size_t num_output_miss;
+  size_t num_output_cache;
+
+  cache_manager->ExtractMissData(
+      output_miss, output_miss_index, &num_output_miss, output_cache_src_index,
+      output_cache_dst_index, &num_output_cache, input_data, num_input);
+
+  // 2. Copy the miss data, miss index, and cache index into GPU memory
+  void *gpu_miss = trainer_device->AllocWorkspace(
+      trainer_ctx, GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
+  IdType *gpu_miss_index = static_cast<IdType *>(trainer_device->AllocWorkspace(
+      trainer_ctx, num_output_miss * sizeof(IdType)));
+  IdType *gpu_cache_src_index =
+      static_cast<IdType *>(trainer_device->AllocWorkspace(
+          trainer_ctx, num_output_cache * sizeof(IdType)));
+  IdType *gpu_cache_dst_index =
+      static_cast<IdType *>(trainer_device->AllocWorkspace(
+          trainer_ctx, num_output_cache * sizeof(IdType)));
+
+  trainer_device->CopyDataFromTo(
+      output_miss, 0, gpu_miss, 0,
+      GetTensorBytes(feat_type, {num_output_miss, feat_dim}), CPU(),
+      trainer_ctx, copy_stream);
+
+  trainer_device->CopyDataFromTo(output_miss_index, 0, gpu_miss_index, 0,
+                                 num_output_miss * sizeof(IdType), CPU(),
+                                 trainer_ctx, copy_stream);
+  trainer_device->CopyDataFromTo(output_cache_src_index, 0, gpu_cache_src_index,
+                                 0, num_output_cache * sizeof(IdType), CPU(),
+                                 trainer_ctx, copy_stream);
+  trainer_device->CopyDataFromTo(output_cache_dst_index, 0, gpu_cache_dst_index,
+                                 0, num_output_cache * sizeof(IdType), CPU(),
+                                 trainer_ctx, copy_stream);
+
+  trainer_device->StreamSync(trainer_ctx, copy_stream);
+
+  cpu_device->FreeWorkspace(CPU(), output_miss);
+  cpu_device->FreeWorkspace(CPU(), output_miss_index);
+  cpu_device->FreeWorkspace(CPU(), output_cache_src_index);
+  cpu_device->FreeWorkspace(CPU(), output_cache_dst_index);
+
+  // 3. Combine miss data
+  cache_manager->CombineMissData(train_feat->MutableData(), gpu_miss,
+                                 gpu_miss_index, num_output_miss, copy_stream);
+  trainer_device->StreamSync(trainer_ctx, copy_stream);
+
+  // 4. Combine cache data
+  cache_manager->CombineCacheData(train_feat->MutableData(),
+                                  gpu_cache_src_index, gpu_cache_dst_index,
+                                  num_output_cache, copy_stream);
+  trainer_device->StreamSync(trainer_ctx, copy_stream);
+
+  // 5. Free space
+  trainer_device->FreeWorkspace(trainer_ctx, gpu_miss);
+  trainer_device->FreeWorkspace(trainer_ctx, gpu_miss_index);
+  trainer_device->FreeWorkspace(trainer_ctx, gpu_cache_src_index);
+  trainer_device->FreeWorkspace(trainer_ctx, gpu_cache_dst_index);
+
+  // label data has no cache
+  void *label_dst = cpu_device->AllocWorkspace(
+      CPU(), GetTensorBytes(label_type, {num_ouput}));
+  const void *label_src = dataset->label->Data();
+
+  cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
+
+  cpu_device->FreeWorkspace(CPU(), label_dst);
+
+  LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
+
+  auto train_label =
+      Tensor::Empty(label_type, {num_ouput}, trainer_ctx,
+                    "task.train_label_cuda" + std::to_string(task->key));
+  trainer_device->CopyDataFromTo(label_dst, 0, train_label->MutableData(), 0,
+                                 GetTensorBytes(label_type, {num_ouput}), CPU(),
+                                 train_label->Ctx(), copy_stream);
+  trainer_device->StreamSync(trainer_ctx, copy_stream);
+
+  task->input_feat = train_feat;
+  task->output_label = train_label;
+
+  Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
+  Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
+
+  if (RunConfig::option_log_node_access) {
+    Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
+  }
+
+  LOG(DEBUG) << "DoFeatureCopyWithCache: process task with key " << task->key;
 }
 
 bool RunGPUSampleLoopOnce() {
@@ -410,6 +537,44 @@ bool RunDataCopyLoopOnce() {
   return true;
 }
 
+bool RunDataCopyWithCacheLoopOnce() {
+  auto graph_pool = GPUEngine::Get()->GetGraphPool();
+  if (graph_pool->Full()) {
+    std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+    return true;
+  }
+
+  auto this_op = kDataCopy;
+  auto q = GPUEngine::Get()->GetTaskQueue(this_op);
+  auto task = q->GetTask();
+
+  if (task) {
+    Timer t0;
+    DoGraphCopy(task);
+    double graph_copy_time = t0.Passed();
+
+    Timer t1;
+    DoIdCopy(task);
+    double id_copy_time = t1.Passed();
+
+    Timer t2;
+    DoFeatureCopyWithCache(task);
+    double feat_copy_time = t2.Passed();
+
+    LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
+    graph_pool->Submit(task->key, task);
+
+    Profiler::Get().Log(task->key, kLogL1CopyTime,
+                        graph_copy_time + id_copy_time + feat_copy_time);
+    Profiler::Get().Log(task->key, kLogL2GraphCopyTime, graph_copy_time);
+    Profiler::Get().Log(task->key, kLogL2IdCopyTime, id_copy_time);
+    Profiler::Get().Log(task->key, kLogL2FeatCopyTime, feat_copy_time);
+  } else {
+    std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+  }
+  return true;
+}
+
 void GPUSampleLoop() {
   while (RunGPUSampleLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
   }
@@ -417,8 +582,16 @@ void GPUSampleLoop() {
 }
 
 void DataCopyLoop() {
-  while (RunDataCopyLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
+  LoopOnceFunction func;
+  if (!RunConfig::UseGPUCache()) {
+    func = RunDataCopyLoopOnce;
+  } else {
+    func = RunDataCopyWithCacheLoopOnce;
   }
+
+  while (func() && !GPUEngine::Get()->ShouldShutdown()) {
+  }
+
   GPUEngine::Get()->ReportThreadFinish();
 }
 

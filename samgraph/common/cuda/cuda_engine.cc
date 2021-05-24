@@ -39,10 +39,12 @@ void GPUEngine::Init() {
 
   // Create CUDA streams
   _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
-  _copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+  _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_trainer_ctx);
+  _trainer_copy_stream = Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx);
 
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _copy_stream);
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
 
   _shuffler =
       new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
@@ -57,13 +59,13 @@ void GPUEngine::Init() {
       new OrderedHashTable(predict_node_num, _sampler_ctx, _sample_stream);
 
   if (RunConfig::UseGPUCache()) {
-    _data_cache = new GPUCache(
+    _cache_manager = new GPUCacheManager(
         _trainer_ctx, _dataset->feat->Data(), _dataset->feat->Type(),
         _dataset->feat->Shape()[1],
         static_cast<const IdType*>(_dataset->sorted_nodes_by_in_degree->Data()),
         _dataset->num_node, RunConfig::cache_percentage);
   } else {
-    _data_cache = nullptr;
+    _cache_manager = nullptr;
   }
 
   // Create queues
@@ -116,22 +118,25 @@ void GPUEngine::Shutdown() {
   }
 
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _copy_stream);
   Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _copy_stream);
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
+
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
+  Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _trainer_copy_stream);
 
   delete _dataset;
   delete _shuffler;
   delete _graph_pool;
 
-  if (_data_cache != nullptr) {
-    delete _data_cache;
+  if (_cache_manager != nullptr) {
+    delete _cache_manager;
   }
 
   _dataset = nullptr;
   _shuffler = nullptr;
   _graph_pool = nullptr;
-  _data_cache = nullptr;
+  _cache_manager = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;
@@ -141,7 +146,11 @@ void GPUEngine::Shutdown() {
 
 void GPUEngine::RunSampleOnce() {
   RunGPUSampleLoopOnce();
-  RunDataCopyLoopOnce();
+  if (!RunConfig::UseGPUCache()) {
+    RunDataCopyWithCacheLoopOnce();
+  } else {
+    RunDataCopyWithCacheLoopOnce();
+  }
 }
 
 void GPUEngine::Report(uint64_t epoch, uint64_t step) {

@@ -13,8 +13,6 @@
 namespace samgraph {
 namespace common {
 
-typedef void (*LoopFunction)();
-
 class Engine {
  public:
   virtual void Init() = 0;

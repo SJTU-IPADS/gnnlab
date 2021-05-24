@@ -123,6 +123,9 @@ struct Task {
 
 using GraphBatch = Task;
 
+typedef void (*LoopFunction)();
+typedef bool (*LoopOnceFunction)();
+
 Context CPU(int device_id = 0);
 Context GPU(int device_id = 0);
 Context MMAP(int device_id = 0);

@@ -17,9 +17,10 @@ void cpu_extract(void *dst, const void *src, const IdType *index,
 
 #pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
   for (size_t i = 0; i < num_index; ++i) {
+    size_t src_index = index[i];
 #pragma omp simd
     for (size_t j = 0; j < dim; j++) {
-      dst_data[i * dim + j] = src_data[index[i] * dim + j];
+      dst_data[i * dim + j] = src_data[src_index * dim + j];
     }
   }
 }
