@@ -334,7 +334,7 @@ void DoFeatureCopy(TaskPtr task) {
   LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
 }
 
-void DoFeatureCopyWithCache(TaskPtr task) {
+void DoCacheFeatureCopy(TaskPtr task) {
   auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
   auto cpu_device = Device::Get(CPU());
@@ -364,6 +364,7 @@ void DoFeatureCopyWithCache(TaskPtr task) {
 
   // 1. Extract the miss data
   // feature data has cache, so we only need to extract the miss data
+  Timer t0;
   void *output_miss = cpu_device->AllocWorkspace(
       CPU(), GetTensorBytes(feat_type, {num_input, feat_dim}));
   IdType *output_miss_index = static_cast<IdType *>(
@@ -379,7 +380,11 @@ void DoFeatureCopyWithCache(TaskPtr task) {
       output_miss, output_miss_index, &num_output_miss, output_cache_src_index,
       output_cache_dst_index, &num_output_cache, input_data, num_input);
 
+  double cache_extract_time = t0.Passed();
+
   // 2. Copy the miss data, miss index, and cache index into GPU memory
+  Timer t1;
+
   void *gpu_miss = trainer_device->AllocWorkspace(
       trainer_ctx, GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
   IdType *gpu_miss_index = static_cast<IdType *>(trainer_device->AllocWorkspace(
@@ -413,16 +418,24 @@ void DoFeatureCopyWithCache(TaskPtr task) {
   cpu_device->FreeWorkspace(CPU(), output_cache_src_index);
   cpu_device->FreeWorkspace(CPU(), output_cache_dst_index);
 
+  double cache_copy_miss_time = t1.Passed();
+
   // 3. Combine miss data
+  Timer t2;
   cache_manager->CombineMissData(train_feat->MutableData(), gpu_miss,
                                  gpu_miss_index, num_output_miss, copy_stream);
   trainer_device->StreamSync(trainer_ctx, copy_stream);
 
+  double cache_combine_miss_time = t2.Passed();
+
   // 4. Combine cache data
+  Timer t3;
   cache_manager->CombineCacheData(train_feat->MutableData(),
                                   gpu_cache_src_index, gpu_cache_dst_index,
                                   num_output_cache, copy_stream);
   trainer_device->StreamSync(trainer_ctx, copy_stream);
+
+  double cache_combine_cache_time = t3.Passed();
 
   // 5. Free space
   trainer_device->FreeWorkspace(trainer_ctx, gpu_miss);
@@ -455,11 +468,18 @@ void DoFeatureCopyWithCache(TaskPtr task) {
   Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
   Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
 
+  Profiler::Get().Log(task->key, kLogL3CacheExtractTime, cache_extract_time);
+  Profiler::Get().Log(task->key, kLogL3CacheCopyMissTime, cache_copy_miss_time);
+  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime,
+                      cache_combine_miss_time);
+  Profiler::Get().Log(task->key, kLogL3CacheCombineCacheTime,
+                      cache_combine_cache_time);
+
   if (RunConfig::option_log_node_access) {
     Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
   }
 
-  LOG(DEBUG) << "DoFeatureCopyWithCache: process task with key " << task->key;
+  LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }
 
 bool RunGPUSampleLoopOnce() {
@@ -537,7 +557,7 @@ bool RunDataCopyLoopOnce() {
   return true;
 }
 
-bool RunDataCopyWithCacheLoopOnce() {
+bool RunCacheDataCopyLoopOnce() {
   auto graph_pool = GPUEngine::Get()->GetGraphPool();
   if (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -558,17 +578,17 @@ bool RunDataCopyWithCacheLoopOnce() {
     double id_copy_time = t1.Passed();
 
     Timer t2;
-    DoFeatureCopyWithCache(task);
-    double feat_copy_time = t2.Passed();
+    DoCacheFeatureCopy(task);
+    double cache_feat_copy_time = t2.Passed();
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
     Profiler::Get().Log(task->key, kLogL1CopyTime,
-                        graph_copy_time + id_copy_time + feat_copy_time);
+                        graph_copy_time + id_copy_time + cache_feat_copy_time);
     Profiler::Get().Log(task->key, kLogL2GraphCopyTime, graph_copy_time);
     Profiler::Get().Log(task->key, kLogL2IdCopyTime, id_copy_time);
-    Profiler::Get().Log(task->key, kLogL2FeatCopyTime, feat_copy_time);
+    Profiler::Get().Log(task->key, kLogL2CacheCopyTime, cache_feat_copy_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
@@ -586,7 +606,7 @@ void DataCopyLoop() {
   if (!RunConfig::UseGPUCache()) {
     func = RunDataCopyLoopOnce;
   } else {
-    func = RunDataCopyWithCacheLoopOnce;
+    func = RunCacheDataCopyLoopOnce;
   }
 
   while (func() && !GPUEngine::Get()->ShouldShutdown()) {

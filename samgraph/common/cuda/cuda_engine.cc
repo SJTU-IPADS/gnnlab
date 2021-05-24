@@ -147,9 +147,9 @@ void GPUEngine::Shutdown() {
 void GPUEngine::RunSampleOnce() {
   RunGPUSampleLoopOnce();
   if (!RunConfig::UseGPUCache()) {
-    RunDataCopyWithCacheLoopOnce();
+    RunDataCopyLoopOnce();
   } else {
-    RunDataCopyWithCacheLoopOnce();
+    RunCacheDataCopyLoopOnce();
   }
 }
 

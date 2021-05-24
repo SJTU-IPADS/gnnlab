@@ -28,6 +28,7 @@ enum LogItem {
   kLogL2IdCopyTime,
   kLogL2ExtractTime,
   kLogL2FeatCopyTime,
+  kLogL2CacheCopyTime,
   // L3
   kLogL3SampleCooTime,
   kLogL3SampleCountEdgeTime,
@@ -35,6 +36,10 @@ enum LogItem {
   kLogL3RemapPopulateTime,
   kLogL3RemapMapNodeTime,
   kLogL3RemapMapEdgeTime,
+  kLogL3CacheExtractTime,
+  kLogL3CacheCopyMissTime,
+  kLogL3CacheCombineMissTime,
+  kLogL3CacheCombineCacheTime,
   // Number of items
   kLogNumItemsNotARealValue
 };

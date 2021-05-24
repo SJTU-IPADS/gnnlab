@@ -277,7 +277,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
         ToReadableSize(_output_buf[kLogL1GraphBytes]).c_str());
   }
 
-  if (level >= 2) {
+  if (level >= 2 && !RunConfig::UseGPUCache()) {
     printf(
         "  [Profile L2-%s %lu %lu]"
         " shuffle %.4lf |"
@@ -291,9 +291,22 @@ void Profiler::Output(uint64_t key, std::string tag) {
         _output_buf[kLogL2CoreSampleTime], _output_buf[kLogL2IdRemapTime],
         _output_buf[kLogL2GraphCopyTime], _output_buf[kLogL2IdCopyTime],
         _output_buf[kLogL2ExtractTime], _output_buf[kLogL2FeatCopyTime]);
+  } else if (level >= 2) {
+    printf(
+        "  [Profile L2-%s %lu %lu]"
+        " shuffle %.4lf |"
+        " core sample %.4lf |"
+        " id remap %.4lf |"
+        " graph copy %.4lf |"
+        " id copy %.4lf |"
+        " cache feat copy %.4lf\n",
+        tag.c_str(), epoch, step, _output_buf[kLogL2ShuffleTime],
+        _output_buf[kLogL2CoreSampleTime], _output_buf[kLogL2IdRemapTime],
+        _output_buf[kLogL2GraphCopyTime], _output_buf[kLogL2IdCopyTime],
+        _output_buf[kLogL2CacheCopyTime]);
   }
 
-  if (level >= 3) {
+  if (level >= 3 && !RunConfig::UseGPUCache()) {
     printf(
         "  [Profile L3-%s %lu %lu]"
         " sample coo %.4lf |"
@@ -308,6 +321,29 @@ void Profiler::Output(uint64_t key, std::string tag) {
         _output_buf[kLogL3RemapPopulateTime],
         _output_buf[kLogL3RemapMapNodeTime],
         _output_buf[kLogL3RemapMapEdgeTime]);
+  } else if (level >= 3) {
+    printf(
+        "  [Profile L3-%s %lu %lu]"
+        " sample coo %.4lf |"
+        " count edge %.4lf |"
+        " compact edge %.4lf |"
+        " remap populate %.4lf |"
+        " remap mapnode %.4lf |"
+        " remap mapedge %.4lf |"
+        " cache extract %.4lf |"
+        " cache copy_miss %.4lf |"
+        " cache combine_miss %.4lf |"
+        " cache combine cache %.4lf\n",
+        tag.c_str(), epoch, step, _output_buf[kLogL3SampleCooTime],
+        _output_buf[kLogL3SampleCountEdgeTime],
+        _output_buf[kLogL3SampleCompactEdgesTime],
+        _output_buf[kLogL3RemapPopulateTime],
+        _output_buf[kLogL3RemapMapNodeTime],
+        _output_buf[kLogL3RemapMapEdgeTime],
+        _output_buf[kLogL3CacheExtractTime],
+        _output_buf[kLogL3CacheCopyMissTime],
+        _output_buf[kLogL3CacheCombineMissTime],
+        _output_buf[kLogL3CacheCombineCacheTime]);
   }
 }
 

@@ -105,7 +105,7 @@ def get_run_config():
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
     run_config['report_last'] = False
-    run_config['cache_percentage'] = 0
+    run_config['cache_percentage'] = 0.2
 
     return run_config
 
