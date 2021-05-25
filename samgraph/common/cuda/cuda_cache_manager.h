@@ -9,23 +9,31 @@ namespace cuda {
 
 class GPUCacheManager {
  public:
-  GPUCacheManager(Context ctx, const void* all_data, DataType dtype, size_t dim,
+  GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
+                  const void* cpu_src_data, DataType dtype, size_t dim,
                   const IdType* nodes, size_t num_nodes,
                   double cache_percentage);
   ~GPUCacheManager();
 
-  void ExtractMissData(void* output_miss, IdType* output_miss_index,
-                       size_t* num_output_miss, IdType* output_cache_src_index,
-                       IdType* output_cache_dst_index, size_t* num_output_cache,
-                       const IdType* index, const size_t num_index);
-  void CombineMissData(void* output, const void* miss, const IdType* miss_index,
-                       const size_t num_miss, StreamHandle stream);
+  void GetMissCacheIndex(IdType* output_miss_src_index,
+                         IdType* output_miss_dst_index, size_t* num_output_miss,
+                         IdType* output_cache_src_index,
+                         IdType* output_cache_dst_index,
+                         size_t* num_output_cache, const IdType* nodes,
+                         const size_t num_nodes, StreamHandle stream);
+  void ExtractMissData(void* output_miss, const IdType* miss_src_index,
+                       const size_t num_miss);
+  void CombineMissData(void* output, const void* miss,
+                       const IdType* miss_dst_index, const size_t num_miss,
+                       StreamHandle stream);
   void CombineCacheData(void* output, const IdType* cache_src_index,
                         const IdType* cache_dst_index, const size_t num_cache,
                         StreamHandle stream);
 
  private:
-  Context _ctx;
+  Context _sampler_ctx;
+  Context _trainer_ctx;
+
   size_t _num_nodes;
   size_t _num_cached_nodes;
   double _cache_percentage;
@@ -33,11 +41,11 @@ class GPUCacheManager {
   DataType _dtype;
   size_t _dim;
 
-  const void* _all_data;
+  const void* _cpu_src_data;
   size_t _cache_nbytes;
-  void* _cache_gpu_data;
+  void* _trainer_cache_data;
 
-  IdType* _cpu_hashtable;
+  IdType* _sampler_gpu_hashtable;
 };
 
 }  // namespace cuda

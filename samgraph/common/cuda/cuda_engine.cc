@@ -60,8 +60,8 @@ void GPUEngine::Init() {
 
   if (RunConfig::UseGPUCache()) {
     _cache_manager = new GPUCacheManager(
-        _trainer_ctx, _dataset->feat->Data(), _dataset->feat->Type(),
-        _dataset->feat->Shape()[1],
+        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+        _dataset->feat->Type(), _dataset->feat->Shape()[1],
         static_cast<const IdType*>(_dataset->sorted_nodes_by_in_degree->Data()),
         _dataset->num_node, RunConfig::cache_percentage);
   } else {
