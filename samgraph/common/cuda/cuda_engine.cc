@@ -39,7 +39,7 @@ void GPUEngine::Init() {
 
   // Create CUDA streams
   _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
-  _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_trainer_ctx);
+  _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
   _trainer_copy_stream = Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx);
 
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);

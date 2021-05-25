@@ -386,6 +386,11 @@ void DoCacheFeatureCopy(TaskPtr task) {
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
 
+  CHECK_EQ(input_nodes->Ctx().device_type, sampler_ctx.device_type);
+  CHECK_EQ(input_nodes->Ctx().device_id, sampler_ctx.device_id);
+  CHECK_EQ(output_nodes->Ctx().device_type, CPU().device_type);
+  CHECK_EQ(output_nodes->Ctx().device_id, CPU().device_id);
+
   auto train_feat =
       Tensor::Empty(feat_type, {num_input, feat_dim}, trainer_ctx,
                     "task.train_feat_cuda_" + std::to_string(task->key));
@@ -490,7 +495,8 @@ void DoCacheFeatureCopy(TaskPtr task) {
   double cache_combine_cache_time = t3.Passed();
 
   // 5. Free space
-  trainer_device->FreeWorkspace(trainer_ctx, cpu_output_miss_src_index);
+  cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
+  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
@@ -502,8 +508,6 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
 
-  cpu_device->FreeWorkspace(CPU(), label_dst);
-
   LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
 
   auto train_label =
@@ -513,6 +517,8 @@ void DoCacheFeatureCopy(TaskPtr task) {
                                  GetTensorBytes(label_type, {num_ouput}), CPU(),
                                  train_label->Ctx(), trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
+
+  cpu_device->FreeWorkspace(CPU(), label_dst);
 
   task->input_feat = train_feat;
   task->output_label = train_label;

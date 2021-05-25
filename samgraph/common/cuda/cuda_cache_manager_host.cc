@@ -55,13 +55,13 @@ GPUCacheManager::GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
 
   IdType *tmp_cpu_hashtable = static_cast<IdType *>(
       cpu_device->AllocDataSpace(CPU(), sizeof(IdType) * _num_nodes));
+  _sampler_gpu_hashtable =
+      static_cast<IdType *>(sampler_gpu_device->AllocDataSpace(
+          _sampler_ctx, sizeof(IdType) * _num_nodes));
 
   void *tmp_cpu_data = cpu_device->AllocDataSpace(CPU(), _cache_nbytes);
   _trainer_cache_data =
       trainer_gpu_device->AllocDataSpace(_trainer_ctx, _cache_nbytes);
-  _sampler_gpu_hashtable =
-      static_cast<IdType *>(sampler_gpu_device->AllocDataSpace(
-          _sampler_ctx, sizeof(IdType) * _num_nodes));
 
   // 1. Initialize the cpu hashtable
 #pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
@@ -101,7 +101,6 @@ GPUCacheManager::~GPUCacheManager() {
   auto sampler_device = Device::Get(_sampler_ctx);
   auto trainer_device = Device::Get(_trainer_ctx);
 
-  cpu_device->FreeDataSpace(CPU(), _sampler_gpu_hashtable);
   sampler_device->FreeDataSpace(_sampler_ctx, _sampler_gpu_hashtable);
   trainer_device->FreeDataSpace(_trainer_ctx, _trainer_cache_data);
 }

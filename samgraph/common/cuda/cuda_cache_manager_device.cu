@@ -46,7 +46,6 @@ __global__ void count_miss_cache(const IdType *hashtable, const IdType *nodes,
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
     if (index < num_nodes) {
-      printf("\n");
       if (hashtable[nodes[index]] == Constant::kEmptyKey) {
         miss_count++;
       } else {
@@ -55,10 +54,11 @@ __global__ void count_miss_cache(const IdType *hashtable, const IdType *nodes,
     }
   }
 
-  __shared__ typename BlockReduce::TempStorage temp_space;
+  __shared__ typename BlockReduce::TempStorage temp_miss_space;
+  __shared__ typename BlockReduce::TempStorage temp_cache_space;
 
-  miss_count = BlockReduce(temp_space).Sum(miss_count);
-  cache_count = BlockReduce(temp_space).Sum(cache_count);
+  miss_count = BlockReduce(temp_miss_space).Sum(miss_count);
+  cache_count = BlockReduce(temp_cache_space).Sum(cache_count);
 
   if (threadIdx.x == 0) {
     miss_counts[blockIdx.x] = miss_count;
@@ -89,8 +89,7 @@ __global__ void get_miss_index(const IdType *hashtable, const IdType *nodes,
     const IdType index = threadIdx.x + i * BLOCK_SIZE + blockIdx.x * TILE_SIZE;
 
     FlagType flag;
-    IdType cache_key = hashtable[nodes[index]];
-    if (index < num_nodes && cache_key == Constant::kEmptyKey) {
+    if (index < num_nodes && hashtable[nodes[index]] == Constant::kEmptyKey) {
       flag = 1;
     } else {
       flag = 0;
@@ -99,14 +98,20 @@ __global__ void get_miss_index(const IdType *hashtable, const IdType *nodes,
     BlockScan(temp_space).ExclusiveSum(flag, flag, prefix_op);
     __syncthreads();
 
-    if (index < num_nodes && cache_key == Constant::kEmptyKey) {
+    if (index < num_nodes && hashtable[nodes[index]] == Constant::kEmptyKey) {
       const IdType pos = offset + flag;
+      assert(pos < num_nodes);
       // new node ID in subgraph
       output_miss_dst_index[pos] = index;
       // old node ID in original graph
       output_miss_src_index[pos] = nodes[index];
     }
   }
+
+  // if (threadIdx.x == 0 && blockIdx.x == 0) {
+  //   printf("miss count %u, %u\n", miss_counts_prefix[gridDim.x],
+  //          miss_counts_prefix[gridDim.x - 1]);
+  // }
 }
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
@@ -128,8 +133,7 @@ __global__ void get_cache_index(const IdType *hashtable, const IdType *nodes,
     const IdType index = threadIdx.x + i * BLOCK_SIZE + blockIdx.x * TILE_SIZE;
 
     FlagType flag;
-    IdType cache_key = hashtable[nodes[index]];
-    if (index < num_nodes && cache_key != Constant::kEmptyKey) {
+    if (index < num_nodes && hashtable[nodes[index]] != Constant::kEmptyKey) {
       flag = 1;
     } else {
       flag = 0;
@@ -138,14 +142,19 @@ __global__ void get_cache_index(const IdType *hashtable, const IdType *nodes,
     BlockScan(temp_space).ExclusiveSum(flag, flag, prefix_op);
     __syncthreads();
 
-    if (index < num_nodes && cache_key != Constant::kEmptyKey) {
+    if (index < num_nodes && hashtable[nodes[index]] != Constant::kEmptyKey) {
       const IdType pos = offset + flag;
       // new node ID in subgraph
       output_cache_dst_index[pos] = index;
       // old node ID in original graph
-      output_cache_src_index[pos] = cache_key;
+      output_cache_src_index[pos] = hashtable[nodes[index]];
     }
   }
+
+  // if (threadIdx.x == 0 && blockIdx.x == 0) {
+  //   printf("cache count %u, %u\n", cache_counts_prefix[gridDim.x],
+  //          cache_counts_prefix[gridDim.x - 1]);
+  // }
 }
 
 template <typename T>
@@ -210,6 +219,8 @@ void GPUCacheManager::GetMissCacheIndex(
   auto sampler_device = Device::Get(_sampler_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
+  sampler_device->SetDevice(_sampler_ctx);
+
   IdType *miss_prefix_counts =
       static_cast<IdType *>(sampler_device->AllocWorkspace(
           _sampler_ctx, sizeof(IdType) * (grid.x + 1)));
@@ -217,6 +228,9 @@ void GPUCacheManager::GetMissCacheIndex(
       static_cast<IdType *>(sampler_device->AllocWorkspace(
           _sampler_ctx, sizeof(IdType) * (grid.x + 1)));
 
+  // LOG(DEBUG) << "GetMissCacheIndex num nodes " << num_nodes;
+
+  CUDA_CALL(cudaSetDevice(_sampler_ctx.device_id));
   count_miss_cache<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(_sampler_gpu_hashtable, nodes, num_nodes,
                                       miss_prefix_counts, cache_prefix_counts);
@@ -242,6 +256,8 @@ void GPUCacheManager::GetMissCacheIndex(
       <<<grid, block, 0, cu_stream>>>(
           _sampler_gpu_hashtable, nodes, num_nodes, output_miss_dst_index,
           output_miss_src_index, miss_prefix_counts);
+  sampler_device->StreamSync(_sampler_ctx, stream);
+
   get_cache_index<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
           _sampler_gpu_hashtable, nodes, num_nodes, output_cache_dst_index,
@@ -250,12 +266,10 @@ void GPUCacheManager::GetMissCacheIndex(
 
   IdType num_miss;
   IdType num_cache;
-  sampler_device->CopyDataFromTo(miss_prefix_counts + (grid.x + 1), 0,
-                                 &num_miss, 0, sizeof(IdType), _sampler_ctx,
-                                 CPU(), stream);
-  sampler_device->CopyDataFromTo(cache_prefix_counts + (grid.x + 1), 0,
-                                 &num_cache, 0, sizeof(IdType), _sampler_ctx,
-                                 CPU(), stream);
+  sampler_device->CopyDataFromTo(miss_prefix_counts + grid.x, 0, &num_miss, 0,
+                                 sizeof(IdType), _sampler_ctx, CPU(), stream);
+  sampler_device->CopyDataFromTo(cache_prefix_counts + grid.x, 0, &num_cache, 0,
+                                 sizeof(IdType), _sampler_ctx, CPU(), stream);
   sampler_device->StreamSync(_sampler_ctx, stream);
 
   *num_output_miss = num_miss;
