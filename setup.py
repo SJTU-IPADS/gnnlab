@@ -100,6 +100,7 @@ setup(
                 'samgraph/common/cuda/cuda_permutator.cc',
                 'samgraph/common/cuda/cuda_sampling.cu',
                 'samgraph/common/cuda/cuda_weighted_sampling.cu',
+                'samgraph/common/cuda/cuda_nextdoor_sampling.cu',
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(
@@ -113,7 +114,7 @@ setup(
                         '-Wall', '-fopenmp', '-march=native'],
                 'nvcc': ['-std=c++14', '-g',
                          # '-arch=sm_35', # K40m
-                         '-arch=sm_70',  # V100
+                         # '-arch=sm_70',  # V100
                          '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
             })
     ],

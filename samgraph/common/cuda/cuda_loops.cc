@@ -90,7 +90,9 @@ void DoGPUSample(TaskPtr task) {
                         out_dst, num_out, sampler_ctx, sample_stream,
                         task->key);
     } else {
-      GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+      // GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+      //           num_out, sampler_ctx, sample_stream, task->key);
+      GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
                 num_out, sampler_ctx, sample_stream, task->key);
     }
 
