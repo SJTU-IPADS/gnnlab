@@ -41,25 +41,36 @@ __global__ void nextSample(const IdType *indptr, const IdType *indices,
                            const size_t fanout, IdType *tmp_src,
                            IdType *tmp_dst) {
   size_t num_task = num_input * fanout;
-  int threadId = threadIdx.x + blockDim.x * blockIdx.x;
-  int max_span = blockDim.x * gridDim.x;
+  size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
+  size_t max_span = blockDim.x * gridDim.x;
 //  curandState state;
 //  curand_init(num_input, threadId, 0, &state);
 
-  for (int task_start = threadId; task_start < num_task; task_start += max_span) {
-    assert((task_start / fanout) < num_input);
+  for (size_t task_start = threadId; task_start < num_task; task_start += max_span) {
     const IdType rid = input[task_start / fanout];
     const IdType off = indptr[rid];
     const IdType len = indptr[rid + 1] - indptr[rid];
 //    size_t k = curand(&state) % len;
-    size_t k = (task_start % fanout);
-    tmp_src[task_start] = rid;
-    if (k < len) {
-        tmp_dst[task_start] = indices[off + k];
-    }
-    else {
+    size_t i = (task_start % fanout);
+    /** 
+     * breaf: offset and length each thread for neighbors
+     * example: 9 neighbors for 4 threads
+                threadId:  0   | 1  | 2  | 3
+                neighbors: 012 | 34 | 56 | 78
+                the length of thread 1 is 2, offset is 3
+    */
+    size_t y = (len / fanout);
+    size_t p = (len % fanout);
+    size_t thread_off = (i * y + (i < p) * i + (i >= p) * p);
+    size_t thread_len = (y + (i < p));
+    if (thread_len == 0) {
         tmp_src[task_start] = Constant::kEmptyKey;
         tmp_dst[task_start] = Constant::kEmptyKey;
+    }
+    else {
+        tmp_src[task_start] = rid;
+        // threadId may be a random number for this neighbor
+        tmp_dst[task_start] = indices[off + thread_off + (threadId % thread_len)];
     }
   }
 }
@@ -195,23 +206,19 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   if (num_threads > max_threads) {
       num_threads = max_threads;
   }
-  const dim3 grid((num_threads + Constant::kCudaBlockSize - 1) / Constant::kCudaBlockSize);
-  const dim3 block(Constant::kCudaBlockSize);
-  /*
-  CHECKPOINT(2, "grid: %d, %d, %d\n", 
-          grid.x, grid.y, grid.z);
-  CHECKPOINT(3, "block: %d, %d, %d\n", 
-          block.x, block.y, block.z);
-  CHECKPOINT(4, "num_input: %d\n", num_input);
-  CHECKPOINT(5, "fanout: %d\n", fanout);
-  CHECKPOINT(6, "num_threads: %d\n", num_threads);
-  */
+
   // FIXME: add random module
-  nextSample<<<grid, block, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
+  const size_t blockSize = 512;
+  const dim3 nextGrid((num_threads + blockSize - 1) / blockSize);
+  const dim3 nextBlock(blockSize);
+  nextSample<<<nextGrid, nextBlock, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
                                             tmp_src, tmp_dst);
   sampler_device->StreamSync(ctx, stream);
 
   double sample_time = t0.Passed();
+
+  const dim3 grid((num_input + Constant::kCudaBlockSize - 1) / Constant::kCudaBlockSize);
+  const dim3 block(Constant::kCudaBlockSize);
 
   Timer t1;
   size_t *item_prefix = static_cast<size_t *>(
