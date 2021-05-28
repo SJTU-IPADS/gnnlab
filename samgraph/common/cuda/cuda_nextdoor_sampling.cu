@@ -70,7 +70,7 @@ __global__ void nextSample(const IdType *indptr, const IdType *indices,
     else {
         tmp_src[task_start] = rid;
         // threadId may be a random number for this neighbor
-        tmp_dst[task_start] = indices[off + thread_off + (threadId % thread_len)];
+        tmp_dst[task_start] = indices[off + thread_off + ((threadId + 10007) * 10007 % thread_len)];
     }
   }
 }
