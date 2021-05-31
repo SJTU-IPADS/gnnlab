@@ -101,6 +101,7 @@ setup(
                 'samgraph/common/cuda/cuda_sampling.cu',
                 'samgraph/common/cuda/cuda_weighted_sampling.cu',
                 'samgraph/common/cuda/cuda_nextdoor_sampling.cu',
+                'samgraph/common/cuda/cuda_random_seeder.cu',
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(

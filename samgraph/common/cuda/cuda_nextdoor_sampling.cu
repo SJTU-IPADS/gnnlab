@@ -39,7 +39,7 @@ namespace cuda {
 __global__ void nextSample(const IdType *indptr, const IdType *indices, 
                            const IdType *input, const size_t num_input, 
                            const size_t fanout, IdType *tmp_src,
-                           IdType *tmp_dst) {
+                           IdType *tmp_dst, curandState* states) {
   size_t num_task = num_input * fanout;
   size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
   size_t max_span = blockDim.x * gridDim.x;
@@ -50,28 +50,9 @@ __global__ void nextSample(const IdType *indptr, const IdType *indices,
     const IdType rid = input[task_start / fanout];
     const IdType off = indptr[rid];
     const IdType len = indptr[rid + 1] - indptr[rid];
-//    size_t k = curand(&state) % len;
-    size_t i = (task_start % fanout);
-    /** 
-     * breaf: offset and length each thread for neighbors
-     * example: 9 neighbors for 4 threads
-                threadId:  0   | 1  | 2  | 3
-                neighbors: 012 | 34 | 56 | 78
-                the length of thread 1 is 2, offset is 3
-    */
-    size_t y = (len / fanout);
-    size_t p = (len % fanout);
-    size_t thread_off = (i * y + (i < p) * i + (i >= p) * p);
-    size_t thread_len = (y + (i < p));
-    if (thread_len == 0) {
-        tmp_src[task_start] = Constant::kEmptyKey;
-        tmp_dst[task_start] = Constant::kEmptyKey;
-    }
-    else {
-        tmp_src[task_start] = rid;
-        // threadId may be a random number for this neighbor
-        tmp_dst[task_start] = indices[off + thread_off + ((threadId + 10007) * 10007 % thread_len)];
-    }
+    size_t k = curand(&states[task_start]) % len;
+    tmp_src[task_start] = rid;
+    tmp_dst[task_start] = indices[off + k];
   }
 }
 
@@ -179,12 +160,13 @@ __global__ void compact_edge(const IdType *tmp_src, const IdType *tmp_dst,
  * @param ctx         GPU contex
  * @param stream      GPU stream
  * @param task_key
+ * @param states      GPU random seeds list
  */
 void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
                        const IdType *input, const size_t num_input,
                        const size_t fanout, IdType *out_src, IdType *out_dst,
                        size_t *num_out, Context ctx, StreamHandle stream,
-                       uint64_t task_key) {
+                       uint64_t task_key, curandState *states) {
   LOG(DEBUG) << "GPUSample: begin with num_input " << num_input
              << " and fanout " << fanout;
   Timer t0;
@@ -212,7 +194,7 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   const dim3 nextGrid((num_threads + blockSize - 1) / blockSize);
   const dim3 nextBlock(blockSize);
   nextSample<<<nextGrid, nextBlock, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
-                                            tmp_src, tmp_dst);
+                                            tmp_src, tmp_dst, states);
   sampler_device->StreamSync(ctx, stream);
 
   double sample_time = t0.Passed();

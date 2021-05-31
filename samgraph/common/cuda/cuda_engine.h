@@ -17,6 +17,7 @@
 #include "cuda_common.h"
 #include "cuda_hashtable.h"
 #include "cuda_permutator.h"
+#include "cuda_random_seeder.h"
 
 namespace samgraph {
 namespace common {
@@ -36,6 +37,7 @@ class GPUEngine : public Engine {
   Extractor* GetExtractor() { return _extractor; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
+  GPURandomSeeder* GetRandomSeeder() { return _randomSeeder; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetCopyStream() { return _copy_stream; }
@@ -55,6 +57,8 @@ class GPUEngine : public Engine {
   Extractor* _extractor;
   // Hash table
   OrderedHashTable* _hashtable;
+  // CUDA random seeder
+  GPURandomSeeder* _randomSeeder;
 };
 
 }  // namespace cuda
