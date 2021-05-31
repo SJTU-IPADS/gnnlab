@@ -422,6 +422,9 @@ void DoCacheFeatureCopy(TaskPtr task) {
   double get_index_time = t0.Passed();
 
   // 2. Move the miss index
+
+  Timer t1;
+
   IdType *cpu_output_miss_src_index = static_cast<IdType *>(
       cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_output_miss));
   IdType *trainer_output_miss_dst_index =
@@ -459,7 +462,11 @@ void DoCacheFeatureCopy(TaskPtr task) {
   sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_src_index);
   sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_dst_index);
 
+  double copy_idx_time = t1.Passed();
+
   // 3. Extract and copy the miss data
+  Timer t2;
+
   void *cpu_output_miss = cpu_device->AllocWorkspace(
       CPU(), GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
   void *trainer_output_miss = trainer_device->AllocWorkspace(
@@ -467,6 +474,10 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   cache_manager->ExtractMissData(cpu_output_miss, cpu_output_miss_src_index,
                                  num_output_miss);
+
+  double extract_miss_time = t2.Passed();
+
+  Timer t3;
 
   trainer_device->CopyDataFromTo(
       cpu_output_miss, 0, trainer_output_miss, 0,
@@ -476,23 +487,25 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss);
 
+  double copy_miss_time = t3.Passed();
+
   // 4. Combine miss data
-  Timer t2;
+  Timer t4;
   cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss,
                                  trainer_output_miss_dst_index, num_output_miss,
                                  trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
-  double cache_combine_miss_time = t2.Passed();
+  double combine_miss_time = t4.Passed();
 
   // 4. Combine cache data
-  Timer t3;
+  Timer t5;
   cache_manager->CombineCacheData(
       train_feat->MutableData(), trainer_output_cache_src_index,
       trainer_output_cache_dst_index, num_output_cache, trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
-  double cache_combine_cache_time = t3.Passed();
+  double combine_cache_time = t3.Passed();
 
   // 5. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
@@ -525,11 +538,16 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
   Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
-
-  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime,
-                      cache_combine_miss_time);
+  Profiler::Get().Log(task->key, kLogL1MissBytes,
+                      GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
+  Profiler::Get().Log(task->key, kLogL3CacheGetIndexTime, get_index_time);
+  Profiler::Get().Log(task->key, KLogL3CacheCopyIndexTime, copy_idx_time);
+  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime, extract_miss_time);
+  Profiler::Get().Log(task->key, kLogL3CacheCopyMissTime, copy_miss_time);
+  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime, extract_miss_time);
+  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime, combine_miss_time);
   Profiler::Get().Log(task->key, kLogL3CacheCombineCacheTime,
-                      cache_combine_cache_time);
+                      combine_cache_time);
 
   if (RunConfig::option_log_node_access) {
     Profiler::Get().LogNodeAccess(task->key, input_data, num_input);

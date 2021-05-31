@@ -20,6 +20,7 @@ enum LogItem {
   kLogL1LabelBytes,
   kLogL1IdBytes,
   kLogL1GraphBytes,
+  kLogL1MissBytes,
   // L2
   kLogL2ShuffleTime,
   kLogL2CoreSampleTime,
@@ -36,7 +37,9 @@ enum LogItem {
   kLogL3RemapPopulateTime,
   kLogL3RemapMapNodeTime,
   kLogL3RemapMapEdgeTime,
-  kLogL3CacheExtractTime,
+  kLogL3CacheGetIndexTime,
+  KLogL3CacheCopyIndexTime,
+  kLogL3CacheExtractMissTime,
   kLogL3CacheCopyMissTime,
   kLogL3CacheCombineMissTime,
   kLogL3CacheCombineCacheTime,

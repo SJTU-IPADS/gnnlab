@@ -260,7 +260,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
     level = 3;
   }
 
-  if (level >= 1) {
+  if (level >= 1 && !RunConfig::UseGPUCache()) {
     printf(
         "  [Profile L1-%s %lu %lu]"
         " sample %.4lf |"
@@ -275,6 +275,23 @@ void Profiler::Output(uint64_t key, std::string tag) {
         ToReadableSize(_output_buf[kLogL1LabelBytes]).c_str(),
         ToReadableSize(_output_buf[kLogL1IdBytes]).c_str(),
         ToReadableSize(_output_buf[kLogL1GraphBytes]).c_str());
+  } else {
+    printf(
+        "  [Profile L1-%s %lu %lu]"
+        " sample %.4lf |"
+        " copy %.4lf |"
+        " feature nbytes %s |"
+        " label nbytes %s |"
+        " id nbytes %s |"
+        " graph nbytes %s |"
+        " miss nbytes %s\n",
+        tag.c_str(), epoch, step, _output_buf[kLogL1SampleTime],
+        _output_buf[kLogL1CopyTime],
+        ToReadableSize(_output_buf[kLogL1FeatureBytes]).c_str(),
+        ToReadableSize(_output_buf[kLogL1LabelBytes]).c_str(),
+        ToReadableSize(_output_buf[kLogL1IdBytes]).c_str(),
+        ToReadableSize(_output_buf[kLogL1GraphBytes]).c_str(),
+        ToReadableSize(_output_buf[kLogL1MissBytes]).c_str());
   }
 
   if (level >= 2 && !RunConfig::UseGPUCache()) {
@@ -330,7 +347,9 @@ void Profiler::Output(uint64_t key, std::string tag) {
         " remap populate %.4lf |"
         " remap mapnode %.4lf |"
         " remap mapedge %.4lf |"
-        " cache extract %.4lf |"
+        " cache get_index %.4lf |"
+        " cache copy_index %.4lf |"
+        " cache extract_miss %.4lf |"
         " cache copy_miss %.4lf |"
         " cache combine_miss %.4lf |"
         " cache combine cache %.4lf\n",
@@ -340,7 +359,9 @@ void Profiler::Output(uint64_t key, std::string tag) {
         _output_buf[kLogL3RemapPopulateTime],
         _output_buf[kLogL3RemapMapNodeTime],
         _output_buf[kLogL3RemapMapEdgeTime],
-        _output_buf[kLogL3CacheExtractTime],
+        _output_buf[kLogL3CacheGetIndexTime],
+        _output_buf[KLogL3CacheCopyIndexTime],
+        _output_buf[kLogL3CacheExtractMissTime],
         _output_buf[kLogL3CacheCopyMissTime],
         _output_buf[kLogL3CacheCombineMissTime],
         _output_buf[kLogL3CacheCombineCacheTime]);
