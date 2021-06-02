@@ -87,14 +87,8 @@ void DoGPUSample(TaskPtr task) {
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
-    if (dataset->weighted_edge) {
-      GPUWeightedSample(indptr, indices, input, num_input, fanout, out_src,
-                        out_dst, num_out, sampler_ctx, sample_stream,
-                        task->key);
-    } else {
-      GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
-                num_out, sampler_ctx, sample_stream, task->key);
-    }
+    GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+              num_out, sampler_ctx, sample_stream, task->key);
 
     // Get nnz
     sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),
@@ -505,7 +499,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
       trainer_output_cache_dst_index, num_output_cache, trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
-  double combine_cache_time = t3.Passed();
+  double combine_cache_time = t5.Passed();
 
   // 5. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
