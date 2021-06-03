@@ -189,7 +189,6 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
       num_threads = max_threads;
   }
 
-  // FIXME: add random module
   const size_t blockSize = 512;
   const dim3 nextGrid((num_threads + blockSize - 1) / blockSize);
   const dim3 nextBlock(blockSize);
@@ -202,39 +201,56 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   const dim3 grid((num_input + Constant::kCudaBlockSize - 1) / Constant::kCudaBlockSize);
   const dim3 block(Constant::kCudaBlockSize);
 
+  // sort tmp_src,tmp_dst -> out_src,out_dst, the size is num_input * fanout
   Timer t1;
-  size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * (grid.x + 1)));
-  LOG(DEBUG) << "GPUSample: cuda item_prefix malloc "
-             << ToReadableSize(sizeof(size_t) * (grid.x + 1));
-
-  count_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>(tmp_src, item_prefix, num_input, fanout);
+  size_t temp_storage_bytes = 0;
+  CUDA_CALL(cub::DeviceRadixSort::SortPairs(nullptr, temp_storage_bytes, 
+                                            tmp_src, out_src, tmp_dst, out_dst, 
+                                            num_input * fanout, 0, sizeof(IdType) * 8, 
+                                            cu_stream));
   sampler_device->StreamSync(ctx, stream);
-  double count_edge_time = t1.Passed();
 
+  void *d_temp_storage  = sampler_device->AllocWorkspace(ctx, temp_storage_bytes);
+  CUDA_CALL(cub::DeviceRadixSort::SortPairs(d_temp_storage, temp_storage_bytes, 
+                                            tmp_src, out_src, tmp_dst, out_dst, 
+                                            num_input * fanout, 0, sizeof(IdType) * 8, 
+                                            cu_stream));
+  sampler_device->StreamSync(ctx, stream);
+  sampler_device->FreeWorkspace(ctx, d_temp_storage);
+  double sort_results_time = t1.Passed();
+  LOG(DEBUG) << "GPUSample: sort the temporary results, time cost: "
+             << sort_results_time;
+
+  // count the prefix num
   Timer t2;
-  size_t workspace_bytes;
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      nullptr, workspace_bytes, static_cast<size_t *>(nullptr),
-      static_cast<size_t *>(nullptr), grid.x + 1, cu_stream));
+  size_t *item_prefix = static_cast<size_t *>(sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_input * fanout));
+  LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
+             << ToReadableSize(sizeof(int) * num_input * fanout);
+  // TODO: implementation for init_prefix_num
+  init_prefix_num<<<grid, block, 0, cu_stream>>>(out_src, out_dst, item_prefix, num_input * fanout);
   sampler_device->StreamSync(ctx, stream);
 
-  void *workspace = sampler_device->AllocWorkspace(ctx, workspace_bytes);
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
+  temp_storage_bytes = 0;
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes,
+                                          item_prefix, item_prefix, num_input * fanout,
+                                          cu_stream));
+  sampler_device->StreamSync(ctx, stream);
+
+  d_temp_storage = sampler_device->AllocWorkspace(ctx, temp_storage_bytes);
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes,
                                           item_prefix, item_prefix, grid.x + 1,
                                           cu_stream));
   sampler_device->StreamSync(ctx, stream);
-  LOG(DEBUG) << "GPUSample: cuda workspace malloc "
-             << ToReadableSize(workspace_bytes);
+  sampler_device->FreeWorkspace(ctx, d_temp_storage);
+  double prefix_sum_time = t2.Passed();
 
-  compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src, out_dst,
-                                      num_out, item_prefix, num_input, fanout);
+  // compact edge
+  Timer t3;
+  // TODO: compact edges
+  compact_edge<<<grid, block, 0, cu_stream>>>(out_src, out_dst, item_prefix, num_input * fanout, num_out);
   sampler_device->StreamSync(ctx, stream);
-  double compact_edge_time = t2.Passed();
+  double compact_edge_time = t3.Passed();
 
-  sampler_device->FreeWorkspace(ctx, workspace);
   sampler_device->FreeWorkspace(ctx, item_prefix);
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
