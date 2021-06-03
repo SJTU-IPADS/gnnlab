@@ -21,6 +21,7 @@ void GPURandomSeeder::Init(std::vector<int> fanouts, Context sampler_ctx,
   if (_initialize) {
       return;
   }
+  Timer t1;
   cudaStream_t cu_stream = static_cast<cudaStream_t>(sampler_stream);
   auto sampler_device = Device::Get(sampler_ctx);
   // get maximum number of curandState usage
@@ -43,7 +44,9 @@ void GPURandomSeeder::Init(std::vector<int> fanouts, Context sampler_ctx,
   sampler_device->StreamSync(sampler_ctx, sampler_stream);
 
   _initialize = true;
-  LOG(DEBUG) << "GPURandomSeeder initialized";
+  double random_seeder_init_time = t1.Passed();
+  LOG(DEBUG) << "GPURandomSeeder initialized, random initialization coast time: " 
+             << random_seeder_init_time;
 }
 
 } // cuda
