@@ -71,7 +71,7 @@ void GPUEngine::Init() {
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
-    _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth, nullptr));
+    _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth));
   }
 
   _initialize = true;

@@ -18,8 +18,9 @@ double RunConfig::cache_percentage = 0.0f;
 bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;
 bool RunConfig::option_sanity_check = false;
+bool RunConfig::option_stream_blocking = false;
 
-size_t RunConfig::kPipelineDepth = 5;
+size_t RunConfig::kPipelineDepth = 10;
 int RunConfig::kOMPThreadNum = 24;
 
 void RunConfig::LoadConfigFromEnv() {

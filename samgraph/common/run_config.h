@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "common.h"
+#include "logging.h"
 
 namespace samgraph {
 namespace common {
@@ -24,6 +25,7 @@ struct RunConfig {
   static bool option_profile_cuda;
   static bool option_log_node_access;
   static bool option_sanity_check;
+  static bool option_stream_blocking;
 
   static size_t kPipelineDepth;
   static int kOMPThreadNum;
@@ -31,6 +33,11 @@ struct RunConfig {
   static inline bool UseGPUCache() { return cache_percentage > 0; }
   static void LoadConfigFromEnv();
 };
+
+#define IF_BLOCKING(func)                          \
+  {                                                \
+    if (RunConfig::option_stream_blocking) (func); \
+  }
 
 }  // namespace common
 }  // namespace samgraph

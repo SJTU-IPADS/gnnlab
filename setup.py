@@ -79,7 +79,6 @@ setup(
                 'samgraph/common/operation.cc',
                 'samgraph/common/profiler.cc',
                 'samgraph/common/run_config.cc',
-                'samgraph/common/ready_table.cc',
                 'samgraph/common/task_queue.cc',
                 'samgraph/common/workspace_pool.cc',
                 'samgraph/common/cpu/cpu_device.cc',

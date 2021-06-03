@@ -11,7 +11,6 @@
 #include "../engine.h"
 #include "../graph_pool.h"
 #include "../logging.h"
-#include "../ready_table.h"
 #include "../task_queue.h"
 #include "cuda_cache_manager.h"
 #include "cuda_common.h"
