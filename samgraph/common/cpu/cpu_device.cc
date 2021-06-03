@@ -1,5 +1,7 @@
 #include "cpu_device.h"
 
+#include <cuda_runtime.h>
+
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -15,13 +17,19 @@ void CPUDevice::SetDevice(Context ctx) {}
 
 void *CPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   void *ptr;
-  int ret = posix_memalign(&ptr, alignment, nbytes);
-  CHECK_EQ(ret, 0);
+  CUDA_CALL(cudaHostAlloc(&ptr, nbytes, cudaHostAllocDefault));
+
+  // int ret = posix_memalign(&ptr, alignment, nbytes);
+  // CHECK_EQ(ret, 0);
 
   return ptr;
 }
 
-void CPUDevice::FreeDataSpace(Context ctx, void *ptr) { free(ptr); }
+void CPUDevice::FreeDataSpace(Context ctx, void *ptr) {
+  CUDA_CALL(cudaFreeHost(ptr));
+
+  // free(ptr);
+}
 
 void CPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
                                size_t to_offset, size_t nbytes,
