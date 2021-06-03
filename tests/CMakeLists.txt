@@ -14,11 +14,15 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}) 
+
 enable_testing()
 
 add_executable(
   samgraph_test
+  device_query_test.cc
   memory_race_test.cu
+  memcpy_test.cc
 )
 
 target_link_libraries(

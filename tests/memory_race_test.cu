@@ -92,10 +92,8 @@ TEST(MemoryRaceTest, SequantialTest) {
   free(cpu_A);
   free(cpu_B);
 
-  std::cout << COUT_GTEST_MGT << "copy: " << copy_time / num_iter
-            << " | cal: " << cal_time / num_iter
-            << " | total: " << total_time / num_iter << ANSI_TXT_DFT
-            << std::endl;
+  LOG << "copy: " << copy_time / num_iter << " | cal: " << cal_time / num_iter
+      << " | total: " << total_time / num_iter << ANSI_TXT_DFT << "\n";
 }
 
 TEST(MemoryRaceTest, PipelineEventTest) {
@@ -161,8 +159,7 @@ TEST(MemoryRaceTest, PipelineEventTest) {
   CUDA_CALL(cudaStreamDestroy(copy_stream));
   CUDA_CALL(cudaStreamDestroy(comp_stream));
 
-  std::cout << COUT_GTEST_MGT << "total: " << total_time / num_iter
-            << ANSI_TXT_DFT << std::endl;
+  LOG << "total: " << total_time / num_iter << ANSI_TXT_DFT << "\n";
 }
 
 TEST(MemoryRaceTest, PipelineThreadTest) {
@@ -256,8 +253,6 @@ TEST(MemoryRaceTest, PipelineThreadTest) {
   CUDA_CALL(cudaStreamDestroy(copy_stream));
   CUDA_CALL(cudaStreamDestroy(comp_stream));
 
-  std::cout << COUT_GTEST_MGT << "copy: " << copy_time / num_iter
-            << " | cal: " << cal_time / num_iter
-            << " | total: " << total_time / num_iter << ANSI_TXT_DFT
-            << std::endl;
+  LOG << "copy: " << copy_time / num_iter << " | cal: " << cal_time / num_iter
+      << " | total: " << total_time / num_iter << ANSI_TXT_DFT << "\n";
 }
