@@ -3,6 +3,7 @@
 #include "../common.h"
 #include "../device.h"
 #include "../logging.h"
+#include "../timer.h"
 #include "cuda_random_seeder.h"
 namespace samgraph {
 namespace common {
