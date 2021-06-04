@@ -26,10 +26,8 @@ __global__ void nextSample(const IdType *indptr, const IdType *indices,
   size_t num_task = num_input * fanout;
   size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
   size_t max_span = blockDim.x * gridDim.x;
-//  curandState state;
-//  curand_init(num_input, threadId, 0, &state);
   assert(threadId < num_seeds);
-  // cache the state
+  // cache the curand state
   curandState localState = states[threadId];
   for (size_t task_idx = threadId; task_idx < num_task; task_idx += max_span) {
     const IdType rid = input[task_idx / fanout];
@@ -105,6 +103,7 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
                        uint64_t task_key, curandState *states, size_t num_seeds) {
   LOG(DEBUG) << "GPUSample: begin with num_input " << num_input
              << " and fanout " << fanout;
+  Timer t_total;
   Timer t0;
 
   auto sampler_device = Device::Get(ctx);
@@ -119,7 +118,7 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
-  const size_t max_threads = num_seeds;
+  const size_t max_threads = std::min(512ul * 1024, num_seeds);
   size_t num_threads = num_input * fanout;
   if (num_threads > max_threads) {
       num_threads = max_threads;
@@ -133,6 +132,9 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   sampler_device->StreamSync(ctx, stream);
 
   double sample_time = t0.Passed();
+  LOG(DEBUG) << "GPUSample: kernel sampling, time cost: "
+             << sample_time;
+
 
   // sort tmp_src,tmp_dst -> out_src,out_dst, the size is num_input * fanout
   Timer t1;
@@ -159,7 +161,6 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   size_t *item_prefix = static_cast<size_t *>(sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_input * fanout));
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
              << ToReadableSize(sizeof(int) * num_input * fanout);
-  // TODO: implementation for init_prefix_num
   init_prefix_num<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix, num_input * fanout);
   sampler_device->StreamSync(ctx, stream);
 
@@ -170,26 +171,66 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   sampler_device->StreamSync(ctx, stream);
 
   d_temp_storage = sampler_device->AllocWorkspace(ctx, temp_storage_bytes);
+  LOG(DEBUG) << "GPUSample: cuda temp_storage for ExclusiveSum malloc "
+             << ToReadableSize(temp_storage_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes,
-                                          item_prefix, item_prefix, grid.x + 1,
+                                          item_prefix, item_prefix, num_input * fanout,
                                           cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
   double prefix_sum_time = t2.Passed();
+  LOG(DEBUG) << "GPUSample: ExclusiveSum time cost: "
+             << prefix_sum_time;
+
+#if 0
+  size_t check_len = std::min(30ul, num_input * fanout);
+  size_t *check_prefix = new size_t[num_input * fanout];
+  IdType *check_src = new IdType[check_len];
+  IdType *check_dst = new IdType[check_len];
+  sampler_device->CopyDataFromTo(item_prefix, 0, check_prefix, 0, sizeof(size_t) * num_input * fanout,
+                                 ctx, CPU(), stream);
+  sampler_device->CopyDataFromTo(tmp_src, 0, check_src, 0, sizeof(IdType) * check_len,
+                                 ctx, CPU(), stream);
+  sampler_device->CopyDataFromTo(tmp_dst, 0, check_dst, 0, sizeof(IdType) * check_len,
+                                 ctx, CPU(), stream);
+  sampler_device->StreamSync(ctx, stream);
+  printf("\e[33mcheck src: \e[0m");
+  for (int i = 0 ; i < check_len; ++i) {
+    printf("%6d ", check_src[i]);
+  }
+  printf("\n");
+  printf("\e[33mcheck dst: \e[0m");
+  for (int i = 0 ; i < check_len; ++i) {
+    printf("%6d ", check_dst[i]);
+  }
+  printf("\n");
+  printf("\e[33mcheck prefix sum: \e[0m");
+  for (int i = 0 ; i < check_len; ++i) {
+    printf("%6ld ", check_prefix[i]);
+  }
+  printf("\n");
+  printf("last prefix = %ld\n", check_prefix[num_input * fanout - 1]);
+  delete []check_prefix;
+  delete []check_src;
+  delete []check_dst;
+#endif
 
   // compact edge
   Timer t3;
-  // TODO: compact edges
   compact_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src, out_dst, item_prefix, 
                                               num_input * fanout, num_out);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t3.Passed();
+  LOG(DEBUG) << "GPUSample: compact_edge time cost: "
+             << compact_edge_time;
 
   sampler_device->FreeWorkspace(ctx, item_prefix);
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
-  LOG(DEBUG) << "GPUSample: succeed ";
+  double total_time = t_total.Passed();
+  LOG(DEBUG) << "GPUSample: succeed total time cost: "
+             << total_time;
 }
 
 } // namespace cuda
