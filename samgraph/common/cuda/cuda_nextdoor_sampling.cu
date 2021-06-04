@@ -92,7 +92,7 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst,
  * @param num_out     the number of all neighbors
  * @param ctx         GPU contex
  * @param stream      GPU stream
- * @param task_key
+ * @param task_key    for profiler data
  * @param states      GPU random seeds list
  * @param num_seeds   GPU the total number of random seeds
  */
@@ -227,6 +227,11 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   sampler_device->FreeWorkspace(ctx, item_prefix);
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
+
+  // add time to profiler
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime, sample_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCountEdgeTime, sort_results_time + prefix_sum_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCompactEdgesTime, compact_edge_time);
 
   double total_time = t_total.Passed();
   LOG(DEBUG) << "GPUSample: succeed total time cost: "
