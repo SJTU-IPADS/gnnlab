@@ -48,6 +48,7 @@ void DoGPUSample(TaskPtr task) {
 
   auto seeder = GPUEngine::Get()->GetRandomSeeder();
   curandState *states = seeder->Get();
+  size_t num_seeds = seeder->Size();
 
   OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
   hash_table->Reset(sample_stream);
@@ -96,7 +97,7 @@ void DoGPUSample(TaskPtr task) {
       // GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
       //           num_out, sampler_ctx, sample_stream, task->key);
       GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
-                num_out, sampler_ctx, sample_stream, task->key, states);
+                num_out, sampler_ctx, sample_stream, task->key, states, num_seeds);
     }
 
     // Get nnz

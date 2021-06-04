@@ -31,9 +31,12 @@ void GPURandomSeeder::Init(std::vector<int> fanouts, Context sampler_ctx,
       num_random_t *= i;
   }
   if (num_random_t >= 0xffffffff) {
-    LOG(FATAL) << "Sampling Size is too large";
+    LOG(FATAL) << "Sampling random seed size is too large";
   }
-  size_t num_random = static_cast<size_t>(num_random_t);
+  num_random = static_cast<size_t>(num_random_t);
+  if (num_random > maxSeedNum) {
+    num_random = maxSeedNum;
+  }
 
   states = static_cast<curandState*>(
           sampler_device->AllocDataSpace(sampler_ctx, sizeof(curandState) * num_random));
@@ -46,7 +49,7 @@ void GPURandomSeeder::Init(std::vector<int> fanouts, Context sampler_ctx,
 
   _initialize = true;
   double random_seeder_init_time = t1.Passed();
-  LOG(DEBUG) << "GPURandomSeeder initialized, random initialization coast time: " 
+  LOG(DEBUG) << "GPURandomSeeder initialized " << num_random << " seeds, random initialization coast time: " 
              << random_seeder_init_time;
 }
 
