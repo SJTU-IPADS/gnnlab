@@ -229,8 +229,8 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
   // add time to profiler
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime, sample_time);
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCountEdgeTime, sort_results_time + prefix_sum_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime, sample_time + sort_results_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCountEdgeTime, prefix_sum_time);
   Profiler::Get().LogAdd(task_key, kLogL3SampleCompactEdgesTime, compact_edge_time);
 
   double total_time = t_total.Passed();
