@@ -105,7 +105,11 @@ class SamGraphBasics(object):
             ),
             ctypes.c_int(
                 run_config['cpu_hashtable_type']
-            ))
+            ),
+            ctypes.c_double(
+                run_config['cache_percentage']
+            )
+        )
 
     def init(self):
         return self.C_LIB_CTYPES.samgraph_init()
@@ -143,3 +147,6 @@ class SamGraphBasics(object):
 
     def report(self, epoch, step):
         return self.C_LIB_CTYPES.samgraph_report(epoch, step)
+
+    def report_node_access(self):
+        return self.C_LIB_CTYPES.samgraph_report_node_access()

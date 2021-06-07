@@ -39,15 +39,16 @@ void GPUEngine::Init() {
 
   // Create CUDA streams
   _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
-  _copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+  _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+  _trainer_copy_stream = Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx);
 
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _copy_stream);
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
 
-  _extractor = new Extractor();
-  _permutator =
-      new CudaPermutator(_dataset->train_set, _num_epoch, _batch_size, false);
-  _num_step = _permutator->NumStep();
+  _shuffler =
+      new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
+  _num_step = _shuffler->NumStep();
   _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
   size_t predict_node_num =
@@ -57,10 +58,20 @@ void GPUEngine::Init() {
   _hashtable =
       new OrderedHashTable(predict_node_num, _sampler_ctx, _sample_stream);
 
+  if (RunConfig::UseGPUCache()) {
+    _cache_manager = new GPUCacheManager(
+        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+        _dataset->feat->Type(), _dataset->feat->Shape()[1],
+        static_cast<const IdType*>(_dataset->sorted_nodes_by_in_degree->Data()),
+        _dataset->num_node, RunConfig::cache_percentage);
+  } else {
+    _cache_manager = nullptr;
+  }
+
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
-    _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth, nullptr));
+    _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth));
   }
 
   // Create CUDA random states for sampling
@@ -102,8 +113,6 @@ void GPUEngine::Shutdown() {
     _threads[i] = nullptr;
   }
 
-  delete _dataset;
-
   // free queue
   for (size_t i = 0; i < QueueNum; i++) {
     if (_queues[i]) {
@@ -113,19 +122,25 @@ void GPUEngine::Shutdown() {
   }
 
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _copy_stream);
   Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _copy_stream);
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
 
-  if (_permutator) {
-    delete _permutator;
-    _permutator = nullptr;
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
+  Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _trainer_copy_stream);
+
+  delete _dataset;
+  delete _shuffler;
+  delete _graph_pool;
+
+  if (_cache_manager != nullptr) {
+    delete _cache_manager;
   }
 
-  if (_graph_pool) {
-    delete _graph_pool;
-    _graph_pool = nullptr;
-  }
+  _dataset = nullptr;
+  _shuffler = nullptr;
+  _graph_pool = nullptr;
+  _cache_manager = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;
@@ -135,7 +150,11 @@ void GPUEngine::Shutdown() {
 
 void GPUEngine::RunSampleOnce() {
   RunGPUSampleLoopOnce();
-  RunDataCopyLoopOnce();
+  if (!RunConfig::UseGPUCache()) {
+    RunDataCopyLoopOnce();
+  } else {
+    RunCacheDataCopyLoopOnce();
+  }
 }
 
 void GPUEngine::Report(uint64_t epoch, uint64_t step) {

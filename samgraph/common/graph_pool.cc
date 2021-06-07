@@ -42,7 +42,7 @@ void GraphPool::Submit(uint64_t key, std::shared_ptr<GraphBatch> batch) {
 
 bool GraphPool::Full() {
   std::lock_guard<std::mutex> lock(_mutex);
-  return _pool.size() >= _threshold;
+  return _pool.size() >= _max_size;
 }
 
 }  // namespace common

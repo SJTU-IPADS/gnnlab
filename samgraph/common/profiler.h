@@ -5,14 +5,22 @@
 #include <string>
 #include <vector>
 
+#include "common.h"
+
 namespace samgraph {
 namespace common {
 
 enum LogItem {
   // L1
   kLogL1NumSample = 0,
+  kLogL1NumNode,
   kLogL1SampleTime,
   kLogL1CopyTime,
+  kLogL1FeatureBytes,
+  kLogL1LabelBytes,
+  kLogL1IdBytes,
+  kLogL1GraphBytes,
+  kLogL1MissBytes,
   // L2
   kLogL2ShuffleTime,
   kLogL2CoreSampleTime,
@@ -21,6 +29,7 @@ enum LogItem {
   kLogL2IdCopyTime,
   kLogL2ExtractTime,
   kLogL2FeatCopyTime,
+  kLogL2CacheCopyTime,
   // L3
   kLogL3SampleCooTime,
   kLogL3SampleCountEdgeTime,
@@ -28,6 +37,12 @@ enum LogItem {
   kLogL3RemapPopulateTime,
   kLogL3RemapMapNodeTime,
   kLogL3RemapMapEdgeTime,
+  kLogL3CacheGetIndexTime,
+  KLogL3CacheCopyIndexTime,
+  kLogL3CacheExtractMissTime,
+  kLogL3CacheCopyMissTime,
+  kLogL3CacheCombineMissTime,
+  kLogL3CacheCombineCacheTime,
   // Number of items
   kLogNumItemsNotARealValue
 };
@@ -46,8 +61,11 @@ class Profiler {
   Profiler();
   void Log(uint64_t key, LogItem item, double value);
   void LogAdd(uint64_t key, LogItem item, double value);
+  void LogNodeAccess(uint64_t key, const IdType *input, size_t num_input);
+
   void Report(uint64_t key);
   void ReportAverage(uint64_t key);
+  void ReportNodeAccess();
 
   static Profiler &Get();
 
@@ -56,6 +74,10 @@ class Profiler {
 
   std::vector<LogData> _data;
   std::vector<double> _output_buf;
+
+  std::vector<size_t> _node_access;
+  std::vector<int> _last_visit;
+  std::vector<size_t> _similarity;
 };
 
 }  // namespace common

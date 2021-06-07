@@ -203,7 +203,7 @@ compact_hashmap(const IdType *const items, const size_t num_items,
   using BlockScan = typename cub::BlockScan<FlagType, BLOCK_SIZE>;
   using BukcetO2N = typename DeviceOrderedHashTable::BukcetO2N;
 
-  constexpr const int32_t VALS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
+  constexpr const IdType VALS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
 
   __shared__ typename BlockScan::TempStorage temp_space;
 
@@ -212,7 +212,7 @@ compact_hashmap(const IdType *const items, const size_t num_items,
   BlockPrefixCallbackOp<FlagType> prefix_op(0);
 
   // count successful placements
-  for (int32_t i = 0; i < VALS_PER_THREAD; ++i) {
+  for (IdType i = 0; i < VALS_PER_THREAD; ++i) {
     const IdType index = threadIdx.x + i * BLOCK_SIZE + blockIdx.x * TILE_SIZE;
 
     FlagType flag;

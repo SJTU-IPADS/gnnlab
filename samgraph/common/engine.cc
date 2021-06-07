@@ -91,7 +91,6 @@ void Engine::LoadGraphDataset() {
   _dataset->num_node = meta[Constant::kMetaNumNode];
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
   _dataset->num_class = meta[Constant::kMetaNumClass];
-  _dataset->weighted_edge = false;
 
   _dataset->indptr =
       Tensor::FromMmap(_dataset_path + Constant::kInptrFile, DataType::kI32,
@@ -134,6 +133,17 @@ void Engine::LoadGraphDataset() {
   _dataset->valid_set = Tensor::FromMmap(
       _dataset_path + Constant::kValidSetFile, DataType::kI32,
       {meta[Constant::kMetaNumValidSet]}, CPU(), "dataset.valid_set");
+
+  _dataset->in_degrees = Tensor::FromMmap(
+      _dataset_path + Constant::kInDegreeFile, DataType::kI32,
+      {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.in_degrees");
+  _dataset->out_degrees = Tensor::FromMmap(
+      _dataset_path + Constant::kOutDegreeFile, DataType::kI32,
+      {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.out_degrees");
+  _dataset->sorted_nodes_by_in_degree =
+      Tensor::FromMmap(_dataset_path + Constant::kSortedNodeByInDegreeFile,
+                       DataType::kI32, {meta[Constant::kMetaNumNode]}, MMAP(),
+                       "dataset.sorted_nodes_by_in_degree");
 
   double loading_time = t.Passed();
   LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path << ") successfully ("

@@ -6,10 +6,9 @@
 #include <thread>
 
 #include "../engine.h"
-#include "../extractor.h"
 #include "../logging.h"
 #include "cpu_hashtable.h"
-#include "cpu_permutator.h"
+#include "cpu_shuffler.h"
 
 namespace samgraph {
 namespace common {
@@ -25,8 +24,7 @@ class CPUEngine : public Engine {
   void RunSampleOnce() override;
   void Report(uint64_t epoch, uint64_t step) override;
 
-  CPUPermutator* GetPermutator() { return _permutator; }
-  Extractor* GetExtractor() { return _extractor; }
+  CPUShuffler* GetShuffler() { return _shuffler; }
   cudaStream_t GetWorkStream() { return _work_stream; }
   HashTable* GetHashTable() { return _hash_table; }
 
@@ -38,10 +36,8 @@ class CPUEngine : public Engine {
 
   cudaStream_t _work_stream;
 
-  // Random node batch genrator
-  CPUPermutator* _permutator;
-  // CPU Extractor
-  Extractor* _extractor;
+  // Random node batch generator
+  CPUShuffler* _shuffler;
   // Hash table
   HashTable* _hash_table;
 };

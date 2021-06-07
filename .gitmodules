@@ -7,3 +7,6 @@
 [submodule "3rdparty/dgl"]
 	path = 3rdparty/dgl
 	url = https://ipads.se.sjtu.edu.cn:1312/yangjb/dgl.git
+[submodule "3rdparty/pytorch_geometric"]
+	path = 3rdparty/pytorch_geometric
+	url = https://ipads.se.sjtu.edu.cn:1312/yangjb/pytorch_geometric.git

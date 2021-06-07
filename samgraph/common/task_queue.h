@@ -6,14 +6,13 @@
 #include <vector>
 
 #include "common.h"
-#include "ready_table.h"
 
 namespace samgraph {
 namespace common {
 
 class TaskQueue {
  public:
-  TaskQueue(size_t threshold, ReadyTable* rt = nullptr);
+  TaskQueue(size_t max_len);
 
   void AddTask(std::shared_ptr<Task>);
   std::shared_ptr<Task> GetTask();
@@ -23,8 +22,7 @@ class TaskQueue {
  private:
   std::vector<std::shared_ptr<Task>> _q;
   std::mutex _mutex;
-  size_t _threshold;
-  ReadyTable* _rt;
+  size_t _max_len;
 };
 
 }  // namespace common

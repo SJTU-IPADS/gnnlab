@@ -1,5 +1,5 @@
-#ifndef SAMGRAPH_CUDA_PERMUTATOR_H
-#define SAMGRAPH_CUDA_PERMUTATOR_H
+#ifndef SAMGRAPH_CUDA_SHUFFLER_H
+#define SAMGRAPH_CUDA_SHUFFLER_H
 
 #include <limits>
 #include <memory>
@@ -10,10 +10,10 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-class CudaPermutator {
+class GPUShuffler {
  public:
-  CudaPermutator(TensorPtr input, size_t num_epoch, size_t batch_size,
-                 bool drop_last);
+  GPUShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
+              bool drop_last);
   TensorPtr GetBatch(StreamHandle stream = nullptr);
 
   uint64_t Epoch() { return _cur_epoch; }
@@ -39,11 +39,13 @@ class CudaPermutator {
   size_t _batch_size;
   size_t _last_batch_size;
 
-  void RePermutate(StreamHandle stream = nullptr);
+  IdType *_sanity_check_map;
+
+  void ReShuffle(StreamHandle stream = nullptr);
 };
 
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph
 
-#endif  // SAMGRAPH_CUDA_PERMUTATOR_H
+#endif  // SAMGRAPH_CUDA_SHUFFLER_H

@@ -10,6 +10,7 @@ void DataCopyLoop();
 
 bool RunGPUSampleLoopOnce();
 bool RunDataCopyLoopOnce();
+bool RunCacheDataCopyLoopOnce();
 
 }  // namespace cuda
 }  // namespace common

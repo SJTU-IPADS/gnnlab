@@ -12,7 +12,7 @@ extern "C" {
 void samgraph_config(const char *path, int sampler_type, int sampler_device,
                      int trainer_type, int trainer_device, size_t batch_size,
                      int *fanout, size_t num_fanout, size_t num_epoch,
-                     int cpu_hashtable_type);
+                     int cpu_hashtable_type, double cache_percentage);
 
 void samgraph_init();
 

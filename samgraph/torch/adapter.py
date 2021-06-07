@@ -23,6 +23,7 @@ get_graph_num_col = _basics.get_graph_num_col
 shutdown = _basics.shutdown
 sample = _basics.sample
 report = _basics.report
+report_node_access = _basics.report_node_access
 
 
 def get_graph_feat(batch_key):

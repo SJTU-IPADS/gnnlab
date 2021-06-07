@@ -12,7 +12,7 @@ namespace common {
 
 class GraphPool {
  public:
-  GraphPool(size_t threshold) : _stop(false), _threshold(threshold) {}
+  GraphPool(size_t max_size) : _stop(false), _max_size(max_size) {}
   ~GraphPool();
 
   std::shared_ptr<GraphBatch> GetGraphBatch(uint64_t key);
@@ -22,7 +22,7 @@ class GraphPool {
  private:
   bool _stop;
   std::mutex _mutex;
-  const size_t _threshold;
+  const size_t _max_size;
   std::unordered_map<uint64_t, std::shared_ptr<GraphBatch>> _pool;
 };
 

@@ -1,3 +1,4 @@
+import argparse
 import time
 import torch as th
 import torch.nn as nn
@@ -39,7 +40,45 @@ class GCN(nn.Module):
         return h
 
 
+def parse_args():
+    argparser = argparse.ArgumentParser("GraphSage Training")
+    argparser.add_argument('--parse-args', action='store_true', default=False)
+    argparser.add_argument('--type', type=str, default='gpu')
+    argparser.add_argument('--cpu-hashtable-type', type=int,
+                           default=sam.simple_hashtable())
+    argparser.add_argument('--pipeline', action='store_true', default=False)
+    argparser.add_argument('--dataset-path', type=str,
+                           default='/graph-learning/samgraph/papers100M')
+
+    argparser.add_argument('--num-epoch', type=int, default=20)
+    argparser.add_argument('--fanout', nargs='+',
+                           type=int, default=[15, 10, 5])
+    argparser.add_argument('--batch-size', type=int, default=8192)
+    argparser.add_argument('--num-hidden', type=int, default=256)
+    argparser.add_argument('--lr', type=float, default=0.003)
+    argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--report-per-count', type=int, default=1)
+    argparser.add_argument('--cache-percentage', type=float, default=0)
+
+    run_config = vars(argparser.parse_args())
+    if run_config['type'] == 'cpu':
+        run_config['sampler_ctx'] = sam.cpu()
+        run_config['trainer_ctx'] = sam.gpu(0)
+    else:
+        run_config['sampler_ctx'] = sam.gpu(1)
+        run_config['trainer_ctx'] = sam.gpu(0)
+
+    run_config['num_fanout'] = run_config['num_layer'] = len(
+        run_config['fanout'])
+
+    return run_config
+
+
 def get_run_config():
+    args_run_config = parse_args()
+    if args_run_config['parse_args']:
+        return args_run_config
+
     run_config = {}
     run_config['type'] = 'gpu'
     run_config['cpu_hashtable_type'] = sam.simple_hashtable()
@@ -65,6 +104,7 @@ def get_run_config():
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
+    run_config['cache_percentage'] = 0.2
 
     return run_config
 

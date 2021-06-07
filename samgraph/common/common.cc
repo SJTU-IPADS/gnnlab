@@ -7,9 +7,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>  // chrono::system_clock
 #include <cstdlib>
 #include <cstring>
+#include <ctime>    // localtime
+#include <iomanip>  // put_time
 #include <numeric>
+#include <sstream>  // stringstream
+#include <string>   // string
 
 #include "constant.h"
 #include "device.h"
@@ -17,33 +22,6 @@
 
 namespace samgraph {
 namespace common {
-
-size_t GetDataTypeLength(int dtype) {
-  switch (dtype) {
-    case kI8:
-    case kU8:
-      return 1ul;
-    case kF16:
-      return 2ul;
-    case kF32:
-    case kI32:
-      return 4ul;
-    case kI64:
-    case kF64:
-      return 8ul;
-    default:
-      CHECK(0) << "Unsupported data type: " << dtype;
-  }
-  return 4ul;
-}
-
-size_t GetTensorBytes(int dtype,
-                      std::vector<size_t>::const_iterator shape_start,
-                      std::vector<size_t>::const_iterator shape_end) {
-  return std::accumulate(shape_start, shape_end, 1ul,
-                         std::multiplies<size_t>()) *
-         GetDataTypeLength(dtype);
-}
 
 Tensor::Tensor() : _data(nullptr) {}
 
@@ -193,6 +171,45 @@ std::string ToReadableSize(size_t nbytes) {
   }
 }
 
+std::string ToPercentage(double percentage) {
+  char buf[Constant::kBufferSize];
+  sprintf(buf, "%.2lf %%", percentage * 100);
+  return std::string(buf);
+}
+
+size_t GetDataTypeBytes(DataType dtype) {
+  switch (dtype) {
+    case kI8:
+    case kU8:
+      return 1ul;
+    case kF16:
+      return 2ul;
+    case kF32:
+    case kI32:
+      return 4ul;
+    case kI64:
+    case kF64:
+      return 8ul;
+    default:
+      CHECK(0) << "Unsupported data type: " << dtype;
+  }
+  return 4ul;
+}
+
+size_t GetTensorBytes(DataType dtype, const std::vector<size_t> shape) {
+  return std::accumulate(shape.begin(), shape.end(), 1ul,
+                         std::multiplies<size_t>()) *
+         GetDataTypeBytes(dtype);
+}
+
+size_t GetTensorBytes(DataType dtype,
+                      std::vector<size_t>::const_iterator shape_start,
+                      std::vector<size_t>::const_iterator shape_end) {
+  return std::accumulate(shape_start, shape_end, 1ul,
+                         std::multiplies<size_t>()) *
+         GetDataTypeBytes(dtype);
+}
+
 std::string GetEnv(std::string key) {
   const char *env_var_val = getenv(key.c_str());
   if (env_var_val != nullptr) {
@@ -200,6 +217,25 @@ std::string GetEnv(std::string key) {
   } else {
     return "";
   }
+}
+
+bool IsEnvSet(std::string key) {
+  std::string val = GetEnv(key);
+  if (val == "ON" || val == "1") {
+    LOG(INFO) << "Environment variable " << key << " is set to " << val;
+    return true;
+  } else {
+    return false;
+  }
+}
+
+std::string GetTime() {
+  auto now = std::chrono::system_clock::now();
+  auto in_time_t = std::chrono::system_clock::to_time_t(now);
+
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&in_time_t), "%Y%m%dT%H%M%S%");
+  return ss.str();
 }
 
 }  // namespace common

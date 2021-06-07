@@ -1,14 +1,15 @@
 #include "operation.h"
 
 #include <cuda_profiler_api.h>
+#include <cuda_runtime.h>
 
 #include <string>
 #include <vector>
 
-#include "cpu/cpu_loops.h"
+#include "common.h"
+#include "constant.h"
 #include "engine.h"
 #include "logging.h"
-#include "macros.h"
 #include "profiler.h"
 #include "run_config.h"
 
@@ -20,7 +21,7 @@ extern "C" {
 void samgraph_config(const char *path, int sampler_type, int sampler_device,
                      int trainer_type, int trainer_device, size_t batch_size,
                      int *fanout, size_t num_fanout, size_t num_epoch,
-                     int cpu_hashtable_type) {
+                     int cpu_hashtable_type, double cache_percentage) {
   RunConfig::dataset_path = path;
   RunConfig::fanout = std::vector<int>(fanout, fanout + num_fanout);
   RunConfig::batch_size = batch_size;
@@ -29,22 +30,25 @@ void samgraph_config(const char *path, int sampler_type, int sampler_device,
       Context{static_cast<DeviceType>(sampler_type), sampler_device};
   RunConfig::trainer_ctx =
       Context{static_cast<DeviceType>(trainer_type), trainer_device};
-  RunConfig::cpu_hashtable_type =
-      static_cast<cpu::HashTableType>(cpu_hashtable_type);
+  RunConfig::cpu_hashtable_type = cpu_hashtable_type;
+  RunConfig::cache_percentage = cache_percentage;
+
+  RunConfig::LoadConfigFromEnv();
 }
 
 void samgraph_init() {
   Engine::Create();
   Engine::Get()->Init();
+
   LOG(DEBUG) << "SamGraph has been initialied successfully";
-#if USE_CUDA_PRFILE
-  CUDA_CALL(cudaProfilerStart());
-#endif
-  return;
 }
 
 void samgraph_start() {
   CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
+  if (RunConfig::option_profile_cuda) {
+    CUDA_CALL(cudaProfilerStart());
+  }
+
   Engine::Get()->Start();
   LOG(DEBUG) << "SamGraph has been started successfully";
 }
@@ -103,14 +107,19 @@ size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
 void samgraph_shutdown() {
   Engine::Get()->Shutdown();
   LOG(DEBUG) << "SamGraph has been completely shutdown now";
-#if USE_CUDA_PRFILE
-  CUDA_CALL(cudaProfilerStop());
-#endif
-  return;
+  if (RunConfig::option_profile_cuda) {
+    CUDA_CALL(cudaProfilerStop());
+  }
 }
 
 void samgraph_report(uint64_t epoch, uint64_t step) {
   Engine::Get()->Report(epoch, step);
+}
+
+void samgraph_report_node_access() {
+  if (RunConfig::option_log_node_access) {
+    Profiler::Get().ReportNodeAccess();
+  }
 }
 }
 }  // namespace common

@@ -9,15 +9,15 @@
 
 #include "../common.h"
 #include "../engine.h"
-#include "../extractor.h"
 #include "../graph_pool.h"
 #include "../logging.h"
-#include "../ready_table.h"
 #include "../task_queue.h"
+#include "cuda_cache_manager.h"
 #include "cuda_common.h"
 #include "cuda_hashtable.h"
 #include "cuda_permutator.h"
 #include "cuda_random_seeder.h"
+#include "cuda_shuffler.h"
 
 namespace samgraph {
 namespace common {
@@ -33,14 +33,15 @@ class GPUEngine : public Engine {
   void RunSampleOnce() override;
   void Report(uint64_t epoch, uint64_t step) override;
 
-  CudaPermutator* GetPermutator() { return _permutator; }
-  Extractor* GetExtractor() { return _extractor; }
+  GPUShuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
   GPURandomSeeder* GetRandomSeeder() { return _randomSeeder; }
+  GPUCacheManager* GetCacheManager() { return _cache_manager; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
-  StreamHandle GetCopyStream() { return _copy_stream; }
+  StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
+  StreamHandle GetTrainerCopyStream() { return _trainer_copy_stream; }
 
   static GPUEngine* Get() { return dynamic_cast<GPUEngine*>(Engine::_engine); }
 
@@ -50,15 +51,16 @@ class GPUEngine : public Engine {
   std::vector<std::thread*> _threads;
   // Cuda streams on sample device
   StreamHandle _sample_stream;
-  StreamHandle _copy_stream;
+  StreamHandle _sampler_copy_stream;
+  StreamHandle _trainer_copy_stream;
   // Random node batch genrator
-  CudaPermutator* _permutator;
-  // CPU Extractor
-  Extractor* _extractor;
+  GPUShuffler* _shuffler;
   // Hash table
   OrderedHashTable* _hashtable;
   // CUDA random seeder
   GPURandomSeeder* _randomSeeder;
+  // Feature cache in GPU
+  GPUCacheManager* _cache_manager;
 };
 
 }  // namespace cuda
