@@ -91,6 +91,7 @@ void DoGPUSample(TaskPtr task) {
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
+    /*
     if (dataset->weighted_edge) {
       GPUWeightedSample(indptr, indices, input, num_input, fanout, out_src,
                         out_dst, num_out, sampler_ctx, sample_stream,
@@ -101,6 +102,9 @@ void DoGPUSample(TaskPtr task) {
       GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
                 num_out, sampler_ctx, sample_stream, task->key, states, num_seeds);
     }
+    */
+    GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+              num_out, sampler_ctx, sample_stream, task->key, states, num_seeds);
 
     // Get nnz
     sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),

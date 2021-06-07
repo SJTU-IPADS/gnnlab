@@ -15,7 +15,6 @@
 #include "cuda_cache_manager.h"
 #include "cuda_common.h"
 #include "cuda_hashtable.h"
-#include "cuda_permutator.h"
 #include "cuda_random_seeder.h"
 #include "cuda_shuffler.h"
 
