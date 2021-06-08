@@ -19,7 +19,7 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-__global__ void nextSample(const IdType *indptr, const IdType *indices, 
+__global__ void next_sample(const IdType *indptr, const IdType *indices, 
                            const IdType *input, const size_t num_input, 
                            const size_t fanout, IdType *tmp_src,
                            IdType *tmp_dst, curandState* states, size_t num_seeds) {
@@ -127,7 +127,7 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   const size_t blockSize = Constant::kCudaBlockSize;
   const dim3 grid((num_threads + blockSize - 1) / blockSize);
   const dim3 block(blockSize);
-  nextSample<<<grid, block, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
+  next_sample<<<grid, block, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
                                             tmp_src, tmp_dst, states, num_seeds);
   sampler_device->StreamSync(ctx, stream);
 
