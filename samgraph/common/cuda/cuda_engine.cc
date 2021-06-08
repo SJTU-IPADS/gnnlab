@@ -74,6 +74,10 @@ void GPUEngine::Init() {
     _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth));
   }
 
+  // Create CUDA random states for sampling
+  _randomSeeder = new GPURandomSeeder();
+  _randomSeeder->Init(_fanout, _sampler_ctx, _sample_stream, _batch_size);
+
   _initialize = true;
 }
 

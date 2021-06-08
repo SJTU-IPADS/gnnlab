@@ -48,6 +48,10 @@ void DoGPUSample(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto sample_stream = GPUEngine::Get()->GetSampleStream();
 
+  auto seeder = GPUEngine::Get()->GetRandomSeeder();
+  curandState *states = seeder->Get();
+  size_t num_seeds = seeder->Size();
+
   OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
   hash_table->Reset(sample_stream);
 
@@ -87,8 +91,20 @@ void DoGPUSample(TaskPtr task) {
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
-    GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
-              num_out, sampler_ctx, sample_stream, task->key);
+    /*
+    if (dataset->weighted_edge) {
+      GPUWeightedSample(indptr, indices, input, num_input, fanout, out_src,
+                        out_dst, num_out, sampler_ctx, sample_stream,
+                        task->key);
+    } else {
+      // GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+      //           num_out, sampler_ctx, sample_stream, task->key);
+      GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+                num_out, sampler_ctx, sample_stream, task->key, states, num_seeds);
+    }
+    */
+    GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+              num_out, sampler_ctx, sample_stream, task->key, states, num_seeds);
 
     // Get nnz
     sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),
