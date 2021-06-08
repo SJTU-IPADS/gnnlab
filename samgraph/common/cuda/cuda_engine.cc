@@ -75,8 +75,8 @@ void GPUEngine::Init() {
   }
 
   // Create CUDA random states for sampling
-  _randomSeeder = new GPURandomSeeder();
-  _randomSeeder->Init(_fanout, _sampler_ctx, _sample_stream, _batch_size);
+  _random_seeder = new GPURandomSeeder();
+  _random_seeder->Init(_fanout, _sampler_ctx, _sample_stream, _batch_size);
 
   _initialize = true;
 }

@@ -35,7 +35,7 @@ class GPUEngine : public Engine {
   GPUShuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
-  GPURandomSeeder* GetRandomSeeder() { return _randomSeeder; }
+  GPURandomSeeder* GetRandomSeeder() { return _random_seeder; }
   GPUCacheManager* GetCacheManager() { return _cache_manager; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
@@ -57,7 +57,7 @@ class GPUEngine : public Engine {
   // Hash table
   OrderedHashTable* _hashtable;
   // CUDA random seeder
-  GPURandomSeeder* _randomSeeder;
+  GPURandomSeeder* _random_seeder;
   // Feature cache in GPU
   GPUCacheManager* _cache_manager;
 };

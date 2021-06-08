@@ -33,23 +33,23 @@ void GPURandomSeeder::Init(std::vector<int> fanouts, Context sampler_ctx,
   if (num_random_t >= 0xffffffff) {
     LOG(FATAL) << "Sampling random seed size is too large";
   }
-  num_random = static_cast<size_t>(num_random_t);
-  if (num_random > maxSeedNum) {
-    num_random = maxSeedNum;
+  _num_random = static_cast<size_t>(num_random_t);
+  if (_num_random > maxSeedNum) {
+    _num_random = maxSeedNum;
   }
 
-  states = static_cast<curandState*>(
-          sampler_device->AllocDataSpace(sampler_ctx, sizeof(curandState) * num_random));
+  _states = static_cast<curandState*>(
+          sampler_device->AllocDataSpace(sampler_ctx, sizeof(curandState) * _num_random));
   const size_t blockSize = Constant::kCudaBlockSize;
-  const dim3 grid((num_random + blockSize - 1) / blockSize);
+  const dim3 grid((_num_random + blockSize - 1) / blockSize);
   const dim3 block(Constant::kCudaBlockSize);
   unsigned long seed = std::chrono::system_clock::now().time_since_epoch().count();
-  seeds_init <<<grid, block, 0, cu_stream>>>(states, num_random, seed);
+  seeds_init <<<grid, block, 0, cu_stream>>>(_states, _num_random, seed);
   sampler_device->StreamSync(sampler_ctx, sampler_stream);
 
   _initialize = true;
   double random_seeder_init_time = t1.Passed();
-  LOG(DEBUG) << "GPURandomSeeder initialized " << num_random << " seeds, random initialization coast time: " 
+  LOG(DEBUG) << "GPURandomSeeder initialized " << _num_random << " seeds, random initialization coast time: " 
              << random_seeder_init_time;
 }
 
