@@ -15,6 +15,7 @@
 #include "cuda_cache_manager.h"
 #include "cuda_common.h"
 #include "cuda_hashtable.h"
+#include "cuda_random_seeder.h"
 #include "cuda_shuffler.h"
 
 namespace samgraph {
@@ -34,6 +35,7 @@ class GPUEngine : public Engine {
   GPUShuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
+  GPURandomSeeder* GetRandomSeeder() { return _randomSeeder; }
   GPUCacheManager* GetCacheManager() { return _cache_manager; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
@@ -54,6 +56,8 @@ class GPUEngine : public Engine {
   GPUShuffler* _shuffler;
   // Hash table
   OrderedHashTable* _hashtable;
+  // CUDA random seeder
+  GPURandomSeeder* _randomSeeder;
   // Feature cache in GPU
   GPUCacheManager* _cache_manager;
 };
