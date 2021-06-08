@@ -17,19 +17,33 @@
 #include <algorithm>
 #endif
 
-std::string dataset = "papers100M";
-// std::string dataset = "com-friendster";
-std::unordered_map<std::string, size_t> dataset2nodes = {
-    {"com-friendster", 65608366}, {"papers100M", 111059956}};
-std::unordered_map<std::string, size_t> dataset2edges = {
-    {"com-friendster", 1871675501}, {"papers100M", 1726745828}};
+enum GraphDataset { kComfriendster, kPapers100M, kProducts, kReddit };
 
+std::unordered_map<GraphDataset, std::string> dataset2str = {
+    {kComfriendster, "com-friendster"},
+    {kPapers100M, "papers100M"},
+    {kProducts, "products"},
+    {kReddit, "reddit"}};
+
+std::unordered_map<GraphDataset, size_t> dataset2nodes = {
+    {kComfriendster, 65608366},
+    {kPapers100M, 111059956},
+    {kProducts, 2449029},
+    {kReddit, 232965}};
+
+std::unordered_map<GraphDataset, size_t> dataset2edges = {
+    {kComfriendster, 1871675501},
+    {kPapers100M, 1726745828},
+    {kProducts, 126167309},
+    {kReddit, 114848857}};
+
+GraphDataset dataset = kReddit;
 size_t num_nodes = dataset2nodes[dataset];
 size_t num_edges = dataset2edges[dataset];
 size_t num_threads = 24;
 
 std::string dataroot = "/graph-learning/samgraph/";
-std::string prefix = dataroot + dataset + "/";
+std::string prefix = dataroot + dataset2str[dataset] + "/";
 
 std::string indptr_filepath = prefix + "indptr.bin";
 std::string indices_filepath = prefix + "indices.bin";
