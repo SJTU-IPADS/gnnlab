@@ -17,7 +17,7 @@ class OrderedHashTable;
 
 class DeviceOrderedHashTable {
  public:
-  struct BukcetO2N {
+  struct BucketO2N {
     IdType key;
     IdType local;
     IdType index;
@@ -28,7 +28,7 @@ class DeviceOrderedHashTable {
     IdType global;
   };
 
-  typedef const BukcetO2N *ConstIterator;
+  typedef const BucketO2N *ConstIterator;
 
   DeviceOrderedHashTable(const DeviceOrderedHashTable &other) = default;
   DeviceOrderedHashTable &operator=(const DeviceOrderedHashTable &other) =
@@ -40,12 +40,12 @@ class DeviceOrderedHashTable {
   }
 
  protected:
-  const BukcetO2N *_o2n_table;
+  const BucketO2N *_o2n_table;
   const BucketN2O *_n2o_table;
   size_t _o2n_size;
   size_t _n2o_size;
 
-  explicit DeviceOrderedHashTable(const BukcetO2N *const o2n_table,
+  explicit DeviceOrderedHashTable(const BucketO2N *const o2n_table,
                                   const BucketN2O *const n2o_table,
                                   const size_t o2n_size, const size_t n2o_size);
 
@@ -75,7 +75,7 @@ class OrderedHashTable {
  public:
   static constexpr size_t kDefaultScale = 3;
 
-  using BukcetO2N = typename DeviceOrderedHashTable::BukcetO2N;
+  using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
   using BucketN2O = typename DeviceOrderedHashTable::BucketN2O;
 
   OrderedHashTable(const size_t size, Context ctx, StreamHandle stream,
@@ -103,7 +103,7 @@ class OrderedHashTable {
  private:
   Context _ctx;
 
-  BukcetO2N *_o2n_table;
+  BucketO2N *_o2n_table;
   BucketN2O *_n2o_table;
   size_t _o2n_size;
   size_t _n2o_size;

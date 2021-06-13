@@ -5,9 +5,11 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-enum QueueType { kGPUSample, kDataCopy, kLastFakeQueue };
+enum QueueType { kGPUSample = 0, kDataCopy, kNumQueues };
 
-const int QueueNum = (int)kLastFakeQueue;
+enum GPURunMode { kStandAlone = 0, kOffload, kDedicated };
+
+const int QueueNum = (int)kNumQueues;
 
 }  // namespace cuda
 }  // namespace common

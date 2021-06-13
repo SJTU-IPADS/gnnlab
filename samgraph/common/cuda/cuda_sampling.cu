@@ -13,23 +13,7 @@
 #include "../profiler.h"
 #include "../timer.h"
 #include "cuda_function.h"
-
-namespace {
-
-template <typename T> struct BlockPrefixCallbackOp {
-  T _running_total;
-
-  __device__ BlockPrefixCallbackOp(const T running_total)
-      : _running_total(running_total) {}
-
-  __device__ T operator()(const T block_aggregate) {
-    const T old_prefix = _running_total;
-    _running_total += block_aggregate;
-    return old_prefix;
-  }
-};
-
-} // namespace
+#include "cuda_utils.h"
 
 namespace samgraph {
 namespace common {

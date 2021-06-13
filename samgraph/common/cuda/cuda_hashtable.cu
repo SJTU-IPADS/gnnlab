@@ -1,3 +1,5 @@
+#include "cuda_hashtable.h"
+
 #include <cassert>
 #include <cstdio>
 
@@ -8,7 +10,7 @@
 #include "../device.h"
 #include "../logging.h"
 #include "../timer.h"
-#include "cuda_hashtable.h"
+#include "cuda_utils.h"
 
 namespace samgraph {
 namespace common {
@@ -90,23 +92,6 @@ size_t TableSize(const size_t num, const size_t scale) {
   const size_t next_pow2 = 1 << static_cast<size_t>(1 + std::log2(num >> 1));
   return next_pow2 << scale;
 }
-
-/**
- * This structure is used with cub's block-level prefixscan in order to
- * keep a running sum as items are iteratively processed.
- */
-template <typename T> struct BlockPrefixCallbackOp {
-  T _running_total;
-
-  __device__ BlockPrefixCallbackOp(const T running_total)
-      : _running_total(running_total) {}
-
-  __device__ T operator()(const T block_aggregate) {
-    const T old_prefix = _running_total;
-    _running_total += block_aggregate;
-    return old_prefix;
-  }
-};
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void generate_hashmap_duplicates(const IdType *const items,

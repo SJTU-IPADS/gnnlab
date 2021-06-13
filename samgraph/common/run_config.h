@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "common.h"
+#include "cuda/cuda_common.h"
 #include "logging.h"
 
 namespace samgraph {
@@ -21,11 +22,13 @@ struct RunConfig {
   static int cpu_hashtable_type;
   static double cache_percentage;
 
+  static SampleType sample_type;
+  static cuda::GPURunMode gpu_run_mode;
+
   // Environment variables
   static bool option_profile_cuda;
   static bool option_log_node_access;
   static bool option_sanity_check;
-  static bool option_stream_blocking;
 
   static size_t kPipelineDepth;
   static int kOMPThreadNum;
@@ -33,11 +36,6 @@ struct RunConfig {
   static inline bool UseGPUCache() { return cache_percentage > 0; }
   static void LoadConfigFromEnv();
 };
-
-#define IF_BLOCKING(func)                          \
-  {                                                \
-    if (RunConfig::option_stream_blocking) (func); \
-  }
 
 }  // namespace common
 }  // namespace samgraph

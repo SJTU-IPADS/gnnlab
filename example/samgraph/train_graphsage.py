@@ -84,7 +84,7 @@ def get_run_config():
     run_config['type'] = 'gpu'
     run_config['cpu_hashtable_type'] = sam.simple_hashtable()
     # run_config['cpu_hashtable_type'] = sam.parallel_hashtable()
-    run_config['pipeline'] = False
+    run_config['pipeline'] = True
     run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
@@ -98,7 +98,7 @@ def get_run_config():
     run_config['fanout'] = [15, 10, 5]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 1
+    run_config['num_epoch'] = 5
     run_config['num_hidden'] = 256
     run_config['batch_size'] = 8192
     run_config['lr'] = 0.003

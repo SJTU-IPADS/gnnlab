@@ -10,25 +10,13 @@
 #include "../logging.h"
 #include "../run_config.h"
 #include "../timer.h"
+#include "cuda_utils.h"
 
 namespace samgraph {
 namespace common {
 namespace cuda {
 
 namespace {
-
-template <typename T> struct BlockPrefixCallbackOp {
-  T _running_total;
-
-  __device__ BlockPrefixCallbackOp(const T running_total)
-      : _running_total(running_total) {}
-
-  __device__ T operator()(const T block_aggregate) {
-    const T old_prefix = _running_total;
-    _running_total += block_aggregate;
-    return old_prefix;
-  }
-};
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_miss_cache(const IdType *hashtable, const IdType *nodes,

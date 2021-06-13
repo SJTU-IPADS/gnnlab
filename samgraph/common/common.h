@@ -25,6 +25,14 @@ enum DataType {
 
 enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2 };
 
+enum SampleType {
+  kKHop = 0,
+  kWeightedKHop,
+  kRandomWalk,
+  kWeightedRandomWalk,
+  kNextDoorKHop
+};
+
 struct Context {
   DeviceType device_type;
   int device_id;
@@ -83,8 +91,6 @@ struct Dataset {
   TensorPtr out_degrees;
   TensorPtr sorted_nodes_by_in_degree;
 
-  bool weighted_edge;
-
   // Node feature and label
   size_t num_class;
   TensorPtr feat;
@@ -122,6 +128,7 @@ struct Task {
 };
 
 using GraphBatch = Task;
+using TaskPtr = std::shared_ptr<Task>;
 
 typedef void (*LoopFunction)();
 typedef bool (*LoopOnceFunction)();

@@ -27,5 +27,3 @@ TEST(DeviceTestQuery, AsyncTest) {
         << " async engines\n";
   }
 }
-
-TEST(DeviceTestQuery, HostMallocTest) {}

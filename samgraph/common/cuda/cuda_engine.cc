@@ -68,24 +68,20 @@ void GPUEngine::Init() {
     _cache_manager = nullptr;
   }
 
+  // Create CUDA random states for sampling
+  _random_states = new GPURandomStates(_fanout, _batch_size, _sampler_ctx);
+
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
     _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth));
   }
 
-  // Create CUDA random states for sampling
-  _random_seeder = new GPURandomSeeder();
-  _random_seeder->Init(_fanout, _sampler_ctx, _sample_stream, _batch_size);
-
   _initialize = true;
 }
 
 void GPUEngine::Start() {
   std::vector<LoopFunction> func;
-
-  func.push_back(GPUSampleLoop);
-  func.push_back(DataCopyLoop);
 
   // Start background threads
   for (size_t i = 0; i < func.size(); i++) {
@@ -132,6 +128,7 @@ void GPUEngine::Shutdown() {
   delete _dataset;
   delete _shuffler;
   delete _graph_pool;
+  delete _random_states;
 
   if (_cache_manager != nullptr) {
     delete _cache_manager;
@@ -141,6 +138,7 @@ void GPUEngine::Shutdown() {
   _shuffler = nullptr;
   _graph_pool = nullptr;
   _cache_manager = nullptr;
+  _random_states = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;
@@ -148,14 +146,7 @@ void GPUEngine::Shutdown() {
   _should_shutdown = false;
 }
 
-void GPUEngine::RunSampleOnce() {
-  RunGPUSampleLoopOnce();
-  if (!RunConfig::UseGPUCache()) {
-    RunDataCopyLoopOnce();
-  } else {
-    RunCacheDataCopyLoopOnce();
-  }
-}
+void GPUEngine::RunSampleOnce() {}
 
 void GPUEngine::Report(uint64_t epoch, uint64_t step) {
   Engine::Report(epoch, step);

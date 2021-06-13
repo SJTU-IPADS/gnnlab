@@ -15,10 +15,12 @@ Context RunConfig::trainer_ctx;
 int RunConfig::cpu_hashtable_type = 0;
 double RunConfig::cache_percentage = 0.0f;
 
+SampleType RunConfig::sample_type;
+cuda::GPURunMode RunConfig::gpu_run_mode;
+
 bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;
 bool RunConfig::option_sanity_check = false;
-bool RunConfig::option_stream_blocking = false;
 
 size_t RunConfig::kPipelineDepth = 10;
 int RunConfig::kOMPThreadNum = 24;

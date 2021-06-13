@@ -1,16 +1,21 @@
 #ifndef SAMGRAPH_CUDA_LOOPS_H
 #define SAMGRAPH_CUDA_LOOPS_H
 
+#include <vector>
+
+#include "../common.h"
+
 namespace samgraph {
 namespace common {
 namespace cuda {
 
-void GPUSampleLoop();
-void DataCopyLoop();
+void RunDedicatedLoopOnce();
+void RunStandaloneLoopOnce();
+void RunOffloadLoopOnce();
 
-bool RunGPUSampleLoopOnce();
-bool RunDataCopyLoopOnce();
-bool RunCacheDataCopyLoopOnce();
+std::vector<LoopFunction> GetDedicatedLoops();
+std::vector<LoopFunction> GetStandaloneLoops();
+std::vector<LoopFunction> GetOffloadLoops();
 
 }  // namespace cuda
 }  // namespace common
