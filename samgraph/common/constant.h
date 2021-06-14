@@ -15,7 +15,7 @@ class Constant {
   static const std::string kMetaFile;
   static const std::string kFeatFile;
   static const std::string kLabelFile;
-  static const std::string kInptrFile;
+  static const std::string kIndptrFile;
   static const std::string kIndicesFile;
   static const std::string kTrainSetFile;
   static const std::string kTestSetFile;

@@ -97,7 +97,6 @@ GPUCacheManager::GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
 }
 
 GPUCacheManager::~GPUCacheManager() {
-  auto cpu_device = Device::Get(CPU());
   auto sampler_device = Device::Get(_sampler_ctx);
   auto trainer_device = Device::Get(_trainer_ctx);
 

@@ -2,6 +2,7 @@
 #define SAMGRAPH_COMMON_H
 
 #include <cstdint>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -32,6 +33,12 @@ enum SampleType {
   kWeightedRandomWalk,
   kNextDoorKHop
 };
+
+// arch0: vanilla mode(CPU sampling + GPU training)
+// arch1: standalone mode (single GPU for both sampling and training)
+// arch2: offload mode (offload the feature extraction to CPU)
+// arch3: dedicated mode (dedicated GPU for sampling and training)
+enum RunArch { kArch0, kArch1, kArch2, kArch3 };
 
 struct Context {
   DeviceType device_type;
@@ -148,6 +155,7 @@ std::string ToPercentage(double percentage);
 std::string GetEnv(std::string key);
 bool IsEnvSet(std::string key);
 std::string GetTime();
+bool FileExist(const std::string& filepath);
 
 }  // namespace common
 }  // namespace samgraph

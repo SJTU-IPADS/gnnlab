@@ -31,6 +31,9 @@ void CPUEngine::Init() {
   _num_epoch = RunConfig::num_epoch;
   _joined_thread_cnt = 0;
 
+  // Check whether the ctx configuration is allowable
+  ArchCheck();
+
   // Load the target graph data
   LoadGraphDataset();
 
@@ -44,19 +47,7 @@ void CPUEngine::Init() {
   _num_step = _shuffler->NumStep();
   _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
-  switch (static_cast<TableType>(RunConfig::cpu_hashtable_type)) {
-    case kSimpleTable:
-      _hash_table = new SimpleHashTable(_dataset->num_node);
-      break;
-    case kParallelTable:
-      _hash_table = new ParallelHashTable(_dataset->num_node);
-      break;
-    case kOptimizedTable:
-      CHECK(0);
-      break;
-    default:
-      CHECK(0);
-  }
+  _hash_table = new SimpleHashTable(_dataset->num_node);
 
   _initialize = true;
 }
@@ -114,6 +105,29 @@ void CPUEngine::RunSampleOnce() { RunCPUSampleLoopOnce(); }
 
 void CPUEngine::Report(uint64_t epoch, uint64_t step) {
   Engine::Report(epoch, step);
+}
+
+void CPUEngine::ArchCheck() {
+  CHECK_EQ(RunConfig::run_arch, kArch0);
+  CHECK_EQ(_sampler_ctx.device_type, kCPU);
+  CHECK_EQ(_trainer_ctx.device_type, kGPU);
+}
+
+std::unordered_map<std::string, Context> CPUEngine::GetGraphFileCtx() {
+  std::unordered_map<std::string, Context> ret;
+
+  ret[Constant::kIndptrFile] = MMAP();
+  ret[Constant::kIndicesFile] = MMAP();
+  ret[Constant::kFeatFile] = MMAP();
+  ret[Constant::kLabelFile] = MMAP();
+  ret[Constant::kTrainSetFile] = CPU();
+  ret[Constant::kTestSetFile] = CPU();
+  ret[Constant::kValidSetFile] = CPU();
+  ret[Constant::kInDegreeFile] = MMAP();
+  ret[Constant::kOutDegreeFile] = MMAP();
+  ret[Constant::kSortedNodeByInDegreeFile] = MMAP();
+
+  return ret;
 }
 
 }  // namespace cpu

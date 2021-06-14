@@ -34,6 +34,9 @@ void GPUEngine::Init() {
   _num_epoch = RunConfig::num_epoch;
   _joined_thread_cnt = 0;
 
+  // Check whether the ctx configuration is allowable
+  ArchCheck();
+
   // Load the target graph data
   LoadGraphDataset();
 
@@ -58,7 +61,7 @@ void GPUEngine::Init() {
   _hashtable =
       new OrderedHashTable(predict_node_num, _sampler_ctx, _sample_stream);
 
-  if (RunConfig::UseGPUCache()) {
+  if (RunConfig::UseGPUCache() && RunConfig::run_arch != kArch1) {
     _cache_manager = new GPUCacheManager(
         _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
         _dataset->feat->Type(), _dataset->feat->Shape()[1],
@@ -82,6 +85,20 @@ void GPUEngine::Init() {
 
 void GPUEngine::Start() {
   std::vector<LoopFunction> func;
+  switch (RunConfig::run_arch) {
+    case kArch1:
+      func = GetArch1Loops();
+      break;
+    case kArch2:
+      func = GetArch2Loops();
+      break;
+    case kArch3:
+      func = GetArch3Loops();
+      break;
+    default:
+      // Not supported arch 0
+      CHECK(0);
+  }
 
   // Start background threads
   for (size_t i = 0; i < func.size(); i++) {
@@ -146,10 +163,67 @@ void GPUEngine::Shutdown() {
   _should_shutdown = false;
 }
 
-void GPUEngine::RunSampleOnce() {}
+void GPUEngine::RunSampleOnce() {
+  switch (RunConfig::run_arch) {
+    case kArch1:
+      RunArch1LoopsOnce();
+      break;
+    case kArch2:
+      RunArch2LoopsOnce();
+      break;
+    case kArch3:
+      RunArch3LoopsOnce();
+      break;
+    default:
+      // Not supported arch 0
+      CHECK(0);
+  }
+}
 
 void GPUEngine::Report(uint64_t epoch, uint64_t step) {
   Engine::Report(epoch, step);
+}
+
+void GPUEngine::ArchCheck() {
+  CHECK_EQ(_sampler_ctx.device_type, kGPU);
+  CHECK_EQ(_trainer_ctx.device_type, kGPU);
+
+  if (RunConfig::run_arch == kArch1 || RunConfig::run_arch == kArch2) {
+    CHECK_EQ(_sampler_ctx.device_id, _trainer_ctx.device_id);
+  } else if (RunConfig::run_arch == kArch3) {
+    CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
+  } else {
+    CHECK(0);
+  }
+}
+
+std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
+  std::unordered_map<std::string, Context> ret;
+
+  ret[Constant::kIndptrFile] = _sampler_ctx;
+  ret[Constant::kIndicesFile] = _sampler_ctx;
+  ret[Constant::kTrainSetFile] = CPU();
+  ret[Constant::kTestSetFile] = CPU();
+  ret[Constant::kValidSetFile] = CPU();
+  ret[Constant::kInDegreeFile] = MMAP();
+  ret[Constant::kOutDegreeFile] = MMAP();
+  ret[Constant::kSortedNodeByInDegreeFile] = MMAP();
+
+  switch (RunConfig::run_arch) {
+    case kArch1:
+      ret[Constant::kFeatFile] = _sampler_ctx;
+      ret[Constant::kLabelFile] = _sampler_ctx;
+      break;
+    case kArch2:
+    case kArch3:
+      ret[Constant::kFeatFile] = MMAP();
+      ret[Constant::kLabelFile] = MMAP();
+      break;
+    default:
+      CHECK(false);
+  }
+
+  return ret;
 }
 
 }  // namespace cuda

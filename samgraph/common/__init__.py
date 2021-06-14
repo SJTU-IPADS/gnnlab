@@ -23,28 +23,35 @@ def get_extension_full_path(pkg_path, *args):
     return full_path
 
 
-class SamGraphContext(object):
+class Context(object):
     def __init__(self, device_type, device_id):
         self.device_type = device_type
         self.device_id = device_id
 
 
+kCPU = 0
+kMMAP = 1
+kGPU = 2
+
+
 def cpu(device_id=0):
-    kCPU = 0
-    return SamGraphContext(kCPU, device_id)
+    return Context(kCPU, device_id)
 
 
 def gpu(device_id=0):
-    kGPU = 2
-    return SamGraphContext(kGPU, device_id)
+    return Context(kGPU, device_id)
 
 
-def simple_hashtable():
-    return 0
+kArch0 = 0
+kArch1 = 1
+kArch2 = 2
+kArch3 = 3
 
-
-def parallel_hashtable():
-    return 1
+kKHop = 0
+kWeightedKHop = 1
+kRandomWalk = 2
+kWeightedRandomWalk = 3
+kNextDoorKHop = 4
 
 
 class SamGraphBasics(object):
@@ -80,6 +87,12 @@ class SamGraphBasics(object):
                 str.encode(run_config['dataset_path'])
             ),
             ctypes.c_int(
+                run_config['arch_type']
+            ),
+            ctypes.c_int(
+                run_config['sample_type']
+            ),
+            ctypes.c_int(
                 run_config['sampler_ctx'].device_type
             ),
             ctypes.c_int(
@@ -102,9 +115,6 @@ class SamGraphBasics(object):
             ),
             ctypes.c_size_t(
                 run_config['num_epoch']
-            ),
-            ctypes.c_int(
-                run_config['cpu_hashtable_type']
             ),
             ctypes.c_double(
                 run_config['cache_percentage']

@@ -19,8 +19,6 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-using TaskPtr = std::shared_ptr<Task>;
-
 TaskPtr DoShuffle() {
   auto s = CPUEngine::Get()->GetShuffler();
   auto batch = s->GetBatch();

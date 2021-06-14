@@ -19,15 +19,6 @@
 namespace samgraph {
 namespace common {
 
-namespace {
-
-bool FileExist(const std::string& filepath) {
-  std::ifstream f(filepath);
-  return f.good();
-}
-
-}  // namespace
-
 Engine* Engine::_engine = nullptr;
 
 void Engine::Report(uint64_t epoch, uint64_t step) {
@@ -40,14 +31,16 @@ void Engine::Create() {
     return;
   }
 
-  switch (RunConfig::sampler_ctx.device_type) {
-    case kCPU:
+  switch (RunConfig::run_arch) {
+    case kArch0:
       LOG(INFO) << "Use CPU Engine";
-      _engine = new cpu::CPUEngine;
+      _engine = new cpu::CPUEngine();
       break;
-    case kGPU:
+    case kArch1:
+    case kArch2:
+    case kArch3:
       LOG(INFO) << "Use GPU Engine";
-      _engine = new cuda::GPUEngine;
+      _engine = new cuda::GPUEngine();
       break;
     default:
       CHECK(0);
@@ -60,6 +53,7 @@ void Engine::LoadGraphDataset() {
   // topology data into the target CUDA device.
   _dataset = new Dataset;
   std::unordered_map<std::string, size_t> meta;
+  std::unordered_map<std::string, Context> ctx_map = GetGraphFileCtx();
 
   if (_dataset_path.back() != '/') {
     _dataset_path.push_back('/');
@@ -88,61 +82,78 @@ void Engine::LoadGraphDataset() {
   CHECK(meta.count(Constant::kMetaNumTestSet) > 0);
   CHECK(meta.count(Constant::kMetaNumValidSet) > 0);
 
+  CHECK(ctx_map.count(Constant::kIndptrFile) > 0);
+  CHECK(ctx_map.count(Constant::kIndicesFile) > 0);
+  CHECK(ctx_map.count(Constant::kFeatFile) > 0);
+  CHECK(ctx_map.count(Constant::kLabelFile) > 0);
+  CHECK(ctx_map.count(Constant::kTrainSetFile) > 0);
+  CHECK(ctx_map.count(Constant::kTestSetFile) > 0);
+  CHECK(ctx_map.count(Constant::kValidSetFile) > 0);
+  CHECK(ctx_map.count(Constant::kInDegreeFile) > 0);
+  CHECK(ctx_map.count(Constant::kOutDegreeFile) > 0);
+  CHECK(ctx_map.count(Constant::kSortedNodeByInDegreeFile) > 0);
+
   _dataset->num_node = meta[Constant::kMetaNumNode];
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
   _dataset->num_class = meta[Constant::kMetaNumClass];
 
   _dataset->indptr =
-      Tensor::FromMmap(_dataset_path + Constant::kInptrFile, DataType::kI32,
+      Tensor::FromMmap(_dataset_path + Constant::kIndptrFile, DataType::kI32,
                        {meta[Constant::kMetaNumNode] + 1},
-                       _sampler_ctx.device_type == kCPU ? MMAP() : _sampler_ctx,
-                       "dataset.indptr");
+                       ctx_map[Constant::kIndptrFile], "dataset.indptr");
   _dataset->indices =
       Tensor::FromMmap(_dataset_path + Constant::kIndicesFile, DataType::kI32,
                        {meta[Constant::kMetaNumEdge]},
-                       _sampler_ctx.device_type == kCPU ? MMAP() : _sampler_ctx,
-                       "dataset.indices");
+                       ctx_map[Constant::kIndicesFile], "dataset.indices");
 
   if (FileExist(_dataset_path + Constant::kFeatFile)) {
     _dataset->feat = Tensor::FromMmap(
         _dataset_path + Constant::kFeatFile, DataType::kF32,
-        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, MMAP(),
-        "dataset.feat");
+        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+        ctx_map[Constant::kFeatFile], "dataset.feat");
   } else {
     _dataset->feat = Tensor::Empty(
         DataType::kF32,
-        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, CPU(),
-        "dataset.feat");
+        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+        ctx_map[Constant::kFeatFile], "dataset.feat");
   }
 
   if (FileExist(_dataset_path + Constant::kLabelFile)) {
-    _dataset->label = Tensor::FromMmap(
-        _dataset_path + Constant::kLabelFile, DataType::kI64,
-        {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.label");
+    _dataset->label =
+        Tensor::FromMmap(_dataset_path + Constant::kLabelFile, DataType::kI64,
+                         {meta[Constant::kMetaNumNode]},
+                         ctx_map[Constant::kLabelFile], "dataset.label");
   } else {
-    _dataset->label = Tensor::Empty(
-        DataType::kI64, {meta[Constant::kMetaNumNode]}, CPU(), "dataset.label");
+    _dataset->label =
+        Tensor::Empty(DataType::kI64, {meta[Constant::kMetaNumNode]},
+                      ctx_map[Constant::kLabelFile], "dataset.label");
   }
 
-  _dataset->train_set = Tensor::FromMmap(
-      _dataset_path + Constant::kTrainSetFile, DataType::kI32,
-      {meta[Constant::kMetaNumTrainSet]}, CPU(), "dataset.train_set");
-  _dataset->test_set = Tensor::FromMmap(
-      _dataset_path + Constant::kTestSetFile, DataType::kI32,
-      {meta[Constant::kMetaNumTestSet]}, CPU(), "dataset.test_set");
-  _dataset->valid_set = Tensor::FromMmap(
-      _dataset_path + Constant::kValidSetFile, DataType::kI32,
-      {meta[Constant::kMetaNumValidSet]}, CPU(), "dataset.valid_set");
+  _dataset->train_set =
+      Tensor::FromMmap(_dataset_path + Constant::kTrainSetFile, DataType::kI32,
+                       {meta[Constant::kMetaNumTrainSet]},
+                       ctx_map[Constant::kTrainSetFile], "dataset.train_set");
+  _dataset->test_set =
+      Tensor::FromMmap(_dataset_path + Constant::kTestSetFile, DataType::kI32,
+                       {meta[Constant::kMetaNumTestSet]},
+                       ctx_map[Constant::kTestSetFile], "dataset.test_set");
+  _dataset->valid_set =
+      Tensor::FromMmap(_dataset_path + Constant::kValidSetFile, DataType::kI32,
+                       {meta[Constant::kMetaNumValidSet]},
+                       ctx_map[Constant::kValidSetFile], "dataset.valid_set");
 
-  _dataset->in_degrees = Tensor::FromMmap(
-      _dataset_path + Constant::kInDegreeFile, DataType::kI32,
-      {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.in_degrees");
+  _dataset->in_degrees =
+      Tensor::FromMmap(_dataset_path + Constant::kInDegreeFile, DataType::kI32,
+                       {meta[Constant::kMetaNumNode]},
+                       ctx_map[Constant::kInDegreeFile], "dataset.in_degrees");
   _dataset->out_degrees = Tensor::FromMmap(
       _dataset_path + Constant::kOutDegreeFile, DataType::kI32,
-      {meta[Constant::kMetaNumNode]}, MMAP(), "dataset.out_degrees");
+      {meta[Constant::kMetaNumNode]}, ctx_map[Constant::kOutDegreeFile],
+      "dataset.out_degrees");
   _dataset->sorted_nodes_by_in_degree =
       Tensor::FromMmap(_dataset_path + Constant::kSortedNodeByInDegreeFile,
-                       DataType::kI32, {meta[Constant::kMetaNumNode]}, MMAP(),
+                       DataType::kI32, {meta[Constant::kMetaNumNode]},
+                       ctx_map[Constant::kSortedNodeByInDegreeFile],
                        "dataset.sorted_nodes_by_in_degree");
 
   double loading_time = t.Passed();

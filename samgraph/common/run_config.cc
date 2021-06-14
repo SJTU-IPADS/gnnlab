@@ -7,16 +7,14 @@ namespace samgraph {
 namespace common {
 
 std::string RunConfig::dataset_path;
+RunArch RunConfig::run_arch;
+SampleType RunConfig::sample_type;
 std::vector<int> RunConfig::fanout;
 size_t RunConfig::batch_size;
 size_t RunConfig::num_epoch;
 Context RunConfig::sampler_ctx;
 Context RunConfig::trainer_ctx;
-int RunConfig::cpu_hashtable_type = 0;
 double RunConfig::cache_percentage = 0.0f;
-
-SampleType RunConfig::sample_type;
-cuda::GPURunMode RunConfig::gpu_run_mode;
 
 bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;

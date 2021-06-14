@@ -7,8 +7,6 @@ namespace cuda {
 
 enum QueueType { kGPUSample = 0, kDataCopy, kNumQueues };
 
-enum GPURunMode { kStandAlone = 0, kOffload, kDedicated };
-
 const int QueueNum = (int)kNumQueues;
 
 }  // namespace cuda

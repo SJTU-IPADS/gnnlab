@@ -37,6 +37,8 @@ Tensor::~Tensor() {
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
                            std::vector<size_t> shape, Context ctx,
                            std::string name, StreamHandle stream) {
+  CHECK(FileExist(filepath));
+
   TensorPtr tensor = std::make_shared<Tensor>();
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
 
@@ -58,10 +60,6 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
 
   // if the device is cuda, we have to copy the data from host memory to cuda
   // memory
-  if (ctx.device_type != kMMAP) {
-    tensor->_data = data;
-  } else {
-  }
   switch (ctx.device_type) {
     case kCPU:
     case kGPU:
@@ -88,6 +86,10 @@ TensorPtr Tensor::Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
   CHECK_GT(shape.size(), 0);
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
 
+  if (ctx.device_type == kMMAP) {
+    ctx = CPU();
+  }
+
   tensor->_dtype = dtype;
   tensor->_shape = shape;
   tensor->_nbytes = nbytes;
@@ -107,6 +109,11 @@ TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
   TensorPtr output = std::make_shared<Tensor>();
   size_t nbytes = GetTensorBytes(source->_dtype, shape.begin(), shape.end());
 
+  Context output_ctx = source->_ctx;
+  if (output_ctx.device_type == kMMAP) {
+    output_ctx = CPU();
+  }
+
   size_t copy_start_offset =
       item_offset *
       GetTensorBytes(source->_dtype, shape.begin() + 1, shape.end());
@@ -116,7 +123,7 @@ TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
   output->_dtype = source->_dtype;
   output->_shape = shape;
   output->_nbytes = nbytes;
-  output->_ctx = source->_ctx;
+  output->_ctx = output_ctx;
   output->_data =
       Device::Get(output->_ctx)->AllocWorkspace(output->_ctx, nbytes);
   output->_name = name;
@@ -236,6 +243,11 @@ std::string GetTime() {
   std::stringstream ss;
   ss << std::put_time(std::localtime(&in_time_t), "%Y%m%dT%H%M%S%");
   return ss.str();
+}
+
+bool FileExist(const std::string &filepath) {
+  std::ifstream f(filepath);
+  return f.good();
 }
 
 }  // namespace common

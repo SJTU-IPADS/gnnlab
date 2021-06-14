@@ -1,3 +1,4 @@
+#include "../device.h"
 #include "cuda_function.h"
 
 namespace samgraph {

@@ -18,19 +18,21 @@ namespace common {
 
 extern "C" {
 
-void samgraph_config(const char *path, int sampler_type, int sampler_device,
-                     int trainer_type, int trainer_device, size_t batch_size,
-                     int *fanout, size_t num_fanout, size_t num_epoch,
-                     int cpu_hashtable_type, double cache_percentage) {
+void samgraph_config(const char *path, int run_arch, int sample_type,
+                     int sampler_device_type, int sampler_device_id,
+                     int trainer_device_type, int trainer_device_id,
+                     size_t batch_size, int *fanout, size_t num_fanout,
+                     size_t num_epoch, double cache_percentage) {
   RunConfig::dataset_path = path;
+  RunConfig::run_arch = static_cast<RunArch>(run_arch);
+  RunConfig::sample_type = static_cast<SampleType>(sample_type);
   RunConfig::fanout = std::vector<int>(fanout, fanout + num_fanout);
   RunConfig::batch_size = batch_size;
   RunConfig::num_epoch = num_epoch;
   RunConfig::sampler_ctx =
-      Context{static_cast<DeviceType>(sampler_type), sampler_device};
+      Context{static_cast<DeviceType>(sampler_device_type), sampler_device_id};
   RunConfig::trainer_ctx =
-      Context{static_cast<DeviceType>(trainer_type), trainer_device};
-  RunConfig::cpu_hashtable_type = cpu_hashtable_type;
+      Context{static_cast<DeviceType>(trainer_device_type), trainer_device_id};
   RunConfig::cache_percentage = cache_percentage;
 
   RunConfig::LoadConfigFromEnv();

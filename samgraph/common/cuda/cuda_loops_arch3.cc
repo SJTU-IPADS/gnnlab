@@ -15,7 +15,6 @@
 #include "cuda_function.h"
 #include "cuda_hashtable.h"
 #include "cuda_loops.h"
-#include "cuda_loops_common.h"
 
 /* clang-format off
  * +-----------------------+     +--------------------+     +------------------------+
@@ -36,7 +35,7 @@ namespace cuda {
 
 namespace {
 
-bool RunGPUSampleLoopOnce() {
+bool RunSampleSubLoopOnce() {
   auto next_op = kDataCopy;
   auto next_q = GPUEngine::Get()->GetTaskQueue(next_op);
   if (next_q->Full()) {
@@ -65,7 +64,7 @@ bool RunGPUSampleLoopOnce() {
   return true;
 }
 
-bool RunDataCopyLoopOnce() {
+bool RunDataCopySubLoopOnce() {
   auto graph_pool = GPUEngine::Get()->GetGraphPool();
   if (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -111,7 +110,7 @@ bool RunDataCopyLoopOnce() {
   return true;
 }
 
-bool RunCacheDataCopyLoopOnce() {
+bool RunCacheDataCopySubLoopOnce() {
   auto graph_pool = GPUEngine::Get()->GetGraphPool();
   if (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -149,18 +148,18 @@ bool RunCacheDataCopyLoopOnce() {
   return true;
 }
 
-void GPUSampleLoop() {
-  while (RunGPUSampleLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
+void SampleSubLoop() {
+  while (RunSampleSubLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
   }
   GPUEngine::Get()->ReportThreadFinish();
 }
 
-void DataCopyLoop() {
+void DataCopySubLoop() {
   LoopOnceFunction func;
   if (!RunConfig::UseGPUCache()) {
-    func = RunDataCopyLoopOnce;
+    func = RunDataCopySubLoopOnce;
   } else {
-    func = RunCacheDataCopyLoopOnce;
+    func = RunCacheDataCopySubLoopOnce;
   }
 
   while (func() && !GPUEngine::Get()->ShouldShutdown()) {
@@ -170,6 +169,20 @@ void DataCopyLoop() {
 }
 
 }  // namespace
+
+void RunArch3LoopsOnce() {
+  RunSampleSubLoopOnce();
+  RunDataCopySubLoopOnce();
+}
+
+std::vector<LoopFunction> GetArch3Loops() {
+  std::vector<LoopFunction> func;
+
+  func.push_back(SampleSubLoop);
+  func.push_back(DataCopySubLoop);
+
+  return func;
+}
 
 }  // namespace cuda
 }  // namespace common

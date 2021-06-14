@@ -24,8 +24,8 @@ __global__ void seeds_init(curandState *states, size_t num,
 
 } // namespace
 
-void GPURandomStates(std::vector<int> fanouts, size_t batch_size,
-                     Context sampler_ctx) {
+GPURandomStates::GPURandomStates(std::vector<int> fanouts, size_t batch_size,
+                                 Context sampler_ctx) {
   Timer t1;
   auto sampler_device = Device::Get(sampler_ctx);
   // get maximum number of curandState usage

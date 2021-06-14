@@ -4,7 +4,6 @@
 #include "../timer.h"
 #include "cuda_engine.h"
 #include "cuda_loops.h"
-#include "cuda_loops_common.h"
 
 /* clang-format off
  *  +----------------------------------------------------------------+
@@ -23,7 +22,8 @@ namespace common {
 namespace cuda {
 
 namespace {
-bool RunGPUSampleCopyLoopOnce() {
+
+bool RunSampleCopySubLoopOnce() {
   auto graph_pool = GPUEngine::Get()->GetGraphPool();
   if (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -57,20 +57,12 @@ bool RunGPUSampleCopyLoopOnce() {
   return true;
 }
 
-void StandaloneLoop() {
-  while (RunGPUSampleCopyLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
-  }
-  GPUEngine::Get()->ReportThreadFinish();
-}
-
 }  // namespace
 
-void RunStandaloneLoopOnce() { RunGPUSampleCopyLoopOnce(); }
+void RunArch1LoopsOnce() { RunSampleCopySubLoopOnce(); }
 
-std::vector<LoopFunction> GetStandaloneLoops() {
-  std::vector<LoopFunction> func;
-  func.push_back(StandaloneLoop);
-  return func;
+std::vector<LoopFunction> GetArch1Loops() {
+  CHECK(0) << "arch1 doesn't support background execution";
 }
 
 }  // namespace cuda

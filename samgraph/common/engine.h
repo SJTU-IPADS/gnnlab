@@ -5,9 +5,11 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "common.h"
+#include "constant.h"
 #include "graph_pool.h"
 
 namespace samgraph {
@@ -78,6 +80,9 @@ class Engine {
   std::shared_ptr<GraphBatch> _graph_batch;
   // Current graph batch
   std::atomic_int _joined_thread_cnt;
+
+  virtual void ArchCheck() = 0;
+  virtual std::unordered_map<std::string, Context> GetGraphFileCtx() = 0;
 
   void LoadGraphDataset();
   bool IsAllThreadFinish(int total_thread_num);

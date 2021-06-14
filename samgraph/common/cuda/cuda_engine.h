@@ -52,7 +52,7 @@ class GPUEngine : public Engine {
   StreamHandle _sample_stream;
   StreamHandle _sampler_copy_stream;
   StreamHandle _trainer_copy_stream;
-  // Random node batch genrator
+  // Random node batch generator
   GPUShuffler* _shuffler;
   // Hash table
   OrderedHashTable* _hashtable;
@@ -60,6 +60,9 @@ class GPUEngine : public Engine {
   GPURandomStates* _random_states;
   // Feature cache in GPU
   GPUCacheManager* _cache_manager;
+
+  void ArchCheck() override;
+  std::unordered_map<std::string, Context> GetGraphFileCtx() override;
 };
 
 }  // namespace cuda

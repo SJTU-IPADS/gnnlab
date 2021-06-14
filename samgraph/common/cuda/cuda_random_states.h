@@ -5,6 +5,9 @@
 
 #include <vector>
 
+#include "../common.h"
+#include "../constant.h"
+
 namespace samgraph {
 namespace common {
 namespace cuda {

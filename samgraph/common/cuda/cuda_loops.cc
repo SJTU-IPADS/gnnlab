@@ -1,4 +1,4 @@
-#include "cuda_loops_common.h"
+#include "cuda_loops.h"
 
 #include "../device.h"
 #include "../function.h"
@@ -10,7 +10,6 @@
 #include "cuda_engine.h"
 #include "cuda_function.h"
 #include "cuda_hashtable.h"
-#include "cuda_loops_common.h"
 
 namespace samgraph {
 namespace common {
@@ -84,9 +83,19 @@ void DoGPUSample(TaskPtr task) {
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
-    GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src,
-                      out_dst, num_out, sampler_ctx, sample_stream, task->key,
-                      states, num_seeds);
+    switch (RunConfig::sample_type) {
+      case kKHop:
+        GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
+                  num_out, sampler_ctx, sample_stream, task->key);
+        break;
+      case kNextDoorKHop:
+        GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src,
+                          out_dst, num_out, sampler_ctx, sample_stream,
+                          task->key, states, num_seeds);
+        break;
+      default:
+        CHECK(0);
+    }
 
     // Get nnz
     sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),

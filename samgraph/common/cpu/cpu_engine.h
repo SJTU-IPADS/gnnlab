@@ -35,11 +35,13 @@ class CPUEngine : public Engine {
   std::vector<std::thread*> _threads;
 
   cudaStream_t _work_stream;
-
   // Random node batch generator
   CPUShuffler* _shuffler;
   // Hash table
   HashTable* _hash_table;
+
+  void ArchCheck() override;
+  std::unordered_map<std::string, Context> GetGraphFileCtx() override;
 };
 
 }  // namespace cpu

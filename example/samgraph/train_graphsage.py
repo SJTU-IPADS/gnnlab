@@ -40,12 +40,43 @@ class SAGE(nn.Module):
         return h
 
 
+arch0 = {
+    'arch_type': sam.kArch0,
+    'sampler_ctx': sam.cpu(),
+    'trainer_ctx': sam.gpu(0)
+}
+
+arch1 = {
+    'arch_type': sam.kArch1,
+    'sampler_ctx': sam.gpu(0),
+    'trainer_ctx': sam.gpu(0)
+}
+
+arch2 = {
+    'arch_type': sam.kArch2,
+    'sampler_ctx': sam.gpu(0),
+    'trainer_ctx': sam.gpu(0)
+}
+
+arch3 = {
+    'arch_type': sam.kArch3,
+    'sampler_ctx': sam.gpu(0),
+    'trainer_ctx': sam.gpu(1)
+}
+
+
+arch_map = {
+    'arch0': arch0,
+    'arch1': arch1,
+    'arch2': arch2,
+    'arch3': arch3
+}
+
+
 def parse_args():
     argparser = argparse.ArgumentParser("GraphSage Training")
     argparser.add_argument('--parse-args', action='store_true', default=False)
-    argparser.add_argument('--type', type=str, default='gpu')
-    argparser.add_argument('--cpu-hashtable-type', type=int,
-                           default=sam.simple_hashtable())
+    argparser.add_argument('--arch', type=str, default='arch0')
     argparser.add_argument('--pipeline', action='store_true', default=False)
     argparser.add_argument('--dataset-path', type=str,
                            default='/graph-learning/samgraph/papers100M')
@@ -62,12 +93,10 @@ def parse_args():
     argparser.add_argument('--cache-percentage', type=float, default=0)
 
     run_config = vars(argparser.parse_args())
-    if run_config['type'] == 'cpu':
-        run_config['sampler_ctx'] = sam.cpu()
-        run_config['trainer_ctx'] = sam.gpu(0)
-    else:
-        run_config['sampler_ctx'] = sam.gpu(1)
-        run_config['trainer_ctx'] = sam.gpu(0)
+    run_config['arch'] = arch_map[run_config['arch']]
+    run_config['arch_type'] = run_config['arch']['arch_type']
+    run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
+    run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -81,19 +110,17 @@ def get_run_config():
         return args_run_config
 
     run_config = {}
-    run_config['type'] = 'gpu'
-    run_config['cpu_hashtable_type'] = sam.simple_hashtable()
-    # run_config['cpu_hashtable_type'] = sam.parallel_hashtable()
-    run_config['pipeline'] = True
-    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    run_config['arch'] = arch_map['arch1']
+    run_config['arch_type'] = run_config['arch']['arch_type']
+    run_config['sample_type'] = sam.kKHop
+    run_config['pipeline'] = False
+    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
+    # run_config['dataset_path'] = '/graph-learning/samgraph/products'
     # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
-    if run_config['type'] == 'cpu':
-        run_config['sampler_ctx'] = sam.cpu()
-        run_config['trainer_ctx'] = sam.gpu(0)
-    else:
-        run_config['sampler_ctx'] = sam.gpu(1)
-        run_config['trainer_ctx'] = sam.gpu(0)
+    run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
+    run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
 
     run_config['fanout'] = [15, 10, 5]
     run_config['num_fanout'] = run_config['num_layer'] = len(
@@ -105,7 +132,7 @@ def get_run_config():
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
     run_config['report_last'] = False
-    run_config['cache_percentage'] = 0.2
+    run_config['cache_percentage'] = 0
 
     return run_config
 
