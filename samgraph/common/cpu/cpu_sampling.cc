@@ -62,6 +62,7 @@ void CPUSample(const IdType *const indptr, const IdType *const indices,
     }
   }
 
+  // single-thread compacting is faster than omp compacting
   if (!all_has_fanout) {
     IdType *output_src_end =
         std::remove_if(output_src, output_src + num_input * fanout,
