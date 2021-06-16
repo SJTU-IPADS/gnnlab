@@ -34,10 +34,10 @@ std::unordered_map<GraphDataset, size_t> dataset2nodes = {
 std::unordered_map<GraphDataset, size_t> dataset2edges = {
     {kComfriendster, 1871675501},
     {kPapers100M, 1726745828},
-    {kProducts, 126167309},
+    {kProducts, 61859140},
     {kReddit, 114848857}};
 
-GraphDataset dataset = kReddit;
+GraphDataset dataset = kProducts;
 size_t num_nodes = dataset2nodes[dataset];
 size_t num_edges = dataset2edges[dataset];
 size_t num_threads = 24;
