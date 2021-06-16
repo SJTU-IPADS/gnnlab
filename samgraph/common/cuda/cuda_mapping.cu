@@ -16,7 +16,7 @@ __device__ void map_node_ids(const IdType *const global,
                              const DeviceOrderedHashTable &table) {
   assert(BLOCK_SIZE == blockDim.x);
 
-  using Bucket = typename OrderedHashTable::BukcetO2N;
+  using Bucket = typename OrderedHashTable::BucketO2N;
 
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = min(TILE_SIZE * (blockIdx.x + 1), num_input);

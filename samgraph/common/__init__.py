@@ -53,6 +53,29 @@ kRandomWalk = 2
 kWeightedRandomWalk = 3
 kNextDoorKHop = 4
 
+meepo_archs = {
+    'arch0': {
+        'arch_type': kArch0,
+        'sampler_ctx': cpu(),
+        'trainer_ctx': gpu(0)
+    },
+    'arch1': {
+        'arch_type': kArch1,
+        'sampler_ctx': gpu(0),
+        'trainer_ctx': gpu(0)
+    },
+    'arch2': {
+        'arch_type': kArch2,
+        'sampler_ctx': gpu(0),
+        'trainer_ctx': gpu(0)
+    },
+    'arch3': {
+        'arch_type': kArch3,
+        'sampler_ctx': gpu(0),
+        'trainer_ctx': gpu(1)
+    }
+}
+
 
 class SamGraphBasics(object):
     def __init__(self, pkg_path, *args):

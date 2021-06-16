@@ -53,9 +53,7 @@ void CPUEngine::Init() {
 }
 
 void CPUEngine::Start() {
-  std::vector<LoopFunction> func;
-
-  func.push_back(CPUSampleLoop);
+  std::vector<LoopFunction> func = GetArch0Loops();
 
   // Start background threads
   for (size_t i = 0; i < func.size(); i++) {
@@ -101,7 +99,7 @@ void CPUEngine::Shutdown() {
   _should_shutdown = false;
 }
 
-void CPUEngine::RunSampleOnce() { RunCPUSampleLoopOnce(); }
+void CPUEngine::RunSampleOnce() { RunArch0LoopsOnce(); }
 
 void CPUEngine::Report(uint64_t epoch, uint64_t step) {
   Engine::Report(epoch, step);

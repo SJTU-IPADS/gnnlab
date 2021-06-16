@@ -17,7 +17,7 @@ std::vector<LoopFunction> GetArch1Loops();
 std::vector<LoopFunction> GetArch2Loops();
 std::vector<LoopFunction> GetArch3Loops();
 
-// Common steps
+// common steps
 TaskPtr DoShuffle();
 void DoGPUSample(TaskPtr task);
 void DoGraphCopy(TaskPtr task);
