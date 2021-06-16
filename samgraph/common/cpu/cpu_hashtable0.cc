@@ -1,4 +1,4 @@
-#include "cpu_simple_hashtable.h"
+#include "cpu_hashtable0.h"
 
 #include "../device.h"
 #include "../logging.h"
@@ -7,17 +7,17 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-SimpleHashTable::SimpleHashTable(size_t sz) {
+CPUHashTable0::CPUHashTable0(size_t max_items) {
   _n2o_table = static_cast<BucketN2O *>(
-      Device::Get(CPU())->AllocDataSpace(CPU(), sz * sizeof(BucketN2O)));
+      Device::Get(CPU())->AllocDataSpace(CPU(), max_items * sizeof(BucketN2O)));
   _num_items = 0;
 }
 
-SimpleHashTable::~SimpleHashTable() {
+CPUHashTable0::~CPUHashTable0() {
   Device::Get(CPU())->FreeDataSpace(CPU(), _n2o_table);
 }
 
-void SimpleHashTable::Populate(const IdType *input, const size_t num_input) {
+void CPUHashTable0::Populate(const IdType *input, const size_t num_input) {
   for (size_t i = 0; i < num_input; i++) {
     IdType oid = input[i];
     IdType nid = _num_items;
@@ -29,14 +29,13 @@ void SimpleHashTable::Populate(const IdType *input, const size_t num_input) {
   }
 }
 
-void SimpleHashTable::MapNodes(IdType *output, size_t num_output) {
-  CHECK_EQ(num_output, _num_items);
+void CPUHashTable0::MapNodes(IdType *output, size_t num_output) {
   memcpy(output, _n2o_table, sizeof(IdType) * num_output);
 }
 
-void SimpleHashTable::MapEdges(const IdType *src, const IdType *dst,
-                               const size_t len, IdType *new_src,
-                               IdType *new_dst) {
+void CPUHashTable0::MapEdges(const IdType *src, const IdType *dst,
+                             const size_t len, IdType *new_src,
+                             IdType *new_dst) {
   for (size_t i = 0; i < len; i++) {
     auto it0 = _o2n_table.find(src[i]);
     auto it1 = _o2n_table.find(dst[i]);
@@ -49,7 +48,7 @@ void SimpleHashTable::MapEdges(const IdType *src, const IdType *dst,
   }
 }
 
-void SimpleHashTable::Reset() {
+void CPUHashTable0::Reset() {
   _o2n_table = phmap::flat_hash_map<IdType, IdType>();
   _num_items = 0;
 }

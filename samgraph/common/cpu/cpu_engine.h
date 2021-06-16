@@ -26,7 +26,7 @@ class CPUEngine : public Engine {
 
   CPUShuffler* GetShuffler() { return _shuffler; }
   cudaStream_t GetWorkStream() { return _work_stream; }
-  HashTable* GetHashTable() { return _hash_table; }
+  CPUHashTable* GetHashTable() { return _hash_table; }
 
   static CPUEngine* Get() { return dynamic_cast<CPUEngine*>(Engine::_engine); }
 
@@ -38,7 +38,7 @@ class CPUEngine : public Engine {
   // Random node batch generator
   CPUShuffler* _shuffler;
   // Hash table
-  HashTable* _hash_table;
+  CPUHashTable* _hash_table;
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;

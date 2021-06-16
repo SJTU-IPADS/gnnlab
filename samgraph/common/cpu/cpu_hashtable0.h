@@ -1,19 +1,21 @@
-#ifndef SAMGRAPH_CPU_PARALLEL_HASHTABLE_H
-#define SAMGRAPH_CPU_PARALLEL_HASHTABLE_H
+#ifndef SAMGRAPH_CPU_HASHTABLE0_H
+#define SAMGRAPH_CPU_HASHTABLE0_H
 
-#include "../common.h"
+#include <parallel_hashmap/phmap.h>
+
 #include "cpu_hashtable.h"
 
 namespace samgraph {
 namespace common {
 namespace cpu {
 
-class ParallelHashTable : public HashTable {
+// A DGL-like single thread hashtable
+class CPUHashTable0 : public CPUHashTable {
  public:
-  ParallelHashTable(size_t sz);
-  ~ParallelHashTable();
+  CPUHashTable0(size_t max_items);
+  ~CPUHashTable0();
 
-  void Populate(const IdType *input, const size_t num_input);
+  void Populate(const IdType *input, const size_t num_input) override;
   void MapNodes(IdType *output, size_t num_output) override;
   void MapEdges(const IdType *src, const IdType *dst, const size_t len,
                 IdType *new_src, IdType *new_dst) override;
@@ -21,24 +23,17 @@ class ParallelHashTable : public HashTable {
   size_t NumItems() const override { return _num_items; }
 
  private:
-  struct BukcetO2N {
-    IdType id;
-    IdType local;
-  };
-
   struct BucketN2O {
     IdType global;
   };
 
-  BukcetO2N *_o2n_table;
+  phmap::flat_hash_map<IdType, IdType> _o2n_table;
   BucketN2O *_n2o_table;
-
-  IdType _num_items;
-  size_t _capacity;
+  size_t _num_items;
 };
 
 }  // namespace cpu
 }  // namespace common
 }  // namespace samgraph
 
-#endif  // SAMGRAPH_CPU_PARALLEL_HASHTABLE_H
+#endif  // SAMGRAPH_CPU_HASHTABLE0_H

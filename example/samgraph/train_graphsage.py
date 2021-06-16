@@ -81,9 +81,9 @@ def get_run_config():
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sample_type'] = sam.kKHop
     run_config['pipeline'] = False
-    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
-    run_config['dataset_path'] = '/graph-learning/samgraph/products'
+    # run_config['dataset_path'] = '/graph-learning/samgraph/products'
     # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']

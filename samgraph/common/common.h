@@ -154,7 +154,7 @@ std::string ToPercentage(double percentage);
 
 std::string GetEnv(std::string key);
 bool IsEnvSet(std::string key);
-std::string GetTime();
+std::string GetTimeString();
 bool FileExist(const std::string& filepath);
 
 }  // namespace common

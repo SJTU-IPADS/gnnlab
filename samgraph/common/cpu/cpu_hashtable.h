@@ -7,11 +7,9 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-enum TableType { kSimpleTable = 0, kParallelTable, kOptimizedTable };
-
-class HashTable {
+class CPUHashTable {
  public:
-  virtual ~HashTable() {}
+  virtual ~CPUHashTable() {}
   virtual void Populate(const IdType *input, const size_t num_input) = 0;
   virtual void MapNodes(IdType *ouput, size_t num_output) = 0;
   virtual void MapEdges(const IdType *src, const IdType *dst, const size_t len,

@@ -114,13 +114,13 @@ void Profiler::ReportNodeAccess() {
       Engine::Get()->GetGraphDataset()->in_degrees->Data());
   const IdType *out_degrees = static_cast<const IdType *>(
       Engine::Get()->GetGraphDataset()->out_degrees->Data());
-  std::ofstream ofs0(Constant::kNodeAccessLogFile + GetTime() +
+  std::ofstream ofs0(Constant::kNodeAccessLogFile + GetTimeString() +
                          Constant::kNodeAccessFileSuffix,
                      std::ofstream::out | std::ofstream::trunc);
-  std::ofstream ofs1(Constant::kNodeAccessFrequencyFile + GetTime() +
+  std::ofstream ofs1(Constant::kNodeAccessFrequencyFile + GetTimeString() +
                          Constant::kNodeAccessFileSuffix,
                      std::ofstream::out | std::ofstream::trunc);
-  std::ofstream ofs2(Constant::kNodeAccessSimilarityFile + GetTime() +
+  std::ofstream ofs2(Constant::kNodeAccessSimilarityFile + GetTimeString() +
                          Constant::kNodeAccessFileSuffix,
                      std::ofstream::out | std::ofstream::trunc);
 

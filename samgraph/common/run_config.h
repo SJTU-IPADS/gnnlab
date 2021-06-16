@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "common.h"
+#include "cpu/cpu_common.h"
 #include "logging.h"
 
 namespace samgraph {
@@ -21,6 +22,8 @@ struct RunConfig {
   static Context sampler_ctx;
   static Context trainer_ctx;
   static double cache_percentage;
+
+  static cpu::CPUHashType cpu_hash_type;
 
   // Environment variables
   static bool option_profile_cuda;

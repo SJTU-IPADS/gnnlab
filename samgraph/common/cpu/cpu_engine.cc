@@ -5,9 +5,10 @@
 #include "../logging.h"
 #include "../run_config.h"
 #include "../timer.h"
+#include "cpu_hashtable0.h"
+#include "cpu_hashtable1.h"
+#include "cpu_hashtable2.h"
 #include "cpu_loops.h"
-#include "cpu_parallel_hashtable.h"
-#include "cpu_simple_hashtable.h"
 
 namespace samgraph {
 namespace common {
@@ -47,7 +48,22 @@ void CPUEngine::Init() {
   _num_step = _shuffler->NumStep();
   _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
-  _hash_table = new SimpleHashTable(_dataset->num_node);
+  switch (RunConfig::cpu_hash_type) {
+    case kCPUHash0:
+      _hash_table = new CPUHashTable0(_dataset->num_node);
+      break;
+    case kCPUHash1:
+      _hash_table = new CPUHashTable1(_dataset->num_node);
+      break;
+    case kCPUHash2:
+      _hash_table = new CPUHashTable2(_dataset->num_node);
+      break;
+    default:
+      CHECK(0);
+  }
+
+  LOG(INFO) << "CPU Engine uses type " << RunConfig::cpu_hash_type
+            << " hashtable";
 
   _initialize = true;
 }
