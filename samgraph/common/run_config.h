@@ -1,5 +1,5 @@
 #ifndef SAMGRAPH_RUN_CONFIG_H
-#define SAMGRAPH_RUN_CONIFG_H
+#define SAMGRAPH_RUN_CONFIG_H
 
 #include <string>
 #include <vector>

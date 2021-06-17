@@ -1,5 +1,5 @@
-#ifndef SAMGRAPH_OPERATIONS_H
-#define SAMGRAPH_OPERATIONS_H
+#ifndef SAMGRAPH_OPERATION_H
+#define SAMGRAPH_OPERATION_H
 
 #include <cstddef>
 #include <cstdint>
@@ -45,4 +45,4 @@ void samgraph_report(uint64_t epoch, uint64_t step);
 }  // namespace common
 }  // namespace samgraph
 
-#endif  // SAMGRAPH_OPERATIONS_H
+#endif  // SAMGRAPH_OPERATION_H

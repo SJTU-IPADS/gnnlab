@@ -1,5 +1,5 @@
-#ifndef SAMGRAPH_CONFIG_H
-#define SAMGRAPH_CONFIG_H
+#ifndef SAMGRAPH_CONSTANT_H
+#define SAMGRAPH_CONSTANT_H
 
 #include <cstdint>
 #include <limits>
@@ -65,4 +65,4 @@ class Constant {
 }  // namespace common
 }  // namespace samgraph
 
-#endif  // SAMGRAPH_CONFIG_H
+#endif  // SAMGRAPH_CONSTANT_H
