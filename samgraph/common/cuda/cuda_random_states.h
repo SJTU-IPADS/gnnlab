@@ -14,21 +14,17 @@ namespace cuda {
 
 class GPURandomStates {
  public:
-  GPURandomStates(std::vector<int> fanouts, size_t batch_size,
-                  Context sampler_ctx);
+  GPURandomStates(SampleType sample_type, const std::vector<int>& fanout,
+                  const size_t batch_size, Context ctx);
+  ~GPURandomStates();
 
-  curandState* Get() { return _states; };
-  size_t Size() { return _num_random; };
-
-  static constexpr size_t maxSeedNum =
-      ((5l * 1024 * 1024 + Constant::kCudaBlockSize - 1) /
-       Constant::kCudaBlockSize * Constant::kCudaBlockSize);
+  curandState* GetStates() { return _states; };
+  size_t NumStates() { return _num_states; };
 
  private:
-  // random seeds list in CUDA for sampling
   curandState* _states;
-  // random seeds size
-  size_t _num_random;
+  size_t _num_states;
+  Context _ctx;
 };
 
 }  // namespace cuda

@@ -54,12 +54,9 @@ void GPUEngine::Init() {
   _num_step = _shuffler->NumStep();
   _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
-  size_t predict_node_num =
-      _batch_size + _batch_size * std::accumulate(_fanout.begin(),
-                                                  _fanout.end(), 1ul,
-                                                  std::multiplies<size_t>());
-  _hashtable =
-      new OrderedHashTable(predict_node_num, _sampler_ctx, _sample_stream);
+  _hashtable = new OrderedHashTable(
+      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx,
+      _sample_stream);
 
   if (RunConfig::UseGPUCache() && RunConfig::run_arch != kArch1) {
     _cache_manager = new GPUCacheManager(
@@ -72,7 +69,8 @@ void GPUEngine::Init() {
   }
 
   // Create CUDA random states for sampling
-  _random_states = new GPURandomStates(_fanout, _batch_size, _sampler_ctx);
+  _random_states = new GPURandomStates(RunConfig::sample_type, _fanout,
+                                       _batch_size, _sampler_ctx);
 
   // Create queues
   for (int i = 0; i < QueueNum; i++) {

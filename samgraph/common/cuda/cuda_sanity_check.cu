@@ -1,3 +1,4 @@
+#include "../common.h"
 #include "../constant.h"
 #include "../device.h"
 #include "cuda_function.h"
@@ -30,9 +31,7 @@ void GPUBatchSanityCheck(IdType *map, const IdType *input,
   auto device = Device::Get(ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
-  const uint32_t num_tiles =
-      (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
-
+  const uint32_t num_tiles = RoundUpDiv(num_input, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
 
@@ -42,6 +41,6 @@ void GPUBatchSanityCheck(IdType *map, const IdType *input,
   device->StreamSync(ctx, stream);
 }
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph

@@ -172,7 +172,11 @@ void DataCopySubLoop() {
 
 void RunArch3LoopsOnce() {
   RunSampleSubLoopOnce();
-  RunDataCopySubLoopOnce();
+  if (!RunConfig::UseGPUCache()) {
+    RunDataCopySubLoopOnce();
+  } else {
+    RunCacheDataCopySubLoopOnce();
+  }
 }
 
 std::vector<LoopFunction> GetArch3Loops() {

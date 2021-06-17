@@ -27,18 +27,17 @@ enum DataType {
 enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2 };
 
 enum SampleType {
-  kKHop = 0,
+  kKHop0 = 0,  // vertex-parallel
+  kKHop1,      // sample-parallel
   kWeightedKHop,
-  kRandomWalk,
-  kWeightedRandomWalk,
-  kNextDoorKHop
+  kRandomWalk
 };
 
 // arch0: vanilla mode(CPU sampling + GPU training)
 // arch1: standalone mode (single GPU for both sampling and training)
 // arch2: offload mode (offload the feature extraction to CPU)
 // arch3: dedicated mode (dedicated GPU for sampling and training)
-enum RunArch { kArch0, kArch1, kArch2, kArch3 };
+enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3 };
 
 struct Context {
   DeviceType device_type;
@@ -149,6 +148,10 @@ size_t GetTensorBytes(DataType dtype, const std::vector<size_t> shape);
 size_t GetTensorBytes(DataType dtype,
                       std::vector<size_t>::const_iterator shape_start,
                       std::vector<size_t>::const_iterator shape_end);
+// predict the number of sampled nodes
+size_t PredictNumNodes(size_t batch_size, const std::vector<int>& fanout,
+                       size_t num_fanout_to_comp);
+
 std::string ToReadableSize(size_t nbytes);
 std::string ToPercentage(double percentage);
 
@@ -156,6 +159,26 @@ std::string GetEnv(std::string key);
 bool IsEnvSet(std::string key);
 std::string GetTimeString();
 bool FileExist(const std::string& filepath);
+
+template <typename T>
+inline T RoundUpDiv(T target, T unit) {
+  return (target + unit - 1) / unit;
+}
+
+template <typename T>
+inline T RoundUp(T target, T unit) {
+  return RoundUpDiv(target, unit) * unit;
+}
+
+template <typename T>
+inline T Max(T a, T b) {
+  return a > b ? a : b;
+}
+
+template <typename T>
+inline T Min(T a, T b) {
+  return a < b ? a : b;
+}
 
 }  // namespace common
 }  // namespace samgraph

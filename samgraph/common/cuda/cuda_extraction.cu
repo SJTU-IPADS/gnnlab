@@ -1,3 +1,4 @@
+#include "../common.h"
 #include "../device.h"
 #include "cuda_function.h"
 
@@ -28,7 +29,7 @@ __global__ void gpu_extract(void *output, const void *src, const IdType *index,
   }
 }
 
-} // namespace
+}  // namespace
 
 void GPUExtract(void *dst, const void *src, const IdType *index,
                 const size_t num_index, const size_t dim, DataType dtype,
@@ -41,40 +42,40 @@ void GPUExtract(void *dst, const void *src, const IdType *index,
     block.x /= 2;
     block.y *= 2;
   }
-  const dim3 grid((num_index + block.y - 1) / block.y);
+  const dim3 grid(RoundUpDiv(num_index, static_cast<size_t>(block.y)));
 
   switch (dtype) {
-  case kF32:
-    gpu_extract<float>
-        <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
-    break;
-  case kF64:
-    gpu_extract<double>
-        <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
-    break;
-  case kF16:
-    gpu_extract<short>
-        <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
-    break;
-  case kU8:
-    gpu_extract<uint8_t>
-        <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
-    break;
-  case kI32:
-    gpu_extract<int32_t>
-        <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
-    break;
-  case kI64:
-    gpu_extract<int64_t>
-        <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
-    break;
-  default:
-    CHECK(0);
+    case kF32:
+      gpu_extract<float>
+          <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
+      break;
+    case kF64:
+      gpu_extract<double>
+          <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
+      break;
+    case kF16:
+      gpu_extract<short>
+          <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
+      break;
+    case kU8:
+      gpu_extract<uint8_t>
+          <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
+      break;
+    case kI32:
+      gpu_extract<int32_t>
+          <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
+      break;
+    case kI64:
+      gpu_extract<int64_t>
+          <<<grid, block, 0, cu_stream>>>(dst, src, index, num_index, dim);
+      break;
+    default:
+      CHECK(0);
   }
 
   device->StreamSync(ctx, stream);
 }
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph

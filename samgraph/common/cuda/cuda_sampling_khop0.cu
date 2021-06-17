@@ -1,10 +1,10 @@
+#include <curand.h>
+#include <curand_kernel.h>
+
 #include <cassert>
 #include <chrono>
 #include <cstdio>
-
 #include <cub/cub.cuh>
-#include <curand.h>
-#include <curand_kernel.h>
 
 #include "../common.h"
 #include "../constant.h"
@@ -19,18 +19,21 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
+namespace {
+
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void sample(const IdType *indptr, const IdType *indices,
-                       const IdType *input, const size_t num_input,
-                       const size_t fanout, IdType *tmp_src, IdType *tmp_dst,
-                       unsigned long seed) {
+__global__ void sample_khop0(const IdType *indptr, const IdType *indices,
+                             const IdType *input, const size_t num_input,
+                             const size_t fanout, IdType *tmp_src,
+                             IdType *tmp_dst, curandState *random_states,
+                             size_t num_random_states) {
   assert(BLOCK_SIZE == blockDim.x);
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
 
   size_t i = blockDim.x * blockIdx.x + threadIdx.x;
-  curandState state;
-  curand_init(seed, i, 0, &state);
+  assert(i < num_random_states);
+  curandState local_state = random_states[i];
 
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
@@ -57,7 +60,7 @@ __global__ void sample(const IdType *indptr, const IdType *indices,
         }
 
         for (size_t j = fanout; j < len; ++j) {
-          size_t k = curand(&state) % (j + 1);
+          size_t k = curand(&local_state) % (j + 1);
           if (k < fanout) {
             tmp_dst[index * fanout + k] = indices[off + j];
           }
@@ -67,6 +70,8 @@ __global__ void sample(const IdType *indptr, const IdType *indices,
       // printf("index %lu, len %lu, fanout %lu\n", index, len, fanout);
     }
   }
+
+  random_states[i] = local_state;
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
@@ -156,21 +161,19 @@ __global__ void compact_edge(const IdType *tmp_src, const IdType *tmp_dst,
   }
 }
 
-void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
-               const size_t num_input, const size_t fanout, IdType *out_src,
-               IdType *out_dst, size_t *num_out, Context ctx,
-               StreamHandle stream, uint64_t task_key) {
+}  // namespace
+
+void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
+                    const IdType *input, const size_t num_input,
+                    const size_t fanout, IdType *out_src, IdType *out_dst,
+                    size_t *num_out, Context ctx, StreamHandle stream,
+                    GPURandomStates *random_states, uint64_t task_key) {
   LOG(DEBUG) << "GPUSample: begin with num_input " << num_input
              << " and fanout " << fanout;
   Timer t0;
-  const size_t num_tiles =
-      (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
+  const size_t num_tiles = RoundUpDiv(num_input, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
-
-  unsigned long seed =
-      std::chrono::system_clock::now().time_since_epoch().count();
-  seed = 10ul;
 
   auto sampler_device = Device::Get(ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
@@ -184,9 +187,10 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
-  sample<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>(indptr, indices, input, num_input, fanout,
-                                      tmp_src, tmp_dst, seed);
+  sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid, block, 0, cu_stream>>>(
+          indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+          random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
   double sample_time = t0.Passed();
 
@@ -227,9 +231,14 @@ void GPUSample(const IdType *indptr, const IdType *indices, const IdType *input,
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime, sample_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCountEdgeTime, count_edge_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCompactEdgesTime,
+                         compact_edge_time);
+
   LOG(DEBUG) << "GPUSample: succeed ";
 }
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph

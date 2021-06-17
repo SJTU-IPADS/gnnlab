@@ -217,6 +217,20 @@ size_t GetTensorBytes(DataType dtype,
          GetDataTypeBytes(dtype);
 }
 
+size_t PredictNumNodes(size_t batch_size, const std::vector<int> &fanout,
+                       size_t num_fanout_to_comp) {
+  CHECK_LE(num_fanout_to_comp, fanout.size());
+  size_t predicted_num_nodes = 0;
+  size_t cur_layer_num_nodes = batch_size;
+  for (size_t i = 0; i < num_fanout_to_comp; i++) {
+    predicted_num_nodes += cur_layer_num_nodes;
+    cur_layer_num_nodes *= fanout[i];
+  }
+
+  predicted_num_nodes += cur_layer_num_nodes;
+  return predicted_num_nodes;
+}
+
 std::string GetEnv(std::string key) {
   const char *env_var_val = getenv(key.c_str());
   if (env_var_val != nullptr) {

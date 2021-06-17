@@ -36,6 +36,10 @@ class Constant {
   static constexpr int kCudaBlockSize = 256;
   static constexpr size_t kCudaTileSize = 1024;
 
+  // In nextdoor, this value is set to 5 * 1024 * 1024,
+  // but we find that 512 * 1024 is the best value in V100
+  static constexpr size_t kKHop1MaxThreads = 512 * 1024;
+
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
 
   static constexpr size_t kBufferSize = 64;
@@ -46,6 +50,7 @@ class Constant {
   static constexpr size_t kAllocScale = 2;
   static constexpr size_t kAllocNoScale = 1;
 
+  static const std::string kEnvReportStep;
   static const std::string kEnvProfileLevel;
   static const std::string kEnvProfileCuda;
   static const std::string kEnvLogNodeAccess;

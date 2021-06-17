@@ -1,15 +1,14 @@
-#include "cuda_hashtable.h"
+#include <cuda_runtime.h>
 
 #include <cassert>
 #include <cstdio>
-
 #include <cub/cub.cuh>
-#include <cuda_runtime.h>
 
 #include "../common.h"
 #include "../device.h"
 #include "../logging.h"
 #include "../timer.h"
+#include "cuda_hashtable.h"
 #include "cuda_utils.h"
 
 namespace samgraph {
@@ -17,7 +16,7 @@ namespace common {
 namespace cuda {
 
 class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
-public:
+ public:
   typedef typename DeviceOrderedHashTable::BucketO2N *Iterator0;
   typedef typename DeviceOrderedHashTable::BucketN2O *Iterator1;
 
@@ -67,7 +66,7 @@ public:
     return GetMutableN2O(pos);
   }
 
-private:
+ private:
   inline __device__ Iterator0 GetMutableO2N(const IdType pos) {
     assert(pos < this->_o2n_size);
     // The parent class Device is read-only, but we ensure this can only be
@@ -113,10 +112,11 @@ __global__ void generate_hashmap_duplicates(const IdType *const items,
 }
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void
-generate_hashmap_unique(const IdType *const items, const size_t num_items,
-                        MutableDeviceOrderedHashTable table,
-                        const IdType global_offset, const IdType version) {
+__global__ void generate_hashmap_unique(const IdType *const items,
+                                        const size_t num_items,
+                                        MutableDeviceOrderedHashTable table,
+                                        const IdType global_offset,
+                                        const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
   using Iterator0 = typename MutableDeviceOrderedHashTable::Iterator0;
@@ -176,12 +176,13 @@ __global__ void count_hashmap(const IdType *items, const size_t num_items,
 }
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void
-compact_hashmap(const IdType *const items, const size_t num_items,
-                MutableDeviceOrderedHashTable table,
-                const IdType *const num_items_prefix,
-                size_t *const num_unique_items, const IdType global_offset,
-                const IdType version) {
+__global__ void compact_hashmap(const IdType *const items,
+                                const size_t num_items,
+                                MutableDeviceOrderedHashTable table,
+                                const IdType *const num_items_prefix,
+                                size_t *const num_unique_items,
+                                const IdType global_offset,
+                                const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
   using FlagType = IdType;
@@ -233,7 +234,9 @@ DeviceOrderedHashTable::DeviceOrderedHashTable(const BucketO2N *const o2n_table,
                                                const BucketN2O *const n2o_table,
                                                const size_t o2n_size,
                                                const size_t n2o_size)
-    : _o2n_table(o2n_table), _n2o_table(n2o_table), _o2n_size(o2n_size),
+    : _o2n_table(o2n_table),
+      _n2o_table(n2o_table),
+      _o2n_size(o2n_size),
       _n2o_size(n2o_size) {}
 
 DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
@@ -243,8 +246,12 @@ DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
 // OrderedHashTable implementation
 OrderedHashTable::OrderedHashTable(const size_t size, Context ctx,
                                    StreamHandle stream, const size_t scale)
-    : _o2n_table(nullptr), _o2n_size(TableSize(size, scale)), _n2o_size(size),
-      _ctx(ctx), _version(0), _num_items(0) {
+    : _o2n_table(nullptr),
+      _o2n_size(TableSize(size, scale)),
+      _n2o_size(size),
+      _ctx(ctx),
+      _version(0),
+      _num_items(0) {
   // make sure we will at least as many buckets as items.
   auto device = Device::Get(_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
@@ -287,9 +294,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                                           IdType *const unique,
                                           size_t *const num_unique,
                                           StreamHandle stream) {
-  const size_t num_tiles =
-      (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
-
+  const size_t num_tiles = RoundUpDiv(num_input, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
 
@@ -360,10 +365,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 void OrderedHashTable::FillWithUnique(const IdType *const input,
                                       const size_t num_input,
                                       StreamHandle stream) {
-
-  const size_t num_tiles =
-      (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
-
+  const size_t num_tiles = RoundUpDiv(num_input, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
 
@@ -382,6 +384,6 @@ void OrderedHashTable::FillWithUnique(const IdType *const input,
              << " items, now " << _num_items << " in total";
 }
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph

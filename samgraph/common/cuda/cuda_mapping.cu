@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdio>
 
+#include "../common.h"
 #include "../constant.h"
 #include "../device.h"
 #include "cuda_function.h"
@@ -29,10 +30,12 @@ __device__ void map_node_ids(const IdType *const global,
 }
 
 template <int BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void
-map_edge_ids(const IdType *const global_src, IdType *const new_global_src,
-             const IdType *const global_dst, IdType *const new_global_dst,
-             const size_t num_edges, DeviceOrderedHashTable table) {
+__global__ void map_edge_ids(const IdType *const global_src,
+                             IdType *const new_global_src,
+                             const IdType *const global_dst,
+                             IdType *const new_global_dst,
+                             const size_t num_edges,
+                             DeviceOrderedHashTable table) {
   assert(BLOCK_SIZE == blockDim.x);
   assert(2 == gridDim.y);
 
@@ -49,8 +52,7 @@ void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
                  const IdType *const global_dst, IdType *const new_global_dst,
                  const size_t num_edges, DeviceOrderedHashTable table,
                  Context ctx, StreamHandle stream) {
-  const size_t num_tiles =
-      (num_edges + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
+  const size_t num_tiles = RoundUpDiv(num_edges, Constant::kCudaTileSize);
   const dim3 grid(num_tiles, 2);
   const dim3 block(Constant::kCudaBlockSize);
   auto cu_stream = static_cast<cudaStream_t>(stream);
@@ -61,6 +63,6 @@ void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
   Device::Get(ctx)->StreamSync(ctx, stream);
 }
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph

@@ -168,14 +168,14 @@ void Profiler::ReportNodeAccess() {
 
       sum_indegree_map[frequency] += in_degrees[nodeid];
       min_indegree_map[frequency] =
-          std::min(min_indegree_map[frequency], in_degrees[nodeid]);
+          Min(min_indegree_map[frequency], in_degrees[nodeid]);
       max_indegree_map[frequency] =
-          std::max(max_indegree_map[frequency], in_degrees[nodeid]);
+          Max(max_indegree_map[frequency], in_degrees[nodeid]);
       sum_outdegree_map[frequency] += out_degrees[nodeid];
       min_outdegree_map[frequency] =
-          std::min(min_outdegree_map[frequency], out_degrees[nodeid]);
+          Min(min_outdegree_map[frequency], out_degrees[nodeid]);
       max_outdegree_map[frequency] =
-          std::max(min_outdegree_map[frequency], out_degrees[nodeid]);
+          Min(min_outdegree_map[frequency], out_degrees[nodeid]);
     }
   }
 
@@ -327,12 +327,14 @@ void Profiler::Output(uint64_t key, std::string tag) {
     printf(
         "  [Profile L3-%s %lu %lu]"
         " sample coo %.4lf |"
+        " sort coo %.4lf |"
         " count edge %.4lf |"
         " compact edge %.4lf |"
         " remap populate %.4lf |"
         " remap mapnode %.4lf |"
         " remap mapedge %.4lf\n",
         tag.c_str(), epoch, step, _output_buf[kLogL3SampleCooTime],
+        _output_buf[kLogL3SampleSortCooTime],
         _output_buf[kLogL3SampleCountEdgeTime],
         _output_buf[kLogL3SampleCompactEdgesTime],
         _output_buf[kLogL3RemapPopulateTime],
@@ -342,6 +344,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
     printf(
         "  [Profile L3-%s %lu %lu]"
         " sample coo %.4lf |"
+        " sort coo %.4lf |"
         " count edge %.4lf |"
         " compact edge %.4lf |"
         " remap populate %.4lf |"
@@ -354,6 +357,7 @@ void Profiler::Output(uint64_t key, std::string tag) {
         " cache combine_miss %.4lf |"
         " cache combine cache %.4lf\n",
         tag.c_str(), epoch, step, _output_buf[kLogL3SampleCooTime],
+        _output_buf[kLogL3SampleSortCooTime],
         _output_buf[kLogL3SampleCountEdgeTime],
         _output_buf[kLogL3SampleCompactEdgesTime],
         _output_buf[kLogL3RemapPopulateTime],

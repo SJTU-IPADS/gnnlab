@@ -1,10 +1,11 @@
+#include <curand.h>
+#include <curand_kernel.h>
+
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstdio>
-
 #include <cub/cub.cuh>
-#include <curand.h>
-#include <curand_kernel.h>
 
 #include "../common.h"
 #include "../constant.h"
@@ -18,43 +19,49 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-__global__ void next_sample(const IdType *indptr, const IdType *indices,
-                            const IdType *input, const size_t num_input,
-                            const size_t fanout, IdType *tmp_src,
-                            IdType *tmp_dst, curandState *states,
-                            size_t num_seeds) {
+namespace {
+
+__global__ void sample_khop1(const IdType *indptr, const IdType *indices,
+                             const IdType *input, const size_t num_input,
+                             const size_t fanout, IdType *tmp_src,
+                             IdType *tmp_dst, curandState *random_states,
+                             size_t num_random_states) {
   size_t num_task = num_input * fanout;
   size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
-  size_t max_span = blockDim.x * gridDim.x;
-  assert(threadId < num_seeds);
+  size_t task_span = blockDim.x * gridDim.x;
+
+  assert(threadId < num_random_states);
   // cache the curand state
-  curandState localState = states[threadId];
-  for (size_t task_idx = threadId; task_idx < num_task; task_idx += max_span) {
+  curandState local_state = random_states[threadId];
+
+  for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
     const IdType rid = input[task_idx / fanout];
     const IdType off = indptr[rid];
     const IdType len = indptr[rid + 1] - indptr[rid];
-    size_t k = curand(&localState) % len;
+
+    size_t k = curand(&local_state) % len;
     tmp_src[task_idx] = rid;
     tmp_dst[task_idx] = indices[off + k];
   }
   // restore the state
-  states[threadId] = localState;
+  random_states[threadId] = local_state;
 }
 
-__global__ void init_prefix_num(IdType *src, IdType *dst, size_t *item_prefix,
-                                size_t num_task) {
+__global__ void count_edge(IdType *src, IdType *dst, size_t *item_prefix,
+                           size_t num_task) {
   size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
-  size_t max_span = blockDim.x * gridDim.x;
-  for (size_t task_idx = threadId; task_idx < num_task; task_idx += max_span) {
+  size_t task_span = blockDim.x * gridDim.x;
+
+  for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
     if (task_idx == 0) {
       item_prefix[0] = 0;
-      continue;
-    }
-    size_t pre = task_idx - 1;
-    if (src[task_idx] == src[pre] && dst[task_idx] == dst[pre]) {
-      item_prefix[task_idx] = 0;
     } else {
-      item_prefix[task_idx] = 1;
+      if (src[task_idx] == src[task_idx - 1] &&
+          dst[task_idx] == dst[task_idx - 1]) {
+        item_prefix[task_idx] = 0;
+      } else {
+        item_prefix[task_idx] = 1;
+      }
     }
   }
 }
@@ -63,15 +70,19 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
                              IdType *out_dst, size_t *item_prefix,
                              size_t num_task, size_t *num_out) {
   size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
-  size_t max_span = blockDim.x * gridDim.x;
-  for (size_t task_idx = threadId; task_idx < num_task; task_idx += max_span) {
+  size_t task_span = blockDim.x * gridDim.x;
+
+  for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
     out_src[item_prefix[task_idx]] = tmp_src[task_idx];
     out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
   }
-  if (!threadId) {
+
+  if (threadId == 0) {
     *num_out = item_prefix[num_task - 1];
   }
 }
+
+}  // namespace
 
 /**
  * @brief sampling algorithm from nextdoor
@@ -79,29 +90,26 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
         ROW_INDEX = [  0  2  4  7  8  ]
         COL_INDEX = [  0  1  1  3  2  3  4  5  ]
         V         = [ 10 20 30 40 50 60 70 80  ]
- * @param indptr      ROW_INDEX, sampling vertices
- * @param indices     COL_INDEX, neighbors
- * @param input       the indices of sampling vertices
- * @param num_input   the number of sampling vertices
- * @param fanout      the number of neighbors for each sampling vertex
- * @param out_src     src vertices of all neighbors
- * @param out_dst     dst vertices of all neighbors
- * @param num_out     the number of all neighbors
- * @param ctx         GPU contex
- * @param stream      GPU stream
- * @param task_key    for profiler data
- * @param states      GPU random seeds list
- * @param num_seeds   GPU the total number of random seeds
+ * @param indptr         ROW_INDEX, sampling vertices
+ * @param indices        COL_INDEX, neighbors
+ * @param input          the indices of sampling vertices
+ * @param num_input      the number of sampling vertices
+ * @param fanout         the number of neighbors for each sampling vertex
+ * @param out_src        src vertices of all neighbors
+ * @param out_dst        dst vertices of all neighbors
+ * @param num_out        the number of all neighbors
+ * @param ctx            GPU context
+ * @param stream         GPU stream
+ * @param random_states  GPU random seeds
+ * @param task_key       for profiler data
  */
-void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
-                       const IdType *input, const size_t num_input,
-                       const size_t fanout, IdType *out_src, IdType *out_dst,
-                       size_t *num_out, Context ctx, StreamHandle stream,
-                       uint64_t task_key, curandState *states,
-                       size_t num_seeds) {
+void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
+                    const IdType *input, const size_t num_input,
+                    const size_t fanout, IdType *out_src, IdType *out_dst,
+                    size_t *num_out, Context ctx, StreamHandle stream,
+                    GPURandomStates *random_states, uint64_t task_key) {
   LOG(DEBUG) << "GPUSample: begin with num_input " << num_input
              << " and fanout " << fanout;
-  Timer t_total;
   Timer t0;
 
   auto sampler_device = Device::Get(ctx);
@@ -116,24 +124,19 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
-  const size_t max_threads = std::min(512ul * 1024, num_seeds);
-  size_t num_threads = num_input * fanout;
-  if (num_threads > max_threads) {
-    num_threads = max_threads;
-  }
-
-  const size_t blockSize = Constant::kCudaBlockSize;
-  const dim3 grid((num_threads + blockSize - 1) / blockSize);
-  const dim3 block(blockSize);
-  next_sample<<<grid, block, 0, cu_stream>>>(indptr, indices, input, num_input,
-                                             fanout, tmp_src, tmp_dst, states,
-                                             num_seeds);
+  size_t num_threads = Min(num_input * fanout, Constant::kKHop1MaxThreads);
+  const dim3 grid(
+      RoundUpDiv(num_threads, static_cast<size_t>(Constant::kCudaBlockSize)));
+  const dim3 block(Constant::kCudaBlockSize);
+  sample_khop1<<<grid, block, 0, cu_stream>>>(
+      indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+      random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
 
   double sample_time = t0.Passed();
   LOG(DEBUG) << "GPUSample: kernel sampling, time cost: " << sample_time;
 
-  // sort tmp_src,tmp_dst -> out_src,out_dst, the size is num_input * fanout
+  // sort coo
   Timer t1;
   size_t temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
@@ -148,9 +151,9 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
       num_input * fanout, 0, sizeof(IdType) * 8, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
-  double sort_results_time = t1.Passed();
+  double sort_coo_time = t1.Passed();
   LOG(DEBUG) << "GPUSample: sort the temporary results, time cost: "
-             << sort_results_time;
+             << sort_coo_time;
 
   // count the prefix num
   Timer t2;
@@ -158,8 +161,8 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
       sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_input * fanout));
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
              << ToReadableSize(sizeof(int) * num_input * fanout);
-  init_prefix_num<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,
-                                                 num_input * fanout);
+  count_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,
+                                            num_input * fanout);
   sampler_device->StreamSync(ctx, stream);
 
   temp_storage_bytes = 0;
@@ -179,39 +182,6 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   double prefix_sum_time = t2.Passed();
   LOG(DEBUG) << "GPUSample: ExclusiveSum time cost: " << prefix_sum_time;
 
-#if 0
-  size_t check_len = std::min(30ul, num_input * fanout);
-  size_t *check_prefix = new size_t[num_input * fanout];
-  IdType *check_src = new IdType[check_len];
-  IdType *check_dst = new IdType[check_len];
-  sampler_device->CopyDataFromTo(item_prefix, 0, check_prefix, 0, sizeof(size_t) * num_input * fanout,
-                                 ctx, CPU(), stream);
-  sampler_device->CopyDataFromTo(tmp_src, 0, check_src, 0, sizeof(IdType) * check_len,
-                                 ctx, CPU(), stream);
-  sampler_device->CopyDataFromTo(tmp_dst, 0, check_dst, 0, sizeof(IdType) * check_len,
-                                 ctx, CPU(), stream);
-  sampler_device->StreamSync(ctx, stream);
-  printf("\e[33mcheck src: \e[0m");
-  for (int i = 0 ; i < check_len; ++i) {
-    printf("%6d ", check_src[i]);
-  }
-  printf("\n");
-  printf("\e[33mcheck dst: \e[0m");
-  for (int i = 0 ; i < check_len; ++i) {
-    printf("%6d ", check_dst[i]);
-  }
-  printf("\n");
-  printf("\e[33mcheck prefix sum: \e[0m");
-  for (int i = 0 ; i < check_len; ++i) {
-    printf("%6ld ", check_prefix[i]);
-  }
-  printf("\n");
-  printf("last prefix = %ld\n", check_prefix[num_input * fanout - 1]);
-  delete []check_prefix;
-  delete []check_src;
-  delete []check_dst;
-#endif
-
   // compact edge
   Timer t3;
   compact_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src,
@@ -225,17 +195,16 @@ void GPUNextdoorSample(const IdType *indptr, const IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
-  // add time to profiler
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime,
-                         sample_time + sort_results_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime, sample_time);
+  Profiler::Get().LogAdd(task_key, kLogL3SampleSortCooTime, sort_coo_time);
   Profiler::Get().LogAdd(task_key, kLogL3SampleCountEdgeTime, prefix_sum_time);
   Profiler::Get().LogAdd(task_key, kLogL3SampleCompactEdgesTime,
                          compact_edge_time);
 
-  double total_time = t_total.Passed();
+  double total_time = t0.Passed();
   LOG(DEBUG) << "GPUSample: succeed total time cost: " << total_time;
 }
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph

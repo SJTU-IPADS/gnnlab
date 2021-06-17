@@ -32,6 +32,7 @@ enum LogItem {
   kLogL2CacheCopyTime,
   // L3
   kLogL3SampleCooTime,
+  kLogL3SampleSortCooTime,
   kLogL3SampleCountEdgeTime,
   kLogL3SampleCompactEdgesTime,
   kLogL3RemapPopulateTime,

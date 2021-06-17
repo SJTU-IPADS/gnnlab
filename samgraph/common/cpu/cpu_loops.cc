@@ -10,6 +10,7 @@
 #include "../device.h"
 #include "../logging.h"
 #include "../profiler.h"
+#include "../run_config.h"
 #include "../timer.h"
 #include "cpu_engine.h"
 #include "cpu_function.h"
@@ -73,8 +74,15 @@ void DoCPUSample(TaskPtr task) {
                << ToReadableSize(num_input * fanout * sizeof(IdType));
 
     // Sample a compact coo graph
-    CPUSample(indptr, indices, input, num_input, out_src, out_dst, &num_out,
-              fanout);
+    switch (RunConfig::sample_type) {
+      case kKHop0:
+        CPUSampleKHop0(indptr, indices, input, num_input, out_src, out_dst,
+                       &num_out, fanout);
+        break;
+      default:
+        CHECK(0);
+    }
+
     LOG(DEBUG) << "CPUSample: num_out " << num_out;
     double core_sample_time = t0.Passed();
 

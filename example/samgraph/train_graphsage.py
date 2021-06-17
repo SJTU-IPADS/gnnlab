@@ -64,6 +64,7 @@ def parse_args():
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
+    run_config['sample_type'] = sam.kKHop0
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -77,9 +78,9 @@ def get_run_config():
         return args_run_config
 
     run_config = {}
-    run_config['arch'] = sam.meepo_archs['arch0']
+    run_config['arch'] = sam.meepo_archs['arch3']
     run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['sample_type'] = sam.kKHop
+    run_config['sample_type'] = sam.kKHop0
     run_config['pipeline'] = False
     run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'

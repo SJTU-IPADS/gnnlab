@@ -26,6 +26,7 @@ struct RunConfig {
   static cpu::CPUHashType cpu_hash_type;
 
   // Environment variables
+  static bool option_report_step;
   static bool option_profile_cuda;
   static bool option_log_node_access;
   static bool option_sanity_check;

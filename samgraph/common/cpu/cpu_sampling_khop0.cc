@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <random>
 
 #include "../common.h"
 #include "../constant.h"
@@ -10,20 +9,10 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
-namespace {
-
-IdType RandomID(const IdType &min, const IdType &max) {
-  static thread_local std::mt19937 generator;
-  std::uniform_int_distribution<IdType> distribution(min, max);
-  return distribution(generator);
-}
-
-}  // namespace
-
-void CPUSample(const IdType *const indptr, const IdType *const indices,
-               const IdType *const input, const size_t num_input,
-               IdType *output_src, IdType *output_dst, size_t *num_ouput,
-               const size_t fanout) {
+void CPUSampleKHop0(const IdType *const indptr, const IdType *const indices,
+                    const IdType *const input, const size_t num_input,
+                    IdType *output_src, IdType *output_dst, size_t *num_ouput,
+                    const size_t fanout) {
   bool all_has_fanout = true;
 
 #pragma omp parallel for num_threads(RunConfig::kOMPThreadNum) reduction  (&&:all_has_fanout)

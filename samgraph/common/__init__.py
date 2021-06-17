@@ -42,16 +42,15 @@ def gpu(device_id=0):
     return Context(kGPU, device_id)
 
 
+kKHop0 = 0
+kKHop1 = 1
+kWeightedKHop = 2
+kRandomWalk = 3
+
 kArch0 = 0
 kArch1 = 1
 kArch2 = 2
 kArch3 = 3
-
-kKHop = 0
-kWeightedKHop = 1
-kRandomWalk = 2
-kWeightedRandomWalk = 3
-kNextDoorKHop = 4
 
 meepo_archs = {
     'arch0': {

@@ -1,7 +1,6 @@
-#include "cuda_cache_manager.h"
+#include <cuda_runtime.h>
 
 #include <cub/cub.cuh>
-#include <cuda_runtime.h>
 
 #include "../common.h"
 #include "../constant.h"
@@ -10,6 +9,7 @@
 #include "../logging.h"
 #include "../run_config.h"
 #include "../timer.h"
+#include "cuda_cache_manager.h"
 #include "cuda_utils.h"
 
 namespace samgraph {
@@ -190,17 +190,14 @@ __global__ void combine_cache_data(void *output, const IdType *cache_src_index,
   }
 }
 
-} // namespace
+}  // namespace
 
 void GPUCacheManager::GetMissCacheIndex(
     IdType *output_miss_src_index, IdType *output_miss_dst_index,
     size_t *num_output_miss, IdType *output_cache_src_index,
     IdType *output_cache_dst_index, size_t *num_output_cache,
     const IdType *nodes, const size_t num_nodes, StreamHandle stream) {
-
-  const size_t num_tiles =
-      (num_nodes + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
-
+  const size_t num_tiles = RoundUpDiv(num_nodes, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
 
@@ -272,7 +269,6 @@ void GPUCacheManager::CombineMissData(void *output, const void *miss,
                                       const IdType *miss_dst_index,
                                       const size_t num_miss,
                                       StreamHandle stream) {
-
   LOG(DEBUG) << "GPUCacheManager::CombineMissData():  num_miss " << num_miss;
 
   auto device = Device::Get(_trainer_ctx);
@@ -283,35 +279,35 @@ void GPUCacheManager::CombineMissData(void *output, const void *miss,
     block.x /= 2;
     block.y *= 2;
   }
-  const dim3 grid((num_miss + block.y - 1) / block.y);
+  const dim3 grid(RoundUpDiv(num_miss, static_cast<size_t>(block.y)));
 
   switch (_dtype) {
-  case kF32:
-    combine_miss_data<float><<<grid, block, 0, cu_stream>>>(
-        output, miss, miss_dst_index, num_miss, _dim);
-    break;
-  case kF64:
-    combine_miss_data<double><<<grid, block, 0, cu_stream>>>(
-        output, miss, miss_dst_index, num_miss, _dim);
-    break;
-  case kF16:
-    combine_miss_data<short><<<grid, block, 0, cu_stream>>>(
-        output, miss, miss_dst_index, num_miss, _dim);
-    break;
-  case kU8:
-    combine_miss_data<uint8_t><<<grid, block, 0, cu_stream>>>(
-        output, miss, miss_dst_index, num_miss, _dim);
-    break;
-  case kI32:
-    combine_miss_data<int32_t><<<grid, block, 0, cu_stream>>>(
-        output, miss, miss_dst_index, num_miss, _dim);
-    break;
-  case kI64:
-    combine_miss_data<int64_t><<<grid, block, 0, cu_stream>>>(
-        output, miss, miss_dst_index, num_miss, _dim);
-    break;
-  default:
-    CHECK(0);
+    case kF32:
+      combine_miss_data<float><<<grid, block, 0, cu_stream>>>(
+          output, miss, miss_dst_index, num_miss, _dim);
+      break;
+    case kF64:
+      combine_miss_data<double><<<grid, block, 0, cu_stream>>>(
+          output, miss, miss_dst_index, num_miss, _dim);
+      break;
+    case kF16:
+      combine_miss_data<short><<<grid, block, 0, cu_stream>>>(
+          output, miss, miss_dst_index, num_miss, _dim);
+      break;
+    case kU8:
+      combine_miss_data<uint8_t><<<grid, block, 0, cu_stream>>>(
+          output, miss, miss_dst_index, num_miss, _dim);
+      break;
+    case kI32:
+      combine_miss_data<int32_t><<<grid, block, 0, cu_stream>>>(
+          output, miss, miss_dst_index, num_miss, _dim);
+      break;
+    case kI64:
+      combine_miss_data<int64_t><<<grid, block, 0, cu_stream>>>(
+          output, miss, miss_dst_index, num_miss, _dim);
+      break;
+    default:
+      CHECK(0);
   }
 
   device->StreamSync(_trainer_ctx, stream);
@@ -332,46 +328,46 @@ void GPUCacheManager::CombineCacheData(void *output,
     block.x /= 2;
     block.y *= 2;
   }
-  const dim3 grid((num_cache + block.y - 1) / block.y);
+  const dim3 grid(RoundUpDiv(num_cache, static_cast<size_t>(block.y)));
 
   switch (_dtype) {
-  case kF32:
-    combine_cache_data<float><<<grid, block, 0, cu_stream>>>(
-        output, cache_src_index, cache_dst_index, num_cache,
-        _trainer_cache_data, _dim);
-    break;
-  case kF64:
-    combine_cache_data<double><<<grid, block, 0, cu_stream>>>(
-        output, cache_src_index, cache_dst_index, num_cache,
-        _trainer_cache_data, _dim);
-    break;
-  case kF16:
-    combine_cache_data<short><<<grid, block, 0, cu_stream>>>(
-        output, cache_src_index, cache_dst_index, num_cache,
-        _trainer_cache_data, _dim);
-    break;
-  case kU8:
-    combine_cache_data<uint8_t><<<grid, block, 0, cu_stream>>>(
-        output, cache_src_index, cache_dst_index, num_cache,
-        _trainer_cache_data, _dim);
-    break;
-  case kI32:
-    combine_cache_data<int32_t><<<grid, block, 0, cu_stream>>>(
-        output, cache_src_index, cache_dst_index, num_cache,
-        _trainer_cache_data, _dim);
-    break;
-  case kI64:
-    combine_cache_data<int64_t><<<grid, block, 0, cu_stream>>>(
-        output, cache_src_index, cache_dst_index, num_cache,
-        _trainer_cache_data, _dim);
-    break;
-  default:
-    CHECK(0);
+    case kF32:
+      combine_cache_data<float><<<grid, block, 0, cu_stream>>>(
+          output, cache_src_index, cache_dst_index, num_cache,
+          _trainer_cache_data, _dim);
+      break;
+    case kF64:
+      combine_cache_data<double><<<grid, block, 0, cu_stream>>>(
+          output, cache_src_index, cache_dst_index, num_cache,
+          _trainer_cache_data, _dim);
+      break;
+    case kF16:
+      combine_cache_data<short><<<grid, block, 0, cu_stream>>>(
+          output, cache_src_index, cache_dst_index, num_cache,
+          _trainer_cache_data, _dim);
+      break;
+    case kU8:
+      combine_cache_data<uint8_t><<<grid, block, 0, cu_stream>>>(
+          output, cache_src_index, cache_dst_index, num_cache,
+          _trainer_cache_data, _dim);
+      break;
+    case kI32:
+      combine_cache_data<int32_t><<<grid, block, 0, cu_stream>>>(
+          output, cache_src_index, cache_dst_index, num_cache,
+          _trainer_cache_data, _dim);
+      break;
+    case kI64:
+      combine_cache_data<int64_t><<<grid, block, 0, cu_stream>>>(
+          output, cache_src_index, cache_dst_index, num_cache,
+          _trainer_cache_data, _dim);
+      break;
+    default:
+      CHECK(0);
   }
 
   device->StreamSync(_trainer_ctx, stream);
 }
 
-} // namespace cuda
-} // namespace common
-} // namespace samgraph
+}  // namespace cuda
+}  // namespace common
+}  // namespace samgraph

@@ -40,9 +40,7 @@ void DoGPUSample(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto sample_stream = GPUEngine::Get()->GetSampleStream();
 
-  auto seeder = GPUEngine::Get()->GetRandomStates();
-  curandState *states = seeder->Get();
-  size_t num_seeds = seeder->Size();
+  auto random_states = GPUEngine::Get()->GetRandomStates();
 
   OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
   hash_table->Reset(sample_stream);
@@ -84,15 +82,18 @@ void DoGPUSample(TaskPtr task) {
 
     // Sample a compact coo graph
     switch (RunConfig::sample_type) {
-      case kKHop:
-        GPUSample(indptr, indices, input, num_input, fanout, out_src, out_dst,
-                  num_out, sampler_ctx, sample_stream, task->key);
+      case kKHop0:
+        GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
         break;
-      case kNextDoorKHop:
-        GPUNextdoorSample(indptr, indices, input, num_input, fanout, out_src,
-                          out_dst, num_out, sampler_ctx, sample_stream,
-                          task->key, states, num_seeds);
+      case kKHop1:
+        GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
         break;
+      case kWeightedKHop:
+      case kRandomWalk:
       default:
         CHECK(0);
     }
