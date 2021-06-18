@@ -44,7 +44,8 @@ void *MmapCPUDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
 }
 
 void MmapCPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
-  munmap(data, nbytes);
+  int ret = munmap(data, nbytes);
+  CHECK_EQ(ret, 0);
 }
 
 const std::shared_ptr<MmapCPUDevice> &MmapCPUDevice::Global() {

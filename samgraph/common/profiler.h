@@ -45,7 +45,7 @@ enum LogItem {
   kLogL3CacheCombineMissTime,
   kLogL3CacheCombineCacheTime,
   // Number of items
-  kLogNumItemsNotARealValue
+  kNumLogItems
 };
 
 struct LogData {

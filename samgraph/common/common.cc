@@ -49,6 +49,7 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
 
   int fd = open(filepath.c_str(), O_RDONLY, 0);
   void *data = mmap(NULL, nbytes, PROT_READ, MAP_SHARED | MAP_FILE, fd, 0);
+  CHECK_NE(data, (void *)-1);
   mlock(data, nbytes);
   close(fd);
 

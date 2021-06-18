@@ -42,7 +42,7 @@ void samgraph_init() {
   Engine::Create();
   Engine::Get()->Init();
 
-  LOG(DEBUG) << "SamGraph has been initialied successfully";
+  LOG(INFO) << "SamGraph has been initialied successfully";
 }
 
 void samgraph_start() {
@@ -52,7 +52,7 @@ void samgraph_start() {
   }
 
   Engine::Get()->Start();
-  LOG(DEBUG) << "SamGraph has been started successfully";
+  LOG(INFO) << "SamGraph has been started successfully";
 }
 
 size_t samgraph_num_epoch() {
@@ -108,10 +108,10 @@ size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
 
 void samgraph_shutdown() {
   Engine::Get()->Shutdown();
-  LOG(DEBUG) << "SamGraph has been completely shutdown now";
   if (RunConfig::option_profile_cuda) {
     CUDA_CALL(cudaProfilerStop());
   }
+  LOG(INFO) << "SamGraph has been completely shutdown now";
 }
 
 void samgraph_report(uint64_t epoch, uint64_t step) {

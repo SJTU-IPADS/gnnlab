@@ -63,6 +63,7 @@ void RunArch1LoopsOnce() { RunSampleCopySubLoopOnce(); }
 
 std::vector<LoopFunction> GetArch1Loops() {
   CHECK(0) << "arch1 doesn't support background execution";
+  return {};
 }
 
 }  // namespace cuda

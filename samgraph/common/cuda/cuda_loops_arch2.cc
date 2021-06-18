@@ -120,6 +120,7 @@ void RunArch2LoopsOnce() {
 
 std::vector<LoopFunction> GetArch2Loops() {
   CHECK(0) << "arch2 doesn't support background execution";
+  return {};
 }
 
 }  // namespace cuda

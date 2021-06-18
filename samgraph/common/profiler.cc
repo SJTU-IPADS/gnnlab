@@ -30,10 +30,12 @@ LogData::LogData() {
 }
 
 Profiler::Profiler() {
-  size_t num_items = static_cast<size_t>(kLogNumItemsNotARealValue);
+  size_t num_items = static_cast<size_t>(kNumLogItems);
   size_t num_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
+
   _data.resize(num_items);
-  _output_buf.resize(num_logs);
+  _output_buf.resize(num_items);
+
   _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _similarity.resize(num_logs);
@@ -65,7 +67,7 @@ void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
   }
 
   size_t similarity_count = 0;
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum) reduction(+:similarity_count)
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum) reduction(+ : similarity_count)
   for (size_t i = 0; i < num_input; ++i) {
     if (_last_visit[input[i]]) {
       similarity_count++;
@@ -86,7 +88,7 @@ void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
 }
 
 void Profiler::Report(uint64_t key) {
-  size_t num_items = static_cast<size_t>(kLogNumItemsNotARealValue);
+  size_t num_items = static_cast<size_t>(kNumLogItems);
   for (size_t i = 0; i < num_items; i++) {
     _output_buf[i] = _data[i].vals[key];
   }
@@ -94,7 +96,7 @@ void Profiler::Report(uint64_t key) {
 }
 
 void Profiler::ReportAverage(uint64_t key) {
-  size_t num_items = static_cast<size_t>(kLogNumItemsNotARealValue);
+  size_t num_items = static_cast<size_t>(kNumLogItems);
   for (size_t i = 0; i < num_items; i++) {
     double sum = _data[i].sum - _data[i].vals[0];
     size_t cnt = _data[i].cnt <= 1 ? 1 : _data[i].cnt - 1;
