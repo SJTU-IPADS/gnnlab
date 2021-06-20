@@ -93,6 +93,8 @@ void Engine::LoadGraphDataset() {
   CHECK(ctx_map.count(Constant::kTrainSetFile) > 0);
   CHECK(ctx_map.count(Constant::kTestSetFile) > 0);
   CHECK(ctx_map.count(Constant::kValidSetFile) > 0);
+  CHECK(ctx_map.count(Constant::kAliasTableFile) > 0);
+  CHECK(ctx_map.count(Constant::kProbTableFile) > 0);
   CHECK(ctx_map.count(Constant::kInDegreeFile) > 0);
   CHECK(ctx_map.count(Constant::kOutDegreeFile) > 0);
   CHECK(ctx_map.count(Constant::kSortedNodeByInDegreeFile) > 0);
@@ -145,6 +147,21 @@ void Engine::LoadGraphDataset() {
       Tensor::FromMmap(_dataset_path + Constant::kValidSetFile, DataType::kI32,
                        {meta[Constant::kMetaNumValidSet]},
                        ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+
+  if (RunConfig::sample_type == kWeightedKHop) {
+    _dataset->prob_table = Tensor::FromMmap(
+        _dataset_path + Constant::kProbTableFile, DataType::kF32,
+        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbTableFile],
+        "dataset.prob_table");
+
+    _dataset->alias_table = Tensor::FromMmap(
+        _dataset_path + Constant::kAliasTableFile, DataType::kI32,
+        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kAliasTableFile],
+        "dataset.alias_table");
+  } else {
+    _dataset->prob_table = Tensor::Null();
+    _dataset->alias_table = Tensor::Null();
+  }
 
   _dataset->in_degrees =
       Tensor::FromMmap(_dataset_path + Constant::kInDegreeFile, DataType::kI32,

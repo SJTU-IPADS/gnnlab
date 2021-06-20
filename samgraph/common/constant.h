@@ -21,6 +21,9 @@ class Constant {
   static const std::string kTestSetFile;
   static const std::string kValidSetFile;
 
+  static const std::string kProbTableFile;
+  static const std::string kAliasTableFile;
+
   static const std::string kInDegreeFile;
   static const std::string kOutDegreeFile;
   static const std::string kSortedNodeByInDegreeFile;
@@ -39,6 +42,7 @@ class Constant {
   // In nextdoor, this value is set to 5 * 1024 * 1024,
   // but we find that 512 * 1024 is the best value in V100
   static constexpr size_t kKHop1MaxThreads = 512 * 1024;
+  static constexpr size_t kWeightedKHopMaxThreads = 512 * 1024;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
 

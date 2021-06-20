@@ -203,6 +203,8 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
   ret[Constant::kTrainSetFile] = CPU();
   ret[Constant::kTestSetFile] = CPU();
   ret[Constant::kValidSetFile] = CPU();
+  ret[Constant::kProbTableFile] = _sampler_ctx;
+  ret[Constant::kAliasTableFile] = _sampler_ctx;
   ret[Constant::kInDegreeFile] = MMAP();
   ret[Constant::kOutDegreeFile] = MMAP();
   ret[Constant::kSortedNodeByInDegreeFile] = MMAP();
@@ -218,7 +220,7 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       ret[Constant::kLabelFile] = MMAP();
       break;
     default:
-      CHECK(false);
+      CHECK(0);
   }
 
   return ret;

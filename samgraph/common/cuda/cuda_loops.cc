@@ -54,6 +54,11 @@ void DoGPUSample(TaskPtr task) {
 
   const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
   const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
+  const float *prob_table =
+      static_cast<const float *>(dataset->prob_table->Data());
+  const IdType *alias_table =
+      static_cast<const IdType *>(dataset->alias_table->Data());
+  ;
 
   auto cur_input = task->output_nodes;
 
@@ -93,6 +98,11 @@ void DoGPUSample(TaskPtr task) {
                        random_states, task->key);
         break;
       case kWeightedKHop:
+        GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
+                              num_input, fanout, out_src, out_dst, num_out,
+                              sampler_ctx, sample_stream, random_states,
+                              task->key);
+        break;
       case kRandomWalk:
       default:
         CHECK(0);

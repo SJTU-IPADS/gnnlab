@@ -41,6 +41,9 @@ GPURandomStates::GPURandomStates(SampleType sample_type,
       _num_states = Min(_num_states, Constant::kKHop1MaxThreads);
       break;
     case kWeightedKHop:
+      _num_states = PredictNumNodes(batch_size, fanout, fanout.size());
+      _num_states = Min(_num_states, Constant::kWeightedKHopMaxThreads);
+      break;
     case kRandomWalk:
     default:
       CHECK(0);

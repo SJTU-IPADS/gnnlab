@@ -34,6 +34,8 @@ Tensor::~Tensor() {
   LOG(DEBUG) << "Tensor " << _name << " has been freed";
 }
 
+TensorPtr Tensor::Null() { return std::make_shared<Tensor>(); }
+
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
                            std::vector<size_t> shape, Context ctx,
                            std::string name, StreamHandle stream) {

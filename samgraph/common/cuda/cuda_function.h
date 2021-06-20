@@ -22,6 +22,7 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
                     GPURandomStates *random_states, uint64_t task_key);
 
 void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
+                           const float *prob_table, const IdType *alias_table,
                            const IdType *input, const size_t num_input,
                            const size_t fanout, IdType *out_src,
                            IdType *out_dst, size_t *num_out, Context ctx,

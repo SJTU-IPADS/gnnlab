@@ -62,6 +62,7 @@ class Tensor {
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
 
+  static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
                          std::string name);
   static TensorPtr Copy1D(TensorPtr tensor, size_t item_offset,
@@ -92,6 +93,9 @@ struct Dataset {
   TensorPtr indices;
   size_t num_node;
   size_t num_edge;
+
+  TensorPtr prob_table;
+  TensorPtr alias_table;
 
   TensorPtr in_degrees;
   TensorPtr out_degrees;

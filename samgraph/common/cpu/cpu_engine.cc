@@ -137,6 +137,10 @@ std::unordered_map<std::string, Context> CPUEngine::GetGraphFileCtx() {
   ret[Constant::kTrainSetFile] = CPU();
   ret[Constant::kTestSetFile] = CPU();
   ret[Constant::kValidSetFile] = CPU();
+  ret[Constant::kLabelFile] = MMAP();
+  ret[Constant::kLabelFile] = MMAP();
+  ret[Constant::kProbTableFile] = MMAP();
+  ret[Constant::kAliasTableFile] = MMAP();
   ret[Constant::kInDegreeFile] = MMAP();
   ret[Constant::kOutDegreeFile] = MMAP();
   ret[Constant::kSortedNodeByInDegreeFile] = MMAP();
