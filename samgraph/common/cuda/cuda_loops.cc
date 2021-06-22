@@ -58,7 +58,6 @@ void DoGPUSample(TaskPtr task) {
       static_cast<const float *>(dataset->prob_table->Data());
   const IdType *alias_table =
       static_cast<const IdType *>(dataset->alias_table->Data());
-  ;
 
   auto cur_input = task->output_nodes;
 

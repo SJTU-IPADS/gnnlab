@@ -19,6 +19,10 @@
 #include <thread>
 #include <vector>
 
+#include "common/utils.h"
+
+namespace {
+
 std::string raw_data_dir = "/graph-learning/data-raw/com-friendster/";
 std::string output_dir = "/graph-learning/samgraph/com-friendster/";
 
@@ -26,28 +30,11 @@ size_t num_threads = 48;
 size_t num_nodes = 65608366;
 uint32_t max_nodeid = 124836179;
 size_t num_edges = 1806067135;
-size_t num_train_set = 1207179;
-size_t num_test_set = 125265;
-size_t num_valid_set = 214338;
+size_t num_train_set = 1000000;
+size_t num_test_set = 100000;
+size_t num_valid_set = 200000;
 size_t feat_dim = 256;
 size_t num_class = 172;
-
-class Timer {
- public:
-  Timer(std::chrono::time_point<std::chrono::steady_clock> tp =
-            std::chrono::steady_clock::now())
-      : _start_time(tp) {}
-
-  double Passed() const {
-    const auto elapsed =
-        std::chrono::duration_cast<std::chrono::duration<double>>(
-            std::chrono::steady_clock::now() - _start_time);
-    return elapsed.count();
-  }
-
- private:
-  std::chrono::time_point<std::chrono::steady_clock> _start_time;
-};
 
 struct ThreadCtx {
   int thread_idx;
@@ -171,14 +158,9 @@ void threadMapEdges(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
                     std::vector<std::pair<uint32_t, uint32_t>> &new_edge_list,
                     uint32_t new_start) {
   for (size_t i = 0; i < ctx.e_cnt; i++) {
-    new_edge_list[new_start + i] = {o2n_hashtable[ctx.e_list[i].first],
-                                    o2n_hashtable[ctx.e_list[i].second]};
-  }
-
-  // Add self-loop
-  for (size_t i = 0; i < ctx.v_cnt; i++) {
-    uint32_t new_nodeid = o2n_hashtable[ctx.v_list[i]];
-    new_edge_list[new_start + ctx.e_cnt + i] = {new_nodeid, new_nodeid};
+    // swap src and dst to make a csc graph
+    new_edge_list[new_start + i] = {o2n_hashtable[ctx.e_list[i].second],
+                                    o2n_hashtable[ctx.e_list[i].first]};
   }
 }
 
@@ -279,13 +261,15 @@ void JoinThreads(std::vector<std::thread> &threads) {
   threads.clear();
 }
 
+}  // namespace
+
 int main() {
-  Timer t0;
+  utility::Timer t0;
   auto raw_graph = getMMapFile();
   double mmap_time = t0.Passed();
   printf("mmap %.4f\n", mmap_time);
 
-  Timer t1;
+  utility::Timer t1;
   omp_set_num_threads(num_threads);
   std::vector<ThreadCtx *> thread_ctx;
   std::vector<std::thread> threads;
@@ -317,7 +301,7 @@ int main() {
   printf("read file %.4f\n", read_file_time);
 
   // Map nodes and edges to a new space
-  Timer t2;
+  utility::Timer t2;
   std::vector<uint32_t> v_cnt_prefix_sum(num_threads, 0);
   std::vector<uint32_t> e_cnt_prefix_sum(num_threads, 0);
   uint32_t v_sum = 0;
@@ -342,9 +326,7 @@ int main() {
   double populate_time = t2.Passed();
   printf("populate %.4f\n", populate_time);
 
-  Timer t3;
-  // Add self-loop
-  num_edges += num_nodes;
+  utility::Timer t3;
   std::vector<std::pair<uint32_t, uint32_t>> new_edge_list(num_edges);
 
   for (size_t i = 0; i < num_threads; i++) {
@@ -357,7 +339,7 @@ int main() {
   double map_edges_time = t3.Passed();
   printf("map edges %.4f\n", map_edges_time);
 
-  Timer t4;
+  utility::Timer t4;
 #ifdef __linux__
   __gnu_parallel::sort(new_edge_list.begin(), new_edge_list.end());
 #else
@@ -395,13 +377,13 @@ int main() {
   double to_csr_time = t4.Passed();
   printf("to csr %.4f \n", to_csr_time);
 
-  Timer t5;
+  utility::Timer t5;
   writeCSRToFile(indptr, indices);
   double write_file_time = t5.Passed();
 
   printf("write file %.4f \n", write_file_time);
 
-  Timer t6;
+  utility::Timer t6;
   generateNodeSet(indptr);
   double generate_nodeset_time = t6.Passed();
 

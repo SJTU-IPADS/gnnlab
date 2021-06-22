@@ -8,12 +8,12 @@
 
 namespace utility {
 
-bool FileExist(const std::string &filepath) {
+inline bool FileExist(const std::string &filepath) {
   std::ifstream f(filepath);
   return f.good();
 }
 
-void Check(bool cond, std::string error_msg = "") {
+inline void Check(bool cond, std::string error_msg = "") {
   if (!cond) {
     std::cout << error_msg << std::endl;
     exit(1);

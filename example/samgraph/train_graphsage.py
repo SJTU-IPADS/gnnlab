@@ -80,11 +80,11 @@ def get_run_config():
     run_config = {}
     run_config['arch'] = sam.meepo_archs['arch3']
     run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['sample_type'] = sam.kKHop0
+    run_config['sample_type'] = sam.kKHop1
     run_config['pipeline'] = False
-    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
-    # run_config['dataset_path'] = '/graph-learning/samgraph/products'
+    run_config['dataset_path'] = '/graph-learning/samgraph/products'
     # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']

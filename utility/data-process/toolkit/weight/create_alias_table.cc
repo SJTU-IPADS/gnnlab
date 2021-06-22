@@ -1,6 +1,7 @@
 #include <omp.h>
 
 #include <fstream>
+#include <iostream>
 #include <queue>
 #include <random>
 #include <string>
@@ -8,10 +9,11 @@
 
 #include "common/graph_loader.h"
 #include "common/options.h"
+#include "common/utils.h"
 
 namespace {
 
-size_t num_threads = 24;
+size_t num_threads = 1;
 
 std::string output0_filepath = "prob_table.bin";
 std::string output1_filepath = "alias_table.bin";
@@ -73,8 +75,8 @@ void CreateAliasTable(const uint32_t *indptr, const uint32_t *indices,
       smalls.pop();
       larges.pop();
 
-      prob_table[small_idx] = weights[small_idx];
-      alias_table[small_idx] = indices[off + large_idx];
+      prob_table[off + small_idx] = weights[small_idx];
+      alias_table[off + small_idx] = indices[off + large_idx];
 
       weights[large_idx] -= (1 - weights[small_idx]);
 
@@ -89,16 +91,14 @@ void CreateAliasTable(const uint32_t *indptr, const uint32_t *indices,
       uint32_t large_idx = larges.front();
       larges.pop();
 
-      prob_table[large_idx] = 1;
+      prob_table[off + large_idx] = 1;
     }
 
     while (!smalls.empty()) {
-      printf("fail\n");
-      exit(0);
       uint32_t small_idx = smalls.front();
       smalls.pop();
 
-      prob_table[small_idx] = 1;
+      prob_table[off + small_idx] = 1;
     }
   }
 

@@ -13,7 +13,7 @@ const std::string Constant::kTestSetFile = "test_set.bin";
 const std::string Constant::kValidSetFile = "valid_set.bin";
 
 const std::string Constant::kProbTableFile = "prob_table.bin";
-const std::string Constant::kAliasTableFile = "alis_table.bin";
+const std::string Constant::kAliasTableFile = "alias_table.bin";
 
 const std::string Constant::kInDegreeFile = "in_degrees.bin";
 const std::string Constant::kOutDegreeFile = "out_degrees.bin";

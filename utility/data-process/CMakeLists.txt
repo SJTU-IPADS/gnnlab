@@ -19,8 +19,8 @@ add_executable(
 )
 
 add_executable(
-    get-degree
-    ${CMAKE_SOURCE_DIR}/toolkit/degrees/get_degrees.cc
+    degree-info
+    ${CMAKE_SOURCE_DIR}/toolkit/degree/degree_info.cc
     ${COMMON_SOURCE}
 )
 
