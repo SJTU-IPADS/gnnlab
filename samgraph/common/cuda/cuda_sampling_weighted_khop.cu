@@ -39,14 +39,19 @@ __global__ void sample_weighted_khop(
     const IdType off = indptr[rid];
     const IdType len = indptr[rid + 1] - indptr[rid];
 
-    tmp_src[task_idx] = rid;
-    // choose dst
-    size_t k = curand(&local_state) % len;
-    float r = curand_uniform(&local_state);
-    if (r < prob_table[off + k]) {
-      tmp_dst[task_idx] = indices[off + k];
+    if (len == 0) {
+      tmp_src[task_idx] = Constant::kEmptyKey;
+      tmp_dst[task_idx] = Constant::kEmptyKey;
     } else {
-      tmp_dst[task_idx] = alias_table[off + k];
+      tmp_src[task_idx] = rid;
+      // choose dst
+      size_t k = curand(&local_state) % len;
+      float r = curand_uniform(&local_state);
+      if (r < prob_table[off + k]) {
+        tmp_dst[task_idx] = indices[off + k];
+      } else {
+        tmp_dst[task_idx] = alias_table[off + k];
+      }
     }
   }
   // restore the state
@@ -60,10 +65,15 @@ __global__ void count_edge(IdType *src, IdType *dst, size_t *item_prefix,
 
   for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
     if (task_idx == 0) {
-      item_prefix[0] = 0;
+      if (src[task_idx] == Constant::kEmptyKey) {
+        item_prefix[task_idx] = 0;
+      } else {
+        item_prefix[task_idx] = 1;
+      }
     } else {
-      if (src[task_idx] == src[task_idx - 1] &&
-          dst[task_idx] == dst[task_idx - 1]) {
+      if ((src[task_idx] == src[task_idx - 1] &&
+           dst[task_idx] == dst[task_idx - 1]) ||
+          src[task_idx] == Constant::kEmptyKey) {
         item_prefix[task_idx] = 0;
       } else {
         item_prefix[task_idx] = 1;
@@ -79,12 +89,14 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
   size_t task_span = blockDim.x * gridDim.x;
 
   for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
-    out_src[item_prefix[task_idx]] = tmp_src[task_idx];
-    out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
+    if (tmp_src[task_idx] != Constant::kEmptyKey) {
+      out_src[item_prefix[task_idx]] = tmp_src[task_idx];
+      out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
+    }
   }
 
   if (threadId == 0) {
-    *num_out = item_prefix[num_task - 1];
+    *num_out = item_prefix[num_task];
   }
 }
 
@@ -103,18 +115,18 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
 
   auto sampler_device = Device::Get(ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
+  auto num_sample = num_input * fanout;
 
   IdType *tmp_src = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
+      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_sample));
   IdType *tmp_dst = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
+      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_sample));
   LOG(DEBUG) << "GPUSample: cuda tmp_src malloc "
-             << ToReadableSize(num_input * fanout * sizeof(IdType));
+             << ToReadableSize(num_sample * sizeof(IdType));
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
-             << ToReadableSize(num_input * fanout * sizeof(IdType));
+             << ToReadableSize(num_sample * sizeof(IdType));
 
-  size_t num_threads =
-      Min(num_input * fanout, Constant::kWeightedKHopMaxThreads);
+  size_t num_threads = Min(num_sample, Constant::kWeightedKHopMaxThreads);
   const dim3 grid(
       RoundUpDiv(num_threads, static_cast<size_t>(Constant::kCudaBlockSize)));
   const dim3 block(Constant::kCudaBlockSize);
@@ -131,14 +143,14 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
   size_t temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
       nullptr, temp_storage_bytes, tmp_src, tmp_src, tmp_dst, tmp_dst,
-      num_input * fanout, 0, sizeof(IdType) * 8, cu_stream));
+      num_sample, 0, sizeof(IdType) * 8, cu_stream));
   sampler_device->StreamSync(ctx, stream);
 
   void *d_temp_storage =
       sampler_device->AllocWorkspace(ctx, temp_storage_bytes);
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
       d_temp_storage, temp_storage_bytes, tmp_src, tmp_src, tmp_dst, tmp_dst,
-      num_input * fanout, 0, sizeof(IdType) * 8, cu_stream));
+      num_sample, 0, sizeof(IdType) * 8, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
   double sort_coo_time = t1.Passed();
@@ -148,17 +160,17 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
   // count the prefix num
   Timer t2;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_input * fanout));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_sample));
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
-             << ToReadableSize(sizeof(int) * num_input * fanout);
+             << ToReadableSize(sizeof(int) * num_sample);
   count_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,
-                                            num_input * fanout);
+                                            num_sample);
   sampler_device->StreamSync(ctx, stream);
 
   temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes,
                                           item_prefix, item_prefix,
-                                          num_input * fanout, cu_stream));
+                                          num_sample + 1, cu_stream));
   sampler_device->StreamSync(ctx, stream);
 
   d_temp_storage = sampler_device->AllocWorkspace(ctx, temp_storage_bytes);
@@ -166,7 +178,7 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
              << ToReadableSize(temp_storage_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes,
                                           item_prefix, item_prefix,
-                                          num_input * fanout, cu_stream));
+                                          num_sample + 1, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
   double prefix_sum_time = t2.Passed();
@@ -174,9 +186,8 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
 
   // compact edge
   Timer t3;
-  compact_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src,
-                                              out_dst, item_prefix,
-                                              num_input * fanout, num_out);
+  compact_edge<<<grid, block, 0, cu_stream>>>(
+      tmp_src, tmp_dst, out_src, out_dst, item_prefix, num_sample, num_out);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t3.Passed();
   LOG(DEBUG) << "GPUSample: compact_edge time cost: " << compact_edge_time;

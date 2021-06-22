@@ -37,23 +37,25 @@ void IsDirected(utility::GraphPtr dataset) {
     }
   }
 
-#pragma omp parallel for
+  size_t count = 0;
+#pragma omp parallel for reduction(+ : count)
   for (uint32_t node_src = 0; node_src < num_nodes; node_src++) {
     uint32_t src_start = indptr[node_src];
     uint32_t src_end = indptr[node_src + 1];
     for (uint32_t j = src_start; j < src_end; j++) {
       uint32_t node_dst = indices[j];
       if (node_dst != node_src && adj[node_dst].count(node_src) > 0) {
-        if (node_src != 0) {
-          std::cout << "The graph is partial undirected " << std::endl;
-        } else {
-          std::cout << "The graph is undirected " << std::endl;
-        }
-        return;
+        count++;
       }
     }
   }
-  std::cout << "The graph is directed " << std::endl;
+
+  if (count > 0) {
+    std::cout << "The graph is undirected with " << count << " edges"
+              << std::endl;
+  } else {
+    std::cout << "The graph is directed " << std::endl;
+  }
 }
 
 void HasSelfLoop(utility::GraphPtr dataset) {
@@ -62,7 +64,6 @@ void HasSelfLoop(utility::GraphPtr dataset) {
   uint32_t num_nodes = dataset->num_nodes;
   uint32_t num_edges = dataset->num_edges;
 
-#pragma omp parallel for
   for (uint32_t node_src = 0; node_src < num_nodes; node_src++) {
     uint32_t start = indptr[node_src];
     uint32_t end = indptr[node_src + 1] - start;
@@ -85,23 +86,28 @@ void HasSelfLoop(utility::GraphPtr dataset) {
 }
 
 void HasZeroDegreeNodes(utility::GraphPtr dataset) {
-  uint32_t *indptr = indptr;
-  uint32_t *indices = indices;
-  uint32_t num_nodes = num_nodes;
-  uint32_t num_edges = num_edges;
-#pragma omp parallel for
+  uint32_t *indptr = dataset->indptr;
+  uint32_t *indices = dataset->indices;
+  uint32_t num_nodes = dataset->num_nodes;
+  uint32_t num_edges = dataset->num_edges;
+
+  uint32_t count = 0;
   for (uint32_t i = 0; i < num_nodes; i++) {
     uint32_t len = indptr[i + 1] - indptr[i];
     if (len == 0) {
-      std::cout << "The graph has zero-degree nodes" << std::endl;
-      return;
+      count++;
     }
   }
-  std::cout << "The graph doesn't has zero-degree nodes" << std::endl;
+
+  if (count > 0) {
+    std::cout << "The graph has " << count << " zero-degree nodes" << std::endl;
+  } else {
+    std::cout << "The graph doesn't has zero-degree nodes" << std::endl;
+  }
 }
 
 int main(int argc, char *argv[]) {
-  utility::Options options("Check whether the graph is undirected");
+  utility::Options options("Graph property");
   OPTIONS_PARSE(options, argc, argv);
 
   utility::GraphLoader graph_loader(options.root);
