@@ -78,12 +78,12 @@ def get_run_config():
         return args_run_config
 
     run_config = {}
-    run_config['arch'] = sam.meepo_archs['arch1']
+    run_config['arch'] = sam.meepo_archs['arch3']
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sample_type'] = sam.kKHop0
     run_config['pipeline'] = False
-    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
-    run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
+    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     # run_config['dataset_path'] = '/graph-learning/samgraph/products'
     # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
@@ -95,7 +95,7 @@ def get_run_config():
         run_config['fanout'])
     run_config['num_epoch'] = 1
     run_config['num_hidden'] = 256
-    run_config['batch_size'] = 512
+    run_config['batch_size'] = 8192
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1

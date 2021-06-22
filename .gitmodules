@@ -10,9 +10,6 @@
 [submodule "3rdparty/pytorch_geometric"]
 	path = 3rdparty/pytorch_geometric
 	url = https://ipads.se.sjtu.edu.cn:1312/yangjb/pytorch_geometric.git
-[submodule "3rdparty/argparse"]
-	path = 3rdparty/argparse
-	url = https://github.com/p-ranav/argparse.git
 [submodule "3rdparty/CLI11"]
 	path = 3rdparty/CLI11
 	url = https://github.com/CLIUtils/CLI11.git

@@ -1,3 +1,18 @@
+#include <curand.h>
+#include <curand_kernel.h>
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cstdio>
+#include <cub/cub.cuh>
+
+#include "../common.h"
+#include "../constant.h"
+#include "../device.h"
+#include "../logging.h"
+#include "../profiler.h"
+#include "../timer.h"
 #include "cuda_function.h"
 
 namespace samgraph {
@@ -9,7 +24,8 @@ namespace {
 __global__ void sample_weighted_khop(
     const IdType *indptr, const IdType *indices, const float *prob_table,
     const IdType *alias_table, const IdType *input, const size_t num_input,
-    const size_t fanout) {
+    const size_t fanout, IdType *tmp_src, IdType *tmp_dst,
+    curandState *random_states, size_t num_random_states) {
   size_t num_task = num_input * fanout;
   size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
   size_t task_span = blockDim.x * gridDim.x;

@@ -47,7 +47,8 @@ bool RunSampleCopySubLoopOnce() {
     graph_pool->Submit(task->key, task);
 
     Profiler::Get().Log(task->key, kLogL1SampleTime,
-                        shuffle_time + sample_time + extract_time);
+                        shuffle_time + sample_time);
+    Profiler::Get().Log(task->key, kLogL1CopyTime, extract_time);
     Profiler::Get().Log(task->key, kLogL2ShuffleTime, shuffle_time);
     Profiler::Get().Log(task->key, kLogL2ExtractTime, extract_time);
   } else {
