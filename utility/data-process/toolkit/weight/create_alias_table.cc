@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "../loader/graph_loader.h"
-#include "../loader/options.h"
+#include "common/graph_loader.h"
+#include "common/options.h"
 
 namespace {
 
@@ -121,10 +121,10 @@ void CreateAliasTable(const uint32_t *indptr, const uint32_t *indices,
 
 int main(int argc, char *argv[]) {
   utility::Options options("Degree generator");
-  options.Parse(argc, argv);
+  OPTIONS_PARSE(options, argc, argv);
 
-  utility::GraphLoader graph_loader(options.basic_path);
-  auto graph = graph_loader.GetGraphDataset(options.graph_code);
+  utility::GraphLoader graph_loader(options.root);
+  auto graph = graph_loader.GetGraphDataset(options.graph);
 
   uint32_t *indptr = graph->indptr;
   uint32_t *indices = graph->indices;

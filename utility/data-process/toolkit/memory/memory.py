@@ -1,3 +1,6 @@
+from typing import BinaryIO
+
+
 TB = 1 * 1024 * 1024 * 1024 * 1024
 GB = 1 * 1024 * 1024 * 1024
 MB = 1 * 1024 * 1024
@@ -37,11 +40,16 @@ class Graph:
         return "{:15s} | topology: {:s} | feat: {:s}".format(self.name, graph_sz, feat_sz)
 
 
+Reddit = Graph("Reddit", 232965, 114615892, 602)
+Products = Graph("Products", 2449029, 61859140, 100)
 Papers100M = Graph('Papers100M', 111059956, 1726745828, 128)
-ComFriendster = Graph('com-friendster', 65608366, 1806067135, 256)
+ComFriendster = Graph('com-friendster', 65608366, 1806067135, 300)
 AlipayGraph = Graph('AlipayGraph', 4 * BILLION, 26 * BILLION, 128 * 4)
+Amazon = Graph('Amazon', 65 * MILLION, 3.6 * MILLION, 300)
+Mag240M_lsc = Graph('Mag240M_lsc', 121 * MILLION, 1.2 * BILLION, 768)
 
-graph_list = [Papers100M, ComFriendster, AlipayGraph]
+graph_list = [Reddit, Products, Papers100M, ComFriendster,
+              AlipayGraph, Amazon, Mag240M_lsc]
 
 
 def run():
