@@ -14,8 +14,13 @@ set(COMMON_SOURCE
 )
 
 add_executable(
-    comfriendster-generator
-    ${CMAKE_SOURCE_DIR}/dataset/comfriendster_generator.cc
+    comfriendster-csr-generator
+    ${CMAKE_SOURCE_DIR}/dataset/comfriendster_csr_generator.cc
+)
+
+add_executable(
+    comfriendster-coo-generator
+    ${CMAKE_SOURCE_DIR}/dataset/comfriendster_coo_generator.cc
 )
 
 add_executable(

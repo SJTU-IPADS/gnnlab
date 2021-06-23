@@ -28,7 +28,7 @@ void IsDirected(utility::GraphPtr dataset) {
 #pragma omp parallel for
   for (uint32_t node_src = 0; node_src < num_nodes; node_src++) {
     uint32_t start = indptr[node_src];
-    uint32_t end = indptr[node_src + 1] - start;
+    uint32_t end = indptr[node_src + 1];
 
     for (uint32_t j = start; j < end; j++) {
       uint32_t node_dst = indices[j];
@@ -44,7 +44,7 @@ void IsDirected(utility::GraphPtr dataset) {
     uint32_t src_end = indptr[node_src + 1];
     for (uint32_t j = src_start; j < src_end; j++) {
       uint32_t node_dst = indices[j];
-      if (node_dst != node_src && adj[node_dst].count(node_src) > 0) {
+      if (adj[node_dst].count(node_src) > 0) {
         count++;
       }
     }
@@ -56,6 +56,19 @@ void IsDirected(utility::GraphPtr dataset) {
   } else {
     std::cout << "The graph is directed " << std::endl;
   }
+
+  size_t count_duplication = 0;
+#pragma omp parallel for reduction(+ : count_duplication)
+  for (uint32_t node_src = 0; node_src < num_nodes; node_src++) {
+    for (uint32_t node_dst : adj[node_src]) {
+      if (adj[node_src].count(node_dst) > 1) {
+        count_duplication++;
+      }
+    }
+  }
+
+  std::cout << "The graph has " << count_duplication << " duplicated edges"
+            << std::endl;
 }
 
 void HasSelfLoop(utility::GraphPtr dataset) {
@@ -64,27 +77,27 @@ void HasSelfLoop(utility::GraphPtr dataset) {
   uint32_t num_nodes = dataset->num_nodes;
   uint32_t num_edges = dataset->num_edges;
 
+  size_t count = 0;
+#pragma omp parallel for reduction(+ : count)
   for (uint32_t node_src = 0; node_src < num_nodes; node_src++) {
     uint32_t start = indptr[node_src];
-    uint32_t end = indptr[node_src + 1] - start;
+    uint32_t end = indptr[node_src + 1];
 
     for (uint32_t j = start; j < end; j++) {
       uint32_t node_dst = indices[j];
 
       if (node_dst == node_src) {
-        if (node_src != 0) {
-          std::cout << "The graph has partial self-loop " << std::endl;
-        } else {
-          std::cout << "The graph has self-loop " << std::endl;
-        }
-        return;
+        count++;
       }
     }
   }
 
-  std::cout << "The graph doesn't has self-loop " << std::endl;
+  if (count > 0) {
+    std::cout << "The graph has " << count << " self-loop " << std::endl;
+  } else {
+    std::cout << "The graph doesn't has self-loop " << std::endl;
+  }
 }
-
 void HasZeroDegreeNodes(utility::GraphPtr dataset) {
   uint32_t *indptr = dataset->indptr;
   uint32_t *indices = dataset->indices;
