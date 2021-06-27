@@ -1,15 +1,13 @@
-from .papers100M import Papers100M
-from .comfriendster import ComFriendster
+import os
+
+from .dataset_loader import DatasetLoader
 
 
-def dataset(name, path):
-    if name == 'Papers100M':
-        return Papers100M(path)
-    elif name == 'Com-Friendster':
-        return ComFriendster(path)
-    else:
-        print(f"Dataset {name} not exist")
-        assert(False)
+def dataset(name, root_path):
+    assert(name in ['papers100M', 'com-friendster', 'reddit', 'products'])
+    dataset_path = os.path.join(root_path, name)
+    dataset_loader = DatasetLoader(dataset_path)
+    return dataset_loader
 
 
-__all__ = ['dataset', 'Papers100M', 'ComFriendster']
+__all__ = ['dataset']

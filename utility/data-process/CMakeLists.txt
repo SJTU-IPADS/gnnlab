@@ -30,8 +30,32 @@ add_executable(
 )
 
 add_executable(
+    32to64
+    ${CMAKE_SOURCE_DIR}/toolkit/generator/32to64.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
+    nodeset-generator
+    ${CMAKE_SOURCE_DIR}/toolkit/generator/nodeset_generator.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
+    load-mem
+    ${CMAKE_SOURCE_DIR}/toolkit/load/load_mem.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
     graph-perperty
     ${CMAKE_SOURCE_DIR}/toolkit/property/graph_property.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
+    csr_checker
+    ${CMAKE_SOURCE_DIR}/toolkit/property/csr_checker.cc
     ${COMMON_SOURCE}
 )
 

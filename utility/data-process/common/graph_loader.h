@@ -12,9 +12,21 @@ class Graph {
   std::string folder;
   size_t num_nodes;
   size_t num_edges;
+  size_t num_train_set;
+  size_t num_test_set;
+  size_t num_valid_set;
 
   uint32_t *indptr;
   uint32_t *indices;
+  uint32_t *train_set;
+  uint32_t *valid_set;
+  uint32_t *test_set;
+
+  uint64_t *indptr64;
+  uint64_t *indices64;
+  uint64_t *train_set64;
+  uint64_t *valid_set64;
+  uint64_t *test_set64;
 
   Graph();
   ~Graph();
@@ -27,10 +39,7 @@ using GraphPtr = std::shared_ptr<Graph>;
 class GraphLoader {
  public:
   GraphLoader(std::string root);
-  GraphPtr GetGraphDataset(std::string graph);
-
- private:
-  std::string _root;
+  GraphPtr GetGraphDataset(std::string graph, bool is64type = false);
 
   static const std::string kMetaFile;
   static const std::string kFeatFile;
@@ -41,6 +50,12 @@ class GraphLoader {
   static const std::string kTestSetFile;
   static const std::string kValidSetFile;
 
+  static const std::string kIndptr64File;
+  static const std::string kIndices64File;
+  static const std::string kTrainSet64File;
+  static const std::string kTestSet64File;
+  static const std::string kValidSet64File;
+
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;
   static const std::string kMetaFeatDim;
@@ -48,6 +63,9 @@ class GraphLoader {
   static const std::string kMetaNumTrainSet;
   static const std::string kMetaNumTestSet;
   static const std::string kMetaNumValidSet;
+
+ private:
+  std::string _root;
 };
 
 }  // namespace utility

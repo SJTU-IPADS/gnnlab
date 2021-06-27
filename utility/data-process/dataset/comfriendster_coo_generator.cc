@@ -29,7 +29,8 @@ std::string output_dir = "/graph-learning/data-raw/com-friendster-bin/";
 size_t num_threads = 48;
 size_t num_nodes = 65608366;
 uint32_t max_nodeid = 124836179;
-size_t num_edges = 1806067135;
+size_t origin_num_edges = 1806067135;
+size_t num_edges = origin_num_edges * 2;
 size_t num_train_set = 1000000;
 size_t num_test_set = 100000;
 size_t num_valid_set = 200000;
@@ -141,9 +142,23 @@ void threadLoadGraph(ThreadCtx &ctx, RawGraph &raw_graph, size_t v_start,
     uint32_t dst = std::stoi(str);
 
     ctx.e_list.push_back({src, dst});
-    ctx.e_cnt++;
+    ctx.e_list.push_back({dst, src});
+    ctx.e_cnt += 2;
     i = k + 1;
   }
+}
+
+void checkLoadedGraph(std::vector<ThreadCtx *> &thread_ctx) {
+  size_t num_loaded_nodes = 0;
+  size_t num_loaded_edges = 0;
+
+  for (auto ctx : thread_ctx) {
+    num_loaded_nodes += ctx->v_cnt;
+    num_loaded_edges += ctx->e_cnt;
+  }
+
+  utility::Check(num_loaded_nodes == num_nodes, "error number of loaded nodes");
+  utility::Check(num_loaded_edges == num_edges, "error number of loaded edges");
 }
 
 void threadPopulateHashtable(ThreadCtx &ctx,
@@ -164,14 +179,14 @@ void threadMapEdges(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
   }
 }
 
-void JoinThreads(std::vector<std::thread> &threads) {
+void joinThreads(std::vector<std::thread> &threads) {
   for (size_t i = 0; i < num_threads; i++) {
     threads[i].join();
   }
   threads.clear();
 }
 
-void WriteCooFile(const std::vector<uint32_t> &coo_row,
+void writeCooFile(const std::vector<uint32_t> &coo_row,
                   const std::vector<uint32_t> &coo_col) {
   std::string coo_row_path = output_dir + "coo_row.bin";
   std::string coo_col_path = output_dir + "coo_col.bin";
@@ -222,9 +237,11 @@ int main() {
                          std::ref(raw_graph), v_start, v_end, e_start, e_end);
   }
 
-  JoinThreads(threads);
+  joinThreads(threads);
   double read_file_time = t1.Passed();
   printf("read file %.4f\n", read_file_time);
+
+  checkLoadedGraph(thread_ctx);
 
   // Map nodes and edges to a new space
   utility::Timer t2;
@@ -246,7 +263,7 @@ int main() {
                          std::ref(o2n_hashtable), v_cnt_prefix_sum[i]);
   }
 
-  JoinThreads(threads);
+  joinThreads(threads);
   double populate_time = t2.Passed();
   printf("populate %.4f\n", populate_time);
 
@@ -260,12 +277,12 @@ int main() {
                          std::ref(coo_col), e_cnt_prefix_sum[i]);
   }
 
-  JoinThreads(threads);
+  joinThreads(threads);
   double map_edges_time = t3.Passed();
   printf("map edges %.4f\n", map_edges_time);
 
   utility::Timer t4;
-  WriteCooFile(coo_row, coo_col);
+  writeCooFile(coo_row, coo_col);
   double write_coo_file_time = t3.Passed();
   printf("write coo file %.4f\n", write_coo_file_time);
 }

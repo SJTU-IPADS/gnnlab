@@ -1,5 +1,3 @@
-#include <omp.h>
-
 #include <fstream>
 #include <iostream>
 #include <queue>
@@ -12,8 +10,6 @@
 #include "common/utils.h"
 
 namespace {
-
-size_t num_threads = 1;
 
 std::string output0_filepath = "prob_table.bin";
 std::string output1_filepath = "alias_table.bin";
@@ -133,8 +129,6 @@ int main(int argc, char *argv[]) {
 
   std::vector<uint32_t> alias_table(graph->num_edges);
   std::vector<float> prob_table(graph->num_edges);
-
-  omp_set_num_threads(num_threads);
 
   AddPrefixToFilepath(graph->folder);
   CreateAliasTable(indptr, indices, num_nodes, num_edges, prob_table,

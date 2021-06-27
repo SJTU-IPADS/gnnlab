@@ -22,8 +22,6 @@
 
 namespace {
 
-size_t num_threads = 24;
-
 std::string out0_filepath = "degrees.txt";
 std::string out1_filepath = "out_degrees.bin";
 std::string out2_filepath = "in_degrees.bin";
@@ -46,7 +44,7 @@ void AddPrefixToFilepath(std::string prefix) {
 
 void getNodeDegrees(const uint32_t *indptr, const uint32_t *indices,
                     size_t num_nodes, std::vector<uint32_t> &in_degrees,
-                    std::vector<uint32_t> &out_degrees) {
+                    std::vector<uint32_t> &out_degrees, size_t num_threads) {
   std::vector<std::vector<uint32_t>> in_degrees_per_thread(
       num_threads, std::vector<uint32_t>(num_nodes, 0));
 
@@ -218,10 +216,9 @@ int main(int argc, char *argv[]) {
   std::vector<uint32_t> in_degrees(num_nodes, 0);
   std::vector<uint32_t> out_degrees(num_nodes, 0);
 
-  omp_set_num_threads(num_threads);
-
   AddPrefixToFilepath(graph->folder);
-  getNodeDegrees(indptr, indices, num_nodes, in_degrees, out_degrees);
+  getNodeDegrees(indptr, indices, num_nodes, in_degrees, out_degrees,
+                 options.num_threads);
   degreesToFile(in_degrees, out_degrees, num_nodes);
   degreeFrequencyToFile(in_degrees, out_degrees, num_nodes, num_edges);
   sortedNodesToFile(in_degrees);

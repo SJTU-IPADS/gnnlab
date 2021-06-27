@@ -1,17 +1,9 @@
-#include <omp.h>
-
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
 
 #include "common/graph_loader.h"
 #include "common/options.h"
-
-namespace {
-
-size_t num_threads = 24;
-
-}
 
 void IsDirected(utility::GraphPtr dataset) {
   uint32_t *indptr = dataset->indptr;
@@ -125,8 +117,6 @@ int main(int argc, char *argv[]) {
 
   utility::GraphLoader graph_loader(options.root);
   auto graph = graph_loader.GetGraphDataset(options.graph);
-
-  omp_set_num_threads(num_threads);
 
   IsDirected(graph);
   HasSelfLoop(graph);

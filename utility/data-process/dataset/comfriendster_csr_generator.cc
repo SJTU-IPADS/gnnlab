@@ -29,12 +29,13 @@ std::string output_dir = "/graph-learning/samgraph/com-friendster/";
 size_t num_threads = 48;
 size_t num_nodes = 65608366;
 uint32_t max_nodeid = 124836179;
-size_t num_edges = 1806067135;
+size_t origin_num_edges = 1806067135;
+size_t num_edges = origin_num_edges * 2;
 size_t num_train_set = 1000000;
 size_t num_test_set = 100000;
 size_t num_valid_set = 200000;
-size_t feat_dim = 256;
-size_t num_class = 172;
+size_t feat_dim = 300;
+size_t num_class = 150;
 
 struct ThreadCtx {
   int thread_idx;
@@ -141,9 +142,23 @@ void threadLoadGraph(ThreadCtx &ctx, RawGraph &raw_graph, size_t v_start,
     uint32_t dst = std::stoi(str);
 
     ctx.e_list.push_back({src, dst});
-    ctx.e_cnt++;
+    ctx.e_list.push_back({dst, src});
+    ctx.e_cnt += 2;
     i = k + 1;
   }
+}
+
+void checkLoadedGraph(std::vector<ThreadCtx *> &thread_ctx) {
+  size_t num_loaded_nodes = 0;
+  size_t num_loaded_edges = 0;
+
+  for (auto ctx : thread_ctx) {
+    num_loaded_nodes += ctx->v_cnt;
+    num_loaded_edges += ctx->e_cnt;
+  }
+
+  utility::Check(num_loaded_nodes == num_nodes, "error number of loaded nodes");
+  utility::Check(num_loaded_edges == num_edges, "error number of loaded edges");
 }
 
 void threadPopulateHashtable(ThreadCtx &ctx,
@@ -158,9 +173,8 @@ void threadMapEdges(ThreadCtx &ctx, std::vector<uint32_t> &o2n_hashtable,
                     std::vector<std::pair<uint32_t, uint32_t>> &new_edge_list,
                     uint32_t new_start) {
   for (size_t i = 0; i < ctx.e_cnt; i++) {
-    // swap src and dst to make a csc graph
-    new_edge_list[new_start + i] = {o2n_hashtable[ctx.e_list[i].second],
-                                    o2n_hashtable[ctx.e_list[i].first]};
+    new_edge_list[new_start + i] = {o2n_hashtable[ctx.e_list[i].first],
+                                    o2n_hashtable[ctx.e_list[i].second]};
   }
 }
 
@@ -254,7 +268,7 @@ void writeCSRToFile(std::vector<uint32_t> &indptr,
   ofs1.close();
 }
 
-void JoinThreads(std::vector<std::thread> &threads) {
+void joinThreads(std::vector<std::thread> &threads) {
   for (size_t i = 0; i < num_threads; i++) {
     threads[i].join();
   }
@@ -296,9 +310,11 @@ int main() {
                          std::ref(raw_graph), v_start, v_end, e_start, e_end);
   }
 
-  JoinThreads(threads);
+  joinThreads(threads);
   double read_file_time = t1.Passed();
   printf("read file %.4f\n", read_file_time);
+
+  checkLoadedGraph(thread_ctx);
 
   // Map nodes and edges to a new space
   utility::Timer t2;
@@ -312,8 +328,6 @@ int main() {
 
     e_cnt_prefix_sum[i] = e_sum;
     e_sum += thread_ctx[i]->e_cnt;
-    // Add self-loop
-    e_sum += thread_ctx[i]->v_cnt;
   }
 
   std::vector<uint32_t> o2n_hashtable(max_nodeid + 1);
@@ -322,7 +336,7 @@ int main() {
                          std::ref(o2n_hashtable), v_cnt_prefix_sum[i]);
   }
 
-  JoinThreads(threads);
+  joinThreads(threads);
   double populate_time = t2.Passed();
   printf("populate %.4f\n", populate_time);
 
@@ -335,7 +349,7 @@ int main() {
                          e_cnt_prefix_sum[i]);
   }
 
-  JoinThreads(threads);
+  joinThreads(threads);
   double map_edges_time = t3.Passed();
   printf("map edges %.4f\n", map_edges_time);
 

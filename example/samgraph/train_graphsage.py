@@ -82,20 +82,20 @@ def get_run_config():
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sample_type'] = sam.kKHop0
     run_config['pipeline'] = False
-    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     # run_config['dataset_path'] = '/graph-learning/samgraph/products'
-    # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+    run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
 
-    run_config['fanout'] = [25, 10]
+    run_config['fanout'] = [15, 10, 5]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 1
+    run_config['num_epoch'] = 10
     run_config['num_hidden'] = 256
-    run_config['batch_size'] = 8192
+    run_config['batch_size'] = 800
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1

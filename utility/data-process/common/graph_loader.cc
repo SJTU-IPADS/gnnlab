@@ -27,6 +27,11 @@ const std::string GraphLoader::kIndicesFile = "indices.bin";
 const std::string GraphLoader::kTrainSetFile = "train_set.bin";
 const std::string GraphLoader::kTestSetFile = "test_set.bin";
 const std::string GraphLoader::kValidSetFile = "valid_set.bin";
+const std::string GraphLoader::kIndptr64File = "indptr64.bin";
+const std::string GraphLoader::kIndices64File = "indices64.bin";
+const std::string GraphLoader::kTrainSet64File = "train_set64.bin";
+const std::string GraphLoader::kTestSet64File = "test_set64.bin";
+const std::string GraphLoader::kValidSet64File = "valid_set64.bin";
 
 const std::string GraphLoader::kMetaNumNode = "NUM_NODE";
 const std::string GraphLoader::kMetaNumEdge = "NUM_EDGE";
@@ -36,7 +41,17 @@ const std::string GraphLoader::kMetaNumTrainSet = "NUM_TRAIN_SET";
 const std::string GraphLoader::kMetaNumTestSet = "NUM_TEST_SET";
 const std::string GraphLoader::kMetaNumValidSet = "NUM_VALID_SET";
 
-Graph::Graph() : indptr(nullptr), indices(nullptr) {}
+Graph::Graph()
+    : indptr(nullptr),
+      indices(nullptr),
+      train_set(nullptr),
+      test_set(nullptr),
+      valid_set(nullptr),
+      indptr64(nullptr),
+      indices64(nullptr),
+      train_set64(nullptr),
+      test_set64(nullptr),
+      valid_set64(nullptr) {}
 
 Graph::~Graph() {
   if (indptr) {
@@ -51,6 +66,10 @@ Graph::~Graph() {
 }
 
 void *Graph::LoadDataFromFile(std::string file, const size_t expected_nbytes) {
+  if (!FileExist(file)) {
+    return nullptr;
+  }
+
   int fd;
   struct stat st;
   size_t nbytes;
@@ -77,7 +96,7 @@ GraphLoader::GraphLoader(std::string root) {
   }
 }
 
-GraphPtr GraphLoader::GetGraphDataset(std::string graph) {
+GraphPtr GraphLoader::GetGraphDataset(std::string graph, bool is64type) {
   auto dataset = std::make_shared<Graph>();
 
   dataset->folder = _root + graph + '/';
@@ -112,12 +131,42 @@ GraphPtr GraphLoader::GetGraphDataset(std::string graph) {
 
   dataset->num_nodes = meta[kMetaNumNode];
   dataset->num_edges = meta[kMetaNumEdge];
+  dataset->num_train_set = meta[kMetaNumTrainSet];
+  dataset->num_valid_set = meta[kMetaNumValidSet];
+  dataset->num_test_set = meta[kMetaNumTestSet];
 
-  dataset->indptr = static_cast<uint32_t *>(
-      Graph::LoadDataFromFile(dataset->folder + kIndptrFile,
-                              (meta[kMetaNumNode] + 1) * sizeof(uint32_t)));
-  dataset->indices = static_cast<uint32_t *>(Graph::LoadDataFromFile(
-      dataset->folder + kIndicesFile, meta[kMetaNumEdge] * sizeof(uint32_t)));
+  if (!is64type) {
+    dataset->indptr = static_cast<uint32_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kIndptrFile,
+                                (meta[kMetaNumNode] + 1) * sizeof(uint32_t)));
+    dataset->indices = static_cast<uint32_t *>(Graph::LoadDataFromFile(
+        dataset->folder + kIndicesFile, meta[kMetaNumEdge] * sizeof(uint32_t)));
+    dataset->train_set = static_cast<uint32_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kTrainSetFile,
+                                (meta[kMetaNumTrainSet]) * sizeof(uint32_t)));
+    dataset->test_set = static_cast<uint32_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kTestSetFile,
+                                meta[kMetaNumTestSet] * sizeof(uint32_t)));
+    dataset->valid_set = static_cast<uint32_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kValidSetFile,
+                                (meta[kMetaNumValidSet]) * sizeof(uint32_t)));
+  } else {
+    dataset->indptr64 = static_cast<uint64_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kIndptr64File,
+                                (meta[kMetaNumNode] + 1) * sizeof(uint64_t)));
+    dataset->indices64 = static_cast<uint64_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kIndices64File,
+                                meta[kMetaNumEdge] * sizeof(uint64_t)));
+    dataset->train_set64 = static_cast<uint64_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kTrainSet64File,
+                                (meta[kMetaNumTrainSet]) * sizeof(uint64_t)));
+    dataset->test_set64 = static_cast<uint64_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kTestSet64File,
+                                meta[kMetaNumTestSet] * sizeof(uint64_t)));
+    dataset->valid_set64 = static_cast<uint64_t *>(
+        Graph::LoadDataFromFile(dataset->folder + kValidSet64File,
+                                (meta[kMetaNumValidSet]) * sizeof(uint64_t)));
+  }
 
   std::cout << "Loading graph with " << dataset->num_nodes << " nodes and "
             << dataset->num_edges << " edges" << std::endl;

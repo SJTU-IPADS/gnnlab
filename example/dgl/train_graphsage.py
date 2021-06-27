@@ -43,22 +43,18 @@ def get_run_config():
     run_config = {}
     run_config['pipeline'] = False
     run_config['device'] = 'cuda:0'
-    run_config['dataset'] = 'Papers100M'
-    # run_config['dataset'] = 'Com-Friendster'
+    # run_config['dataset'] = 'reddit'
+    # run_config['dataset'] = 'products'
+    # run_config['dataset'] = 'papers100M'
+    run_config['dataset'] = 'com-friendster'
+    run_config['root_path'] = '/graph-learning/samgraph/'
 
-    if run_config['dataset'] == 'Papers100M':
-        run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
-    elif run_config['dataset'] == 'Com-Friendster':
-        run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
-    else:
-        assert(False)
-
-    run_config['fanout'] = [15, 10, 5]
+    run_config['fanout'] = [15]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 20
+    run_config['num_epoch'] = 10
     run_config['num_hidden'] = 256
-    run_config['batch_size'] = 8192
+    run_config['batch_size'] = 8000
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
@@ -71,7 +67,7 @@ def run():
     device = torch.device(run_config['device'])
 
     dataset = fastgraph.dataset(
-        run_config['dataset'], run_config['dataset_path'])
+        run_config['dataset'], run_config['root_path'])
     g = dataset.to_dgl_graph()
     train_nids = dataset.train_set
     in_feats = dataset.feat_dim
@@ -84,7 +80,7 @@ def run():
         sampler,
         batch_size=run_config['batch_size'],
         shuffle=True,
-        drop_last=True,
+        drop_last=False,
         num_workers=0)
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
@@ -97,14 +93,19 @@ def run():
 
     model.train()
 
-    for epoch in range(num_epoch):
-        sample_times = []
-        copy_times = []
-        train_times = []
-        total_times = []
-        num_nodes = []
-        num_samples = []
+    epoch_avg_sample_time = 0.0
+    epoch_avg_copy_time = 0.0
+    epoch_avg_train_time = 0.0
+    epoch_avg_total_time = 0.0
 
+    sample_times = []
+    copy_times = []
+    train_times = []
+    total_times = []
+    num_nodes = []
+    num_samples = []
+
+    for epoch in range(num_epoch):
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
             t1 = time.time()
@@ -127,6 +128,11 @@ def run():
             train_times.append(t3 - t2)
             total_times.append(t3 - t0)
 
+            epoch_avg_sample_time += (t1 - t0)
+            epoch_avg_copy_time += (t2 - t1)
+            epoch_avg_train_time += (t3 - t2)
+            epoch_avg_total_time += (t3 - t0)
+
             num_sample = 0
             for block in blocks:
                 num_sample += block.num_edges()
@@ -134,8 +140,16 @@ def run():
             num_nodes.append(blocks[0].num_src_nodes())
 
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes[1:]), np.mean(num_samples[1:]), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
+                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
+
+    epoch_avg_sample_time /= num_epoch
+    epoch_avg_copy_time /= num_epoch
+    epoch_avg_train_time /= num_epoch
+    epoch_avg_total_time /= num_epoch
+
+    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
+        epoch_avg_total_time, epoch_avg_sample_time, epoch_avg_copy_time, epoch_avg_train_time))
 
 
 if __name__ == '__main__':
