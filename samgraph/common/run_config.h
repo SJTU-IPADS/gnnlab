@@ -21,6 +21,7 @@ struct RunConfig {
   static size_t num_epoch;
   static Context sampler_ctx;
   static Context trainer_ctx;
+  static CachePolicy cache_policy;
   static double cache_percentage;
 
   static cpu::CPUHashType cpu_hash_type;
@@ -34,7 +35,9 @@ struct RunConfig {
   static size_t kPipelineDepth;
   static int kOMPThreadNum;
 
-  static inline bool UseGPUCache() { return cache_percentage > 0; }
+  static inline bool UseGPUCache() {
+    return cache_percentage > 0 && run_arch != kArch1;
+  }
   static void LoadConfigFromEnv();
 };
 

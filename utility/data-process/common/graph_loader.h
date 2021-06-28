@@ -36,6 +36,11 @@ class Graph {
 
 using GraphPtr = std::shared_ptr<Graph>;
 
+class DegreeInfo {
+ public:
+  static GetInfo() private:
+};
+
 class GraphLoader {
  public:
   GraphLoader(std::string root);

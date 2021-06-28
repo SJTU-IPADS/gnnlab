@@ -37,13 +37,13 @@ void Engine::Create() {
 
   switch (RunConfig::run_arch) {
     case kArch0:
-      LOG(INFO) << "Use CPU Engine";
+      LOG(INFO) << "Use CPU Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new cpu::CPUEngine();
       break;
     case kArch1:
     case kArch2:
     case kArch3:
-      LOG(INFO) << "Use GPU Engine";
+      LOG(INFO) << "Use GPU Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new cuda::GPUEngine();
       break;
     default:
@@ -97,7 +97,8 @@ void Engine::LoadGraphDataset() {
   CHECK(ctx_map.count(Constant::kProbTableFile) > 0);
   CHECK(ctx_map.count(Constant::kInDegreeFile) > 0);
   CHECK(ctx_map.count(Constant::kOutDegreeFile) > 0);
-  CHECK(ctx_map.count(Constant::kSortedNodeByInDegreeFile) > 0);
+  CHECK(ctx_map.count(Constant::kCacheByDegreeFile) > 0);
+  CHECK(ctx_map.count(Constant::kCacheByHeuristicFile) > 0);
 
   _dataset->num_node = meta[Constant::kMetaNumNode];
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
@@ -163,19 +164,35 @@ void Engine::LoadGraphDataset() {
     _dataset->alias_table = Tensor::Null();
   }
 
-  _dataset->in_degrees =
-      Tensor::FromMmap(_dataset_path + Constant::kInDegreeFile, DataType::kI32,
-                       {meta[Constant::kMetaNumNode]},
-                       ctx_map[Constant::kInDegreeFile], "dataset.in_degrees");
-  _dataset->out_degrees = Tensor::FromMmap(
-      _dataset_path + Constant::kOutDegreeFile, DataType::kI32,
-      {meta[Constant::kMetaNumNode]}, ctx_map[Constant::kOutDegreeFile],
-      "dataset.out_degrees");
-  _dataset->sorted_nodes_by_in_degree =
-      Tensor::FromMmap(_dataset_path + Constant::kSortedNodeByInDegreeFile,
-                       DataType::kI32, {meta[Constant::kMetaNumNode]},
-                       ctx_map[Constant::kSortedNodeByInDegreeFile],
-                       "dataset.sorted_nodes_by_in_degree");
+  if (RunConfig::option_log_node_access) {
+    _dataset->in_degrees = Tensor::FromMmap(
+        _dataset_path + Constant::kInDegreeFile, DataType::kI32,
+        {meta[Constant::kMetaNumNode]}, ctx_map[Constant::kInDegreeFile],
+        "dataset.in_degrees");
+    _dataset->out_degrees = Tensor::FromMmap(
+        _dataset_path + Constant::kOutDegreeFile, DataType::kI32,
+        {meta[Constant::kMetaNumNode]}, ctx_map[Constant::kOutDegreeFile],
+        "dataset.out_degrees");
+  }
+
+  if (RunConfig::UseGPUCache()) {
+    switch (RunConfig::cache_policy) {
+      case kCacheByDegree:
+        _dataset->ranking_nodes = Tensor::FromMmap(
+            _dataset_path + Constant::kCacheByDegreeFile, DataType::kI32,
+            {meta[Constant::kMetaNumNode]},
+            ctx_map[Constant::kCacheByDegreeFile], "dataset.ranking_nodes");
+        break;
+      case kCacheByHeuristic:
+        _dataset->ranking_nodes = Tensor::FromMmap(
+            _dataset_path + Constant::kCacheByHeuristicFile, DataType::kI32,
+            {meta[Constant::kMetaNumNode]},
+            ctx_map[Constant::kCacheByHeuristicFile], "dataset.ranking_nodes");
+        break;
+      default:
+        CHECK(0);
+    }
+  }
 
   double loading_time = t.Passed();
   LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path << ") successfully ("

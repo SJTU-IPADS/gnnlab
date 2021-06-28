@@ -14,6 +14,7 @@ size_t RunConfig::batch_size;
 size_t RunConfig::num_epoch;
 Context RunConfig::sampler_ctx;
 Context RunConfig::trainer_ctx;
+CachePolicy RunConfig::cache_policy;
 double RunConfig::cache_percentage = 0.0f;
 
 // CPUHash2 now is the best parallel hash remapping

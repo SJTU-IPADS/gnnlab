@@ -26,7 +26,9 @@ class Constant {
 
   static const std::string kInDegreeFile;
   static const std::string kOutDegreeFile;
-  static const std::string kSortedNodeByInDegreeFile;
+
+  static const std::string kCacheByDegreeFile;
+  static const std::string kCacheByHeuristicFile;
 
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;

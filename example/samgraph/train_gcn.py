@@ -57,6 +57,7 @@ def parse_args():
     argparser.add_argument('--lr', type=float, default=0.003)
     argparser.add_argument('--dropout', type=float, default=0.5)
     argparser.add_argument('--report-per-count', type=int, default=1)
+    argparser.add_argument('--cache-policy', type=int, default=1)
     argparser.add_argument('--cache-percentage', type=float, default=0)
 
     run_config = vars(argparser.parse_args())
@@ -99,6 +100,7 @@ def get_run_config():
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
+    run_config['cache_policy'] = sam.kCacheByHeuristic
     run_config['cache_percentage'] = 0.2
 
     return run_config

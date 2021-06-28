@@ -1,4 +1,7 @@
 
+#include <string>
+#include <unordered_map>
+
 #include "../common.h"
 #include "../constant.h"
 #include "../device.h"
@@ -90,8 +93,12 @@ GPUCacheManager::GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
   cpu_device->FreeDataSpace(CPU(), tmp_cpu_hashtable);
   cpu_device->FreeDataSpace(CPU(), tmp_cpu_data);
 
-  LOG(INFO) << "GPU cache: " << _num_cached_nodes << " / " << _num_nodes
-            << " nodes ( " << ToPercentage(_cache_percentage) << " | "
+  std::unordered_map<CachePolicy, std::string> policy2str = {
+      {kCacheByDegree, "degree"}, {kCacheByHeuristic, "heuristic"}};
+
+  LOG(INFO) << "GPU cache (policy: " << policy2str.at(RunConfig::cache_policy)
+            << ") " << _num_cached_nodes << " / " << _num_nodes << " nodes ( "
+            << ToPercentage(_cache_percentage) << " | "
             << ToReadableSize(_cache_nbytes) << " | " << t.Passed()
             << " secs )";
 }

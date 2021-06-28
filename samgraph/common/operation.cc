@@ -22,7 +22,8 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
                      int sampler_device_type, int sampler_device_id,
                      int trainer_device_type, int trainer_device_id,
                      size_t batch_size, int *fanout, size_t num_fanout,
-                     size_t num_epoch, double cache_percentage) {
+                     size_t num_epoch, int cache_policy,
+                     double cache_percentage) {
   RunConfig::dataset_path = path;
   RunConfig::run_arch = static_cast<RunArch>(run_arch);
   RunConfig::sample_type = static_cast<SampleType>(sample_type);
@@ -33,6 +34,7 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
       Context{static_cast<DeviceType>(sampler_device_type), sampler_device_id};
   RunConfig::trainer_ctx =
       Context{static_cast<DeviceType>(trainer_device_type), trainer_device_id};
+  RunConfig::cache_policy = static_cast<CachePolicy>(cache_policy);
   RunConfig::cache_percentage = cache_percentage;
 
   RunConfig::LoadConfigFromEnv();

@@ -58,11 +58,11 @@ void GPUEngine::Init() {
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx,
       _sample_stream);
 
-  if (RunConfig::UseGPUCache() && RunConfig::run_arch != kArch1) {
+  if (RunConfig::UseGPUCache()) {
     _cache_manager = new GPUCacheManager(
         _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
         _dataset->feat->Type(), _dataset->feat->Shape()[1],
-        static_cast<const IdType*>(_dataset->sorted_nodes_by_in_degree->Data()),
+        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
         _dataset->num_node, RunConfig::cache_percentage);
   } else {
     _cache_manager = nullptr;
@@ -190,6 +190,7 @@ void GPUEngine::ArchCheck() {
     CHECK_EQ(_sampler_ctx.device_id, _trainer_ctx.device_id);
   } else if (RunConfig::run_arch == kArch3) {
     CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
+    CHECK(RunConfig::UseGPUCache() ^ RunConfig::option_log_node_access);
   } else {
     CHECK(0);
   }
@@ -207,7 +208,8 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
   ret[Constant::kAliasTableFile] = _sampler_ctx;
   ret[Constant::kInDegreeFile] = MMAP();
   ret[Constant::kOutDegreeFile] = MMAP();
-  ret[Constant::kSortedNodeByInDegreeFile] = MMAP();
+  ret[Constant::kCacheByDegreeFile] = MMAP();
+  ret[Constant::kCacheByHeuristicFile] = MMAP();
 
   switch (RunConfig::run_arch) {
     case kArch1:

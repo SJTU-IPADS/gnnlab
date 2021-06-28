@@ -17,8 +17,8 @@ const std::string Constant::kAliasTableFile = "alias_table.bin";
 
 const std::string Constant::kInDegreeFile = "in_degrees.bin";
 const std::string Constant::kOutDegreeFile = "out_degrees.bin";
-const std::string Constant::kSortedNodeByInDegreeFile =
-    "sorted_nodes_by_in_degree.bin";
+const std::string Constant::kCacheByDegreeFile = "cache_by_degree.bin";
+const std::string Constant::kCacheByHeuristicFile = "cache_by_heuristic.bin";
 
 const std::string Constant::kMetaNumNode = "NUM_NODE";
 const std::string Constant::kMetaNumEdge = "NUM_EDGE";

@@ -57,6 +57,7 @@ def parse_args():
     argparser.add_argument('--dropout', type=float, default=0.5)
     argparser.add_argument('--report-per-count', type=int, default=1)
     argparser.add_argument('--report-last', action='store_true', default=False)
+    argparser.add_argument('--cache-policy', type=int, default=1)
     argparser.add_argument('--cache-percentage', type=float, default=0)
 
     run_config = vars(argparser.parse_args())
@@ -78,13 +79,13 @@ def get_run_config():
         return args_run_config
 
     run_config = {}
-    run_config['arch'] = sam.meepo_archs['arch3']
+    run_config['arch'] = sam.meepo_archs['arch1']
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sample_type'] = sam.kKHop0
-    run_config['pipeline'] = True
-    run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    run_config['pipeline'] = False
+    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
-    # run_config['dataset_path'] = '/graph-learning/samgraph/products'
+    run_config['dataset_path'] = '/graph-learning/samgraph/products'
     # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
@@ -100,6 +101,7 @@ def get_run_config():
     run_config['dropout'] = 0.5
     run_config['report_per_count'] = 1
     run_config['report_last'] = False
+    run_config['cache_policy'] = sam.kCacheByHeuristic
     run_config['cache_percentage'] = 0.2
 
     return run_config

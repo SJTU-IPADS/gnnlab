@@ -52,6 +52,9 @@ kArch1 = 1
 kArch2 = 2
 kArch3 = 3
 
+kCacheByDegree = 0
+kCacheByHeuristic = 1
+
 meepo_archs = {
     'arch0': {
         'arch_type': kArch0,
@@ -137,6 +140,9 @@ class SamGraphBasics(object):
             ),
             ctypes.c_size_t(
                 run_config['num_epoch']
+            ),
+            ctypes.c_int(
+                run_config['cache_policy']
             ),
             ctypes.c_double(
                 run_config['cache_percentage']

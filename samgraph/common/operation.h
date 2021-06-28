@@ -13,7 +13,8 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
                      int sampler_device_type, int sampler_device_id,
                      int trainer_device_type, int trainer_device_id,
                      size_t batch_size, int *fanout, size_t num_fanout,
-                     size_t num_epoch, double cache_percentage);
+                     size_t num_epoch, int cache_policy,
+                     double cache_percentage);
 
 void samgraph_init();
 

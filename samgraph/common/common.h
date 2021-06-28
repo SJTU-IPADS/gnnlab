@@ -39,6 +39,11 @@ enum SampleType {
 // arch3: dedicated mode (dedicated GPU for sampling and training)
 enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3 };
 
+// cache by degree: cache the nodes with large degree
+// cache by heuristic: cache the training set and the first hop neighbors first,
+// then the nodes with large degree
+enum CachePolicy { kCacheByDegree = 0, kCacheByHeuristic };
+
 struct Context {
   DeviceType device_type;
   int device_id;
@@ -99,7 +104,9 @@ struct Dataset {
 
   TensorPtr in_degrees;
   TensorPtr out_degrees;
-  TensorPtr sorted_nodes_by_in_degree;
+
+  // Decide nodes' feature store in GPU or CPU
+  TensorPtr ranking_nodes;
 
   // Node feature and label
   size_t num_class;

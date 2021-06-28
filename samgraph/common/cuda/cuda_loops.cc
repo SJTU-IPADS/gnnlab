@@ -352,10 +352,6 @@ void DoGPUFeatureExtract(TaskPtr task) {
   GPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type,
              sampler_ctx, sample_stream, task->key);
 
-  if (RunConfig::option_log_node_access) {
-    Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
-  }
-
   LOG(DEBUG) << "GPUFeatureExtract: process task with key " << task->key;
 }
 
@@ -619,10 +615,6 @@ void DoCacheFeatureCopy(TaskPtr task) {
   Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime, combine_miss_time);
   Profiler::Get().Log(task->key, kLogL3CacheCombineCacheTime,
                       combine_cache_time);
-
-  if (RunConfig::option_log_node_access) {
-    Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
-  }
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }
