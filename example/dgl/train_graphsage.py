@@ -49,7 +49,7 @@ def get_run_config():
     run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
 
-    run_config['fanout'] = [15]
+    run_config['fanout'] = [5, 10, 15]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
     run_config['num_epoch'] = 10

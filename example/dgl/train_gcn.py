@@ -28,13 +28,14 @@ class GCN(nn.Module):
         self.layers = nn.ModuleList()
         # input layer
         self.layers.append(
-            GraphConv(in_feats, n_hidden, activation=activation))
+            GraphConv(in_feats, n_hidden, activation=activation, allow_zero_in_degree=True))
         # hidden layers
         for i in range(1, n_layers - 1):
             self.layers.append(
-                GraphConv(n_hidden, n_hidden, activation=activation))
+                GraphConv(n_hidden, n_hidden, activation=activation, allow_zero_in_degree=True))
         # output layer
-        self.layers.append(GraphConv(n_hidden, n_classes))
+        self.layers.append(
+            GraphConv(n_hidden, n_classes, allow_zero_in_degree=True))
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, blocks, features):
@@ -50,10 +51,10 @@ def get_run_config():
     run_config = {}
     run_config['pipeline'] = False
     run_config['device'] = 'cuda:0'
-    run_config['dataset'] = 'reddit'
+    # run_config['dataset'] = 'reddit'
     # run_config['dataset'] = 'products'
     # run_config['dataset'] = 'papers100M'
-    # run_config['dataset'] = 'com-friendster'
+    run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
 
     run_config['fanout'] = [5, 10, 15]
