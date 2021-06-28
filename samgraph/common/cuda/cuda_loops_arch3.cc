@@ -132,6 +132,7 @@ bool RunCacheDataCopySubLoopOnce() {
 
     Timer t2;
     DoCacheFeatureCopy(task);
+    DoGPULabelExtract(task);
     double cache_feat_copy_time = t2.Passed();
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
