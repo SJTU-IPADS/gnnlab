@@ -21,15 +21,6 @@ namespace common {
 
 Engine* Engine::_engine = nullptr;
 
-void Engine::Report(uint64_t epoch, uint64_t step) {
-  uint64_t key = Engine::GetBatchKey(epoch, step);
-  if (RunConfig::option_report_step) {
-    Profiler::Get().Report(key);
-  } else {
-    Profiler::Get().ReportAverage(key);
-  }
-}
-
 void Engine::Create() {
   if (_engine) {
     return;

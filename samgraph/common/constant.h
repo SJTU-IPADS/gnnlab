@@ -56,7 +56,6 @@ class Constant {
   static constexpr size_t kAllocScale = 2;
   static constexpr size_t kAllocNoScale = 1;
 
-  static const std::string kEnvReportStep;
   static const std::string kEnvProfileLevel;
   static const std::string kEnvProfileCuda;
   static const std::string kEnvLogNodeAccess;

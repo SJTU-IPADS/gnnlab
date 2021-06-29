@@ -119,13 +119,12 @@ struct Dataset {
   TensorPtr valid_set;
 };
 
-// Train graph format that is compatible with the cuSparse method
+// Train graph in COO format
 struct TrainGraph {
   TensorPtr row;
   TensorPtr col;
-  TensorPtr val;
-  size_t num_row;
-  size_t num_column;
+  size_t num_src;
+  size_t num_dst;
   size_t num_edge;
 };
 

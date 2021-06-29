@@ -18,11 +18,14 @@ feat_dim = _basics.feat_dim
 num_epoch = _basics.num_epoch
 steps_per_epoch = _basics.steps_per_epoch
 get_next_batch = _basics.get_next_batch
-get_graph_num_row = _basics.get_graph_num_row
-get_graph_num_col = _basics.get_graph_num_col
+get_graph_num_src = _basics.get_graph_num_src
+get_graph_num_dst = _basics.get_graph_num_dst
 shutdown = _basics.shutdown
-sample = _basics.sample
-report = _basics.report
+sample_once = _basics.sample_once
+report_step = _basics.report_step
+report_step_average = _basics.report_step_average
+report_epoch = _basics.report_epoch
+report_epoch_average = _basics.report_epoch_average
 report_node_access = _basics.report_node_access
 
 
@@ -50,8 +53,8 @@ def get_dgl_blocks(batch_key, num_layers):
         # t0 = time.time()
         row = get_graph_row(batch_key, i)
         col = get_graph_col(batch_key, i)
-        num_src_nodes = get_graph_num_row(batch_key, i)
-        num_dst_nodes = get_graph_num_col(batch_key, i)
+        num_src_nodes = get_graph_num_src(batch_key, i)
+        num_dst_nodes = get_graph_num_dst(batch_key, i)
 
         # t1 = time.time()
 

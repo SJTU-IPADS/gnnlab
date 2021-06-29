@@ -178,21 +178,23 @@ void GPUEngine::RunSampleOnce() {
   }
 }
 
-void GPUEngine::Report(uint64_t epoch, uint64_t step) {
-  Engine::Report(epoch, step);
-}
-
 void GPUEngine::ArchCheck() {
   CHECK_EQ(_sampler_ctx.device_type, kGPU);
   CHECK_EQ(_trainer_ctx.device_type, kGPU);
 
-  if (RunConfig::run_arch == kArch1 || RunConfig::run_arch == kArch2) {
-    CHECK_EQ(_sampler_ctx.device_id, _trainer_ctx.device_id);
-  } else if (RunConfig::run_arch == kArch3) {
-    CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
-    CHECK(RunConfig::UseGPUCache() ^ RunConfig::option_log_node_access);
-  } else {
-    CHECK(0);
+  switch (RunConfig::run_arch) {
+    case kArch1:
+      CHECK_EQ(_sampler_ctx.device_id, _trainer_ctx.device_id);
+      break;
+    case kArch2:
+      CHECK_EQ(_sampler_ctx.device_id, _trainer_ctx.device_id);
+      break;
+    case kArch3:
+      CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
+      CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
+      break;
+    default:
+      CHECK(0);
   }
 }
 

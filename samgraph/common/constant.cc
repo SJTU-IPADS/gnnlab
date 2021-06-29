@@ -28,7 +28,6 @@ const std::string Constant::kMetaNumTrainSet = "NUM_TRAIN_SET";
 const std::string Constant::kMetaNumTestSet = "NUM_TEST_SET";
 const std::string Constant::kMetaNumValidSet = "NUM_VALID_SET";
 
-const std::string Constant::kEnvReportStep = "SAMGRAPH_REPORT_STEP";
 const std::string Constant::kEnvProfileLevel = "SAMGRAPH_PROFILE_LEVEL";
 const std::string Constant::kEnvProfileCuda = "SAMGRAPH_PROFILE_CUDA";
 const std::string Constant::kEnvLogNodeAccess = "SAMGRAPH_LOG_NODE_ACCESS";

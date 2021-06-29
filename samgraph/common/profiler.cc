@@ -34,7 +34,7 @@ Profiler::Profiler() {
   size_t num_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
 
   _data.resize(num_items);
-  _output_buf.resize(num_items);
+  _buf.resize(num_items);
 
   _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
@@ -57,6 +57,134 @@ void Profiler::LogAdd(uint64_t key, LogItem item, double val) {
   _data[item_idx].cnt = _data[item_idx].bitmap[key] ? _data[item_idx].cnt
                                                     : _data[item_idx].cnt + 1;
   _data[item_idx].bitmap[key] = true;
+}
+
+void Profiler::ReportStep(uint64_t epoch, uint64_t step) {
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+
+  size_t num_items = static_cast<size_t>(kNumLogItems);
+  for (size_t i = 0; i < num_items; i++) {
+    _buf[i] = _data[i].vals[key];
+  }
+  Output(key, "step");
+}
+
+void Profiler::ReportStepAverage(uint64_t epoch, uint64_t step) {
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+
+  size_t num_items = static_cast<size_t>(kNumLogItems);
+  for (size_t i = 0; i < num_items; i++) {
+    double sum = _data[i].sum - _data[i].vals[0];
+    size_t cnt = _data[i].cnt <= 1 ? 1 : _data[i].cnt - 1;
+    _buf[i] = sum / cnt;
+  }
+
+  Output(key, "step(average)");
+}
+
+void Profiler::ReportEpoch(uint64_t epoch) {}
+
+void Profiler::ReportEpochAverage(uint64_t epoch) {}
+
+Profiler &Profiler::Get() {
+  static Profiler inst;
+  return inst;
+}
+
+void Profiler::Output(uint64_t key, std::string type) {
+  uint32_t epoch = Engine::Get()->GetEpochFromKey(key);
+  uint32_t step = Engine::Get()->GetStepFromKey(key);
+
+  std::string env_level = GetEnv(Constant::kEnvProfileLevel);
+
+  int level = 0;
+  if (env_level == "1") {
+    level = 1;
+  } else if (env_level == "2") {
+    level = 2;
+  } else if (env_level == "3") {
+    level = 3;
+  }
+
+  if (level >= 1 && !RunConfig::UseGPUCache()) {
+    printf(
+        "  [Profiler Level 1 %s E%u S%u]\n"
+        "      L1  sample         %10.4lf | copy       %10.4lf\n"
+        "      L1  feature nbytes %10s | label nbytes %10s\n"
+        "      L1  id nbytes      %10s | graph nbytes %10s\n",
+        type.c_str(), epoch, step, _buf[kLogL1SampleTime], _buf[kLogL1CopyTime],
+        ToReadableSize(_buf[kLogL1FeatureBytes]).c_str(),
+        ToReadableSize(_buf[kLogL1LabelBytes]).c_str(),
+        ToReadableSize(_buf[kLogL1IdBytes]).c_str(),
+        ToReadableSize(_buf[kLogL1GraphBytes]).c_str());
+  } else {
+    printf(
+        "  [Profiler Level 1 %s E%u S%u]\n"
+        "      L1  sample         %10.4lf | copy       %10.4lf\n"
+        "      L1  feature nbytes %10s | label nbytes %10s\n"
+        "      L1  id nbytes      %10s | graph nbytes %10s\n"
+        "      L1  miss nbytes    %10s\n",
+        type.c_str(), epoch, step, _buf[kLogL1SampleTime], _buf[kLogL1CopyTime],
+        ToReadableSize(_buf[kLogL1FeatureBytes]).c_str(),
+        ToReadableSize(_buf[kLogL1LabelBytes]).c_str(),
+        ToReadableSize(_buf[kLogL1IdBytes]).c_str(),
+        ToReadableSize(_buf[kLogL1GraphBytes]).c_str(),
+        ToReadableSize(_buf[kLogL1MissBytes]).c_str());
+  }
+
+  if (level >= 2 && !RunConfig::UseGPUCache()) {
+    printf(
+        "  [Profiler Level 2 %s E%u S%u]\n"
+        "      L2  shuffle     %.4lf | core sample  %.4lf | id remap  %.4lf\n"
+        "      L2  graph copy  %.4lf | id copy      %.4lf | extract   %.4lf | "
+        "feat copy %.4lf\n",
+        type.c_str(), epoch, step, _buf[kLogL2ShuffleTime],
+        _buf[kLogL2CoreSampleTime], _buf[kLogL2IdRemapTime],
+        _buf[kLogL2GraphCopyTime], _buf[kLogL2IdCopyTime],
+        _buf[kLogL2ExtractTime], _buf[kLogL2FeatCopyTime]);
+  } else if (level >= 2) {
+    printf(
+        "  [Profiler Level 2 %s E%u S%u]\n"
+        "      L2  shuffle     %.4lf | core sample  %.4lf | "
+        "id remap        %.4lf\n"
+        "      L2  graph copy  %.4lf | id copy      %.4lf | "
+        "cache feat copy %.4lf\n",
+        type.c_str(), epoch, step, _buf[kLogL2ShuffleTime],
+        _buf[kLogL2CoreSampleTime], _buf[kLogL2IdRemapTime],
+        _buf[kLogL2GraphCopyTime], _buf[kLogL2IdCopyTime],
+        _buf[kLogL2CacheCopyTime]);
+  }
+
+  if (level >= 3 && !RunConfig::UseGPUCache()) {
+    printf(
+        "  [Profiler Level 3 %s E%u S%u]\n"
+        "      L3  sample coo      %.4lf | sort coo       %.4lf | "
+        "count edge     %.4lf | compact edge %.4lf\n"
+        "      L3  remap populate  %.4lf | remap mapnode  %.4lf | "
+        "remap mapedge  %.4lf\n",
+        type.c_str(), epoch, step, _buf[kLogL3SampleCooTime],
+        _buf[kLogL3SampleSortCooTime], _buf[kLogL3SampleCountEdgeTime],
+        _buf[kLogL3SampleCompactEdgesTime], _buf[kLogL3RemapPopulateTime],
+        _buf[kLogL3RemapMapNodeTime], _buf[kLogL3RemapMapEdgeTime]);
+  } else if (level >= 3) {
+    printf(
+        "  [Profiler Level 3 %s E%u S%u]\n"
+        "      L3  sample coo       %.4lf | sort coo            %.4lf | "
+        "count edge           %.4lf | compact edge %.4lf\n"
+        "      L3  remap populate   %.4lf | remap mapnode       %.4lf | "
+        "remap mapedge        %.4lf\n"
+        "      L3  cache get_index  %.4lf | cache copy_index    %.4lf | "
+        "cache extract_miss   %.4lf\n"
+        "      L3  cache copy_miss  %.4lf | cache combine_miss  %.4lf | "
+        "cache combine cache  %.4lf\n",
+        type.c_str(), epoch, step, _buf[kLogL3SampleCooTime],
+        _buf[kLogL3SampleSortCooTime], _buf[kLogL3SampleCountEdgeTime],
+        _buf[kLogL3SampleCompactEdgesTime], _buf[kLogL3RemapPopulateTime],
+        _buf[kLogL3RemapMapNodeTime], _buf[kLogL3RemapMapEdgeTime],
+        _buf[kLogL3CacheGetIndexTime], _buf[KLogL3CacheCopyIndexTime],
+        _buf[kLogL3CacheExtractMissTime], _buf[kLogL3CacheCopyMissTime],
+        _buf[kLogL3CacheCombineMissTime], _buf[kLogL3CacheCombineCacheTime]);
+  }
 }
 
 void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
@@ -85,25 +213,6 @@ void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
   }
 
   _similarity[key] = similarity_count;
-}
-
-void Profiler::Report(uint64_t key) {
-  size_t num_items = static_cast<size_t>(kNumLogItems);
-  for (size_t i = 0; i < num_items; i++) {
-    _output_buf[i] = _data[i].vals[key];
-  }
-  Output(key, "");
-}
-
-void Profiler::ReportAverage(uint64_t key) {
-  size_t num_items = static_cast<size_t>(kNumLogItems);
-  for (size_t i = 0; i < num_items; i++) {
-    double sum = _data[i].sum - _data[i].vals[0];
-    size_t cnt = _data[i].cnt <= 1 ? 1 : _data[i].cnt - 1;
-    _output_buf[i] = sum / cnt;
-  }
-
-  Output(key, "avg");
 }
 
 void Profiler::ReportNodeAccess() {
@@ -149,9 +258,9 @@ void Profiler::ReportNodeAccess() {
   // how many times are nodes accessed
   double access_sum = 0;
   // count's prefix sum
-  double count_percentage_prefix_sum = 0;
+  double count_percentypee_prefix_sum = 0;
   // access's prefix sum
-  double access_percentage_prefix_sum = 0;
+  double access_percentypee_prefix_sum = 0;
 
   for (IdType nodeid = 0; nodeid < _node_access.size(); nodeid++) {
     if (_node_access[nodeid] > 0) {
@@ -208,12 +317,12 @@ void Profiler::ReportNodeAccess() {
   for (auto &p : frequency) {
     size_t frequency = p.first;
     size_t count = p.second;
-    double count_percentage = static_cast<double>(count) / num_nodes;
-    count_percentage_prefix_sum += count_percentage;
+    double count_percentypee = static_cast<double>(count) / num_nodes;
+    count_percentypee_prefix_sum += count_percentypee;
 
     size_t access = frequency * count;
-    double access_percentage = static_cast<double>(access) / access_sum;
-    access_percentage_prefix_sum += access_percentage;
+    double access_percentypee = static_cast<double>(access) / access_sum;
+    access_percentypee_prefix_sum += access_percentypee;
 
     double average_indegree = static_cast<double>(sum_indegree_map[frequency]) /
                               static_cast<double>(count);
@@ -221,9 +330,9 @@ void Profiler::ReportNodeAccess() {
         static_cast<double>(sum_outdegree_map[frequency]) /
         static_cast<double>(count);
 
-    ofs1 << frequency << " " << count << " " << count_percentage << " "
-         << count_percentage_prefix_sum << " " << access << " "
-         << access_percentage << " " << access_percentage_prefix_sum << " "
+    ofs1 << frequency << " " << count << " " << count_percentypee << " "
+         << count_percentypee_prefix_sum << " " << access << " "
+         << access_percentypee << " " << access_percentypee_prefix_sum << " "
          << min_indegree_map[frequency] << " " << average_indegree << " "
          << max_indegree_map[frequency] << " " << min_outdegree_map[frequency]
          << " " << average_outdegree << " " << max_outdegree_map[frequency]
@@ -231,147 +340,15 @@ void Profiler::ReportNodeAccess() {
   }
 
   for (size_t i = 0; i < _similarity.size(); i++) {
-    double similarity_percentage =
+    double similarity_percentypee =
         _similarity[i] / _data[kLogL1NumNode].vals[i];
     ofs2 << i << " " << _data[kLogL1NumNode].vals[i] << " " << _similarity[i]
-         << " " << similarity_percentage << "\n";
+         << " " << similarity_percentypee << "\n";
   }
 
   ofs0.close();
   ofs1.close();
   ofs2.close();
-}
-
-Profiler &Profiler::Get() {
-  static Profiler inst;
-  return inst;
-}
-
-void Profiler::Output(uint64_t key, std::string tag) {
-  uint64_t epoch = Engine::Get()->GetEpochFromKey(key);
-  uint64_t step = Engine::Get()->GetStepFromKey(key);
-
-  std::string env_level = GetEnv(Constant::kEnvProfileLevel);
-
-  int level = 0;
-  if (env_level == "1") {
-    level = 1;
-  } else if (env_level == "2") {
-    level = 2;
-  } else if (env_level == "3") {
-    level = 3;
-  }
-
-  if (level >= 1 && !RunConfig::UseGPUCache()) {
-    printf(
-        "  [Profile L1-%s %lu %lu]"
-        " sample %.4lf |"
-        " copy %.4lf |"
-        " feature nbytes %s |"
-        " label nbytes %s |"
-        " id nbytes %s |"
-        " graph nbytes %s \n",
-        tag.c_str(), epoch, step, _output_buf[kLogL1SampleTime],
-        _output_buf[kLogL1CopyTime],
-        ToReadableSize(_output_buf[kLogL1FeatureBytes]).c_str(),
-        ToReadableSize(_output_buf[kLogL1LabelBytes]).c_str(),
-        ToReadableSize(_output_buf[kLogL1IdBytes]).c_str(),
-        ToReadableSize(_output_buf[kLogL1GraphBytes]).c_str());
-  } else {
-    printf(
-        "  [Profile L1-%s %lu %lu]"
-        " sample %.4lf |"
-        " copy %.4lf |"
-        " feature nbytes %s |"
-        " label nbytes %s |"
-        " id nbytes %s |"
-        " graph nbytes %s |"
-        " miss nbytes %s\n",
-        tag.c_str(), epoch, step, _output_buf[kLogL1SampleTime],
-        _output_buf[kLogL1CopyTime],
-        ToReadableSize(_output_buf[kLogL1FeatureBytes]).c_str(),
-        ToReadableSize(_output_buf[kLogL1LabelBytes]).c_str(),
-        ToReadableSize(_output_buf[kLogL1IdBytes]).c_str(),
-        ToReadableSize(_output_buf[kLogL1GraphBytes]).c_str(),
-        ToReadableSize(_output_buf[kLogL1MissBytes]).c_str());
-  }
-
-  if (level >= 2 && !RunConfig::UseGPUCache()) {
-    printf(
-        "  [Profile L2-%s %lu %lu]"
-        " shuffle %.4lf |"
-        " core sample %.4lf |"
-        " id remap %.4lf |"
-        " graph copy %.4lf |"
-        " id copy %.4lf |"
-        " extract %.4lf |"
-        " feat copy %.4lf\n",
-        tag.c_str(), epoch, step, _output_buf[kLogL2ShuffleTime],
-        _output_buf[kLogL2CoreSampleTime], _output_buf[kLogL2IdRemapTime],
-        _output_buf[kLogL2GraphCopyTime], _output_buf[kLogL2IdCopyTime],
-        _output_buf[kLogL2ExtractTime], _output_buf[kLogL2FeatCopyTime]);
-  } else if (level >= 2) {
-    printf(
-        "  [Profile L2-%s %lu %lu]"
-        " shuffle %.4lf |"
-        " core sample %.4lf |"
-        " id remap %.4lf |"
-        " graph copy %.4lf |"
-        " id copy %.4lf |"
-        " cache feat copy %.4lf\n",
-        tag.c_str(), epoch, step, _output_buf[kLogL2ShuffleTime],
-        _output_buf[kLogL2CoreSampleTime], _output_buf[kLogL2IdRemapTime],
-        _output_buf[kLogL2GraphCopyTime], _output_buf[kLogL2IdCopyTime],
-        _output_buf[kLogL2CacheCopyTime]);
-  }
-
-  if (level >= 3 && !RunConfig::UseGPUCache()) {
-    printf(
-        "  [Profile L3-%s %lu %lu]"
-        " sample coo %.4lf |"
-        " sort coo %.4lf |"
-        " count edge %.4lf |"
-        " compact edge %.4lf |"
-        " remap populate %.4lf |"
-        " remap mapnode %.4lf |"
-        " remap mapedge %.4lf\n",
-        tag.c_str(), epoch, step, _output_buf[kLogL3SampleCooTime],
-        _output_buf[kLogL3SampleSortCooTime],
-        _output_buf[kLogL3SampleCountEdgeTime],
-        _output_buf[kLogL3SampleCompactEdgesTime],
-        _output_buf[kLogL3RemapPopulateTime],
-        _output_buf[kLogL3RemapMapNodeTime],
-        _output_buf[kLogL3RemapMapEdgeTime]);
-  } else if (level >= 3) {
-    printf(
-        "  [Profile L3-%s %lu %lu]"
-        " sample coo %.4lf |"
-        " sort coo %.4lf |"
-        " count edge %.4lf |"
-        " compact edge %.4lf |"
-        " remap populate %.4lf |"
-        " remap mapnode %.4lf |"
-        " remap mapedge %.4lf |"
-        " cache get_index %.4lf |"
-        " cache copy_index %.4lf |"
-        " cache extract_miss %.4lf |"
-        " cache copy_miss %.4lf |"
-        " cache combine_miss %.4lf |"
-        " cache combine cache %.4lf\n",
-        tag.c_str(), epoch, step, _output_buf[kLogL3SampleCooTime],
-        _output_buf[kLogL3SampleSortCooTime],
-        _output_buf[kLogL3SampleCountEdgeTime],
-        _output_buf[kLogL3SampleCompactEdgesTime],
-        _output_buf[kLogL3RemapPopulateTime],
-        _output_buf[kLogL3RemapMapNodeTime],
-        _output_buf[kLogL3RemapMapEdgeTime],
-        _output_buf[kLogL3CacheGetIndexTime],
-        _output_buf[KLogL3CacheCopyIndexTime],
-        _output_buf[kLogL3CacheExtractMissTime],
-        _output_buf[kLogL3CacheCopyMissTime],
-        _output_buf[kLogL3CacheCombineMissTime],
-        _output_buf[kLogL3CacheCombineCacheTime]);
-  }
 }
 
 }  // namespace common

@@ -128,8 +128,8 @@ void DoCPUSample(TaskPtr task) {
         new_src, DataType::kI32, {num_out}, CPU(),
         "train_graph.col_cpu_sample_" + std::to_string(task->key) + "_" +
             std::to_string(i));
-    train_graph->num_row = num_unique;
-    train_graph->num_column = num_input;
+    train_graph->num_src = num_unique;
+    train_graph->num_dst = num_input;
     train_graph->num_edge = num_out;
 
     task->graphs[i] = train_graph;

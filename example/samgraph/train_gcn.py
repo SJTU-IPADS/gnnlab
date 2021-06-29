@@ -149,7 +149,7 @@ def run():
         for step in range(num_step):
             t0 = time.time()
             if not run_config['pipeline']:
-                sam.sample()
+                sam.sample_once()
             batch_key = sam.get_next_batch(epoch, step)
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(

@@ -30,7 +30,6 @@ class GPUEngine : public Engine {
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
-  void Report(uint64_t epoch, uint64_t step) override;
 
   GPUShuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }

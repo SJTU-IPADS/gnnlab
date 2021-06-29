@@ -155,8 +155,8 @@ void DoGPUSample(TaskPtr task) {
     double remap_time = t1.Passed();
 
     auto train_graph = std::make_shared<TrainGraph>();
-    train_graph->num_row = num_unique;
-    train_graph->num_column = num_input;
+    train_graph->num_src = num_unique;
+    train_graph->num_dst = num_input;
     train_graph->num_edge = num_samples;
     train_graph->col = Tensor::FromBlob(
         new_src, DataType::kI32, {num_samples}, sampler_ctx,

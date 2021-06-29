@@ -117,10 +117,6 @@ void CPUEngine::Shutdown() {
 
 void CPUEngine::RunSampleOnce() { RunArch0LoopsOnce(); }
 
-void CPUEngine::Report(uint64_t epoch, uint64_t step) {
-  Engine::Report(epoch, step);
-}
-
 void CPUEngine::ArchCheck() {
   CHECK_EQ(RunConfig::run_arch, kArch0);
   CHECK_EQ(_sampler_ctx.device_type, kCPU);

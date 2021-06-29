@@ -93,14 +93,14 @@ uint64_t samgraph_get_next_batch(uint64_t epoch, uint64_t step) {
 
 void samgraph_sample_once() { Engine::Get()->RunSampleOnce(); }
 
-size_t samgraph_get_graph_num_row(uint64_t key, int graph_id) {
+size_t samgraph_get_graph_num_src(uint64_t key, int graph_id) {
   auto batch = Engine::Get()->GetGraphBatch();
-  return batch->graphs[graph_id]->num_row;
+  return batch->graphs[graph_id]->num_src;
 }
 
-size_t samgraph_get_graph_num_col(uint64_t key, int graph_id) {
+size_t samgraph_get_graph_num_dst(uint64_t key, int graph_id) {
   auto batch = Engine::Get()->GetGraphBatch();
-  return batch->graphs[graph_id]->num_column;
+  return batch->graphs[graph_id]->num_dst;
 }
 
 size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
@@ -116,8 +116,20 @@ void samgraph_shutdown() {
   LOG(INFO) << "SamGraph has been completely shutdown now";
 }
 
-void samgraph_report(uint64_t epoch, uint64_t step) {
-  Engine::Get()->Report(epoch, step);
+void samgraph_report_step(uint64_t epoch, uint64_t step) {
+  Profiler::Get().ReportStep(epoch, step);
+}
+
+void samgraph_report_step_average(uint64_t epoch, uint64_t step) {
+  Profiler::Get().ReportStep(epoch, step);
+}
+
+void samgraph_report_epoch(uint64_t epoch) {
+  Profiler::Get().ReportEpoch(epoch);
+}
+
+void samgraph_report_epoch_average(uint64_t epoch) {
+  Profiler::Get().ReportEpochAverage(epoch);
 }
 
 void samgraph_report_node_access() {
