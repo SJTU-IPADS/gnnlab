@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "options.h"
 #include "utils.h"
 
 namespace utility {
@@ -86,6 +87,46 @@ void *Graph::LoadDataFromFile(std::string file, const size_t expected_nbytes) {
   close(fd);
 
   return ret;
+}
+
+std::shared_ptr<DegreeInfo> DegreeInfo::GetDegrees(GraphPtr &graph) {
+  size_t num_nodes = graph->num_nodes;
+  size_t num_threads = Options::num_threads;
+  uint32_t *indptr = graph->indptr;
+  uint32_t *indices = graph->indices;
+
+  auto info = std::make_shared<DegreeInfo>();
+  std::vector<uint32_t> &in_degrees = info->in_degrees;
+  std::vector<uint32_t> &out_degrees = info->out_degrees;
+
+  in_degrees.resize(num_nodes);
+  out_degrees.resize(num_nodes);
+
+  // The graph is CSC-format
+  std::vector<std::vector<uint32_t>> out_degrees_per_thread(
+      num_threads, std::vector<uint32_t>(num_nodes, 0));
+
+#pragma omp parallel for
+  for (uint32_t i = 0; i < num_nodes; i++) {
+    uint32_t len = indptr[i + 1] - indptr[i];
+    uint32_t off = indptr[i];
+
+    in_degrees[i] = len;
+
+    uint32_t thread_idx = omp_get_thread_num();
+    for (uint32_t k = 0; k < len; k++) {
+      out_degrees_per_thread[thread_idx][indices[off + k]]++;
+    }
+  }
+
+#pragma omp parallel for
+  for (uint32_t i = 0; i < num_nodes; i++) {
+    for (uint32_t k = 0; k < num_threads; k++) {
+      out_degrees[i] += out_degrees_per_thread[k][i];
+    }
+  }
+
+  return info;
 }
 
 GraphLoader::GraphLoader(std::string root) {

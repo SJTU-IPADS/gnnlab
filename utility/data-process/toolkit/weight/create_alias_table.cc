@@ -116,11 +116,11 @@ void CreateAliasTable(const uint32_t *indptr, const uint32_t *indices,
 }  // namespace
 
 int main(int argc, char *argv[]) {
-  utility::Options options("Degree generator");
-  OPTIONS_PARSE(options, argc, argv);
+  utility::Options::InitOptions("Graph property");
+  OPTIONS_PARSE(argc, argv);
 
-  utility::GraphLoader graph_loader(options.root);
-  auto graph = graph_loader.GetGraphDataset(options.graph);
+  utility::GraphLoader graph_loader(utility::Options::root);
+  auto graph = graph_loader.GetGraphDataset(utility::Options::graph);
 
   uint32_t *indptr = graph->indptr;
   uint32_t *indices = graph->indices;

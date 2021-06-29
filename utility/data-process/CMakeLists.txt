@@ -24,6 +24,18 @@ add_executable(
 )
 
 add_executable(
+    cache-by-degree
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_degree.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
+    cache-by-heuristic
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_heuristic.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
     degree-info
     ${CMAKE_SOURCE_DIR}/toolkit/degree/degree_info.cc
     ${COMMON_SOURCE}

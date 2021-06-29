@@ -6,12 +6,13 @@
 
 namespace utility {
 
-Options::Options(std::string app_name) : _app("", app_name) {
-  root = "/graph-learning/samgraph/";
-  graph = "papers100M";
-  num_threads = 48;
-  is64type = false;
+std::string Options::root = "/graph-learning/samgraph/";
+std::string Options::graph = "papers100M";
+size_t Options::num_threads = 48;
+bool Options::is64type = false;
+CLI::App Options::_app;
 
+void Options::InitOptions(std::string app_name) {
   _app.add_option("-p,--root", root);
   _app.add_option("-g,--graph", graph)
       ->check(CLI::IsMember({

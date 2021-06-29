@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace utility {
 
@@ -38,7 +39,9 @@ using GraphPtr = std::shared_ptr<Graph>;
 
 class DegreeInfo {
  public:
-  static GetInfo() private:
+  std::vector<uint32_t> in_degrees;
+  std::vector<uint32_t> out_degrees;
+  static std::shared_ptr<DegreeInfo> GetDegrees(GraphPtr &graph);
 };
 
 class GraphLoader {

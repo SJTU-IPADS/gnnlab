@@ -11,31 +11,31 @@
 
 namespace utility {
 
-#ifndef OPTIONS_PARSE
-#define OPTIONS_PARSE(options, argc, argv) \
-  try {                                    \
-    (options).Parse((argc), (argv));       \
-    (options).EnableOptions();             \
-  } catch (const CLI::ParseError &e) {     \
-    return (options).Exit(e);              \
-  }
-#endif
-
 class Options {
  public:
-  Options(std::string app_name);
-  void Parse(int argc, char *argv[]);
-  int Exit(const CLI::ParseError &e);
-  void EnableOptions();
+  static void InitOptions(std::string app_name);
+  static void Parse(int argc, char *argv[]);
+  static int Exit(const CLI::ParseError &e);
+  static void EnableOptions();
 
-  std::string root;
-  std::string graph;
-  bool is64type;
-  size_t num_threads;
+  static std::string root;
+  static std::string graph;
+  static bool is64type;
+  static size_t num_threads;
 
  private:
-  CLI::App _app;
+  static CLI::App _app;
 };
+
+#ifndef OPTIONS_PARSE
+#define OPTIONS_PARSE(argc, argv)            \
+  try {                                      \
+    utility::Options::Parse((argc), (argv)); \
+    utility::Options::EnableOptions();       \
+  } catch (const CLI::ParseError &e) {       \
+    return utility::Options::Exit(e);        \
+  }
+#endif
 
 }  // namespace utility
 

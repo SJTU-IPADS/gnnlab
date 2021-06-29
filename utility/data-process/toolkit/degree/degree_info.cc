@@ -203,11 +203,11 @@ void sortedNodesToFile(const std::vector<uint32_t> &in_degrees) {
 }  // namespace
 
 int main(int argc, char *argv[]) {
-  utility::Options options("Degree generator");
-  OPTIONS_PARSE(options, argc, argv);
+  utility::Options::InitOptions("Degree generator");
+  OPTIONS_PARSE(argc, argv);
 
-  utility::GraphLoader graph_loader(options.root);
-  auto graph = graph_loader.GetGraphDataset(options.graph);
+  utility::GraphLoader graph_loader(utility::Options::root);
+  auto graph = graph_loader.GetGraphDataset(utility::Options::graph);
 
   uint32_t *indptr = graph->indptr;
   uint32_t *indices = graph->indices;
@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
 
   AddPrefixToFilepath(graph->folder);
   getNodeDegrees(indptr, indices, num_nodes, in_degrees, out_degrees,
-                 options.num_threads);
+                 utility::Options::num_threads);
   degreesToFile(in_degrees, out_degrees, num_nodes);
   degreeFrequencyToFile(in_degrees, out_degrees, num_nodes, num_edges);
   sortedNodesToFile(in_degrees);
