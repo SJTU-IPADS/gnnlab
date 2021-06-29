@@ -14,6 +14,7 @@
 #include "../profiler.h"
 #include "../timer.h"
 #include "cuda_function.h"
+#include "cuda_utils.h"
 
 namespace samgraph {
 namespace common {
@@ -58,21 +59,19 @@ __global__ void count_edge(IdType *src, IdType *dst, size_t *item_prefix,
   size_t task_span = blockDim.x * gridDim.x;
 
   for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
-    if (task_idx == 0) {
-      if (src[task_idx] == Constant::kEmptyKey) {
-        item_prefix[task_idx] = 0;
-      } else {
-        item_prefix[task_idx] = 1;
-      }
+    if (task_idx < (num_task - 1)) {
+      // when the thread is the last thread to get the value, it should be
+      // the one responsible for copying the edge to the output array
+      item_prefix[task_idx] = (src[task_idx] != src[task_idx + 1] ||
+                               dst[task_idx] != dst[task_idx + 1]) &&
+                              src[task_idx] != Constant::kEmptyKey;
     } else {
-      if ((src[task_idx] == src[task_idx - 1] &&
-           dst[task_idx] == dst[task_idx - 1]) ||
-          src[task_idx] == Constant::kEmptyKey) {
-        item_prefix[task_idx] = 0;
-      } else {
-        item_prefix[task_idx] = 1;
-      }
+      item_prefix[task_idx] = src[task_idx] != Constant::kEmptyKey;
     }
+  }
+
+  if (threadId == 0) {
+    item_prefix[num_task] = 0;
   }
 }
 
@@ -83,10 +82,22 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
   size_t task_span = blockDim.x * gridDim.x;
 
   for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
-    if (tmp_src[task_idx] != Constant::kEmptyKey) {
+    bool cond;
+    if (task_idx < (num_task - 1)) {
+      cond = (tmp_src[task_idx] != tmp_src[task_idx + 1] ||
+              tmp_dst[task_idx] != tmp_dst[task_idx + 1]) &&
+             tmp_src[task_idx] != Constant::kEmptyKey;
+    } else {
+      cond = tmp_src[task_idx] != Constant::kEmptyKey;
+    }
+
+    if (cond) {
       out_src[item_prefix[task_idx]] = tmp_src[task_idx];
       out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
     }
+
+    // out_src[item_prefix[task_idx]] = tmp_src[task_idx];
+    // out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
   }
 
   if (threadId == 0) {
@@ -96,25 +107,6 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
 
 }  // namespace
 
-/**
- * @brief sampling algorithm from nextdoor
- * CSR format example:
-        ROW_INDEX = [  0  2  4  7  8  ]
-        COL_INDEX = [  0  1  1  3  2  3  4  5  ]
-        V         = [ 10 20 30 40 50 60 70 80  ]
- * @param indptr         ROW_INDEX, sampling vertices
- * @param indices        COL_INDEX, neighbors
- * @param input          the indices of sampling vertices
- * @param num_input      the number of sampling vertices
- * @param fanout         the number of neighbors for each sampling vertex
- * @param out_src        src vertices of all neighbors
- * @param out_dst        dst vertices of all neighbors
- * @param num_out        the number of all neighbors
- * @param ctx            GPU context
- * @param stream         GPU stream
- * @param random_states  GPU random seeds
- * @param task_key       for profiler data
- */
 void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
                     const IdType *input, const size_t num_input,
                     const size_t fanout, IdType *out_src, IdType *out_dst,
@@ -137,6 +129,7 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_sample * sizeof(IdType));
 
+  // 1. Sampling
   size_t num_threads = Min(num_sample, Constant::kKHop1MaxThreads);
   const dim3 grid(
       RoundUpDiv(num_threads, static_cast<size_t>(Constant::kCudaBlockSize)));
@@ -149,7 +142,8 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   double sample_time = t0.Passed();
   LOG(DEBUG) << "GPUSample: kernel sampling, time cost: " << sample_time;
 
-  // sort coo
+  // 2. Remove duplication.
+  // 2.1 COO pair sorting
   Timer t1;
   size_t temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
@@ -168,10 +162,10 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: sort the temporary results, time cost: "
              << sort_coo_time;
 
-  // count the prefix num
+  // 2.2 Count edges
   Timer t2;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_sample));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_sample + 1));
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
              << ToReadableSize(sizeof(int) * num_sample);
   count_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,
@@ -195,7 +189,7 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   double prefix_sum_time = t2.Passed();
   LOG(DEBUG) << "GPUSample: ExclusiveSum time cost: " << prefix_sum_time;
 
-  // compact edge
+  // 2.3 Compact edges
   Timer t3;
   compact_edge<<<grid, block, 0, cu_stream>>>(
       tmp_src, tmp_dst, out_src, out_dst, item_prefix, num_sample, num_out);

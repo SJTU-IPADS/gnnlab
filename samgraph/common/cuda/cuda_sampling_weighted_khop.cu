@@ -41,7 +41,6 @@ __global__ void sample_weighted_khop(
 
     if (len == 0) {
       tmp_src[task_idx] = Constant::kEmptyKey;
-      tmp_dst[task_idx] = Constant::kEmptyKey;
     } else {
       tmp_src[task_idx] = rid;
       // choose dst
@@ -64,21 +63,17 @@ __global__ void count_edge(IdType *src, IdType *dst, size_t *item_prefix,
   size_t task_span = blockDim.x * gridDim.x;
 
   for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
-    if (task_idx == 0) {
-      if (src[task_idx] == Constant::kEmptyKey) {
-        item_prefix[task_idx] = 0;
-      } else {
-        item_prefix[task_idx] = 1;
-      }
+    if (task_idx < (num_task - 1)) {
+      item_prefix[task_idx] = (src[task_idx] != src[task_idx + 1] ||
+                               dst[task_idx] != dst[task_idx + 1]) &&
+                              src[task_idx] != Constant::kEmptyKey;
     } else {
-      if ((src[task_idx] == src[task_idx - 1] &&
-           dst[task_idx] == dst[task_idx - 1]) ||
-          src[task_idx] == Constant::kEmptyKey) {
-        item_prefix[task_idx] = 0;
-      } else {
-        item_prefix[task_idx] = 1;
-      }
+      item_prefix[task_idx] = src[task_idx] != Constant::kEmptyKey;
     }
+  }
+
+  if (threadId == 0) {
+    item_prefix[num_task] = 0;
   }
 }
 
@@ -89,10 +84,22 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
   size_t task_span = blockDim.x * gridDim.x;
 
   for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
-    if (tmp_src[task_idx] != Constant::kEmptyKey) {
+    bool cond;
+    if (task_idx < (num_task - 1)) {
+      cond = (tmp_src[task_idx] != tmp_src[task_idx + 1] ||
+              tmp_dst[task_idx] != tmp_dst[task_idx + 1]) &&
+             tmp_src[task_idx] != Constant::kEmptyKey;
+    } else {
+      cond = tmp_src[task_idx] != Constant::kEmptyKey;
+    }
+
+    if (cond) {
       out_src[item_prefix[task_idx]] = tmp_src[task_idx];
       out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
     }
+
+    // out_src[item_prefix[task_idx]] = tmp_src[task_idx];
+    // out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
   }
 
   if (threadId == 0) {
@@ -160,7 +167,7 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
   // count the prefix num
   Timer t2;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_sample));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_sample + 1));
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
              << ToReadableSize(sizeof(int) * num_sample);
   count_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,

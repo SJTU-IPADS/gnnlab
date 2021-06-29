@@ -66,8 +66,6 @@ __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
           }
         }
       }
-
-      // printf("index %lu, len %lu, fanout %lu\n", index, len, fanout);
     }
   }
 
@@ -94,7 +92,6 @@ __global__ void count_edge(IdType *edge_src, size_t *item_prefix,
           ++count;
         }
       }
-      // printf("index %lu  count %lu\n", index, count);
     }
   }
 
@@ -104,7 +101,6 @@ __global__ void count_edge(IdType *edge_src, size_t *item_prefix,
 
   if (threadIdx.x == 0) {
     item_prefix[blockIdx.x] = count;
-    // printf("blockIdx.x %d count %lu\n", blockIdx.x, count);
     if (blockIdx.x == 0) {
       item_prefix[gridDim.x] = 0;
     }
@@ -157,7 +153,6 @@ __global__ void compact_edge(const IdType *tmp_src, const IdType *tmp_dst,
 
   if (threadIdx.x == 0 && blockIdx.x == 0) {
     *num_out = item_prefix[gridDim.x];
-    // printf("item_prefix %d\n", item_prefix[gridDim.x]);
   }
 }
 

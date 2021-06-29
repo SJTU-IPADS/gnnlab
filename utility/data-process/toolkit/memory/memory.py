@@ -46,7 +46,7 @@ class Graph:
 Reddit = Graph("Reddit", 232965, 114615892, 602)
 Products = Graph("Products", 2449029, 123718152, 100)
 Papers100M = Graph('Papers100M', 111059956, 1615685872, 128)
-ComFriendster = Graph('com-friendster', 65608366, 3612134270, 300)
+ComFriendster = Graph('com-friendster', 65608366, 3612134270, 150)
 AlipayGraph = Graph('AlipayGraph', 4 * BILLION, 26 * BILLION, 128 * 4)
 Amazon = Graph('Amazon', 65 * MILLION, 3.6 * MILLION, 300)
 Mag240M_lsc = Graph('Mag240M_lsc', 121 * MILLION, 1.2 * BILLION, 768)
