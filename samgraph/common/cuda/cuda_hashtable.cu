@@ -347,6 +347,10 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                          CPU(), stream);
   device->StreamSync(_ctx, stream);
 
+  if (num_input == 0) {
+    *num_unique = _num_items;
+  }
+
   LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique "
              << *num_unique;
 

@@ -16,16 +16,22 @@ CPUShuffler::CPUShuffler(TensorPtr input, int num_epoch, size_t batch_size,
                          bool drop_last) {
   _num_data = input->Shape().front();
   CHECK_EQ(input->Shape().size(), 1);
+  CHECK_GT(batch_size, 0);
 
   _num_epoch = num_epoch;
   _cur_epoch = 0;
 
   _data = input;
   _drop_last = drop_last;
-  _num_step =
-      drop_last ? (_num_data / batch_size) : ((_num_data - 1) / batch_size) + 1;
   _batch_size = batch_size;
-  _last_batch_size = drop_last ? batch_size : _num_data % batch_size;
+  if (drop_last) {
+    _num_step = _num_data / batch_size;
+    _last_batch_size = batch_size;
+  } else {
+    _num_step = (_num_data + batch_size - 1) / batch_size;
+    _last_batch_size =
+        _num_data % batch_size == 0 ? batch_size : _num_data % batch_size;
+  }
 
   _initialized = false;
   _cur_step = _num_step;
