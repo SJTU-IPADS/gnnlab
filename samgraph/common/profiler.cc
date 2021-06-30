@@ -22,8 +22,8 @@ namespace samgraph {
 namespace common {
 
 LogData::LogData(size_t num_logs) {
-  vals.resize(num_logs);
-  bitmap.resize(num_logs);
+  vals.resize(num_logs, 0);
+  bitmap.resize(num_logs, false);
   sum = 0;
   cnt = 0;
 }
@@ -113,7 +113,7 @@ void Profiler::ReportEpoch(uint64_t epoch) {
   for (size_t i = 0; i < num_items; i++) {
     _epoch_buf[i] = _epoch_data[i].vals[epoch];
   }
-  OutputStep(epoch, "Epoch");
+  OutputEpoch(epoch, "Epoch");
 }
 
 void Profiler::ReportEpochAverage(uint64_t epoch) {
@@ -241,10 +241,10 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
 void Profiler::OutputEpoch(uint64_t epoch, std::string type) {
   printf(
       "  [%s Profiler E%u]\n"
-      "      sample %.4lf | copy %.4lf | train %.4lf\n",
+      "      total %.4lf | sample %.4lf | copy %.4lf | train %.4lf\n",
       type.c_str(), static_cast<uint32_t>(epoch),
-      _epoch_buf[kLogEpochSampleTime], _epoch_buf[kLogEpochCopyTime],
-      _epoch_buf[kLogEpochSampleTime]);
+      _epoch_buf[kLogEpochTotalTime], _epoch_buf[kLogEpochSampleTime],
+      _epoch_buf[kLogEpochCopyTime], _epoch_buf[kLogEpochTrainTime]);
 }
 
 void Profiler::LogNodeAccess(uint64_t key, const IdType *input,

@@ -139,7 +139,7 @@ def run():
             num_nodes.append(blocks[0].num_src_nodes())
 
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(copy_times), np.mean(train_times), loss))
+                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
     epoch_avg_sample_time /= num_epoch

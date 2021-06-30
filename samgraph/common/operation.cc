@@ -142,7 +142,8 @@ void samgraph_log_step_add(uint64_t epoch, uint64_t step, int item,
 
 void samgraph_log_epoch_add(uint64_t epoch, int item, double val) {
   CHECK_LT(item, kNumLogEpochItems);
-  Profiler::Get().LogEpochAdd(epoch, static_cast<LogEpochItem>(item), val);
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, 0);
+  Profiler::Get().LogEpochAdd(key, static_cast<LogEpochItem>(item), val);
 }
 
 double samgraph_get_log_step_value(uint64_t epoch, uint64_t step, int item) {

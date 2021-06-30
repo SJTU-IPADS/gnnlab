@@ -50,7 +50,7 @@ def parse_args():
     argparser.add_argument('--dataset-path', type=str,
                            default='/graph-learning/samgraph/papers100M')
 
-    argparser.add_argument('--num-epoch', type=int, default=10)
+    argparser.add_argument('--num-epoch', type=int, default=11)
     argparser.add_argument('--fanout', nargs='+',
                            type=int, default=[5, 10, 15])
     argparser.add_argument('--batch-size', type=int, default=8000)
@@ -94,7 +94,8 @@ def get_run_config():
     run_config['fanout'] = [5, 10, 15]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 10
+    # we use the average result of 10 epochs, the first epoch is used to warm up the system
+    run_config['num_epoch'] = 11
     run_config['num_hidden'] = 256
     run_config['batch_size'] = 8000
     run_config['lr'] = 0.003
@@ -130,10 +131,10 @@ def run():
 
     model.train()
 
-    epoch_avg_sample_time = 0.0
-    epoch_avg_copy_time = 0.0
-    epoch_avg_train_time = 0.0
-    epoch_avg_total_time = 0.0
+    epoch_sample_times = []
+    epoch_copy_times = []
+    epoch_train_times = []
+    epoch_total_times = []
 
     sample_times = []
     copy_times = []
@@ -185,28 +186,25 @@ def run():
             num_nodes.append(blocks[0].num_src_nodes())
 
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(
-                    sample_times), np.mean(copy_times), np.mean(train_times), np.mean(convert_times), loss
+                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(
+                    sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
 
             sam.report_step_average(epoch, step)
 
-        epoch_avg_sample_time += sam.get_log_epoch_value(
-            epoch, sam.kLogEpochSampleTime)
-        epoch_avg_copy_time += sam.get_log_epoch_value(
-            epoch, sam.kLogEpochCopyTime)
-        epoch_avg_train_time += sam.get_log_epoch_value(
-            epoch, sam.kLogEpochTrainTime)
-        epoch_avg_total_time += sam.get_log_epoch_value(
-            epoch, sam.kLogEpochTotalTime)
+        # sam.report_epoch_average(epoch)
 
-    epoch_avg_sample_time /= num_epoch
-    epoch_avg_copy_time /= num_epoch
-    epoch_avg_train_time /= num_epoch
-    epoch_avg_total_time /= num_epoch
+        epoch_sample_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
+        epoch_copy_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
+        epoch_train_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
+        epoch_total_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-        epoch_avg_total_time, epoch_avg_sample_time, epoch_avg_copy_time, epoch_avg_train_time))
+        np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]),  np.mean(epoch_train_times[1:])))
 
     sam.report_node_access()
     sam.shutdown()

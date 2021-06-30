@@ -179,8 +179,8 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_src.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_dst.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
-        self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_long
-        self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_long
+        self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_double
+        self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_double
 
     def config(self, run_config):
         return self.C_LIB_CTYPES.samgraph_config(
