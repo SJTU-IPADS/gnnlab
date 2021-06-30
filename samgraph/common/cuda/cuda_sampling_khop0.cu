@@ -226,10 +226,11 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime, sample_time);
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCountEdgeTime, count_edge_time);
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCompactEdgesTime,
-                         compact_edge_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCooTime, sample_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCountEdgeTime,
+                             count_edge_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCompactEdgesTime,
+                             compact_edge_time);
 
   LOG(DEBUG) << "GPUSample: succeed ";
 }

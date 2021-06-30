@@ -174,11 +174,14 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
 
-    Profiler::Get().LogAdd(task->key, kLogL2CoreSampleTime, core_sample_time);
-    Profiler::Get().LogAdd(task->key, kLogL2IdRemapTime, remap_time);
-    Profiler::Get().LogAdd(task->key, kLogL3RemapPopulateTime, populate_time);
-    Profiler::Get().LogAdd(task->key, kLogL3RemapMapNodeTime, 0);
-    Profiler::Get().LogAdd(task->key, kLogL3RemapMapEdgeTime, map_edges_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
+                               core_sample_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,
+                               populate_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime, 0);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapEdgeTime,
+                               map_edges_time);
 
     cur_input = Tensor::FromBlob(
         (void *)unique, DataType::kI32, {num_unique}, sampler_ctx,
@@ -188,8 +191,8 @@ void DoGPUSample(TaskPtr task) {
   }
 
   task->input_nodes = cur_input;
-  Profiler::Get().Log(task->key, kLogL1NumNode,
-                      static_cast<double>(task->input_nodes->Shape()[0]));
+  Profiler::Get().LogStep(task->key, kLogL1NumNode,
+                          static_cast<double>(task->input_nodes->Shape()[0]));
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
@@ -229,8 +232,8 @@ void DoGraphCopy(TaskPtr task) {
     graph->row = train_row;
     graph->col = train_col;
 
-    Profiler::Get().LogAdd(task->key, kLogL1GraphBytes,
-                           train_row->NumBytes() + train_col->NumBytes());
+    Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
+                               train_row->NumBytes() + train_col->NumBytes());
   }
 
   LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
@@ -264,8 +267,9 @@ void DoIdCopy(TaskPtr task) {
   task->input_nodes = input_nodes;
   task->output_nodes = output_nodes;
 
-  Profiler::Get().LogAdd(task->key, kLogL1IdBytes,
-                         input_nodes->NumBytes() + output_nodes->NumBytes());
+  Profiler::Get().LogStepAdd(
+      task->key, kLogL1IdBytes,
+      input_nodes->NumBytes() + output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
@@ -393,7 +397,7 @@ void DoGPULabelExtract(TaskPtr task) {
 
   task->output_label = train_label;
 
-  Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
+  Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
 }
 
 void DoFeatureCopy(TaskPtr task) {
@@ -424,8 +428,9 @@ void DoFeatureCopy(TaskPtr task) {
   task->input_feat = train_feat;
   task->output_label = train_label;
 
-  Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
-  Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
+  Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
+                          train_feat->NumBytes());
+  Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
 
   LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
 }
@@ -449,7 +454,8 @@ void DoCacheIdCopy(TaskPtr task) {
 
   task->output_nodes = output_nodes;
 
-  Profiler::Get().LogAdd(task->key, kLogL1IdBytes, output_nodes->NumBytes());
+  Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes,
+                             output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
@@ -604,17 +610,22 @@ void DoCacheFeatureCopy(TaskPtr task) {
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
 
-  Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
-  Profiler::Get().Log(task->key, kLogL1MissBytes,
-                      GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-  Profiler::Get().Log(task->key, kLogL3CacheGetIndexTime, get_index_time);
-  Profiler::Get().Log(task->key, KLogL3CacheCopyIndexTime, copy_idx_time);
-  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime, extract_miss_time);
-  Profiler::Get().Log(task->key, kLogL3CacheCopyMissTime, copy_miss_time);
-  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime, extract_miss_time);
-  Profiler::Get().Log(task->key, kLogL3CacheCombineMissTime, combine_miss_time);
-  Profiler::Get().Log(task->key, kLogL3CacheCombineCacheTime,
-                      combine_cache_time);
+  Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
+                          train_feat->NumBytes());
+  Profiler::Get().LogStep(
+      task->key, kLogL1MissBytes,
+      GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
+  Profiler::Get().LogStep(task->key, kLogL3CacheGetIndexTime, get_index_time);
+  Profiler::Get().LogStep(task->key, KLogL3CacheCopyIndexTime, copy_idx_time);
+  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
+                          extract_miss_time);
+  Profiler::Get().LogStep(task->key, kLogL3CacheCopyMissTime, copy_miss_time);
+  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
+                          extract_miss_time);
+  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
+                          combine_miss_time);
+  Profiler::Get().LogStep(task->key, kLogL3CacheCombineCacheTime,
+                          combine_cache_time);
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }

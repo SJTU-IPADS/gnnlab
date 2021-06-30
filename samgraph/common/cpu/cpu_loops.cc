@@ -141,18 +141,22 @@ void DoCPUSample(TaskPtr task) {
     cpu_device->FreeWorkspace(CPU(), out_src);
     cpu_device->FreeWorkspace(CPU(), out_dst);
 
-    Profiler::Get().LogAdd(task->key, kLogL2CoreSampleTime, core_sample_time);
-    Profiler::Get().LogAdd(task->key, kLogL2IdRemapTime, remap_time);
-    Profiler::Get().LogAdd(task->key, kLogL3RemapPopulateTime, populate_time);
-    Profiler::Get().LogAdd(task->key, kLogL3RemapMapNodeTime, map_nodes_time);
-    Profiler::Get().LogAdd(task->key, kLogL3RemapMapEdgeTime, map_edges_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
+                               core_sample_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,
+                               populate_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime,
+                               map_nodes_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapEdgeTime,
+                               map_edges_time);
 
     LOG(DEBUG) << "CPUSample: finish layer " << i;
   }
 
   task->input_nodes = cur_input;
-  Profiler::Get().Log(task->key, kLogL1NumNode,
-                      static_cast<double>(task->input_nodes->Shape()[0]));
+  Profiler::Get().LogStep(task->key, kLogL1NumNode,
+                          static_cast<double>(task->input_nodes->Shape()[0]));
 }
 
 void DoFeatureExtract(TaskPtr task) {
@@ -219,8 +223,8 @@ void DoGraphCopy(TaskPtr task) {
     graph->row = train_row;
     graph->col = train_col;
 
-    Profiler::Get().LogAdd(task->key, kLogL1GraphBytes,
-                           train_row->NumBytes() + train_col->NumBytes());
+    Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
+                               train_row->NumBytes() + train_col->NumBytes());
   }
 }
 
@@ -251,8 +255,9 @@ void DoFeatureCopy(TaskPtr task) {
   task->input_feat = train_feat;
   task->output_label = train_label;
 
-  Profiler::Get().Log(task->key, kLogL1FeatureBytes, train_feat->NumBytes());
-  Profiler::Get().Log(task->key, kLogL1LabelBytes, train_label->NumBytes());
+  Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
+                          train_feat->NumBytes());
+  Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
 }
 
 }  // namespace cpu

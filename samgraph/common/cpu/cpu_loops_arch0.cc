@@ -9,6 +9,19 @@ namespace samgraph {
 namespace common {
 namespace cpu {
 
+/* clang-format off
+ *  +-------------------------+          +----------------------+
+ *  |                         |          |                      |
+ *  |                         |          |                      |
+ *  |                         |          |                      |
+ *  |  Sampling + Extracting  ----------->       Training       |
+ *  |                         |          |                      |
+ *  |                         |          |                      |
+ *  |          CPU            |          |         GPU          |
+ *  +-------------------------+          +----------------------+
+ * clang-format on
+ */
+
 namespace {
 bool RunSampleSubLoopOnce() {
   auto graph_pool = CPUEngine::Get()->GetGraphPool();
@@ -40,15 +53,19 @@ bool RunSampleSubLoopOnce() {
 
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().Log(task->key, kLogL1SampleTime,
-                        shuffle_time + sample_time);
-    Profiler::Get().Log(task->key, kLogL2ShuffleTime, shuffle_time);
-    Profiler::Get().Log(task->key, kLogL1CopyTime,
-                        extract_time + graph_copy_time + feat_copy_time);
-    Profiler::Get().Log(task->key, kLogL2ExtractTime, extract_time);
-    Profiler::Get().Log(task->key, kLogL2GraphCopyTime, graph_copy_time);
-    Profiler::Get().Log(task->key, kLogL2FeatCopyTime, feat_copy_time);
-
+    Profiler::Get().LogStep(task->key, kLogL1SampleTime,
+                            shuffle_time + sample_time);
+    Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
+    Profiler::Get().LogStep(task->key, kLogL1CopyTime,
+                            extract_time + graph_copy_time + feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2ExtractTime, extract_time);
+    Profiler::Get().LogStep(task->key, kLogL2GraphCopyTime, graph_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2FeatCopyTime, feat_copy_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
+                                shuffle_time + sample_time);
+    Profiler::Get().LogEpochAdd(
+        task->key, kLogEpochCopyTime,
+        extract_time + graph_copy_time + feat_copy_time);
     LOG(DEBUG) << "CPUSampleLoop: process task with key " << task->key;
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));

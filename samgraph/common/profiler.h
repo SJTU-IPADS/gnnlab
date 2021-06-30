@@ -10,12 +10,13 @@
 namespace samgraph {
 namespace common {
 
-enum LogItem {
+enum LogStepItem {
   // L1
   kLogL1NumSample = 0,
   kLogL1NumNode,
   kLogL1SampleTime,
   kLogL1CopyTime,
+  kLogL1TrainTime,
   kLogL1FeatureBytes,
   kLogL1LabelBytes,
   kLogL1IdBytes,
@@ -45,7 +46,15 @@ enum LogItem {
   kLogL3CacheCombineMissTime,
   kLogL3CacheCombineCacheTime,
   // Number of items
-  kNumLogItems
+  kNumLogStepItems
+};
+
+enum LogEpochItem {
+  kLogEpochSampleTime = 0,
+  kLogEpochCopyTime,
+  kLogEpochTrainTime,
+  kLogEpochTotalTime,
+  kNumLogEpochItems
 };
 
 struct LogData {
@@ -54,14 +63,18 @@ struct LogData {
   size_t cnt;
   std::vector<bool> bitmap;
 
-  LogData();
+  LogData(size_t num_logs);
 };
 
 class Profiler {
  public:
   Profiler();
-  void Log(uint64_t key, LogItem item, double value);
-  void LogAdd(uint64_t key, LogItem item, double value);
+  void LogStep(uint64_t key, LogStepItem item, double val);
+  void LogStepAdd(uint64_t key, LogStepItem item, double val);
+  void LogEpochAdd(uint64_t key, LogEpochItem item, double val);
+
+  double GetLogStepValue(uint64_t key, LogStepItem item);
+  double GetLogEpochValue(uint64_t epoch, LogEpochItem item);
 
   void ReportStep(uint64_t epoch, uint64_t step);
   void ReportStepAverage(uint64_t epoch, uint64_t step);
@@ -74,11 +87,15 @@ class Profiler {
   static Profiler &Get();
 
  private:
-  void Output(uint64_t key, std::string type);
+  void OutputStep(uint64_t key, std::string type);
+  void OutputEpoch(uint64_t epoch, std::string type);
 
-  std::vector<LogData> _data;
-  std::vector<double> _buf;
+  std::vector<LogData> _step_data;
+  std::vector<double> _step_buf;
+  std::vector<LogData> _epoch_data;
+  std::vector<double> _epoch_buf;
 
+  // for node access
   std::vector<size_t> _node_access;
   std::vector<int> _last_visit;
   std::vector<size_t> _similarity;

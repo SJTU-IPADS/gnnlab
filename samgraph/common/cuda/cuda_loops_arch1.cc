@@ -46,11 +46,14 @@ bool RunSampleCopySubLoopOnce() {
     LOG(DEBUG) << "Submit: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().Log(task->key, kLogL1SampleTime,
-                        shuffle_time + sample_time);
-    Profiler::Get().Log(task->key, kLogL1CopyTime, extract_time);
-    Profiler::Get().Log(task->key, kLogL2ShuffleTime, shuffle_time);
-    Profiler::Get().Log(task->key, kLogL2ExtractTime, extract_time);
+    Profiler::Get().LogStep(task->key, kLogL1SampleTime,
+                            shuffle_time + sample_time);
+    Profiler::Get().LogStep(task->key, kLogL1CopyTime, extract_time);
+    Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
+    Profiler::Get().LogStep(task->key, kLogL2ExtractTime, extract_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
+                                shuffle_time + sample_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochCopyTime, extract_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }

@@ -203,11 +203,12 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCooTime, sample_time);
-  Profiler::Get().LogAdd(task_key, kLogL3SampleSortCooTime, sort_coo_time);
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCountEdgeTime, prefix_sum_time);
-  Profiler::Get().LogAdd(task_key, kLogL3SampleCompactEdgesTime,
-                         compact_edge_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCooTime, sample_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3SampleSortCooTime, sort_coo_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCountEdgeTime,
+                             prefix_sum_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCompactEdgesTime,
+                             compact_edge_time);
 
   double total_time = t0.Passed();
   LOG(DEBUG) << "GPUSample: succeed total time cost: " << total_time;

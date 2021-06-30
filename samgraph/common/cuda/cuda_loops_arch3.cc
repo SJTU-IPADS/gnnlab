@@ -54,9 +54,11 @@ bool RunSampleSubLoopOnce() {
 
     next_q->AddTask(task);
 
-    Profiler::Get().Log(task->key, kLogL1SampleTime,
-                        shuffle_time + sample_time);
-    Profiler::Get().Log(task->key, kLogL2ShuffleTime, shuffle_time);
+    Profiler::Get().LogStep(task->key, kLogL1SampleTime,
+                            shuffle_time + sample_time);
+    Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
+                                shuffle_time + sample_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
@@ -95,14 +97,16 @@ bool RunDataCopySubLoopOnce() {
     LOG(DEBUG) << "Submit: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().Log(
+    Profiler::Get().LogStep(
         task->key, kLogL1CopyTime,
         graph_copy_time + id_copy_time + extract_time + feat_copy_time);
-    Profiler::Get().Log(task->key, kLogL2GraphCopyTime, graph_copy_time);
-    Profiler::Get().Log(task->key, kLogL2IdCopyTime, id_copy_time);
-    Profiler::Get().Log(task->key, kLogL2ExtractTime, extract_time);
-    Profiler::Get().Log(task->key, kLogL2FeatCopyTime, feat_copy_time);
-
+    Profiler::Get().LogStep(task->key, kLogL2GraphCopyTime, graph_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2ExtractTime, extract_time);
+    Profiler::Get().LogStep(task->key, kLogL2FeatCopyTime, feat_copy_time);
+    Profiler::Get().LogEpochAdd(
+        task->key, kLogEpochCopyTime,
+        graph_copy_time + id_copy_time + extract_time + feat_copy_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
@@ -138,11 +142,16 @@ bool RunCacheDataCopySubLoopOnce() {
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().Log(task->key, kLogL1CopyTime,
-                        graph_copy_time + id_copy_time + cache_feat_copy_time);
-    Profiler::Get().Log(task->key, kLogL2GraphCopyTime, graph_copy_time);
-    Profiler::Get().Log(task->key, kLogL2IdCopyTime, id_copy_time);
-    Profiler::Get().Log(task->key, kLogL2CacheCopyTime, cache_feat_copy_time);
+    Profiler::Get().LogStep(
+        task->key, kLogL1CopyTime,
+        graph_copy_time + id_copy_time + cache_feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2GraphCopyTime, graph_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2CacheCopyTime,
+                            cache_feat_copy_time);
+    Profiler::Get().LogEpochAdd(
+        task->key, kLogEpochCopyTime,
+        graph_copy_time + id_copy_time + cache_feat_copy_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }

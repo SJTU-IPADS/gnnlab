@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "common.h"
@@ -36,6 +37,16 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
       Context{static_cast<DeviceType>(trainer_device_type), trainer_device_id};
   RunConfig::cache_policy = static_cast<CachePolicy>(cache_policy);
   RunConfig::cache_percentage = cache_percentage;
+
+  std::unordered_map<SampleType, std::string> sample2str = {
+      {kKHop0, "KHop0"},
+      {kKHop1, "KHop1"},
+      {kWeightedKHop, "WeightedKHop"},
+      {kRandomWalk, "RandomWalk"},
+  };
+
+  LOG(INFO) << "Use " << sample2str[RunConfig::sample_type]
+            << " sampling algorithm";
 
   RunConfig::LoadConfigFromEnv();
 }
@@ -114,6 +125,36 @@ void samgraph_shutdown() {
     CUDA_CALL(cudaProfilerStop());
   }
   LOG(INFO) << "SamGraph has been completely shutdown now";
+}
+
+void samgraph_log_step(uint64_t epoch, uint64_t step, int item, double val) {
+  CHECK_LT(item, kNumLogStepItems);
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  Profiler::Get().LogStep(key, static_cast<LogStepItem>(item), val);
+}
+
+void samgraph_log_step_add(uint64_t epoch, uint64_t step, int item,
+                           double val) {
+  CHECK_LT(item, kNumLogStepItems);
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  Profiler::Get().LogStepAdd(key, static_cast<LogStepItem>(item), val);
+}
+
+void samgraph_log_epoch_add(uint64_t epoch, int item, double val) {
+  CHECK_LT(item, kNumLogEpochItems);
+  Profiler::Get().LogEpochAdd(epoch, static_cast<LogEpochItem>(item), val);
+}
+
+double samgraph_get_log_step_value(uint64_t epoch, uint64_t step, int item) {
+  CHECK_LT(item, kNumLogStepItems);
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  return Profiler::Get().GetLogStepValue(key, static_cast<LogStepItem>(item));
+}
+
+double samgraph_get_log_epoch_value(uint64_t epoch, int item) {
+  CHECK_LT(item, kNumLogEpochItems);
+  return Profiler::Get().GetLogEpochValue(epoch,
+                                          static_cast<LogEpochItem>(item));
 }
 
 void samgraph_report_step(uint64_t epoch, uint64_t step) {

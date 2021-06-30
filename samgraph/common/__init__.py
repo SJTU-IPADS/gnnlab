@@ -78,6 +78,47 @@ meepo_archs = {
     }
 }
 
+# Step L1 Log
+kLogL1NumSample = 0,
+kLogL1NumNode = 1
+kLogL1SampleTime = 2
+kLogL1CopyTime = 3
+kLogL1TrainTime = 4
+kLogL1FeatureBytes = 5
+kLogL1LabelBytes = 6
+kLogL1IdBytes = 7
+kLogL1GraphBytes = 8
+kLogL1MissBytes = 9
+# Step L2 Log
+kLogL2ShuffleTime = 10
+kLogL2CoreSampleTime = 11
+kLogL2IdRemapTime = 12
+kLogL2GraphCopyTime = 13
+kLogL2IdCopyTime = 14
+kLogL2ExtractTime = 15
+kLogL2FeatCopyTime = 16
+kLogL2CacheCopyTime = 17
+# Step L3 Log
+kLogL3SampleCooTime = 18
+kLogL3SampleSortCooTime = 19
+kLogL3SampleCountEdgeTime = 20
+kLogL3SampleCompactEdgesTime = 21
+kLogL3RemapPopulateTime = 22
+kLogL3RemapMapNodeTime = 23
+kLogL3RemapMapEdgeTime = 24
+kLogL3CacheGetIndexTime = 25
+KLogL3CacheCopyIndexTime = 26
+kLogL3CacheExtractMissTime = 27
+kLogL3CacheCopyMissTime = 28
+kLogL3CacheCombineMissTime = 29
+kLogL3CacheCombineCacheTime = 34
+
+# Epoch Log
+kLogEpochSampleTime = 0
+kLogEpochCopyTime = 1
+kLogEpochTrainTime = 2
+kLogEpochTotalTime = 3
+
 
 class SamGraphBasics(object):
     def __init__(self, pkg_path, *args):
@@ -93,6 +134,32 @@ class SamGraphBasics(object):
             ctypes.c_uint64,)
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.argtypes = (
             ctypes.c_uint64,)
+        self.C_LIB_CTYPES.samgraph_log_step.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_uint64,
+            ctypes.c_int,
+            ctypes.c_double
+        )
+        self.C_LIB_CTYPES.samgraph_log_step_add.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_uint64,
+            ctypes.c_int,
+            ctypes.c_double
+        )
+        self.C_LIB_CTYPES.samgraph_log_epoch_add.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_int,
+            ctypes.c_double
+        )
+        self.C_LIB_CTYPES.samgraph_get_log_step_value.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_uint64,
+            ctypes.c_int
+        )
+        self.C_LIB_CTYPES.samgraph_get_log_epoch_value.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_int
+        )
         self.C_LIB_CTYPES.samgraph_report_step.argtypes = (
             ctypes.c_uint64,
             ctypes.c_uint64)
@@ -112,6 +179,8 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_src.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_dst.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_long
+        self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_long
 
     def config(self, run_config):
         return self.C_LIB_CTYPES.samgraph_config(
@@ -189,6 +258,21 @@ class SamGraphBasics(object):
 
     def sample_once(self):
         return self.C_LIB_CTYPES.samgraph_sample_once()
+
+    def log_step(self, epoch, step, item, val):
+        return self.C_LIB_CTYPES.samgraph_log_step(epoch, step, item, val)
+
+    def log_step_add(self, epoch, step, item, val):
+        return self.C_LIB_CTYPES.samgraph_log_step_add(epoch, step, item, val)
+
+    def log_epoch_add(self, epoch, item, val):
+        return self.C_LIB_CTYPES.samgraph_log_epoch_add(epoch, item, val)
+
+    def get_log_step_value(self, epoch, step, item):
+        return self.C_LIB_CTYPES.samgraph_get_log_step_value(epoch, step, item)
+
+    def get_log_epoch_value(self, epoch, item):
+        return self.C_LIB_CTYPES.samgraph_get_log_epoch_value(epoch, item)
 
     def report_step(self, epoch, step):
         return self.C_LIB_CTYPES.samgraph_report_step(epoch, step)
