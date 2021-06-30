@@ -162,7 +162,7 @@ void samgraph_report_step(uint64_t epoch, uint64_t step) {
 }
 
 void samgraph_report_step_average(uint64_t epoch, uint64_t step) {
-  Profiler::Get().ReportStep(epoch, step);
+  Profiler::Get().ReportStepAverage(epoch, step);
 }
 
 void samgraph_report_epoch(uint64_t epoch) {

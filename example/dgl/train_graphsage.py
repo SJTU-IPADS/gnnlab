@@ -41,11 +41,10 @@ class SAGE(nn.Module):
 
 def get_run_config():
     run_config = {}
-    run_config['pipeline'] = False
     run_config['device'] = 'cuda:0'
     # run_config['dataset'] = 'reddit'
-    run_config['dataset'] = 'products'
-    # run_config['dataset'] = 'papers100M'
+    # run_config['dataset'] = 'products'
+    run_config['dataset'] = 'papers100M'
     #run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
 

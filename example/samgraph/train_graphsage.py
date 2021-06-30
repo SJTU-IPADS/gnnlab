@@ -80,9 +80,9 @@ def get_run_config():
     run_config['arch'] = sam.meepo_archs['arch3']
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sample_type'] = sam.kKHop0
-    run_config['pipeline'] = False
+    run_config['pipeline'] = True
     run_config['cache_policy'] = sam.kCacheByHeuristic
-    run_config['cache_percentage'] = 0.1
+    run_config['cache_percentage'] = 0.2
     run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     # run_config['dataset_path'] = '/graph-learning/samgraph/products'
@@ -189,7 +189,7 @@ def run():
                     sample_times), np.mean(copy_times), np.mean(train_times), np.mean(convert_times), loss
             ))
 
-            sam.report_step(epoch, step)
+            sam.report_step_average(epoch, step)
 
         epoch_avg_sample_time += sam.get_log_epoch_value(
             epoch, sam.kLogEpochSampleTime)
