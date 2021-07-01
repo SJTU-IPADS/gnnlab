@@ -24,7 +24,8 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
                      int trainer_device_type, int trainer_device_id,
                      size_t batch_size, int *fanout, size_t num_fanout,
                      size_t num_epoch, int cache_policy,
-                     double cache_percentage) {
+                     double cache_percentage, size_t max_sampling_jobs,
+                     size_t max_copying_jobs) {
   RunConfig::dataset_path = path;
   RunConfig::run_arch = static_cast<RunArch>(run_arch);
   RunConfig::sample_type = static_cast<SampleType>(sample_type);
@@ -37,6 +38,9 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
       Context{static_cast<DeviceType>(trainer_device_type), trainer_device_id};
   RunConfig::cache_policy = static_cast<CachePolicy>(cache_policy);
   RunConfig::cache_percentage = cache_percentage;
+
+  RunConfig::max_sampling_jobs = max_sampling_jobs;
+  RunConfig::max_copying_jobs = max_copying_jobs;
 
   std::unordered_map<SampleType, std::string> sample2str = {
       {kKHop0, "KHop0"},

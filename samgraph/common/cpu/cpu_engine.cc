@@ -46,7 +46,7 @@ void CPUEngine::Init() {
   _shuffler =
       new CPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _shuffler->NumStep();
-  _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
+  _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   switch (RunConfig::cpu_hash_type) {
     case kCPUHash0:

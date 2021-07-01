@@ -16,7 +16,7 @@ class WorkspacePool {
   WorkspacePool(DeviceType device_type, std::shared_ptr<Device> device);
   ~WorkspacePool();
 
-  void* AllocWorkspace(Context ctx, size_t size, size_t scale);
+  void* AllocWorkspace(Context ctx, size_t size, double scale);
   void FreeWorkspace(Context ctx, void* ptr);
 
  private:

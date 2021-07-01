@@ -13,7 +13,7 @@ class MmapCPUDevice final : public Device {
   void *AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) override;
   void FreeDataSpace(Context ctx, void *ptr) override;
   void *AllocWorkspace(Context ctx, size_t nbytes,
-                       size_t scale = Constant::kAllocScale) override;
+                       double scale = Constant::kAllocScale) override;
   void FreeWorkspace(Context ctx, void *ptr, size_t nbytes = 0) override;
   void CopyDataFromTo(const void *from, size_t from_offset, void *to,
                       size_t to_offset, size_t nbytes, Context ctx_from,

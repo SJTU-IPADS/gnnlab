@@ -17,6 +17,9 @@ Context RunConfig::trainer_ctx;
 CachePolicy RunConfig::cache_policy;
 double RunConfig::cache_percentage = 0.0f;
 
+size_t RunConfig::max_sampling_jobs = 10;
+size_t RunConfig::max_copying_jobs = 10;
+
 // CPUHash2 now is the best parallel hash remapping
 cpu::CPUHashType RunConfig::cpu_hash_type = cpu::kCPUHash2;
 
@@ -24,8 +27,7 @@ bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;
 bool RunConfig::option_sanity_check = false;
 
-size_t RunConfig::kPipelineDepth = 10;
-int RunConfig::kOMPThreadNum = 24;
+int RunConfig::kOMPThreadNum = 40;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {

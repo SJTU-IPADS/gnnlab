@@ -347,6 +347,9 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                          CPU(), stream);
   device->StreamSync(_ctx, stream);
 
+  // If the number of input equals to 0, the kernel won't
+  // be executed then the value of num_unique will be wrong.
+  // We have to manually set the num_unique on this situation.
   if (num_input == 0) {
     *num_unique = _num_items;
   }

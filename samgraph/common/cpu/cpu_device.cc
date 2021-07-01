@@ -56,7 +56,7 @@ std::shared_ptr<WorkspacePool> &CPUWorkspacePool() {
   return inst;
 }
 
-void *CPUDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
+void *CPUDevice::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
   return CPUWorkspacePool()->AllocWorkspace(ctx, nbytes, scale);
 }
 

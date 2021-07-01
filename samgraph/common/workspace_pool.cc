@@ -28,7 +28,7 @@ class WorkspacePool::Pool {
   }
 
   // allocate from pool
-  void *Alloc(Context ctx, Device *device, size_t nbytes, size_t scale) {
+  void *Alloc(Context ctx, Device *device, size_t nbytes, double scale) {
     // Allocate align to page.
     std::lock_guard<std::mutex> lock(_mutex);
     nbytes = (nbytes + (kWorkspacePageSize - 1)) / kWorkspacePageSize *
@@ -37,6 +37,7 @@ class WorkspacePool::Pool {
 
     Entry e;
     if (_free_list.size() == 1) {
+      nbytes *= scale;
       e.data = device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment);
       e.size = nbytes;
     } else {
@@ -127,7 +128,7 @@ WorkspacePool::~WorkspacePool() {
   // }
 }
 
-void *WorkspacePool::AllocWorkspace(Context ctx, size_t size, size_t scale) {
+void *WorkspacePool::AllocWorkspace(Context ctx, size_t size, double scale) {
   if (_array[ctx.device_id] != nullptr) {
     return _array[ctx.device_id]->Alloc(ctx, _device.get(), size, scale);
   }

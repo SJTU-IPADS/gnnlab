@@ -44,19 +44,19 @@ def get_run_config():
     run_config['device'] = 'cuda:0'
     # run_config['dataset'] = 'reddit'
     # run_config['dataset'] = 'products'
-    run_config['dataset'] = 'papers100M'
-    #run_config['dataset'] = 'com-friendster'
+    # run_config['dataset'] = 'papers100M'
+    run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
 
     run_config['fanout'] = [5, 10, 15]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 10
+    # we use the average result of 10 epochs, the first epoch is used to warm up the system
+    run_config['num_epoch'] = 11
     run_config['num_hidden'] = 256
     run_config['batch_size'] = 8000
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
-    run_config['report_per_count'] = 1
 
     return run_config
 
@@ -92,10 +92,10 @@ def run():
 
     model.train()
 
-    epoch_avg_sample_time = 0.0
-    epoch_avg_copy_time = 0.0
-    epoch_avg_train_time = 0.0
-    epoch_avg_total_time = 0.0
+    epoch_sample_times = []
+    epoch_copy_times = []
+    epoch_train_times = []
+    epoch_total_times = []
 
     sample_times = []
     copy_times = []
@@ -105,6 +105,11 @@ def run():
     num_samples = []
 
     for epoch in range(num_epoch):
+        epoch_sample_time = 0.0
+        epoch_copy_time = 0.0
+        epoch_train_time = 0.0
+        epoch_total_time = 0.0
+
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
             t1 = time.time()
@@ -127,10 +132,10 @@ def run():
             train_times.append(t3 - t2)
             total_times.append(t3 - t0)
 
-            epoch_avg_sample_time += (t1 - t0)
-            epoch_avg_copy_time += (t2 - t1)
-            epoch_avg_train_time += (t3 - t2)
-            epoch_avg_total_time += (t3 - t0)
+            epoch_sample_time += (t1 - t0)
+            epoch_copy_time += (t2 - t1)
+            epoch_train_time += (t3 - t2)
+            epoch_total_time += (t3 - t0)
 
             num_sample = 0
             for block in blocks:
@@ -142,13 +147,13 @@ def run():
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
-    epoch_avg_sample_time /= num_epoch
-    epoch_avg_copy_time /= num_epoch
-    epoch_avg_train_time /= num_epoch
-    epoch_avg_total_time /= num_epoch
+        epoch_sample_times.append(epoch_sample_time)
+        epoch_copy_times.append(epoch_copy_time)
+        epoch_train_times.append(epoch_train_time)
+        epoch_total_times.append(epoch_total_time)
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-        epoch_avg_total_time, epoch_avg_sample_time, epoch_avg_copy_time, epoch_avg_train_time))
+        np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
 
 if __name__ == '__main__':

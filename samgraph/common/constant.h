@@ -53,8 +53,8 @@ class Constant {
   static constexpr size_t kMegabytes = 1 * 1024 * 1024;
   static constexpr size_t kKilobytes = 1 * 1024;
 
-  static constexpr size_t kAllocScale = 2;
-  static constexpr size_t kAllocNoScale = 1;
+  static constexpr double kAllocScale = 1.25f;
+  static constexpr double kAllocNoScale = 1.0f;
 
   static const std::string kEnvProfileLevel;
   static const std::string kEnvProfileCuda;

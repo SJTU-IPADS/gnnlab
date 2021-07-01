@@ -114,7 +114,7 @@ std::shared_ptr<WorkspacePool> &GPUWorkspacePool() {
   return inst;
 }
 
-void *GPUDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
+void *GPUDevice::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   return GPUWorkspacePool()->AllocWorkspace(ctx, nbytes, scale);
 }

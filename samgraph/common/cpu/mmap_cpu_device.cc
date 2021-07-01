@@ -38,7 +38,7 @@ void MmapCPUDevice::StreamSync(Context ctx, StreamHandle stream) {
   LOG(FATAL) << "Device does not support StreamSync api";
 }
 
-void *MmapCPUDevice::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
+void *MmapCPUDevice::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
   LOG(FATAL) << "Device does not support AllocWorkspace api";
   return nullptr;
 }

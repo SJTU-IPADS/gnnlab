@@ -52,7 +52,6 @@ void GPUEngine::Init() {
   _shuffler =
       new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _shuffler->NumStep();
-  _graph_pool = new GraphPool(RunConfig::kPipelineDepth);
 
   _hashtable = new OrderedHashTable(
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx,
@@ -75,8 +74,9 @@ void GPUEngine::Init() {
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
-    _queues.push_back(new TaskQueue(RunConfig::kPipelineDepth));
+    _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
   }
+  _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   _initialize = true;
 }

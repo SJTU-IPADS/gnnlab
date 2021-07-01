@@ -222,6 +222,12 @@ class SamGraphBasics(object):
             ),
             ctypes.c_double(
                 run_config['cache_percentage']
+            ),
+            ctypes.c_size_t(
+                run_config['max_sampling_jobs']
+            ),
+            ctypes.c_size_t(
+                run_config['max_copying_jobs']
             )
         )
 

@@ -24,6 +24,9 @@ struct RunConfig {
   static CachePolicy cache_policy;
   static double cache_percentage;
 
+  static size_t max_sampling_jobs;
+  static size_t max_copying_jobs;
+
   static cpu::CPUHashType cpu_hash_type;
 
   // Environment variables
@@ -31,7 +34,6 @@ struct RunConfig {
   static bool option_log_node_access;
   static bool option_sanity_check;
 
-  static size_t kPipelineDepth;
   static int kOMPThreadNum;
 
   static inline bool UseGPUCache() {

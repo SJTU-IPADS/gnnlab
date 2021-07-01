@@ -55,7 +55,7 @@ Device* Device::Get(Context ctx) {
   return DeviceManager::Get(static_cast<int>(ctx.device_type));
 }
 
-void* Device::AllocWorkspace(Context ctx, size_t nbytes, size_t scale) {
+void* Device::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
   return AllocDataSpace(ctx, nbytes, kTempAllocaAlignment);
 }
 
