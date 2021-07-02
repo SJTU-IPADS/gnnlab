@@ -92,11 +92,17 @@ class DatasetLoader:
         self.test_set = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'test_set64.bin'), dtype='int64', mode='r', shape=(self.num_test_set,)))
 
-    def to_dgl_graph(self):
+    def to_dgl_graph(self, g_format='csc'):
         import dgl
 
-        g_idx = dgl.heterograph_index.create_unitgraph_from_csc(
-            1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csr', 'csc'])
+        if g_format == 'csc':
+            g_idx = dgl.heterograph_index.create_unitgraph_from_csc(
+                1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csr', 'csc'])
+        elif g_format == 'csr':
+            g_idx = dgl.heterograph_index.create_unitgraph_from_csr(
+                1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csr', 'csc'])
+        else:
+            assert(False)
         g = dgl.DGLGraph(g_idx)
         g.ndata['feat'] = self.feat
         g.ndata['label'] = self.label
