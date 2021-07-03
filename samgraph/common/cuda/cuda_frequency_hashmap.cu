@@ -113,6 +113,22 @@ __global__ void count_frequency(const IdType *input_src,
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void init_node_table(DeviceOrderedHashTable::NodeBucket *table,
+                                const size_t num_bucket) {}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void init_node_table(DeviceOrderedHashTable::NodeBucket *table,
+                                const size_t num_bucket) {}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void reset_node_table(DeviceOrderedHashTable::NodeBucket *table,
+                                 const size_t num_bucket) {}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void reset_node_table(DeviceOrderedHashTable::NodeBucket *table,
+                                 const size_t num_bucket) {}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_unique_edges(const IdType *input_src,
                                    const IdType *input_dst,
                                    const size_t num_input_edge,
@@ -228,9 +244,10 @@ __global__ void generate_unique_edge_frequency(const IdType *unique_src,
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void generate_num_unique(const IdType *nodes, const size_t num_nodes,
-                                    IdType *num_unique_prefix,
-                                    DeviceFrequencyHashmap table) {
+__global__ void generate_num_edge(const IdType *nodes, const size_t num_nodes,
+                                  const size_t K, IdType *num_edge_prefix,
+                                  IdType *num_output_prefix,
+                                  DeviceFrequencyHashmap table) {
   assert(BLOCK_SIZE == blockDim.x);
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -242,16 +259,45 @@ __global__ void generate_num_unique(const IdType *nodes, const size_t num_nodes,
        index += BLOCK_SIZE) {
     if (index < num_nodes) {
       const NodeBucket &bucket = *table.SearchNode(nodes[index]);
-      num_unique_prefix[index] = bucket.count;
+      num_edge_prefix[index] = bucket.count;
+      num_output_prefix[index] = bucket.count > K ? K : bucket.count;
     }
+  }
+
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    num_edge_prefix[num_nodes] = 0;
+    num_output_prefix[num_nodes] = 0;
   }
 }
 
-template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void count_num_output() {}
+__global__ void compact_output(const IdType *unique_src,
+                               const IdType *unique_dst, const size_t num_nodes,
+                               const size_t K, const IdType *num_unique_prefix,
+                               const IdType *num_output_prefix,
+                               IdType *output_src, IdType *output_dst,
+                               size_t *num_output) {
+  size_t i = blockIdx.x * blockDim.y + threadIdx.y;
+  const size_t stride = blockDim.y * gridDim.x;
 
-template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void compact_output() {}
+  while (i < num_nodes) {
+    IdType k = threadIdx.y;
+    while (k < K) {
+      IdType from_off = num_unique_prefix[index] + k;
+      IdType to_off = num_unique_prefix[index] + k;
+
+      output_src[to_off] = unique_src[from_off];
+      output_dst[to_off] = unique_dst[from_off];
+
+      k += blockDim.x;
+    }
+
+    i += stride;
+  }
+
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    *num_output = num_output_prefix[num_nodes];
+  }
+}
 
 }  // namespace
 
@@ -279,14 +325,23 @@ FrequencyHashmap(const size_t max_nodes, const size_t max_edges, Context ctx,
 void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                const size_t num_input_edge,
                                const IdType *input_nodes,
-                               const size_t num_input_node, IdType *output_src,
-                               IdType *output_dst, size_t num_output,
-                               StreamHandle stream) {
+                               const size_t num_input_node, const size_t K,
+                               IdType *output_src, IdType *output_dst,
+                               size_t *num_output, StreamHandle stream) {
   const size_t num_tiles0 = RoundUpDiv(num_input_edge, Constant::kCudaTileSize);
   const size_t num_tiles1 = RoundUpDiv(num_input_node, Constant::kCudaTileSize);
   const dim3 grid0(num_tiles0);
   const dim3 grid1(num_tiles1);
-  const dim3 block(Constant::kCudaBlockSize);
+
+  const dim3 block0(Constant::kCudaBlockSize);
+  const dim3 block1(Constant::kCudaBlockSize);
+
+  const dim3 block2(Constant::kCudaBlockSize, 1);
+  while (static_cast<size_t>(block2.x) >= 2 * K) {
+    block2.x /= 2;
+    block2.y *= 2;
+  }
+  const dim3 grid2(RoundUpDiv(num_input_node, static_cast<size_t>(block2.y));
 
   auto device_table = MutableDeviceFrequencyHashmap(this);
   auto device = Device::Get(_ctx);
@@ -313,17 +368,18 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   // 1. count frequency of every unique edge and
   //    count unique edges for every node
   count_frequency<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid0, block, 0, cu_stream>>>(input_src, input_dst, num_input_edge,
-                                       device_table);
+      <<<grid0, block0, 0, cu_stream>>>(input_src, input_dst, num_input_edge,
+                                        device_table);
   device->StreamSync(_ctx, stream);
 
   // 2. count the number of unique edges.
   //    prefix sum the the array
   unique_edge_number_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1)));
+      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid0.x + 1)));
   count_unique_edges<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid0, block, 0, cu_stream>>>(input_src, input_dst, num_input,
-                                       unique_edge_number_prefix, device_table);
+      <<<grid0, block0, 0, cu_stream>>>(input_src, input_dst, num_input,
+                                        unique_edge_number_prefix,
+                                        device_table);
   device->StreamSync(_ctx, stream);
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
@@ -335,7 +391,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   size_t *device_num_unique =
       static_cast<size_t *>(device->AllocWorkspace(_ctx, sizeof(size_t)));
   generate_unique_edges<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid0, block, 0, cu_stream>>>(
+      <<<grid0, block0, 0, cu_stream>>>(
           input_src, input_dst, num_input, unique_edge_number_prefix,
           _unique_src, _unique_dst, device_num_unique, device_table);
   device->StreamSync(_ctx, stream);
@@ -345,27 +401,28 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   device->StreamSync(_ctx, stream);
 
   // 4. pair-sort unique edges(src, dst) using src as key.
-  size_t workspace_bytes2;
+  size_t workspace_bytes3;
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
-      nullptr, workspace_bytes2, static_cast<IdType *>(nullptr),
+      nullptr, workspace_bytes3, static_cast<IdType *>(nullptr),
       static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr),
       static_cast<IdType *>(nullptr), _num_unique, 0, sizeof(IdType) * 8,
       cu_stream));
   device->StreamSync(_ctx, stream);
 
-  void *workspace2 = device->AllocWorkspace(_ctx, workspace_bytes2);
+  void *workspace3 = device->AllocWorkspace(_ctx, workspace_bytes3);
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
-      workspace2, workspace_bytes2, _unique_src, _unique_src, _unique_dst,
+      workspace3, workspace_bytes3, _unique_src, _unique_src, _unique_dst,
       _unique_dst, _num_unique, 0, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
   // 5. get the frequency array in the order of sorted edge.
   const size_t num_tiles2 = RoundUpDiv(_num_unique, Constant::kCudaTileSize);
-  const dim3 grid2(num_tiles2);
+  const dim3 grid3(num_tiles2);
+  const dim3 block3(Constant::kCudaBlockSize);
   generate_unique_edge_frequency<Constant::kCudaBlockSize,
                                  Constant::kCudaTileSize>
-      <<<grid2, block, 0, cu_stream>>>(_unique_src, _unique_dst, _unique_count,
-                                       _num_unique, device_table);
+      <<<grid3, block3, 0, cu_stream>>>(_unique_src, _unique_dst, _unique_count,
+                                        _num_unique, device_table);
   device->StreamSync(_ctx, stream);
 
   // 6. sort the unique src node array.
@@ -375,71 +432,86 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                          num_input_node * sizeof(IdType), _ctx, _ctx, stream);
   device->StreamSync(_ctx, stream);
 
-  size_t workspace_bytes3;
+  size_t workspace_bytes4;
   CUDA_CALL(cub::DeviceRadixSort::SortKeys(
-      nullptr, workspace_bytes3, static_cast<IdType *>(nullptr),
-      static_cast<IdType *>(nullptr), , num_input_node, 0, sizeof(IdType) * 8,
+      nullptr, workspace_bytes4, static_cast<IdType *>(nullptr),
+      static_cast<IdType *>(nullptr), num_input_node, 0, sizeof(IdType) * 8,
       cu_stream));
   device->StreamSync(_ctx, stream);
 
-  void *workspace3 = device->AllocWorkspace(_ctx, workspace_bytes3);
+  void *workspace4 = device->AllocWorkspace(_ctx, workspace_bytes4);
   CUDA_CALL(cub::DeviceRadixSort::SortKeys(
-      workspace3, workspace_bytes3, sorted_nodes, sorted_nodes, num_input_node,
+      workspace4, workspace_bytes4, sorted_nodes, sorted_nodes, num_input_node,
       0, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
   // 7. get array unique edge number in the order of src nodes.
+  //    also count the number of output edges for each nodes.
   //    prefix sum for array of unique edge number.
-  IdType *num_unique_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, num_input_node * sizeof(IdType)));
-  generate_num_unique<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid1, block, 0, cu_stream>>>(sorted_nodes, num_input_node,
-                                       num_unique_prefix, device_table);
+  IdType *num_edge_prefix = static_cast<IdType *>(
+      device->AllocWorkspace(_ctx, (num_input_node + 1) * sizeof(IdType)));
+  IdType *num_output_prefix = static_cast<IdType *>(
+      device->AllocWorkspace(_ctx, (num_input_node + 1) * sizeof(IdType)));
+  generate_num_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid1, block1, 0, cu_stream>>>(sorted_nodes, num_input_node, K,
+                                        num_edge_prefix, num_output_prefix,
+                                        device_table);
   device->StreamSync(_ctx, stream);
 
-  size_t workspace_bytes4;
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      nullptr, workspace_bytes4, static_cast<IdType *>(nullptr),
-      static_cast<IdType *>(nullptr), num_input_node + 1, cu_stream));
-  device->StreamSync(_ctx, stream);
-
-  void *workspace4 = device->AllocWorkspace(_ctx, workspace_bytes4);
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace4, workspace_bytes4,
-                                          num_unique_prefix, num_unique_prefix,
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
+                                          num_edge_prefix, num_edge_prefix,
                                           num_input_node + 1, cu_stream));
   device->StreamSync(_ctx, stream);
 
   // 8. segment-sort the edge for every node using the frequency as key
   //    and the dst as value.
   size_t workspace_bytes5;
-  CUDA_CALL(
-      cub::DeviceSegmentedRadixSort::SortPairs(nullptr, workspace_bytes5));
+  CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairsDescending(
+      nullptr, workspace_bytes5, static_cast<IdType *>(nullptr),
+      static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr),
+      static_cast<IdType *>(nullptr), _num_unique, num_input_node,
+      static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr), 0,
+      sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
   void workspace5 = device->AllocWorkspace(_ctx, workspace_bytes5);
-  CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairs(
-      workspace5, workspace_bytes5, num_unique_prefix, num_unique_prefix,
-      num_input_node + 1, cu_stream));
+  CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairsDescending(
+      workspace5, workspace_bytes5, _unique_count, _unique_count, _unique_dst,
+      _unique_dst, _num_unique, num_input_node, num_edge_prefix,
+      num_edge_prefix + 1, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
-  // 9. count the number of output edges for each nodes.
-  //     prefix sum the array.
-  count_num_output<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>();
+  // 9. prefix the number of output edges for each nodes that we get in step 7
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
+                                          num_output_prefix, num_output_prefix,
+                                          num_input_node + 1, cu_stream));
   device->StreamSync(_ctx, stream);
 
   // 10. copy the result to the output array and set the value of num_output
-  compact_output<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>();
+  device_num_output =
+      static_cast<IdType *>(device->AllocWorkspace(_ctx, sizeof(IdType)));
+  compact_output<<<grid2, block2, 0, cu_stream>>>(_unique_src,
+_unique_dst, num_input_node,
+    K, num_unique_prefix,
+    num_output_prefix,
+    output_src, output_dst,
+    device_num_output);
   device->StreamSync(_ctx, stream);
 
+  device->CopyDataFromTo(device_num_output, 0, num_output, 0, sizeof(size_t),
+                         _ctx, CPU(), stream);
+  device->StreamSync(_ctx, stream);
+
+  device->FreeWorkspace(_ctx, device_num_output);
   device->FreeWorkspace(_ctx, workspace5);
+  device->FreeWorkspace(_ctx, num_output_prefix);
+  device->FreeWorkspace(_ctx, num_edge_prefix);
   device->FreeWorkspace(_ctx, workspace4);
-  device->FreeWorkspace(_ctx, workspace3);
   device->FreeWorkspace(_ctx, sorted_nodes);
-  device->FreeWorkspace(_ctx, workspace2);
+  device->FreeWorkspace(_ctx, workspace3);
   device->FreeWorkspace(_ctx, device_num_unique);
   device->FreeWorkspace(_ctx, unique_edge_number_prefix);
+  device->FreeWorkspace(_ctx, workspace2);
   device->FreeWorkspace(_ctx, workspace1);
   device->FreeWorkspace(_ctx, workspace0);
 }

@@ -119,14 +119,14 @@ class FrequencyHashmap {
   using EdgeBucket = typename DeviceFrequencyHashmap::EdgeBucket;
 
   GPUFrequencyHashmap(const size_t max_nodes, const size_t max_edges,
-                      Context ctx, const size_t scale);
+                      Context ctx, const size_t scale = kDefaultScale);
   ~GPUFrequencyHashmap();
 
   void Reset(StreamHandle stream);
   void GetTopK(const IdType *input_src, const IdType *input_dst,
                const size_t num_input_edge, const IdType *input_nodes,
-               const size_t num_input_node, IdType *output_src,
-               IdType *output_dst, size_t num_output, StreamHandle stream);
+               const size_t num_input_node, const size_t K, IdType *output_src,
+               IdType *output_dst, size_t *num_output, StreamHandle stream);
 
  private:
   Context _ctx;

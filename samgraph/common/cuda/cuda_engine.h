@@ -13,6 +13,7 @@
 #include "../task_queue.h"
 #include "cuda_cache_manager.h"
 #include "cuda_common.h"
+#include "cuda_frequency_hashmap.h"
 #include "cuda_hashtable.h"
 #include "cuda_random_states.h"
 #include "cuda_shuffler.h"
@@ -35,6 +36,7 @@ class GPUEngine : public Engine {
   OrderedHashTable* GetHashtable() { return _hashtable; }
   GPURandomStates* GetRandomStates() { return _random_states; }
   GPUCacheManager* GetCacheManager() { return _cache_manager; }
+  FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
@@ -58,6 +60,8 @@ class GPUEngine : public Engine {
   GPURandomStates* _random_states;
   // Feature cache in GPU
   GPUCacheManager* _cache_manager;
+  // Frequency hashmap
+  FrequencyHashmap* _frequency_hashmap;
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;

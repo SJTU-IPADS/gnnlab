@@ -70,6 +70,17 @@ void GPUEngine::Init() {
   _random_states = new GPURandomStates(RunConfig::sample_type, _fanout,
                                        _batch_size, _sampler_ctx);
 
+  if (RunConfig::sample_type == kRandomWalk) {
+    size_t max_nodes =
+        PredictNumNodes(_batch_size, _fanout, _fanout.size() - 1);
+    size_t max_edges =
+        max_nodes * RunConfig::num_random_walk * RunConfig::random_walk_length;
+    _frequency_hashmap =
+        new FrequencyHashmap(max_nodes, max_edges, _sampler_ctx);
+  } else {
+    _frequency_hashmap = nullptr;
+  }
+
   // Create queues
   for (int i = 0; i < QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
@@ -148,11 +159,16 @@ void GPUEngine::Shutdown() {
     delete _cache_manager;
   }
 
+  if (_frequency_hashmap != nullptr) {
+    delete _frequency_hashmap;
+  }
+
   _dataset = nullptr;
   _shuffler = nullptr;
   _graph_pool = nullptr;
   _cache_manager = nullptr;
   _random_states = nullptr;
+  _frequency_hashmap = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;
