@@ -11,6 +11,8 @@ from samgraph.common import *
 _basics = SamGraphBasics(__file__, 'c_lib')
 
 config = _basics.config
+config_khop = _basics.config_khop
+config_random_walk = _basics.config_random_walk
 init = _basics.init
 start = _basics.start
 num_class = _basics.num_class

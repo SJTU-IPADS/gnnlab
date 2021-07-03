@@ -7,9 +7,11 @@
 
 #include "../common/common.h"
 #include "../common/cuda/cuda_engine.h"
-#include "../common/logging.h"
 #include "../common/profiler.h"
 #include "../common/timer.h"
+
+// Use the torch built-in CHECK macros
+// #include "../common/logging.h"
 
 namespace samgraph {
 namespace torch {

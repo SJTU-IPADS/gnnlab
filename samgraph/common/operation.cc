@@ -22,14 +22,13 @@ extern "C" {
 void samgraph_config(const char *path, int run_arch, int sample_type,
                      int sampler_device_type, int sampler_device_id,
                      int trainer_device_type, int trainer_device_id,
-                     size_t batch_size, int *fanout, size_t num_fanout,
-                     size_t num_epoch, int cache_policy,
+                     size_t batch_size, size_t num_epoch, int cache_policy,
                      double cache_percentage, size_t max_sampling_jobs,
                      size_t max_copying_jobs) {
+  CHECK(!RunConfig::is_configured);
   RunConfig::dataset_path = path;
   RunConfig::run_arch = static_cast<RunArch>(run_arch);
   RunConfig::sample_type = static_cast<SampleType>(sample_type);
-  RunConfig::fanout = std::vector<int>(fanout, fanout + num_fanout);
   RunConfig::batch_size = batch_size;
   RunConfig::num_epoch = num_epoch;
   RunConfig::sampler_ctx =
@@ -53,9 +52,35 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
             << " sampling algorithm";
 
   RunConfig::LoadConfigFromEnv();
+
+  RunConfig::is_configured = true;
+}
+
+void samgraph_config_khop(size_t *fanout, size_t num_fanout) {
+  CHECK(!RunConfig::is_khop_configured &&
+        !RunConfig::is_random_walk_configured);
+  RunConfig::fanout = std::vector<size_t>(fanout, fanout + num_fanout);
+  RunConfig::is_khop_configured = true;
+}
+
+void samgraph_config_random_walk(size_t random_walk_length,
+                                 double random_walk_restart_prob,
+                                 size_t num_random_walk, size_t num_neighbor,
+                                 size_t num_layer) {
+  CHECK(!RunConfig::is_random_walk_configured &&
+        !RunConfig::is_khop_configured);
+  RunConfig::random_walk_length = random_walk_length;
+  RunConfig::random_walk_restart_prob = random_walk_restart_prob;
+  RunConfig::num_random_walk = num_random_walk;
+  RunConfig::num_neighbor = num_neighbor;
+  RunConfig::num_layer = num_layer;
+  RunConfig::fanout = std::vector<size_t>(num_layer, num_neighbor);
+  RunConfig::is_random_walk_configured = true;
 }
 
 void samgraph_init() {
+  CHECK(RunConfig::is_configured);
+  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
   Engine::Create();
   Engine::Get()->Init();
 

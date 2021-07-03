@@ -38,15 +38,18 @@ class Constant {
   static const std::string kMetaNumTestSet;
   static const std::string kMetaNumValidSet;
 
-  static constexpr int kCudaBlockSize = 256;
+  static constexpr size_t kCudaBlockSize = 256;
   static constexpr size_t kCudaTileSize = 1024;
 
   // In nextdoor, this value is set to 5 * 1024 * 1024,
   // but we find that 512 * 1024 is the best value in V100
   static constexpr size_t kKHop1MaxThreads = 512 * 1024;
   static constexpr size_t kWeightedKHopMaxThreads = 512 * 1024;
+  static constexpr size_t kRandomWalkMaxThreads = 512 * 1024;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
+  static constexpr LongIdType kEmptyLongKey =
+      std::numeric_limits<LongIdType>::max();
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;

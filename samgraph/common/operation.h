@@ -12,10 +12,16 @@ extern "C" {
 void samgraph_config(const char *path, int run_arch, int sample_type,
                      int sampler_device_type, int sampler_device_id,
                      int trainer_device_type, int trainer_device_id,
-                     size_t batch_size, int *fanout, size_t num_fanout,
-                     size_t num_epoch, int cache_policy,
+                     size_t batch_size, size_t num_epoch, int cache_policy,
                      double cache_percentage, size_t max_sampling_jobs,
                      size_t max_copying_jobs);
+
+void samgraph_config_khop(size_t *fanout, size_t num_fanout);
+
+void samgraph_config_random_walk(size_t random_walk_length,
+                                 double random_walk_restart_prob,
+                                 size_t num_random_walk, size_t num_neighbor,
+                                 size_t num_layer);
 
 void samgraph_init();
 

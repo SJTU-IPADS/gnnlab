@@ -54,8 +54,7 @@ void GPUEngine::Init() {
   _num_step = _shuffler->NumStep();
 
   _hashtable = new OrderedHashTable(
-      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx,
-      _sample_stream);
+      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
 
   if (RunConfig::UseGPUCache()) {
     _cache_manager = new GPUCacheManager(

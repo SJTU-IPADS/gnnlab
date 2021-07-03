@@ -120,9 +120,9 @@ def get_run_config():
 
     run_config['random_walk_length'] = 3
     run_config['random_walk_restart_prob'] = 0.5
-    run_config['num_random_walk'] = 5
-    run_config['num_neighbor'] = 5
-    run_config['num_layer'] = 2
+    run_config['num_random_walk'] = 8
+    run_config['num_neighbor'] = 8
+    run_config['num_layer'] = 3
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     run_config['num_epoch'] = 11
     run_config['num_hidden'] = 256

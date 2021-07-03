@@ -18,7 +18,7 @@ namespace cuda {
 
 namespace {
 
-template <int BLOCK_SIZE, size_t TILE_SIZE>
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_miss_cache(const IdType *hashtable, const IdType *nodes,
                                  const size_t num_nodes, IdType *miss_counts,
                                  IdType *cache_counts) {
@@ -58,7 +58,7 @@ __global__ void count_miss_cache(const IdType *hashtable, const IdType *nodes,
   }
 }
 
-template <int BLOCK_SIZE, size_t TILE_SIZE>
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void get_miss_index(const IdType *hashtable, const IdType *nodes,
                                const size_t num_nodes,
                                IdType *output_miss_dst_index,
@@ -102,7 +102,7 @@ __global__ void get_miss_index(const IdType *hashtable, const IdType *nodes,
   // }
 }
 
-template <int BLOCK_SIZE, size_t TILE_SIZE>
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void get_cache_index(const IdType *hashtable, const IdType *nodes,
                                 const size_t num_nodes,
                                 IdType *output_cache_dst_index,

@@ -42,8 +42,8 @@ class DeviceOrderedHashTable {
  protected:
   const BucketO2N *_o2n_table;
   const BucketN2O *_n2o_table;
-  size_t _o2n_size;
-  size_t _n2o_size;
+  const size_t _o2n_size;
+  const size_t _n2o_size;
 
   explicit DeviceOrderedHashTable(const BucketO2N *const o2n_table,
                                   const BucketN2O *const n2o_table,
@@ -78,7 +78,7 @@ class OrderedHashTable {
   using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
   using BucketN2O = typename DeviceOrderedHashTable::BucketN2O;
 
-  OrderedHashTable(const size_t size, Context ctx, StreamHandle stream,
+  OrderedHashTable(const size_t size, Context ctx,
                    const size_t scale = kDefaultScale);
 
   ~OrderedHashTable();

@@ -13,6 +13,7 @@ namespace samgraph {
 namespace common {
 
 using IdType = unsigned int;
+using LongIdType = unsigned long long int;
 
 enum DataType {
   kF32 = 0,
@@ -123,6 +124,7 @@ struct Dataset {
 struct TrainGraph {
   TensorPtr row;
   TensorPtr col;
+  TensorPtr data;
   size_t num_src;
   size_t num_dst;
   size_t num_edge;
@@ -159,7 +161,7 @@ size_t GetTensorBytes(DataType dtype,
                       std::vector<size_t>::const_iterator shape_start,
                       std::vector<size_t>::const_iterator shape_end);
 // predict the number of sampled nodes
-size_t PredictNumNodes(size_t batch_size, const std::vector<int>& fanout,
+size_t PredictNumNodes(size_t batch_size, const std::vector<size_t>& fanout,
                        size_t num_fanout_to_comp);
 
 std::string ToReadableSize(size_t nbytes);

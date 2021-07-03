@@ -14,7 +14,7 @@ namespace cuda {
 
 class GPURandomStates {
  public:
-  GPURandomStates(SampleType sample_type, const std::vector<int>& fanout,
+  GPURandomStates(SampleType sample_type, const std::vector<size_t>& fanout,
                   const size_t batch_size, Context ctx);
   ~GPURandomStates();
 

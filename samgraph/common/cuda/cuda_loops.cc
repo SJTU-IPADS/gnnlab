@@ -30,7 +30,7 @@ TaskPtr DoShuffle() {
   }
 }
 
-void DoGPUSample(TaskPtr task) {
+void DoGPUKhopSample(TaskPtr task) {
   auto fanouts = GPUEngine::Get()->GetFanout();
   auto num_layers = fanouts.size();
   auto last_layer_idx = num_layers - 1;
@@ -103,6 +103,13 @@ void DoGPUSample(TaskPtr task) {
                               task->key);
         break;
       case kRandomWalk:
+        CHECK_EQ(fanout, RunConfig::num_neighbor);
+        GPUSampleRandomWalk(
+            indptr, indices, input, num_input, RunConfig::random_walk_length,
+            RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
+            RunConfig::num_neighbor, out_src, out_dst, num_out, sampler_ctx,
+            sample_stream, random_states, task->key);
+        break;
       default:
         CHECK(0);
     }

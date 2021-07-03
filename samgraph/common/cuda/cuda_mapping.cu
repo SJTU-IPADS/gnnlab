@@ -11,7 +11,7 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-template <int BLOCK_SIZE, size_t TILE_SIZE>
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __device__ void map_node_ids(const IdType *const global,
                              IdType *const new_global, const size_t num_input,
                              const DeviceOrderedHashTable &table) {
@@ -29,7 +29,7 @@ __device__ void map_node_ids(const IdType *const global,
   }
 }
 
-template <int BLOCK_SIZE, size_t TILE_SIZE>
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void map_edge_ids(const IdType *const global_src,
                              IdType *const new_global_src,
                              const IdType *const global_dst,

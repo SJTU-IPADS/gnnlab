@@ -121,6 +121,7 @@ def run():
     run_config = get_run_config()
 
     sam.config(run_config)
+    sam.config_khop(run_config)
     sam.init()
 
     train_device = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)

@@ -27,14 +27,15 @@ __global__ void sample_weighted_khop(
     const size_t fanout, IdType *tmp_src, IdType *tmp_dst,
     curandState *random_states, size_t num_random_states) {
   size_t num_task = num_input * fanout;
-  size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
+  size_t thread_id = threadIdx.x + blockDim.x * blockIdx.x;
   size_t task_span = blockDim.x * gridDim.x;
 
-  assert(threadId < num_random_states);
+  assert(thread_id < num_random_states);
   // cache the curand state
-  curandState local_state = random_states[threadId];
+  curandState local_state = random_states[thread_id];
 
-  for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
+  for (size_t task_idx = thread_id; task_idx < num_task;
+       task_idx += task_span) {
     const IdType rid = input[task_idx / fanout];
     const IdType off = indptr[rid];
     const IdType len = indptr[rid + 1] - indptr[rid];
@@ -54,15 +55,16 @@ __global__ void sample_weighted_khop(
     }
   }
   // restore the state
-  random_states[threadId] = local_state;
+  random_states[thread_id] = local_state;
 }
 
 __global__ void count_edge(IdType *src, IdType *dst, size_t *item_prefix,
                            size_t num_task) {
-  size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
+  size_t thread_id = threadIdx.x + blockDim.x * blockIdx.x;
   size_t task_span = blockDim.x * gridDim.x;
 
-  for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
+  for (size_t task_idx = thread_id; task_idx < num_task;
+       task_idx += task_span) {
     if (task_idx < (num_task - 1)) {
       item_prefix[task_idx] = (src[task_idx] != src[task_idx + 1] ||
                                dst[task_idx] != dst[task_idx + 1]) &&
@@ -72,7 +74,7 @@ __global__ void count_edge(IdType *src, IdType *dst, size_t *item_prefix,
     }
   }
 
-  if (threadId == 0) {
+  if (thread_id == 0) {
     item_prefix[num_task] = 0;
   }
 }
@@ -80,10 +82,11 @@ __global__ void count_edge(IdType *src, IdType *dst, size_t *item_prefix,
 __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
                              IdType *out_dst, size_t *item_prefix,
                              size_t num_task, size_t *num_out) {
-  size_t threadId = threadIdx.x + blockDim.x * blockIdx.x;
+  size_t thread_id = threadIdx.x + blockDim.x * blockIdx.x;
   size_t task_span = blockDim.x * gridDim.x;
 
-  for (size_t task_idx = threadId; task_idx < num_task; task_idx += task_span) {
+  for (size_t task_idx = thread_id; task_idx < num_task;
+       task_idx += task_span) {
     bool cond;
     if (task_idx < (num_task - 1)) {
       cond = (tmp_src[task_idx] != tmp_src[task_idx + 1] ||
@@ -102,7 +105,7 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
     // out_dst[item_prefix[task_idx]] = tmp_dst[task_idx];
   }
 
-  if (threadId == 0) {
+  if (thread_id == 0) {
     *num_out = item_prefix[num_task];
   }
 }
@@ -188,8 +191,8 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
                                           num_sample + 1, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
-  double prefix_sum_time = t2.Passed();
-  LOG(DEBUG) << "GPUSample: ExclusiveSum time cost: " << prefix_sum_time;
+  double count_edge_time = t2.Passed();
+  LOG(DEBUG) << "GPUSample: ExclusiveSum time cost: " << count_edge_time;
 
   // compact edge
   Timer t3;
@@ -206,7 +209,7 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
   Profiler::Get().LogStepAdd(task_key, kLogL3SampleCooTime, sample_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3SampleSortCooTime, sort_coo_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3SampleCountEdgeTime,
-                             prefix_sum_time);
+                             count_edge_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3SampleCompactEdgesTime,
                              compact_edge_time);
 

@@ -20,6 +20,7 @@ enable_testing()
 
 add_executable(
   samgraph_test
+  cuda_class_test.cu
   device_query_test.cc
   memory_race_test.cu
   memcpy_test.cc

@@ -220,7 +220,7 @@ size_t GetTensorBytes(DataType dtype,
          GetDataTypeBytes(dtype);
 }
 
-size_t PredictNumNodes(size_t batch_size, const std::vector<int> &fanout,
+size_t PredictNumNodes(size_t batch_size, const std::vector<size_t> &fanout,
                        size_t num_fanout_to_comp) {
   CHECK_LE(num_fanout_to_comp, fanout.size());
   size_t predicted_num_nodes = 0;

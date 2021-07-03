@@ -103,6 +103,7 @@ class DatasetLoader:
                 1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csr', 'csc'])
         else:
             assert(False)
+
         g = dgl.DGLGraph(g_idx)
         g.ndata['feat'] = self.feat
         g.ndata['label'] = self.label

@@ -22,7 +22,7 @@ class Engine {
   virtual void Shutdown() = 0;
   virtual void RunSampleOnce() = 0;
 
-  std::vector<int> GetFanout() { return _fanout; }
+  std::vector<size_t> GetFanout() { return _fanout; }
   size_t NumEpoch() { return _num_epoch; }
   size_t NumStep() { return _num_step; }
 
@@ -68,7 +68,7 @@ class Engine {
   // Sampling batch size
   size_t _batch_size;
   // Fanout data
-  std::vector<int> _fanout;
+  std::vector<size_t> _fanout;
   // Sampling epoch
   size_t _num_epoch;
   // Number of steps per epoch

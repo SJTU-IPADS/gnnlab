@@ -27,7 +27,7 @@ __global__ void init_random_states(curandState *states, size_t num,
 }  // namespace
 
 GPURandomStates::GPURandomStates(SampleType sample_type,
-                                 const std::vector<int> &fanout,
+                                 const std::vector<size_t> &fanout,
                                  const size_t batch_size, Context ctx) {
   _ctx = ctx;
   auto device = Device::Get(_ctx);

@@ -31,8 +31,12 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
 
 void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
                          const IdType *input, const size_t num_input,
-                         const size_t fanout, IdType *out_src, IdType *out_dst,
-                         size_t *num_out, Context ctx, StreamHandle stream,
+                         const size_t random_walk_length,
+                         const double random_walk_restart_prob,
+                         const size_t num_random_walk,
+                         const const size_t num_neighbor, IdType *out_src,
+                         IdType *out_dst, IdType *out_data, size_t *num_out,
+                         Context ctx, StreamHandle stream,
                          GPURandomStates *random_states, uint64_t task_key);
 
 void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,

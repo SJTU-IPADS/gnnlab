@@ -16,7 +16,6 @@ struct RunConfig {
   static std::string dataset_path;
   static RunArch run_arch;
   static SampleType sample_type;
-  static std::vector<int> fanout;
   static size_t batch_size;
   static size_t num_epoch;
   static Context sampler_ctx;
@@ -26,6 +25,17 @@ struct RunConfig {
 
   static size_t max_sampling_jobs;
   static size_t max_copying_jobs;
+
+  static std::vector<size_t> fanout;
+  static size_t random_walk_length;
+  static double random_walk_restart_prob;
+  static size_t num_random_walk;
+  static size_t num_neighbor;
+  static size_t num_layer;
+
+  static bool is_configured;
+  static bool is_khop_configured;
+  static bool is_random_walk_configured;
 
   static cpu::CPUHashType cpu_hash_type;
 

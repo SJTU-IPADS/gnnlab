@@ -208,12 +208,6 @@ class SamGraphBasics(object):
             ctypes.c_size_t(
                 run_config['batch_size']
             ),
-            (ctypes.c_int * run_config['num_fanout'])(
-                *run_config['fanout']
-            ),
-            ctypes.c_size_t(
-                run_config['num_fanout']
-            ),
             ctypes.c_size_t(
                 run_config['num_epoch']
             ),
@@ -230,6 +224,33 @@ class SamGraphBasics(object):
                 run_config['max_copying_jobs']
             )
         )
+
+    def config_khop(self, run_config):
+        return self.C_LIB_CTYPES.samgraph_config_khop(
+            (ctypes.c_size_t * run_config['num_fanout'])(
+                *run_config['fanout']
+            ),
+            ctypes.c_size_t(
+                run_config['num_fanout']
+            ))
+
+    def config_random_walk(self, run_config):
+        return self.C_LIB_CTYPES.samgraph_config_random_walk(
+            ctypes.c_size_t(
+                run_config['random_walk_length']
+            ),
+            ctypes.c_double(
+                run_config['random_walk_restart_prob']
+            ),
+            ctypes.c_size_t(
+                run_config(['num_random_walk'])
+            ),
+            ctypes.c_size_t(
+                run_config['num_neighbor']
+            ),
+            ctypes.c_size_t(
+                run_config['num_layer']
+            ))
 
     def init(self):
         return self.C_LIB_CTYPES.samgraph_init()

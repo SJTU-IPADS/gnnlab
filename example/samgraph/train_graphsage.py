@@ -123,6 +123,7 @@ def run():
     run_config = get_run_config()
 
     sam.config(run_config)
+    sam.config_khop(run_config)
     sam.init()
 
     train_device = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
@@ -191,7 +192,6 @@ def run():
             copy_times.append(copy_time)
             convert_times.append(convert_time)
             train_times.append(train_time)
-
             total_times.append(total_time)
 
             num_sample = 0

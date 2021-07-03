@@ -101,6 +101,7 @@ setup(
                 'samgraph/common/cuda/cuda_device.cc',
                 'samgraph/common/cuda/cuda_engine.cc',
                 'samgraph/common/cuda/cuda_extraction.cu',
+                'samgraph/common/cuda/cuda_frequency_hashmap.cu',
                 'samgraph/common/cuda/cuda_hashtable.cu',
                 'samgraph/common/cuda/cuda_loops_arch1.cc',
                 'samgraph/common/cuda/cuda_loops_arch2.cc',
