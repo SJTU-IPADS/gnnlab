@@ -31,34 +31,6 @@ class DeviceFrequencyHashmap {
   typedef const NodeBucket *ConstNodeIterator;
   typedef const EdgeBucket *ConstEdgeIterator;
 
-  inline __device__ ConstNodeIterator SearchNode(const IdType id) {
-    const IdType pos = SearchNodeForPosition(id);
-    return &_node_table[pos];
-  }
-
-  inline __device__ ConstEdgeIterator SearchEdge(const IdType src,
-                                                 const IdType dst) {
-    const LongIdType pos = SearchEdgeForPosition(src, dst);
-    return &_edge_table[pos];
-  }
-
- protected:
-  const NodeBucket *_node_table;
-  const EdgeBucket *_edge_table;
-  const size_t _ntable_size;
-  const size_t _etable_size;
-
-  const IdType *_unique_src;
-  const IdType *_unique_dst;
-  const IdType *_unique_count;
-  const size_t _unique_size;
-
-  explicit DeviceFrequencyHashmap(
-      const NodeBucket *node_table, const EdgeBucket *edge_table,
-      const size_t ntable_size, const size_t etable_size,
-      const IdType *unique_src, const IdType *unique_dst,
-      const IdType *unique_count, const size_t unique_size);
-
   inline __device__ IdType SearchNodeForPosition(const IdType id) const {
     IdType pos = NodeHash(id);
 
@@ -88,6 +60,34 @@ class DeviceFrequencyHashmap {
 
     return pos;
   }
+
+  inline __device__ ConstNodeIterator SearchNode(const IdType id) {
+    const IdType pos = SearchNodeForPosition(id);
+    return &_node_table[pos];
+  }
+
+  inline __device__ ConstEdgeIterator SearchEdge(const IdType src,
+                                                 const IdType dst) {
+    const LongIdType pos = SearchEdgeForPosition(src, dst);
+    return &_edge_table[pos];
+  }
+
+ protected:
+  const NodeBucket *_node_table;
+  const EdgeBucket *_edge_table;
+  const size_t _ntable_size;
+  const size_t _etable_size;
+
+  const IdType *_unique_src;
+  const IdType *_unique_dst;
+  const IdType *_unique_count;
+  const size_t _unique_size;
+
+  explicit DeviceFrequencyHashmap(
+      const NodeBucket *node_table, const EdgeBucket *edge_table,
+      const size_t ntable_size, const size_t etable_size,
+      const IdType *unique_src, const IdType *unique_dst,
+      const IdType *unique_count, const size_t unique_size);
 
   inline __device__ LongIdType EncodeEdge(const IdType src,
                                           const IdType dst) const {
@@ -133,15 +133,19 @@ class FrequencyHashmap {
 
   NodeBucket *_node_table;
   EdgeBucket *_edge_table;
-  size_t _ntable_size;
-  size_t _etable_size;
+  const size_t _ntable_size;
+  const size_t _etable_size;
+
+  IdType *_node_list;
+  size_t _num_node;
+  const size_t _node_list_size;
 
   IdType *_unique_src;
   IdType *_unique_dst;
   IdType *_unique_frequency;
   size_t _num_unique;
+  const size_t _unique_list_size;
 
-  size_t _unique_size;
   static constexpr size_t kDefaultScale = 3;
 
   DeviceFrequencyHashmap DeviceHandle() const;

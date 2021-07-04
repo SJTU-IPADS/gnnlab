@@ -234,6 +234,15 @@ size_t PredictNumNodes(size_t batch_size, const std::vector<size_t> &fanout,
   return predicted_num_nodes;
 }
 
+size_t PredictNumRandomWalkEdges(size_t batch_size,
+                                 const std::vector<size_t> &fanout,
+                                 size_t num_fanout_to_comp,
+                                 size_t num_random_walk,
+                                 size_t random_walk_length) {
+  size_t num_nodes = PredictNumNodes(batch_size, fanout, num_fanout_to_comp);
+  return num_nodes * num_random_walk * random_walk_length;
+}
+
 std::string GetEnv(std::string key) {
   const char *env_var_val = getenv(key.c_str());
   if (env_var_val != nullptr) {

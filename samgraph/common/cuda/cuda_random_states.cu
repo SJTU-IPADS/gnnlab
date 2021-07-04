@@ -24,6 +24,20 @@ __global__ void init_random_states(curandState *states, size_t num,
   }
 }
 
+size_t PredictRandomWalkMaxThreads(size_t num_nodes, size_t num_random_walk) {
+  size_t block_x = Constant::kCudaBlockSize;
+  size_t block_y = 1;
+
+  while (block_x >= 2 * num_random_walk) {
+    block_x /= 2;
+    block_y *= 2;
+  }
+
+  size_t grid_x = RoundUpDiv(num_nodes, block_y);
+
+  return grid_x * block_x * block_y;
+}
+
 }  // namespace
 
 GPURandomStates::GPURandomStates(SampleType sample_type,
@@ -45,6 +59,10 @@ GPURandomStates::GPURandomStates(SampleType sample_type,
       _num_states = Min(_num_states, Constant::kWeightedKHopMaxThreads);
       break;
     case kRandomWalk:
+      _num_states = PredictRandomWalkMaxThreads(
+          PredictNumNodes(batch_size, fanout, fanout.size() - 1),
+          RunConfig::num_random_walk);
+      break;
     default:
       CHECK(0);
   }

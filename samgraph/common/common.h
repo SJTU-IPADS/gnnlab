@@ -163,6 +163,11 @@ size_t GetTensorBytes(DataType dtype,
 // predict the number of sampled nodes
 size_t PredictNumNodes(size_t batch_size, const std::vector<size_t>& fanout,
                        size_t num_fanout_to_comp);
+size_t PredictNumRandomWalkEdges(size_t batch_size,
+                                 const std::vector<size_t>& fanout,
+                                 size_t num_fanout_to_comp,
+                                 size_t num_random_walk,
+                                 size_t random_walk_length);
 
 std::string ToReadableSize(size_t nbytes);
 std::string ToPercentage(double percentage);

@@ -82,7 +82,6 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
     return GetMutableEdge(pos);
   }
 
- private:
   inline __device__ NodeIterator GetMutableNode(const IdType pos) {
     assert(pos < _ntable_size);
     return const_cast<NodeIterator>(_node_table + pos);
@@ -93,6 +92,93 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
     return const_cast<EdgeIterator>(_edge_table + pos);
   }
 };
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void init_node_table(MutableDeviceFrequencyHashmap table,
+                                const size_t num_bucket) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  using NodeIterator = typename MutableDeviceFrequencyHashmap::NodeIterator;
+
+#pragma unroll
+  for (IdType index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_bucket) {
+      NodeIterator node_iter = table.GetMutableNode(index);
+      node_iter->key = Constant::kEmptyKey;
+      node_iter->count = 0;
+    }
+  }
+}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void init_edge_table(MutableDeviceFrequencyHashmap table,
+                                const size_t num_bucket) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  using EdgeIterator = typename MutableDeviceFrequencyHashmap::EdgeIterator;
+
+#pragma unroll
+  for (LongIdType index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_bucket) {
+      EdgeIterator edge_iter = table.GetMutableEdge(index);
+      edge_iter->key = Constant::kEmptyLongKey;
+      edge_iter->count = 0;
+    }
+  }
+}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void reset_node_table(MutableDeviceFrequencyHashmap table,
+                                 IdType *nodes, const size_t num_nodes) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  using NodeIterator = typename MutableDeviceFrequencyHashmap::NodeIterator;
+
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_nodes) {
+      IdType id = nodes[index];
+      IdType pos = table.SearchNodeForPosition(id);
+      NodeIterator node_iter = table.GetMutableNode(pos);
+      node_iter->key = Constant::kEmptyKey;
+      node_iter->count = 0;
+    }
+  }
+}
+}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void reset_edge_table(MutableDeviceFrequencyHashmap table,
+                                 IdType *unique_src, IdType *unique_dst,
+                                 const size_t num_unique) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  using EdgeIterator = typename MutableDeviceFrequencyHashmap::EdgeIterator;
+
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_unique) {
+      IdType src = unique_src[index];
+      IdType dst = unique_dst[index];
+      LongIdType pos = table.SearchEdgeForPosition(src, dst);
+      EdgeIterator edge_iter = table.GetMutableEdge(pos);
+      edge_iter->key = Constant::kEmptyLongKey;
+      edge_iter->count = 0;
+    }
+  }
+}
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_frequency(const IdType *input_src,
@@ -113,22 +199,6 @@ __global__ void count_frequency(const IdType *input_src,
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void init_node_table(DeviceOrderedHashTable::NodeBucket *table,
-                                const size_t num_bucket) {}
-
-template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void init_node_table(DeviceOrderedHashTable::NodeBucket *table,
-                                const size_t num_bucket) {}
-
-template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void reset_node_table(DeviceOrderedHashTable::NodeBucket *table,
-                                 const size_t num_bucket) {}
-
-template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void reset_node_table(DeviceOrderedHashTable::NodeBucket *table,
-                                 const size_t num_bucket) {}
-
-template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_unique_edges(const IdType *input_src,
                                    const IdType *input_dst,
                                    const size_t num_input_edge,
@@ -137,7 +207,7 @@ __global__ void count_unique_edges(const IdType *input_src,
   assert(BLOCK_SIZE == blockDim.x);
 
   using BlockReduce = typename cub::BlockReduce<IdType, BLOCK_SIZE>;
-  using EdgeBucket = typename DeviceOrderedHashTable::EdgeBucket;
+  using EdgeBucket = typename DeviceFrequencyHashmap::EdgeBucket;
 
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -178,7 +248,7 @@ __global__ void generate_unique_edges(const IdType *input_src,
 
   using FlagType = IdType;
   using BlockScan = typename cub::BlockScan<FlagType, BLOCK_SIZE>;
-  using EdgeBucket = typename DeviceOrderedHashTable::EdgeBucket;
+  using EdgeBucket = typename DeviceFrequencyHashmap::EdgeBucket;
 
   constexpr const IdType VALS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
 
@@ -230,7 +300,7 @@ __global__ void generate_unique_edge_frequency(const IdType *unique_src,
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
 
-  using EdgeBucket = typename DeviceOrderedHashTable::EdgeBucket;
+  using EdgeBucket = typename DeviceFrequencyHashmap::EdgeBucket;
 
 #pragma unroll
   for (size_t index = threadIdx.x + block_start; index < block_end;
@@ -252,7 +322,7 @@ __global__ void generate_num_edge(const IdType *nodes, const size_t num_nodes,
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
 
-  using NodeBucket = typename DeviceOrderedHashTable::NodeBucket;
+  using NodeBucket = typename DeviceFrequencyHashmap::NodeBucket;
 
 #pragma unroll
   for (size_t index = threadIdx.x + block_start; index < block_end;
@@ -303,11 +373,13 @@ __global__ void compact_output(const IdType *unique_src,
 
 FrequencyHashmap(const size_t max_nodes, const size_t max_edges, Context ctx,
                  StreamHandle stream, const size_t scale)
-    : _ctx(_ctx),
+    : _ctx(ctx),
       _ntable_size(TableSize(max_nodes, scale)),
       _etable_size(TableSize(max_edges, scale)),
-      _unique_size(max_edges),
-      _num_unique(0) {
+      _num_nodes(0),
+      _node_list_size(max_nodes),
+      _num_unique(0),
+      _unique_list_size(max_edges) {
   auto device = Device::Get(_ctx);
   CHECK_EQ(device.device_type, kGPU);
 
@@ -316,10 +388,35 @@ FrequencyHashmap(const size_t max_nodes, const size_t max_edges, Context ctx,
   _edge_table = static_cast<EdgeBucket *>(
       device->AllocDataSpace(_ctx, sizeof(EdgeBucket) * _etable_size));
 
-  CUDA_CALL(cudaMemset(_node_table, (int)Constant::kEmptyKey,
-                       sizeof(NodeBucket) * _ntable_size));
-  CUDA_CALL(cudaMemset(_edge_table, (int)Constant::kEmptyKey,
-                       sizeof(EdgeBucket) * _etable_size));
+  _node_list = static_cast<IdType *>(
+      device->AllocDataSpace(_ctx, sizeof(IdType) * _node_list_size));
+
+  _unique_src = static_cast<IdType *>(
+      device->AllocDataSpace(_ctx, sizeof(IdType) * _unique_list_size));
+  _unique_dst = static_cast<IdType *>(
+      device->AllocDataSpace(_ctx, sizeof(IdType) * _unique_list_size));
+  _unique_frequency = static_cast<IdType *>(
+      device->AllocDataSpace(_ctx, sizeof(IdType) * _unique_list_size));
+
+  auto device_table = MutableDeviceFrequencyHashmap(this);
+  dim3 grid0(RoundUpDiv(_node_list_size, kCudaTileSize));
+  dim3 grid1(RoundUpDiv(_unique_list_size, kCudaTileSize));
+  dim3 block0(Constant::kCudaBlockSize);
+  dim3 block1(Constant::kCudaBlockSize);
+
+  init_node_table<<<grid0, block0>>>(device_table, _node_list_size);
+  init_edge_table<<<grid1, block1>>>(device_tablem, _unique_list_size);
+}
+
+FrequencyHashmap::~FrequencyHashmap() {
+  auto device = Device::Get(_ctx);
+
+  device->FreeDataSpace(_node_table);
+  device->FreeDataSpace(_edge_table);
+  device->FreeDataSpace(_node_list);
+  device->FreeDataSpace(_unique_src);
+  device->FreeDataSpace(_unique_dst);
+  device->FreeDataSpace(_unique_frequency);
 }
 
 void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
@@ -517,13 +614,25 @@ _unique_dst, num_input_node,
 }
 
 void FrequencyHashmap::Reset(StreamHandle stream) {
+  auto device_table = MutableDeviceFrequencyHashmap(this);
+  auto device = Device::Get(_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
-  CUDA_CALL(cudaMemsetAsync(_node_table, (int)Constant::kEmptyKey,
-                            sizeof(NodeBucket) * _ntable_size, cu_stream));
-  CUDA_CALL(cudaMemsetAsync(_edge_table, (int)Constant::kEmptyKey,
-                            sizeof(EdgeBucket) * _etable_size, cu_stream));
+
+  dim3 grid0(RoundUpDiv(_num_nodes, kCudaTileSize));
+  dim3 grid1(RoundUpDiv(_num_unique, kCudaTileSize));
+
+  dim3 block0(Constant::kCudaBlockSize);
+  dim3 block1(Constant::kCudaBlockSize);
+
+  reset_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid0, block0>>>(device_table, _sorted_nodes, _num_nodes);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
-  _num_unique_edge = 0;
+
+  reset_edge_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid1, block1>>>(device_table, _unique_src, _unique_dst, num_unique);
+  Device::Get(_ctx)->StreamSync(_ctx, stream);
+
+  _num_unique = 0;
 }
 
 DeviceFrequencyHashmap FrequencyHashmap::DeviceHandle() {

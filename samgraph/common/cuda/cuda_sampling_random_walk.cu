@@ -102,16 +102,17 @@ void GPUSampleRandomWalk(
     const size_t num_input, const size_t random_walk_length,
     const double random_walk_restart_prob, const size_t num_random_walk,
     const const size_t num_neighbor, IdType *out_src, IdType *out_dst,
-    size_t *num_out, FrequencyHashmap table, Context ctx, StreamHandle stream,
-    GPURandomStates *random_states, uint64_t task_key) {
+    size_t *num_out, FrequencyHashmap *frequency_hashmap, Context ctx,
+    StreamHandle stream, GPURandomStates *random_states, uint64_t task_key) {
   auto sampler_device = Device::Get(ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
+  size_t num_samples = num_input * num_random_walk * random_walk_length;
 
   // 1. random walk sampling
-  IdType *tmp_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
-      ctx, sizeof(IdType) * num_input * num_random_walk * random_walk_length));
-  IdType *tmp_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
-      ctx, sizeof(IdType) * num_input * num_random_walk * random_walk_length));
+  IdType *tmp_src = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_samples));
+  IdType *tmp_dst = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_samples));
 
   dim3 block(Constant::kCudaBlockSize, 1);
   while (static_cast<size_t>(block.x) >= 2 * num_random_walk) {
@@ -120,13 +121,16 @@ void GPUSampleRandomWalk(
   }
   const dim3 grid2(RoundUpDiv(num_input, static_cast<size_t>(block.y));
 
-  template sample_random_walk<<<grid, block, 0, cu_stream>>>(
+  sample_random_walk<<<grid, block, 0, cu_stream>>>(
       indptr, indices, input, num_input, random_walk_length,
       random_walk_restart_prob, num_random_walk, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
 
   double sample_time = t0.Passed();
   LOG(DEBUG) << "GPUSample: kernel sampling, time cost: " << sample_time;
+
+  frequency_hashmap->Reset();
+  frequency_hashmap->GetTopK(tmp_src, tmp_dst, num_samples, input, num_input, out_src, out_dst, num_output, stream);
 }
 
 }  // namespace cuda

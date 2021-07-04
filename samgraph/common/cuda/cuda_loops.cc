@@ -41,6 +41,7 @@ void DoGPUKhopSample(TaskPtr task) {
   auto sample_stream = GPUEngine::Get()->GetSampleStream();
 
   auto random_states = GPUEngine::Get()->GetRandomStates();
+  auto frequency_hashmap = GPUEngine::Get()->GetFrequencyHashmap();
 
   OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
   hash_table->Reset(sample_stream);
@@ -72,6 +73,11 @@ void DoGPUKhopSample(TaskPtr task) {
         sampler_ctx, num_input * fanout * sizeof(IdType)));
     IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_input * fanout * sizeof(IdType)));
+    IdType *out_data = nullptr;
+    if (RunConfig::sample_type == kRandomWalk) {
+      out_data = static_cast<IdType *>(sampler_device->AllocWorkspace(
+          sampler_ctx, num_input * fanout * sizeof(IdType)));
+    }
     size_t *num_out = static_cast<size_t *>(
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
     size_t num_samples;
@@ -107,8 +113,9 @@ void DoGPUKhopSample(TaskPtr task) {
         GPUSampleRandomWalk(
             indptr, indices, input, num_input, RunConfig::random_walk_length,
             RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
-            RunConfig::num_neighbor, out_src, out_dst, num_out, sampler_ctx,
-            sample_stream, random_states, task->key);
+            RunConfig::num_neighbor, out_src, out_dst, num_out,
+            frequency_hashmap, sampler_ctx, sample_stream, random_states,
+            task->key);
         break;
       default:
         CHECK(0);
@@ -173,6 +180,12 @@ void DoGPUKhopSample(TaskPtr task) {
         new_dst, DataType::kI32, {num_samples}, sampler_ctx,
         "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
             std::to_string(i));
+    if (out_data) {
+      train_graph->data = Tensor::FromBlob(
+          out_data, DataType::kI32, {num_samples}, sampler_ctx,
+          "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
+    }
 
     task->graphs[i] = train_graph;
 

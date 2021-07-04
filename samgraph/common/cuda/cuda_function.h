@@ -2,6 +2,7 @@
 #define SAMGRAPH_CUDA_FUNCTION_H
 
 #include "../common.h"
+#include "cuda_frequency_hashmap.h"
 #include "cuda_hashtable.h"
 #include "cuda_random_states.h"
 
@@ -36,8 +37,9 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
                          const size_t num_random_walk,
                          const const size_t num_neighbor, IdType *out_src,
                          IdType *out_dst, IdType *out_data, size_t *num_out,
-                         Context ctx, StreamHandle stream,
-                         GPURandomStates *random_states, uint64_t task_key);
+                         FrequencyHashmap *frequency_hashmap, Context ctx,
+                         StreamHandle stream, GPURandomStates *random_states,
+                         uint64_t task_key);
 
 void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
                  const IdType *const global_dst, IdType *const new_global_dst,
