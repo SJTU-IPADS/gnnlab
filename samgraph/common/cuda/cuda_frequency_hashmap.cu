@@ -185,7 +185,6 @@ __global__ void reset_edge_table(MutableDeviceFrequencyHashmap table,
       IdType src = unique_src[index];
       IdType dst = unique_dst[index];
       LongIdType pos = table.SearchEdgeForPosition(src, dst);
-      printf("Search edge src %u dst %u \n", src, dst);
       EdgeIterator edge_iter = table.GetMutableEdge(pos);
       edge_iter->key = Constant::kEmptyLongKey;
       edge_iter->count = 0;
