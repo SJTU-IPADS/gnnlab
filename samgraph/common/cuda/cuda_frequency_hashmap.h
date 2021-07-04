@@ -27,12 +27,12 @@ class DeviceFrequencyHashmap {
     IdType index;
   };
 
+  typedef const NodeBucket *ConstNodeIterator;
+  typedef const EdgeBucket *ConstEdgeIterator;
+
   DeviceFrequencyHashmap(const DeviceFrequencyHashmap &other) = default;
   DeviceFrequencyHashmap &operator=(const DeviceFrequencyHashmap &other) =
       default;
-
-  typedef const NodeBucket *ConstNodeIterator;
-  typedef const EdgeBucket *ConstEdgeIterator;
 
   inline __device__ IdType SearchNodeForPosition(const IdType id) const {
     IdType pos = NodeHash(id);
@@ -118,6 +118,7 @@ class DeviceFrequencyHashmap {
 
 class FrequencyHashmap {
  public:
+  static constexpr size_t kDefaultScale = 3;
   using NodeBucket = typename DeviceFrequencyHashmap::NodeBucket;
   using EdgeBucket = typename DeviceFrequencyHashmap::EdgeBucket;
 
@@ -150,8 +151,6 @@ class FrequencyHashmap {
   IdType *_unique_frequency;
   size_t _num_unique;
   const size_t _unique_list_size;
-
-  static constexpr size_t kDefaultScale = 3;
 };
 
 }  // namespace cuda

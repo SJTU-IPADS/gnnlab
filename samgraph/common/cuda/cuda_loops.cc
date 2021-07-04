@@ -30,7 +30,7 @@ TaskPtr DoShuffle() {
   }
 }
 
-void DoGPUKhopSample(TaskPtr task) {
+void DoGPUSample(TaskPtr task) {
   auto fanouts = GPUEngine::Get()->GetFanout();
   auto num_layers = fanouts.size();
   auto last_layer_idx = num_layers - 1;

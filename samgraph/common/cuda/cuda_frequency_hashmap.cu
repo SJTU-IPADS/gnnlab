@@ -380,6 +380,26 @@ __global__ void compact_output(const IdType *unique_src,
 
 }  // namespace
 
+DeviceFrequencyHashmap::DeviceFrequencyHashmap(
+    const NodeBucket *node_table, const EdgeBucket *edge_table,
+    const size_t ntable_size, const size_t etable_size,
+    const IdType *unique_src, const IdType *unique_dst,
+    const IdType *unique_count, const size_t unique_size)
+    : _node_table(node_table),
+      _edge_table(edge_table),
+      _ntable_size(ntable_size),
+      _etable_size(etable_size),
+      _unique_src(unique_src),
+      _unique_dst(unique_dst),
+      _unique_count(unique_count),
+      _unique_size(unique_size) {}
+
+DeviceFrequencyHashmap FrequencyHashmap::DeviceHandle() const {
+  return DeviceFrequencyHashmap(_node_table, _edge_table, _ntable_size,
+                                _etable_size, _unique_src, _unique_dst,
+                                _unique_frequency, _num_unique);
+}
+
 FrequencyHashmap::FrequencyHashmap(const size_t max_nodes,
                                    const size_t max_edges, Context ctx,
                                    const size_t scale)
@@ -644,12 +664,6 @@ void FrequencyHashmap::Reset(StreamHandle stream) {
 
   _num_node = 0;
   _num_unique = 0;
-}
-
-DeviceFrequencyHashmap FrequencyHashmap::DeviceHandle() const {
-  return DeviceFrequencyHashmap(_node_table, _edge_table, _ntable_size,
-                                _etable_size, _unique_src, _unique_dst,
-                                _unique_frequency, _num_unique);
 }
 
 }  // namespace cuda

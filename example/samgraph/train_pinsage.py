@@ -1,16 +1,64 @@
 import argparse
 import time
-import dgl.nn.pytorch as dglnn
+import torch
 import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
+import dgl.function as fn
 import torch.optim as optim
 import numpy as np
 
 import samgraph.torch as sam
 
 
-class SAGE(nn.Module):
+"""
+  We have made the following modification(or say, simplification) on PinSAGE,
+  because we only want to focus on the core algorithm of PinSAGE:
+    1. we modify PinSAGE to make it be able to be trained on homogenous graph.
+    2. we use cross-entropy loss instead of max-margin ranking loss describe in the paper.
+"""
+
+
+class WeightedSAGEConv(nn.Module):
+    def __init__(self, input_dims, hidden_dims, output_dims, dropout, act=F.relu):
+        super().__init__()
+
+        self.act = act
+        self.Q = nn.Linear(input_dims, hidden_dims)
+        self.W = nn.Linear(input_dims + hidden_dims, output_dims)
+        self.reset_parameters()
+        self.dropout = nn.Dropout(dropout)
+
+    def reset_parameters(self):
+        gain = nn.init.calculate_gain('relu')
+        nn.init.xavier_uniform_(self.Q.weight, gain=gain)
+        nn.init.xavier_uniform_(self.W.weight, gain=gain)
+        nn.init.constant_(self.Q.bias, 0)
+        nn.init.constant_(self.W.bias, 0)
+
+    def forward(self, g, h, weights):
+        """
+        g : graph
+        h : node features
+        weights : scalar edge weights
+        """
+        h_src, h_dst = h
+        with g.local_scope():
+            g.srcdata['n'] = self.act(self.Q(self.dropout(h_src)))
+            g.edata['w'] = weights.float()
+            g.update_all(fn.u_mul_e('n', 'w', 'm'), fn.sum('m', 'n'))
+            g.update_all(fn.copy_e('w', 'm'), fn.sum('m', 'ws'))
+            n = g.dstdata['n']
+            ws = g.dstdata['ws'].unsqueeze(1).clamp(min=1)
+            z = self.act(self.W(self.dropout(torch.cat([n / ws, h_dst], 1))))
+            z_norm = z.norm(2, 1, keepdim=True)
+            z_norm = torch.where(
+                z_norm == 0, torch.tensor(1.).to(z_norm), z_norm)
+            z = z / z_norm
+            return z
+
+
+class PinSAGE(nn.Module):
     def __init__(self,
                  in_feats,
                  n_hidden,
@@ -23,20 +71,19 @@ class SAGE(nn.Module):
         self.n_hidden = n_hidden
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
-        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, 'mean'))
-        for i in range(1, n_layers - 1):
-            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, 'mean'))
-        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
-        self.dropout = nn.Dropout(dropout)
-        self.activation = activation
 
-    def forward(self, blocks, x):
-        h = x
-        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
-            h = layer(block, h)
-            if l != len(self.layers) - 1:
-                h = self.activation(h)
-                h = self.dropout(h)
+        self.layers.append(WeightedSAGEConv(
+            in_feats, n_hidden, n_hidden, dropout, activation))
+        for _ in range(1, n_layers - 1):
+            self.layers.append(WeightedSAGEConv(
+                n_hidden, n_hidden, n_hidden, dropout, activation))
+        self.layers.append(WeightedSAGEConv(
+            n_hidden, n_hidden, n_classes, dropout, activation))
+
+    def forward(self, blocks, h):
+        for layer, block in zip(self.layers, blocks):
+            h_dst = h[:block.number_of_nodes('DST/' + block.ntypes[0])]
+            h = layer(block, (h, h_dst), block.edata['weights'])
         return h
 
 
@@ -52,6 +99,13 @@ def parse_args():
     argparser.add_argument('--max-sampling-jobs', type=int, default=10)
     argparser.add_argument('--max-copying-jobs', type=int, default=10)
 
+    argparser.add_argument('--random-walk-length', type=int, default=3)
+    argparser.add_argument('--random-walk-restart-prob',
+                           type=float, default=0.5)
+    argparser.add_argument('--num-random-walk', type=int, default=8)
+    argparser.add_argument('--num-neighbor', type=int, default=8)
+    argparser.add_argument('--num-layer', type=int, default=3)
+
     argparser.add_argument('--num-epoch', type=int, default=11)
     argparser.add_argument('--fanout', nargs='+',
                            type=int, default=[5, 10, 15])
@@ -65,7 +119,7 @@ def parse_args():
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
-    run_config['sample_type'] = sam.kKHop0
+    run_config['sample_type'] = sam.kRandomWalk
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -85,10 +139,10 @@ def get_run_config():
     run_config = {}
     run_config['arch'] = sam.meepo_archs['arch1']
     run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['sample_type'] = sam.kKHop0
-    run_config['pipeline'] = True
+    run_config['sample_type'] = sam.kRandomWalk
+    run_config['pipeline'] = False
     run_config['cache_policy'] = sam.kCacheByHeuristic
-    run_config['cache_percentage'] = 0.25
+    run_config['cache_percentage'] = 0
     # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     run_config['dataset_path'] = '/graph-learning/samgraph/products'
@@ -102,9 +156,11 @@ def get_run_config():
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
 
-    run_config['fanout'] = [5, 10, 15]
-    run_config['num_fanout'] = run_config['num_layer'] = len(
-        run_config['fanout'])
+    run_config['random_walk_length'] = 3
+    run_config['random_walk_restart_prob'] = 0.5
+    run_config['num_random_walk'] = 8
+    run_config['num_neighbor'] = 8
+    run_config['num_layer'] = 3
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     run_config['num_epoch'] = 11
     run_config['num_hidden'] = 256
@@ -123,7 +179,7 @@ def run():
     run_config = get_run_config()
 
     sam.config(run_config)
-    sam.config_khop(run_config)
+    sam.config_random_walk(run_config)
     sam.init()
 
     train_device = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
@@ -131,8 +187,8 @@ def run():
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
 
-    model = SAGE(in_feat, run_config['num_hidden'], num_class,
-                 num_layer, F.relu, run_config['dropout'])
+    model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
+                    num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()

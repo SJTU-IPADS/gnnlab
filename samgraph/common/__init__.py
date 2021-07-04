@@ -243,7 +243,7 @@ class SamGraphBasics(object):
                 run_config['random_walk_restart_prob']
             ),
             ctypes.c_size_t(
-                run_config(['num_random_walk'])
+                run_config['num_random_walk']
             ),
             ctypes.c_size_t(
                 run_config['num_neighbor']
