@@ -64,7 +64,7 @@ void DoGPUKhopSample(TaskPtr task) {
 
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer t0;
-    const int fanout = fanouts[i];
+    const size_t fanout = fanouts[i];
     const IdType *input = static_cast<const IdType *>(cur_input->Data());
     const size_t num_input = cur_input->Shape()[0];
     LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
@@ -113,7 +113,7 @@ void DoGPUKhopSample(TaskPtr task) {
         GPUSampleRandomWalk(
             indptr, indices, input, num_input, RunConfig::random_walk_length,
             RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
-            RunConfig::num_neighbor, out_src, out_dst, num_out,
+            RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
             frequency_hashmap, sampler_ctx, sample_stream, random_states,
             task->key);
         break;

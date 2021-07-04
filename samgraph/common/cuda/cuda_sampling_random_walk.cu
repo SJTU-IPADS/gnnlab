@@ -39,7 +39,7 @@ __global__ void sample_random_walk(
   while (node_idx < num_input) {
     size_t random_walk_idx = threadIdx.x;
     while (random_walk_idx < num_random_walk) {
-      const IdType node = input[node_idx];
+      IdType node = input[node_idx];
       for (size_t step_idx = 0; step_idx < random_walk_length; step_idx++) {
         /*
          *  Get the position on the output position of random walk
@@ -74,8 +74,8 @@ __global__ void sample_random_walk(
             node = Constant::kEmptyKey;
           } else {
             size_t k = curand(&local_state) % len;
-            tmp_src[task_idx] = rid;
-            tmp_dst[task_idx] = indices[off + k];
+            tmp_src[pos] = node;
+            tmp_dst[pos] = indices[off + k];
             node = indices[off + k];
 
             // terminate
@@ -97,13 +97,15 @@ __global__ void sample_random_walk(
 
 }  // namespace
 
-void GPUSampleRandomWalk(
-    const IdType *indptr, const IdType *indices, const IdType *input,
-    const size_t num_input, const size_t random_walk_length,
-    const double random_walk_restart_prob, const size_t num_random_walk,
-    const const size_t num_neighbor, IdType *out_src, IdType *out_dst,
-    size_t *num_out, FrequencyHashmap *frequency_hashmap, Context ctx,
-    StreamHandle stream, GPURandomStates *random_states, uint64_t task_key) {
+void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
+                         const IdType *input, const size_t num_input,
+                         const size_t random_walk_length,
+                         const double random_walk_restart_prob,
+                         const size_t num_random_walk, const size_t K,
+                         IdType *out_src, IdType *out_dst, IdType *out_data,
+                         size_t *num_out, FrequencyHashmap *frequency_hashmap,
+                         Context ctx, StreamHandle stream,
+                         GPURandomStates *random_states, uint64_t task_key) {
   auto sampler_device = Device::Get(ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
   size_t num_samples = num_input * num_random_walk * random_walk_length;
@@ -119,18 +121,17 @@ void GPUSampleRandomWalk(
     block.x /= 2;
     block.y *= 2;
   }
-  const dim3 grid2(RoundUpDiv(num_input, static_cast<size_t>(block.y));
+  const dim3 grid(RoundUpDiv(num_input, static_cast<size_t>(block.y)));
 
   sample_random_walk<<<grid, block, 0, cu_stream>>>(
       indptr, indices, input, num_input, random_walk_length,
-      random_walk_restart_prob, num_random_walk, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates());
+      random_walk_restart_prob, num_random_walk, tmp_src, tmp_dst,
+      random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
 
-  double sample_time = t0.Passed();
-  LOG(DEBUG) << "GPUSample: kernel sampling, time cost: " << sample_time;
-
-  frequency_hashmap->Reset();
-  frequency_hashmap->GetTopK(tmp_src, tmp_dst, num_samples, input, num_input, out_src, out_dst, num_output, stream);
+  frequency_hashmap->Reset(stream);
+  frequency_hashmap->GetTopK(tmp_src, tmp_dst, num_samples, input, num_input, K,
+                             out_src, out_dst, out_data, num_out, stream);
 }
 
 }  // namespace cuda

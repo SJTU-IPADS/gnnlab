@@ -3,7 +3,10 @@
 
 #include <cuda_runtime.h>
 
+#include <cassert>
+
 #include "../common.h"
+#include "../constant.h"
 
 namespace samgraph {
 namespace common {
@@ -40,7 +43,7 @@ class DeviceFrequencyHashmap {
       pos = NodeHash(pos + delta);
       delta += 1;
     }
-    assert(pos, _ntable_size);
+    assert(pos < _ntable_size);
 
     return pos;
   }
@@ -56,7 +59,7 @@ class DeviceFrequencyHashmap {
       pos = EdgeHash(pos + delta);
       delta += 1;
     }
-    assert(pos, _etable_size);
+    assert(pos < _etable_size);
 
     return pos;
   }
@@ -118,15 +121,17 @@ class FrequencyHashmap {
   using NodeBucket = typename DeviceFrequencyHashmap::NodeBucket;
   using EdgeBucket = typename DeviceFrequencyHashmap::EdgeBucket;
 
-  GPUFrequencyHashmap(const size_t max_nodes, const size_t max_edges,
-                      Context ctx, const size_t scale = kDefaultScale);
-  ~GPUFrequencyHashmap();
+  FrequencyHashmap(const size_t max_nodes, const size_t max_edges, Context ctx,
+                   const size_t scale = kDefaultScale);
+  ~FrequencyHashmap();
 
   void Reset(StreamHandle stream);
   void GetTopK(const IdType *input_src, const IdType *input_dst,
                const size_t num_input_edge, const IdType *input_nodes,
                const size_t num_input_node, const size_t K, IdType *output_src,
-               IdType *output_dst, size_t *num_output, StreamHandle stream);
+               IdType *output_dst, IdType *output_data, size_t *num_output,
+               StreamHandle stream);
+  DeviceFrequencyHashmap DeviceHandle() const;
 
  private:
   Context _ctx;
@@ -147,8 +152,6 @@ class FrequencyHashmap {
   const size_t _unique_list_size;
 
   static constexpr size_t kDefaultScale = 3;
-
-  DeviceFrequencyHashmap DeviceHandle() const;
 };
 
 }  // namespace cuda

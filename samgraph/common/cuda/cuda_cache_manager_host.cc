@@ -20,8 +20,6 @@ namespace {
 template <typename T>
 void extract_miss_data(void *output_miss, const IdType *miss_src_index,
                        const size_t num_miss, const void *src, size_t dim) {
-  auto cpu_device = Device::Get(CPU());
-
   T *output_miss_data = reinterpret_cast<T *>(output_miss);
   const T *cpu_src_data = reinterpret_cast<const T *>(src);
 
@@ -42,9 +40,9 @@ GPUCacheManager::GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
                                  size_t num_nodes, double cache_percentage)
     : _sampler_ctx(sampler_ctx),
       _trainer_ctx(trainer_ctx),
-      _cache_percentage(cache_percentage),
       _num_nodes(num_nodes),
       _num_cached_nodes(num_nodes * cache_percentage),
+      _cache_percentage(cache_percentage),
       _dtype(dtype),
       _dim(dim),
       _cpu_src_data(cpu_src_data) {
