@@ -76,11 +76,26 @@ namespace torch {
   return tensor;
 }
 
+::torch::Tensor GetGraphData(uint64_t key, int layer_idx) {
+  auto graph_batch = common::Engine::Get()->GetGraphBatch();
+  auto data = graph_batch->graphs[layer_idx]->data;
+  auto trainer_ctx = common::Engine::Get()->GetTrainerCtx();
+  auto device = "cuda:" + std::to_string(trainer_ctx.device_id);
+
+  CHECK_EQ(key, graph_batch->key);
+  ::torch::Tensor tensor = ::torch::from_blob(
+      data->MutableData(), {(long long)data->Shape()[0]}, [data](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI32).device(device));
+
+  return tensor;
+}
+
 PYBIND11_MODULE(c_lib, m) {
   m.def("samgraph_torch_get_graph_feat", &GetGraphFeature);
   m.def("samgraph_torch_get_graph_label", &GetGraphLabel);
   m.def("samgraph_torch_get_graph_row", &GetGraphRow);
   m.def("samgraph_torch_get_graph_col", &GetGraphCol);
+  m.def("samgraph_torch_get_graph_data", &GetGraphData);
 }
 
 }  // namespace torch

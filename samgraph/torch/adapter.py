@@ -52,6 +52,10 @@ def get_graph_col(batch_key, layer_idx):
     return c_lib.samgraph_torch_get_graph_col(batch_key, layer_idx)
 
 
+def get_graph_data(batch_key, layer_idx):
+    return c_lib.samgraph_torch_get_graph_data(batch_key, layer_idx)
+
+
 def get_dgl_blocks(batch_key, num_layers):
     feat = get_graph_feat(batch_key)
     label = get_graph_label(batch_key)
@@ -67,6 +71,31 @@ def get_dgl_blocks(batch_key, num_layers):
 
         blocks.append(dgl.create_block({('_U', '_V', '_U'): (
             row, col)}, num_src_nodes={'_U': num_src_nodes}, num_dst_nodes={'_U': num_dst_nodes}))
+
+        # t2 = time.time()
+
+        # print("get_dgl_block {:.4f} {:.4f}".format(t1 - t0, t2 - t1))
+
+    return blocks, feat, label
+
+
+def get_dgl_blocks_with_weights(batch_key, num_layers):
+    feat = get_graph_feat(batch_key)
+    label = get_graph_label(batch_key)
+    blocks = []
+    for i in range(num_layers):
+        # t0 = time.time()
+        row = get_graph_row(batch_key, i)
+        col = get_graph_col(batch_key, i)
+        weights = get_graph_data(batch_key, i)
+        num_src_nodes = get_graph_num_src(batch_key, i)
+        num_dst_nodes = get_graph_num_dst(batch_key, i)
+
+        # t1 = time.time()
+        block = dgl.create_block({('_U', '_V', '_U'): (
+            row, col)}, num_src_nodes={'_U': num_src_nodes}, num_dst_nodes={'_U': num_dst_nodes})
+        block.edata['weights'] = weights
+        blocks.append(block)
 
         # t2 = time.time()
 

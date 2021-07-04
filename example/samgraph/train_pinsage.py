@@ -188,7 +188,7 @@ def run():
     num_layer = run_config['num_layer']
 
     model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
-                    num_layer, F.relu, run_config['dropout'])
+                 num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
@@ -223,7 +223,7 @@ def run():
                 sam.sample_once()
             batch_key = sam.get_next_batch(epoch, step)
             t1 = time.time()
-            blocks, batch_input, batch_label = sam.get_dgl_blocks(
+            blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                 batch_key, num_layer)
             t2 = time.time()
             batch_pred = model(blocks, batch_input)

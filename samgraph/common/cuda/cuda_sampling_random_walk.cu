@@ -37,9 +37,10 @@ __global__ void sample_random_walk(
   const size_t stride = blockDim.y * gridDim.x;
 
   while (node_idx < num_input) {
+    IdType start_node = input[node_idx];
     size_t random_walk_idx = threadIdx.x;
     while (random_walk_idx < num_random_walk) {
-      IdType node = input[node_idx];
+      IdType node = start_node;
       for (size_t step_idx = 0; step_idx < random_walk_length; step_idx++) {
         /*
          *  Get the position on the output position of random walk
@@ -63,18 +64,16 @@ __global__ void sample_random_walk(
                      node_idx * num_random_walk + random_walk_idx;
         if (node == Constant::kEmptyKey) {
           tmp_src[pos] = Constant::kEmptyKey;
-          tmp_dst[pos] = Constant::kEmptyKey;
         } else {
           const IdType off = indptr[node];
           const IdType len = indptr[node + 1] - indptr[node];
 
           if (len == 0) {
             tmp_src[pos] = Constant::kEmptyKey;
-            tmp_dst[pos] = Constant::kEmptyKey;
             node = Constant::kEmptyKey;
           } else {
             size_t k = curand(&local_state) % len;
-            tmp_src[pos] = node;
+            tmp_src[pos] = start_node;
             tmp_dst[pos] = indices[off + k];
             node = indices[off + k];
 

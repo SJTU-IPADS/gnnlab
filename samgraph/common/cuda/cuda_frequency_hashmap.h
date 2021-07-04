@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 
 #include <cassert>
+#include <cstdio>
 
 #include "../common.h"
 #include "../constant.h"

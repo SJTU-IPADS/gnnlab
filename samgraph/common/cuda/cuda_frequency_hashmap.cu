@@ -27,6 +27,11 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
   explicit MutableDeviceFrequencyHashmap(FrequencyHashmap *const host_map)
       : DeviceFrequencyHashmap(host_map->DeviceHandle()) {}
 
+  inline __device__ NodeIterator SearchNode(const IdType id) {
+    const IdType pos = SearchNodeForPosition(id);
+    return GetMutableNode(pos);
+  }
+
   inline __device__ EdgeIterator SearchEdge(const IdType src,
                                             const IdType dst) {
     const LongIdType pos = SearchEdgeForPosition(src, dst);
@@ -44,7 +49,7 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
     }
   }
 
-  inline __device__ NodeIterator InsertOrGetNode(const IdType id) {
+  inline __device__ NodeIterator InsertNode(const IdType id) {
     IdType pos = NodeHash(id);
 
     IdType delta = 1;
@@ -66,7 +71,7 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
       atomicAdd(&bucket->count, 1LLU);
       atomicMin(&bucket->index, index);
       if (key == Constant::kEmptyKey) {
-        NodeIterator node = InsertOrGetNode(node_id);
+        NodeIterator node = SearchNode(node_id);
         atomicAdd(&bucket->count, 1U);
       }
       return true;
@@ -85,6 +90,8 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
       pos = EdgeHash(pos + delta);
       delta += 1;
     }
+
+    // printf("Insert edge %u %u (%llu) at %llu \n", src, dst, id, pos);
 
     return GetMutableEdge(pos);
   }
@@ -187,6 +194,23 @@ __global__ void reset_edge_table(MutableDeviceFrequencyHashmap table,
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void populate_node_table(const IdType *nodes,
+                                    const size_t num_input_node,
+                                    MutableDeviceFrequencyHashmap table) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_input_node) {
+      table.InsertNode(nodes[index]);
+    }
+  }
+}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_frequency(const IdType *input_src,
                                 const IdType *input_dst,
                                 const size_t num_input_edge,
@@ -222,7 +246,7 @@ __global__ void count_unique_edges(const IdType *input_src,
 #pragma unroll
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
-    if (index < num_input_edge) {
+    if (index < num_input_edge && input_src[index] != Constant::kEmptyKey) {
       const EdgeBucket &bucket =
           *table.SearchEdge(input_src[index], input_dst[index]);
       if (bucket.index == index) {
@@ -270,7 +294,7 @@ __global__ void generate_unique_edges(const IdType *input_src,
 
     FlagType flag;
     EdgeBucket *bucket;
-    if (index < num_input_edge) {
+    if (index < num_input_edge && input_src[index] != Constant::kEmptyKey) {
       bucket = table.SearchEdge(input_src[index], input_dst[index]);
       flag = bucket->index == index;
     } else {
@@ -495,12 +519,22 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   void *workspace1 = device->AllocWorkspace(_ctx, workspace_bytes1);
   void *workspace2 = device->AllocWorkspace(_ctx, workspace_bytes2);
 
+  // 0. populate the node table
+  populate_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid1, block1, 0, cu_stream>>>(input_nodes, num_input_node,
+                                        device_table);
+  device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 0 finish";
+
   // 1. count frequency of every unique edge and
   //    count unique edges for every node
   count_frequency<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid0, block0, 0, cu_stream>>>(input_src, input_dst, num_input_edge,
                                         device_table);
   device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 1 finish";
 
   // 2. count the number of unique edges.
   //    prefix sum the the array
@@ -516,6 +550,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                           grid0.x + 1, cu_stream));
   device->StreamSync(_ctx, stream);
 
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 2 finish";
+
   // 3. get the array of all unique edges.
   size_t *device_num_unique =
       static_cast<size_t *>(device->AllocWorkspace(_ctx, sizeof(size_t)));
@@ -528,6 +564,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   device->CopyDataFromTo(device_num_unique, 0, &_num_unique, 0, sizeof(size_t),
                          _ctx, CPU(), stream);
   device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 3 finish";
 
   // 4. pair-sort unique edges(src, dst) using src as key.
   size_t workspace_bytes3;
@@ -544,6 +582,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       _unique_dst, _num_unique, 0, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 4 finish";
+
   // 5. get the frequency array in the order of sorted edge.
   const size_t num_tiles2 = RoundUpDiv(_num_unique, Constant::kCudaTileSize);
   const dim3 grid3(num_tiles2);
@@ -554,6 +594,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                         _unique_frequency, _num_unique,
                                         device_table);
   device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 5 finish";
 
   // 6. sort the unique src node array.
   device->CopyDataFromTo(input_nodes, 0, _node_list, 0,
@@ -574,6 +616,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 6 finish";
+
   // 7. get array unique edge number in the order of src nodes.
   //    also count the number of output edges for each nodes.
   //    prefix sum for array of unique edge number.
@@ -591,6 +635,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                           num_edge_prefix, num_edge_prefix,
                                           num_input_node + 1, cu_stream));
   device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 7 finish";
 
   // 8. segment-sort the edge for every node using the frequency as key
   //    and the dst as value.
@@ -610,11 +656,15 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       num_edge_prefix + 1, 0, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 8 finish";
+
   // 9. prefix the number of output edges for each nodes that we get in step 7
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
                                           num_output_prefix, num_output_prefix,
                                           num_input_node + 1, cu_stream));
   device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 9 finish";
 
   // 10. copy the result to the output array and set the value of num_output
   size_t *device_num_output =
@@ -628,6 +678,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   device->CopyDataFromTo(device_num_output, 0, num_output, 0, sizeof(size_t),
                          _ctx, CPU(), stream);
   device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 10 finish";
 
   device->FreeWorkspace(_ctx, device_num_output);
   device->FreeWorkspace(_ctx, workspace5);

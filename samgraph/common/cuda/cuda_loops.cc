@@ -247,6 +247,23 @@ void DoGraphCopy(TaskPtr task) {
                                    train_col->MutableData(), 0,
                                    graph->col->NumBytes(), graph->col->Ctx(),
                                    train_col->Ctx(), copy_stream);
+
+    if (RunConfig::sample_type == kRandomWalk) {
+      auto graph_data = Tensor::Empty(
+          graph->data->Type(), graph->data->Shape(), trainer_ctx,
+          "train_graph.data_cuda_train_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
+
+      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda graph data malloc "
+                 << ToReadableSize(graph->data->NumBytes());
+
+      sampler_device->CopyDataFromTo(
+          graph->data->Data(), 0, graph_data->MutableData(), 0,
+          graph->data->NumBytes(), graph->data->Ctx(), graph_data->Ctx(),
+          copy_stream);
+      graph->data = graph_data;
+    }
+
     sampler_device->StreamSync(trainer_ctx, copy_stream);
 
     graph->row = train_row;

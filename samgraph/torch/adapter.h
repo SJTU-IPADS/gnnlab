@@ -15,6 +15,7 @@ THCudaTensor samgraph_torch_get_graph_feat(uint64_t key);
 THCudaTensor samgraph_torch_get_graph_label(uint64_t key);
 THCudaTensor samgraph_torch_get_graph_row(uint64_t key, int layer_idx);
 THCudaTensor samgraph_torch_get_graph_col(uint64_t key, int layer_idx);
+THCudaTensor samgraph_torch_get_graph_data(uint64_t key, int layer_idx);
 }
 
 }  // namespace torch
