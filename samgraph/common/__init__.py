@@ -78,40 +78,64 @@ meepo_archs = {
     }
 }
 
+
+step_log_val = [0]
+
+
+def get_next_enum_val(next_val):
+    res = next_val[0]
+    next_val[0] += 1
+    return res
+
+
 # Step L1 Log
-kLogL1NumSample = 0,
-kLogL1NumNode = 1
-kLogL1SampleTime = 2
-kLogL1CopyTime = 3
-kLogL1TrainTime = 4
-kLogL1FeatureBytes = 5
-kLogL1LabelBytes = 6
-kLogL1IdBytes = 7
-kLogL1GraphBytes = 8
-kLogL1MissBytes = 9
+kLogL1NumSample = get_next_enum_val(step_log_val)
+kLogL1NumNode = get_next_enum_val(step_log_val)
+kLogL1SampleTime = get_next_enum_val(step_log_val)
+kLogL1CopyTime = get_next_enum_val(step_log_val)
+kLogL1TrainTime = get_next_enum_val(step_log_val)
+kLogL1FeatureBytes = get_next_enum_val(step_log_val)
+kLogL1LabelBytes = get_next_enum_val(step_log_val)
+kLogL1IdBytes = get_next_enum_val(step_log_val)
+kLogL1GraphBytes = get_next_enum_val(step_log_val)
+kLogL1MissBytes = get_next_enum_val(step_log_val)
 # Step L2 Log
-kLogL2ShuffleTime = 10
-kLogL2CoreSampleTime = 11
-kLogL2IdRemapTime = 12
-kLogL2GraphCopyTime = 13
-kLogL2IdCopyTime = 14
-kLogL2ExtractTime = 15
-kLogL2FeatCopyTime = 16
-kLogL2CacheCopyTime = 17
+kLogL2ShuffleTime = get_next_enum_val(step_log_val)
+kLogL2CoreSampleTime = get_next_enum_val(step_log_val)
+kLogL2IdRemapTime = get_next_enum_val(step_log_val)
+kLogL2GraphCopyTime = get_next_enum_val(step_log_val)
+kLogL2IdCopyTime = get_next_enum_val(step_log_val)
+kLogL2ExtractTime = get_next_enum_val(step_log_val)
+kLogL2FeatCopyTime = get_next_enum_val(step_log_val)
+kLogL2CacheCopyTime = get_next_enum_val(step_log_val)
 # Step L3 Log
-kLogL3SampleCooTime = 18
-kLogL3SampleSortCooTime = 19
-kLogL3SampleCountEdgeTime = 20
-kLogL3SampleCompactEdgesTime = 21
-kLogL3RemapPopulateTime = 22
-kLogL3RemapMapNodeTime = 23
-kLogL3RemapMapEdgeTime = 24
-kLogL3CacheGetIndexTime = 25
-KLogL3CacheCopyIndexTime = 26
-kLogL3CacheExtractMissTime = 27
-kLogL3CacheCopyMissTime = 28
-kLogL3CacheCombineMissTime = 29
-kLogL3CacheCombineCacheTime = 34
+kLogL3KHopSampleCooTime = get_next_enum_val(step_log_val)
+kLogL3KHopSampleSortCooTime = get_next_enum_val(step_log_val)
+kLogL3KHopSampleCountEdgeTime = get_next_enum_val(step_log_val)
+kLogL3KHopSampleCompactEdgesTime = get_next_enum_val(step_log_val)
+kLogL3RandomWalkSampleCooTime = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKTime = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep1Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep2Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep3Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep4Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep5Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep7Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep6Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep9Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep8Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep10Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep11Time = get_next_enum_val(step_log_val)
+kLogL3RandomWalkTopKStep12Time = get_next_enum_val(step_log_val)
+kLogL3RemapPopulateTime = get_next_enum_val(step_log_val)
+kLogL3RemapMapNodeTime = get_next_enum_val(step_log_val)
+kLogL3RemapMapEdgeTime = get_next_enum_val(step_log_val)
+kLogL3CacheGetIndexTime = get_next_enum_val(step_log_val)
+KLogL3CacheCopyIndexTime = get_next_enum_val(step_log_val)
+kLogL3CacheExtractMissTime = get_next_enum_val(step_log_val)
+kLogL3CacheCopyMissTime = get_next_enum_val(step_log_val)
+kLogL3CacheCombineMissTime = get_next_enum_val(step_log_val)
+kLogL3CacheCombineCacheTime = get_next_enum_val(step_log_val)
 
 # Epoch Log
 kLogEpochSampleTime = 0

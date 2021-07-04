@@ -137,12 +137,12 @@ def get_run_config():
         return args_run_config
 
     run_config = {}
-    run_config['arch'] = sam.meepo_archs['arch1']
+    run_config['arch'] = sam.meepo_archs['arch3']
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sample_type'] = sam.kRandomWalk
     run_config['pipeline'] = False
     run_config['cache_policy'] = sam.kCacheByHeuristic
-    run_config['cache_percentage'] = 0
+    run_config['cache_percentage'] = 0.25
     # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     run_config['dataset_path'] = '/graph-learning/samgraph/products'
@@ -160,11 +160,11 @@ def get_run_config():
     run_config['random_walk_restart_prob'] = 0.5
     run_config['num_random_walk'] = 3
     run_config['num_neighbor'] = 3
-    run_config['num_layer'] = 2
+    run_config['num_layer'] = 3
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     run_config['num_epoch'] = 11
     run_config['num_hidden'] = 256
-    run_config['batch_size'] = 2
+    run_config['batch_size'] = 8000
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
 

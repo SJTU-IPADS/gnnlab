@@ -206,11 +206,12 @@ void GPUSampleWeightedKHop(const IdType *indptr, const IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
-  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCooTime, sample_time);
-  Profiler::Get().LogStepAdd(task_key, kLogL3SampleSortCooTime, sort_coo_time);
-  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCountEdgeTime,
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCooTime, sample_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleSortCooTime,
+                             sort_coo_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCountEdgeTime,
                              count_edge_time);
-  Profiler::Get().LogStepAdd(task_key, kLogL3SampleCompactEdgesTime,
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCompactEdgesTime,
                              compact_edge_time);
 
   double total_time = t0.Passed();

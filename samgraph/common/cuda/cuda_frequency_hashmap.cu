@@ -5,6 +5,8 @@
 #include "../constant.h"
 #include "../device.h"
 #include "../logging.h"
+#include "../profiler.h"
+#include "../timer.h"
 #include "cuda_frequency_hashmap.h"
 #include "cuda_utils.h"
 
@@ -160,7 +162,7 @@ __global__ void reset_node_table(MutableDeviceFrequencyHashmap table,
        index += BLOCK_SIZE) {
     if (index < num_nodes) {
       IdType id = nodes[index];
-      IdType pos = table.SearchNodeForPosition(id);
+      IdType pos = table.SearchNodeForPosition(id, false);
       NodeIterator node_iter = table.GetMutableNode(pos);
       node_iter->key = Constant::kEmptyKey;
       node_iter->count = 0;
@@ -184,7 +186,7 @@ __global__ void reset_edge_table(MutableDeviceFrequencyHashmap table,
     if (index < num_unique) {
       IdType src = unique_src[index];
       IdType dst = unique_dst[index];
-      LongIdType pos = table.SearchEdgeForPosition(src, dst);
+      LongIdType pos = table.SearchEdgeForPosition(src, dst, false);
       EdgeIterator edge_iter = table.GetMutableEdge(pos);
       edge_iter->key = Constant::kEmptyLongKey;
       edge_iter->count = 0;
@@ -482,7 +484,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                const size_t num_input_node, const size_t K,
                                IdType *output_src, IdType *output_dst,
                                IdType *output_data, size_t *num_output,
-                               StreamHandle stream) {
+                               StreamHandle stream, uint64_t task_key) {
   const size_t num_tiles0 = RoundUpDiv(num_input_edge, Constant::kCudaTileSize);
   const size_t num_tiles1 = RoundUpDiv(num_input_node, Constant::kCudaTileSize);
   const dim3 grid0(num_tiles0);
@@ -520,25 +522,29 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   void *workspace1 = device->AllocWorkspace(_ctx, workspace_bytes1);
   void *workspace2 = device->AllocWorkspace(_ctx, workspace_bytes2);
 
-  // 0. populate the node table
+  // 1. populate the node table
+  Timer t1;
   populate_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid1, block1, 0, cu_stream>>>(input_nodes, num_input_node,
                                         device_table);
   device->StreamSync(_ctx, stream);
+  double step1_time = t1.Passed();
 
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 0 finish";
 
-  // 1. count frequency of every unique edge and
+  // 2. count frequency of every unique edge and
   //    count unique edges for every node
+  Timer t2;
   count_frequency<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid0, block0, 0, cu_stream>>>(input_src, input_dst, num_input_edge,
                                         device_table);
   device->StreamSync(_ctx, stream);
-
+  double step2_time = t2.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 1 finish";
 
-  // 2. count the number of unique edges.
+  // 3. count the number of unique edges.
   //    prefix sum the the array
+  Timer t3;
   IdType *num_unique_prefix = static_cast<IdType *>(
       device->AllocWorkspace(_ctx, sizeof(IdType) * (grid0.x + 1)));
   count_unique_edges<Constant::kCudaBlockSize, Constant::kCudaTileSize>
@@ -550,10 +556,11 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                           num_unique_prefix, num_unique_prefix,
                                           grid0.x + 1, cu_stream));
   device->StreamSync(_ctx, stream);
-
+  double step3_time = t3.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 2 finish";
 
-  // 3. get the array of all unique edges.
+  // 4. get the array of all unique edges.
+  Timer t4;
   size_t *device_num_unique =
       static_cast<size_t *>(device->AllocWorkspace(_ctx, sizeof(size_t)));
   generate_unique_edges<Constant::kCudaBlockSize, Constant::kCudaTileSize>
@@ -568,8 +575,10 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
 
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 3 finish with number of unique "
              << _num_unique;
+  double step4_time = t4.Passed();
 
-  // 4. pair-sort unique edges(src, dst) using src as key.
+  // 5. pair-sort unique edges(src, dst) using src as key.
+  Timer t5;
   size_t workspace_bytes3;
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
       nullptr, workspace_bytes3, static_cast<IdType *>(nullptr),
@@ -584,9 +593,11 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       _unique_dst, _num_unique, 0, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
+  double step5_time = t5.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 4 finish";
 
-  // 5. get the frequency array in the order of sorted edge.
+  // 6. get the frequency array in the order of sorted edge.
+  Timer t6;
   const size_t num_tiles2 = RoundUpDiv(_num_unique, Constant::kCudaTileSize);
   const dim3 grid3(num_tiles2);
   const dim3 block3(Constant::kCudaBlockSize);
@@ -597,9 +608,11 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                         device_table);
   device->StreamSync(_ctx, stream);
 
+  double step6_time = t6.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 5 finish";
 
-  // 6. sort the unique src node array.
+  // 7. sort the unique src node array.
+  Timer t7;
   device->CopyDataFromTo(input_nodes, 0, _node_list, 0,
                          num_input_node * sizeof(IdType), _ctx, _ctx, stream);
   device->StreamSync(_ctx, stream);
@@ -618,11 +631,13 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
+  double step7_time = t7.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 6 finish";
 
-  // 7. get array unique edge number in the order of src nodes.
+  // 8. get array unique edge number in the order of src nodes.
   //    also count the number of output edges for each nodes.
   //    prefix sum for array of unique edge number.
+  Timer t8;
   IdType *num_edge_prefix = static_cast<IdType *>(
       device->AllocWorkspace(_ctx, (num_input_node + 1) * sizeof(IdType)));
   IdType *num_output_prefix = static_cast<IdType *>(
@@ -637,11 +652,12 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                                           num_edge_prefix, num_edge_prefix,
                                           num_input_node + 1, cu_stream));
   device->StreamSync(_ctx, stream);
-
+  double step8_time = t8.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 7 finish";
 
-  // 8. segment-sort the edge for every node using the frequency as key
+  // 9. segment-sort the edge for every node using the frequency as key
   //    and the dst as value.
+  Timer t9;
   size_t workspace_bytes5;
   CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairsDescending(
       nullptr, workspace_bytes5, static_cast<IdType *>(nullptr),
@@ -657,27 +673,31 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       _unique_dst, _unique_dst, _num_unique, num_input_node, num_edge_prefix,
       num_edge_prefix + 1, 0, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
-
+  double step9_time = t9.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 8 finish";
 
-  // 9. prefix the number of output edges for each nodes that we get in step 7
+  // 10. prefix the number of output edges for each nodes that we get in step 7
+  Timer t10;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
                                           num_output_prefix, num_output_prefix,
                                           num_input_node + 1, cu_stream));
   device->StreamSync(_ctx, stream);
-
+  double step10_time = t10.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 9 finish";
 
-  // 10. copy the result to the output array and set the value of num_output
+  // 11. copy the result to the output array and set the value of num_output
+  Timer t11;
   compact_output<<<grid2, block2, 0, cu_stream>>>(
       _unique_src, _unique_dst, _unique_frequency, num_input_node, K,
       num_edge_prefix, num_output_prefix, output_src, output_dst, output_data,
       num_output);
   device->StreamSync(_ctx, stream);
 
+  double step11_time = t11.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 10 finish";
 
-  // 11. reset data
+  // 12. reset data
+  Timer t12;
   reset_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid1, block1, 0, cu_stream>>>(device_table, _node_list, _num_node);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
@@ -686,6 +706,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       <<<grid3, block3, 0, cu_stream>>>(device_table, _unique_src, _unique_dst,
                                         _num_unique);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
+  double step12_time = t12.Passed();
 
   _num_node = 0;
   _num_unique = 0;
@@ -700,6 +721,31 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   device->FreeWorkspace(_ctx, workspace2);
   device->FreeWorkspace(_ctx, workspace1);
   device->FreeWorkspace(_ctx, workspace0);
+
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep1Time,
+                             step1_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep2Time,
+                             step2_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep3Time,
+                             step3_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep4Time,
+                             step4_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep5Time,
+                             step5_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep6Time,
+                             step6_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep7Time,
+                             step7_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep8Time,
+                             step8_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep9Time,
+                             step9_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep10Time,
+                             step10_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep11Time,
+                             step11_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep12Time,
+                             step12_time);
 }
 
 }  // namespace cuda

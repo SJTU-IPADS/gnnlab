@@ -110,6 +110,7 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
   size_t num_samples = num_input * num_random_walk * random_walk_length;
 
   // 1. random walk sampling
+  Timer t0;
   IdType *tmp_src = static_cast<IdType *>(
       sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_samples));
   IdType *tmp_dst = static_cast<IdType *>(
@@ -128,8 +129,18 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
       random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
 
+  double random_walk_sampling_time = t0.Passed();
+
+  // 2. TopK
+  Timer t1;
   frequency_hashmap->GetTopK(tmp_src, tmp_dst, num_samples, input, num_input, K,
-                             out_src, out_dst, out_data, num_out, stream);
+                             out_src, out_dst, out_data, num_out, stream,
+                             task_key);
+  double topk_time = t1.Passed();
+
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkSampleCooTime,
+                             random_walk_sampling_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKTime, topk_time);
 }
 
 }  // namespace cuda

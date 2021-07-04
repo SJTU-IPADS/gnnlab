@@ -35,12 +35,15 @@ class DeviceFrequencyHashmap {
   DeviceFrequencyHashmap &operator=(const DeviceFrequencyHashmap &other) =
       default;
 
-  inline __device__ IdType SearchNodeForPosition(const IdType id) const {
+  inline __device__ IdType SearchNodeForPosition(const IdType id,
+                                                 bool check = true) const {
     IdType pos = NodeHash(id);
 
     IdType delta = 1;
     while (_node_table[pos].key != id) {
-      assert(_node_table[pos].key != Constant::kEmptyKey);
+      if (check) {
+        assert(_node_table[pos].key != Constant::kEmptyKey);
+      }
       pos = NodeHash(pos + delta);
       delta += 1;
     }
@@ -50,13 +53,16 @@ class DeviceFrequencyHashmap {
   }
 
   inline __device__ LongIdType SearchEdgeForPosition(const IdType src,
-                                                     const IdType dst) const {
+                                                     const IdType dst,
+                                                     bool check = true) const {
     LongIdType id = EncodeEdge(src, dst);
     LongIdType pos = EdgeHash(id);
 
     LongIdType delta = 1;
     while (_edge_table[pos].key != id) {
-      assert(_edge_table[pos].key != Constant::kEmptyLongKey);
+      if (check) {
+        assert(_edge_table[pos].key != Constant::kEmptyLongKey);
+      }
       pos = EdgeHash(pos + delta);
       delta += 1;
     }
@@ -131,7 +137,7 @@ class FrequencyHashmap {
                const size_t num_input_edge, const IdType *input_nodes,
                const size_t num_input_node, const size_t K, IdType *output_src,
                IdType *output_dst, IdType *output_data, size_t *num_output,
-               StreamHandle stream);
+               StreamHandle stream, uint64_t task_key);
   DeviceFrequencyHashmap DeviceHandle() const;
 
  private:
