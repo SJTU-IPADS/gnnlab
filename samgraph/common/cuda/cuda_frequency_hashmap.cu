@@ -64,15 +64,15 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
                                              const LongIdType edge_id,
                                              const IdType node_id,
                                              const IdType index) {
-    EdgeIterator bucket = GetMutableEdge(pos);
+    EdgeIterator edge_iter = GetMutableEdge(pos);
     const LongIdType key =
-        atomicCAS(&bucket->key, Constant::kEmptyLongKey, edge_id);
+        atomicCAS(&edge_iter->key, Constant::kEmptyLongKey, edge_id);
     if (key == Constant::kEmptyLongKey || key == edge_id) {
-      atomicAdd(&bucket->count, 1LLU);
-      atomicMin(&bucket->index, index);
-      if (key == Constant::kEmptyKey) {
-        NodeIterator node = SearchNode(node_id);
-        atomicAdd(&bucket->count, 1U);
+      atomicAdd(&edge_iter->count, 1U);
+      atomicMin(&edge_iter->index, index);
+      if (key == Constant::kEmptyLongKey) {
+        NodeIterator node_iter = SearchNode(node_id);
+        atomicAdd(&node_iter->count, 1U);
       }
       return true;
     } else {
@@ -90,8 +90,6 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
       pos = EdgeHash(pos + delta);
       delta += 1;
     }
-
-    // printf("Insert edge %u %u (%llu) at %llu \n", src, dst, id, pos);
 
     return GetMutableEdge(pos);
   }
@@ -143,6 +141,7 @@ __global__ void init_edge_table(MutableDeviceFrequencyHashmap table,
       EdgeIterator edge_iter = table.GetMutableEdge(index);
       edge_iter->key = Constant::kEmptyLongKey;
       edge_iter->count = 0;
+      edge_iter->index = Constant::kEmptyKey;
     }
   }
 }
@@ -186,9 +185,11 @@ __global__ void reset_edge_table(MutableDeviceFrequencyHashmap table,
       IdType src = unique_src[index];
       IdType dst = unique_dst[index];
       LongIdType pos = table.SearchEdgeForPosition(src, dst);
+      printf("Search edge src %u dst %u \n", src, dst);
       EdgeIterator edge_iter = table.GetMutableEdge(pos);
       edge_iter->key = Constant::kEmptyLongKey;
       edge_iter->count = 0;
+      edge_iter->index = Constant::kEmptyKey;
     }
   }
 }
@@ -383,9 +384,10 @@ __global__ void compact_output(const IdType *unique_src,
 
   while (i < num_nodes) {
     IdType k = threadIdx.x;
-    while (k < K) {
+    IdType max_output = num_output_prefix[i + 1] - num_output_prefix[i];
+    while (k < K && k < max_output) {
       IdType from_off = num_unique_prefix[i] + k;
-      IdType to_off = num_unique_prefix[i] + k;
+      IdType to_off = num_output_prefix[i] + k;
 
       output_src[to_off] = unique_src[from_off];
       output_dst[to_off] = unique_dst[from_off];
@@ -397,7 +399,7 @@ __global__ void compact_output(const IdType *unique_src,
     i += stride;
   }
 
-  if (threadIdx.x == 0 && blockIdx.x == 0) {
+  if (blockIdx.x == 0 && threadIdx.x == 0 && threadIdx.y == 0) {
     *num_output = num_output_prefix[num_nodes];
   }
 }
@@ -565,7 +567,8 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                          _ctx, CPU(), stream);
   device->StreamSync(_ctx, stream);
 
-  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 3 finish";
+  LOG(DEBUG) << "FrequencyHashmap::GetTopK step 3 finish with number of unique "
+             << _num_unique;
 
   // 4. pair-sort unique edges(src, dst) using src as key.
   size_t workspace_bytes3;
@@ -667,21 +670,27 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 9 finish";
 
   // 10. copy the result to the output array and set the value of num_output
-  size_t *device_num_output =
-      static_cast<size_t *>(device->AllocWorkspace(_ctx, sizeof(size_t)));
   compact_output<<<grid2, block2, 0, cu_stream>>>(
       _unique_src, _unique_dst, _unique_frequency, num_input_node, K,
       num_edge_prefix, num_output_prefix, output_src, output_dst, output_data,
-      device_num_output);
-  device->StreamSync(_ctx, stream);
-
-  device->CopyDataFromTo(device_num_output, 0, num_output, 0, sizeof(size_t),
-                         _ctx, CPU(), stream);
+      num_output);
   device->StreamSync(_ctx, stream);
 
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 10 finish";
 
-  device->FreeWorkspace(_ctx, device_num_output);
+  // 11. reset data
+  reset_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid1, block1, 0, cu_stream>>>(device_table, _node_list, _num_node);
+  Device::Get(_ctx)->StreamSync(_ctx, stream);
+
+  reset_edge_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid3, block3, 0, cu_stream>>>(device_table, _unique_src, _unique_dst,
+                                        _num_unique);
+  Device::Get(_ctx)->StreamSync(_ctx, stream);
+
+  _num_node = 0;
+  _num_unique = 0;
+
   device->FreeWorkspace(_ctx, workspace5);
   device->FreeWorkspace(_ctx, num_output_prefix);
   device->FreeWorkspace(_ctx, num_edge_prefix);
@@ -692,30 +701,6 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   device->FreeWorkspace(_ctx, workspace2);
   device->FreeWorkspace(_ctx, workspace1);
   device->FreeWorkspace(_ctx, workspace0);
-}
-
-void FrequencyHashmap::Reset(StreamHandle stream) {
-  auto device_table = MutableDeviceFrequencyHashmap(this);
-  auto device = Device::Get(_ctx);
-  auto cu_stream = static_cast<cudaStream_t>(stream);
-
-  dim3 grid0(RoundUpDiv(_num_node, Constant::kCudaTileSize));
-  dim3 grid1(RoundUpDiv(_num_unique, Constant::kCudaTileSize));
-
-  dim3 block0(Constant::kCudaBlockSize);
-  dim3 block1(Constant::kCudaBlockSize);
-
-  reset_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid0, block0, 0, cu_stream>>>(device_table, _node_list, _num_node);
-  Device::Get(_ctx)->StreamSync(_ctx, stream);
-
-  reset_edge_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid1, block1, 0, cu_stream>>>(device_table, _unique_src, _unique_dst,
-                                        _num_unique);
-  Device::Get(_ctx)->StreamSync(_ctx, stream);
-
-  _num_node = 0;
-  _num_unique = 0;
 }
 
 }  // namespace cuda

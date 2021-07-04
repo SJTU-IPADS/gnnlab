@@ -223,15 +223,12 @@ size_t GetTensorBytes(DataType dtype,
 size_t PredictNumNodes(size_t batch_size, const std::vector<size_t> &fanout,
                        size_t num_fanout_to_comp) {
   CHECK_LE(num_fanout_to_comp, fanout.size());
-  size_t predicted_num_nodes = 0;
-  size_t cur_layer_num_nodes = batch_size;
-  for (size_t i = 0; i < num_fanout_to_comp; i++) {
-    predicted_num_nodes += cur_layer_num_nodes;
-    cur_layer_num_nodes *= fanout[i];
+  size_t count = batch_size;
+  for (int i = num_fanout_to_comp - 1; i >= 0; i--) {
+    count += (count * fanout[i]);
   }
 
-  predicted_num_nodes += cur_layer_num_nodes;
-  return predicted_num_nodes;
+  return count;
 }
 
 size_t PredictNumRandomWalkEdges(size_t batch_size,

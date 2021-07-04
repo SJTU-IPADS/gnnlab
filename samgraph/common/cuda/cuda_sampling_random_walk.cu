@@ -128,7 +128,6 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
       random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
 
-  frequency_hashmap->Reset(stream);
   frequency_hashmap->GetTopK(tmp_src, tmp_dst, num_samples, input, num_input, K,
                              out_src, out_dst, out_data, num_out, stream);
 }

@@ -156,15 +156,15 @@ def get_run_config():
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
 
-    run_config['random_walk_length'] = 3
+    run_config['random_walk_length'] = 2
     run_config['random_walk_restart_prob'] = 0.5
-    run_config['num_random_walk'] = 8
-    run_config['num_neighbor'] = 8
-    run_config['num_layer'] = 3
+    run_config['num_random_walk'] = 3
+    run_config['num_neighbor'] = 3
+    run_config['num_layer'] = 2
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     run_config['num_epoch'] = 11
     run_config['num_hidden'] = 256
-    run_config['batch_size'] = 8000
+    run_config['batch_size'] = 2
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
 
@@ -188,7 +188,7 @@ def run():
     num_layer = run_config['num_layer']
 
     model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
-                 num_layer, F.relu, run_config['dropout'])
+                    num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()

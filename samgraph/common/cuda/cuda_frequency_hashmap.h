@@ -127,7 +127,6 @@ class FrequencyHashmap {
                    const size_t scale = kDefaultScale);
   ~FrequencyHashmap();
 
-  void Reset(StreamHandle stream);
   void GetTopK(const IdType *input_src, const IdType *input_dst,
                const size_t num_input_edge, const IdType *input_nodes,
                const size_t num_input_node, const size_t K, IdType *output_src,

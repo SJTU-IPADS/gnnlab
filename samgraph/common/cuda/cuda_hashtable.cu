@@ -265,6 +265,8 @@ OrderedHashTable::OrderedHashTable(const size_t size, Context ctx,
                        sizeof(BucketO2N) * _o2n_size));
   CUDA_CALL(cudaMemset(_n2o_table, (int)Constant::kEmptyKey,
                        sizeof(BucketN2O) * _n2o_size));
+  LOG(DEBUG) << "cuda hashtable init with " << _o2n_size
+             << " O2N table size and " << _n2o_size << " N2O table size";
 }
 
 OrderedHashTable::~OrderedHashTable() {
