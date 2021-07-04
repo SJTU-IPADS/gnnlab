@@ -117,10 +117,10 @@ def get_run_config():
     # run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
 
-    run_config['random_walk_length'] = 3
+    run_config['random_walk_length'] = 2
     run_config['random_walk_restart_prob'] = 0.5
-    run_config['num_random_walk'] = 8
-    run_config['num_neighbor'] = 8
+    run_config['num_random_walk'] = 3
+    run_config['num_neighbor'] = 3
     run_config['num_layer'] = 3
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     run_config['num_epoch'] = 11

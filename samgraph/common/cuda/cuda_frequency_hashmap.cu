@@ -42,8 +42,8 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
 
   inline __device__ bool AttemptInsertNodeAt(const IdType pos,
                                              const IdType id) {
-    NodeIterator bucket = GetMutableNode(pos);
-    const IdType key = atomicCAS(&bucket->key, Constant::kEmptyKey, id);
+    const IdType key =
+        atomicCAS(&GetMutableNode(pos)->key, Constant::kEmptyKey, id);
     if (key == Constant::kEmptyKey || key == id) {
       return true;
     } else {
