@@ -5,6 +5,7 @@ References:
 - Paper: https://arxiv.org/abs/1609.02907
 - Code: https://github.com/tkipf/gcn
 """
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -49,9 +50,37 @@ class GCN(nn.Module):
         return h
 
 
+def parse_args():
+    argparser = argparse.ArgumentParser("GCN Training")
+    argparser.add_argument('--parse-args', action='store_true', default=False)
+    argparser.add_argument('--devices', nargs='+',
+                           type=int, default=[0, 1])
+    argparser.add_argument('--dataset', type=str,
+                           default='com-friendster')
+    argparser.add_argument('--root-path', type=str,
+                           default='/graph-learning/samgraph/')
+
+    argparser.add_argument('--num-epoch', type=int, default=11)
+    argparser.add_argument('--num-hidden', type=int, default=256)
+    argparser.add_argument('--batch-size', type=int, default=8000)
+    argparser.add_argument('--lr', type=float, default=0.003)
+    argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--weight-decay', type=float, default=0.0005)
+
+    run_config = vars(argparser.parse_args())
+    run_config['num_worker'] = len(run_config['devices'])
+
+    return run_config
+
+
 def get_run_config():
+    args_run_config = parse_args()
+    if args_run_config['parse_args']:
+        return args_run_config
+
     run_config = {}
-    run_config['device'] = 'cuda:0'
+    run_config['devices'] = [0, 1]
+    run_config['num_worker'] = len(run_config['devices'])
     # run_config['dataset'] = 'reddit'
     # run_config['dataset'] = 'products'
     # run_config['dataset'] = 'papers100M'

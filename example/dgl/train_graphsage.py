@@ -1,3 +1,4 @@
+import argparse
 import dgl
 import torch
 import dgl.nn.pytorch as dglnn
@@ -39,7 +40,35 @@ class SAGE(nn.Module):
         return h
 
 
+def parse_args():
+    argparser = argparse.ArgumentParser("GraphSage Training")
+    argparser.add_argument('--parse-args', action='store_true', default=False)
+    argparser.add_argument('--device', type=str, default='cuda:0')
+    argparser.add_argument('--dataset', type=str,
+                           default='com-friendster')
+    argparser.add_argument('--root-path', type=str,
+                           default='/graph-learning/samgraph/')
+
+    argparser.add_argument('--fanout', nargs='+',
+                           type=int, default=[5, 10, 15])
+    argparser.add_argument('--num-epoch', type=int, default=11)
+    argparser.add_argument('--num-hidden', type=int, default=256)
+    argparser.add_argument('--batch-size', type=int, default=8000)
+    argparser.add_argument('--lr', type=float, default=0.003)
+    argparser.add_argument('--dropout', type=float, default=0.5)
+
+    run_config = vars(argparser.parse_args())
+    run_config['num_fanout'] = run_config['num_layer'] = len(
+        run_config['fanout'])
+
+    return run_config
+
+
 def get_run_config():
+    args_run_config = parse_args()
+    if args_run_config['parse_args']:
+        return args_run_config
+
     run_config = {}
     run_config['device'] = 'cuda:0'
     # run_config['dataset'] = 'reddit'
