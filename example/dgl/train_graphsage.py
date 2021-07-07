@@ -48,6 +48,7 @@ def parse_args():
                            default='com-friendster')
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
+    argparser.add_argument('--pipelining', action='store_true', default=False)
 
     argparser.add_argument('--fanout', nargs='+',
                            type=int, default=[5, 10, 15])
@@ -60,6 +61,11 @@ def parse_args():
     run_config = vars(argparser.parse_args())
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
+
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16
+    else:
+        run_config['num_sampling_worker'] = 0
 
     return run_config
 
@@ -76,6 +82,7 @@ def get_run_config():
     # run_config['dataset'] = 'papers100M'
     run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
+    run_config['pipelining'] = False
 
     run_config['fanout'] = [5, 10, 15]
     run_config['num_fanout'] = run_config['num_layer'] = len(
@@ -87,11 +94,17 @@ def get_run_config():
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
 
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16
+    else:
+        run_config['num_sampling_worker'] = 0
+
     return run_config
 
 
 def run():
     run_config = get_run_config()
+    print(run_config)
     device = torch.device(run_config['device'])
 
     dataset = fastgraph.dataset(
@@ -109,7 +122,7 @@ def run():
         batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=False,
-        num_workers=0)
+        num_workers=run_config['num_sampling_worker'])
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
                  run_config['num_layer'], F.relu, run_config['dropout'])

@@ -97,10 +97,10 @@ class DatasetLoader:
 
         if g_format == 'csc':
             g_idx = dgl.heterograph_index.create_unitgraph_from_csc(
-                1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csr', 'csc'])
+                1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csc'])
         elif g_format == 'csr':
             g_idx = dgl.heterograph_index.create_unitgraph_from_csr(
-                1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csr', 'csc'])
+                1, self.num_node, self.num_node, self.indptr, self.indices, self.eids, ['csr'])
         else:
             assert(False)
 

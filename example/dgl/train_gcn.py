@@ -56,6 +56,7 @@ def parse_args():
                            default='com-friendster')
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
+    argparser.add_argument('--pipelining', action='store_true', default=False)
 
     argparser.add_argument('--fanout', nargs='+',
                            type=int, default=[5, 10, 15])
@@ -70,6 +71,11 @@ def parse_args():
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
 
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16
+    else:
+        run_config['num_sampling_worker'] = 0
+
     return run_config
 
 
@@ -80,16 +86,17 @@ def get_run_config():
 
     run_config = {}
     run_config['device'] = 'cuda:0'
-    # run_config['dataset'] = 'reddit'
+    run_config['dataset'] = 'reddit'
     # run_config['dataset'] = 'products'
     # run_config['dataset'] = 'papers100M'
-    run_config['dataset'] = 'com-friendster'
+    # run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
+    run_config['pipelining'] = False
 
     run_config['fanout'] = [5, 10, 15]
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 10
+    run_config['num_epoch'] = 11
     run_config['num_hidden'] = 256
     run_config['batch_size'] = 8000
     run_config['lr'] = 0.01
@@ -97,11 +104,17 @@ def get_run_config():
     run_config['weight_decay'] = 0.0005
     run_config['self_loop'] = False
 
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16
+    else:
+        run_config['num_sampling_worker'] = 0
+
     return run_config
 
 
 def run():
     run_config = get_run_config()
+    print(run_config)
     device = torch.device(run_config['device'])
 
     dataset = fastgraph.dataset(
@@ -119,7 +132,7 @@ def run():
         batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=False,
-        num_workers=0)
+        num_workers=run_config['num_sampling_worker'])
 
     model = GCN(in_feats, run_config['num_hidden'],
                 n_classes, run_config['num_layer'], F.relu, run_config['dropout'])
@@ -183,7 +196,7 @@ def run():
             num_samples.append(num_sample)
             num_nodes.append(blocks[0].num_src_nodes())
 
-            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 

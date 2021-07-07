@@ -51,7 +51,10 @@ def parse_args():
                            default='com-friendster')
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
+    argparser.add_argument('--pipelining', action='store_true', default=False)
 
+    argparser.add_argument('--fanout', nargs='+',
+                           type=int, default=[5, 10, 15])
     argparser.add_argument('--num-epoch', type=int, default=11)
     argparser.add_argument('--num-hidden', type=int, default=256)
     argparser.add_argument('--batch-size', type=int, default=8000)
@@ -61,6 +64,13 @@ def parse_args():
 
     run_config = vars(argparser.parse_args())
     run_config['num_worker'] = len(run_config['devices'])
+    run_config['num_fanout'] = run_config['num_layer'] = len(
+        run_config['fanout'])
+
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16 // run_config['num_worker']
+    else:
+        run_config['num_sampling_worker'] = 0
 
     return run_config
 
@@ -73,11 +83,12 @@ def get_run_config():
     run_config = {}
     run_config['devices'] = [0, 1]
     run_config['num_worker'] = len(run_config['devices'])
-    # run_config['dataset'] = 'reddit'
+    run_config['dataset'] = 'reddit'
     # run_config['dataset'] = 'products'
     # run_config['dataset'] = 'papers100M'
-    run_config['dataset'] = 'com-friendster'
+    # run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
+    run_config['pipelining'] = False
 
     run_config['fanout'] = [5, 10, 15]
     run_config['num_fanout'] = run_config['num_layer'] = len(
@@ -88,6 +99,11 @@ def get_run_config():
     run_config['batch_size'] = 8000
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
+
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16 // run_config['num_worker']
+    else:
+        run_config['num_sampling_worker'] = 0
 
     return run_config
 
@@ -122,7 +138,7 @@ def run(worker_id, run_config):
         batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=False,
-        num_workers=0)
+        num_workers=run_config['num_sampling_worker'])
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
                  run_config['num_layer'], F.relu, run_config['dropout'])
@@ -211,6 +227,7 @@ def run(worker_id, run_config):
 
 if __name__ == '__main__':
     run_config = get_run_config()
+    print(run_config)
 
     dataset = fastgraph.dataset(
         run_config['dataset'], run_config['root_path'])

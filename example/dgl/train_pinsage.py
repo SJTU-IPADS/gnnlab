@@ -118,10 +118,11 @@ def parse_args():
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
 
-    argparser.add_argument('--random-walk-length', type=int, default=2)
+    argparser.add_argument('--random-walk-length', type=int, default=4)
     argparser.add_argument('--random-walk-restart-prob',
                            type=float, default=0.5)
-    argparser.add_argument('--num-random-walk', type=int, default=3)
+    argparser.add_argument('--num-random-walk', type=int, default=4)
+    argparser.add_argument('--num-neighbor', type=int, default=8)
     argparser.add_argument('--num-layer', type=int, default=3)
     argparser.add_argument('--num-epoch', type=int, default=11)
     argparser.add_argument('--num-hidden', type=int, default=256)
@@ -146,11 +147,12 @@ def get_run_config():
     # run_config['dataset'] = 'papers100M'
     # run_config['dataset'] = 'com-friendster'
     run_config['root_path'] = '/graph-learning/samgraph/'
+    run_config['pipelining'] = False
 
-    run_config['random_walk_length'] = 2
+    run_config['random_walk_length'] = 4
     run_config['random_walk_restart_prob'] = 0.5
-    run_config['num_random_walk'] = 3
-    run_config['num_neighbor'] = 3
+    run_config['num_random_walk'] = 4
+    run_config['num_neighbor'] = 8
     run_config['num_layer'] = 3
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     run_config['num_epoch'] = 11
@@ -159,11 +161,17 @@ def get_run_config():
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
 
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16
+    else:
+        run_config['num_sampling_worker'] = 0
+
     return run_config
 
 
 def run():
     run_config = get_run_config()
+    print(run_config)
     device = torch.device(run_config['device'])
 
     dataset = fastgraph.dataset(
@@ -184,7 +192,7 @@ def run():
         batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=False,
-        num_workers=0)
+        num_workers=run_config['num_sampling_worker'])
 
     model = PinSAGE(in_feats, run_config['num_hidden'], n_classes,
                     run_config['num_layer'], F.relu, run_config['dropout'])
