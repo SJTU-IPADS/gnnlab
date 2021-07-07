@@ -120,12 +120,13 @@ def parse_args():
                            default='com-friendster')
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
+    argparser.add_argument('--pipelining', action='store_true', default=False)
 
-    argparser.add_argument('--random-walk-length', type=int, default=4)
+    argparser.add_argument('--random-walk-length', type=int, default=3)
     argparser.add_argument('--random-walk-restart-prob',
                            type=float, default=0.5)
     argparser.add_argument('--num-random-walk', type=int, default=4)
-    argparser.add_argument('--num-neighbor', type=int, default=8)
+    argparser.add_argument('--num-neighbor', type=int, default=5)
     argparser.add_argument('--num-layer', type=int, default=3)
     argparser.add_argument('--num-epoch', type=int, default=11)
     argparser.add_argument('--num-hidden', type=int, default=256)
@@ -135,6 +136,11 @@ def parse_args():
 
     run_config = vars(argparser.parse_args())
     run_config['num_worker'] = len(run_config['devices'])
+
+    if run_config['pipelining'] == True:
+        run_config['num_sampling_worker'] = 16 // run_config['num_worker']
+    else:
+        run_config['num_sampling_worker'] = 0
 
     return run_config
 
@@ -289,8 +295,9 @@ def run(worker_id, run_config):
     if num_worker > 1:
         torch.distributed.barrier()
 
-    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-        np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+    if worker_id == 0:
+        print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
+            np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
 
 if __name__ == '__main__':
