@@ -42,68 +42,67 @@ class SAGE(nn.Module):
         return h
 
 
-def parse_args():
+def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument('--parse-args', action='store_true', default=False)
     argparser.add_argument('--devices', nargs='+',
-                           type=int, default=[0, 1])
+                           type=int, default=default_run_config['devices'])
     argparser.add_argument('--dataset', type=str,
-                           default='com-friendster')
+                           default=default_run_config['dataset'])
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
-    argparser.add_argument('--pipelining', action='store_true', default=False)
+    argparser.add_argument('--pipelining', action='store_true',
+                           default=default_run_config['pipelining'])
+    argparser.add_argument('--num-sampling-worker', type=int,
+                           default=default_run_config['num_sampling_worker'])
 
     argparser.add_argument('--fanout', nargs='+',
-                           type=int, default=[5, 10, 15])
-    argparser.add_argument('--num-epoch', type=int, default=11)
-    argparser.add_argument('--num-hidden', type=int, default=256)
-    argparser.add_argument('--batch-size', type=int, default=8000)
-    argparser.add_argument('--lr', type=float, default=0.003)
-    argparser.add_argument('--dropout', type=float, default=0.5)
-    argparser.add_argument('--weight-decay', type=float, default=0.0005)
+                           type=int, default=default_run_config['fanout'])
+    argparser.add_argument('--num-epoch', type=int,
+                           default=default_run_config['num_epoch'])
+    argparser.add_argument('--num-hidden', type=int,
+                           default=default_run_config['num_hidden'])
+    argparser.add_argument('--batch-size', type=int,
+                           default=default_run_config['batch_size'])
+    argparser.add_argument(
+        '--lr', type=float, default=default_run_config['lr'])
+    argparser.add_argument('--dropout', type=float,
+                           default=default_run_config['dropout'])
 
-    run_config = vars(argparser.parse_args())
-    run_config['num_worker'] = len(run_config['devices'])
-    run_config['num_fanout'] = run_config['num_layer'] = len(
-        run_config['fanout'])
-
-    if run_config['pipelining'] == True:
-        run_config['num_sampling_worker'] = 16 // run_config['num_worker']
-    else:
-        run_config['num_sampling_worker'] = 0
-
-    return run_config
+    return vars(argparser.parse_args())
 
 
 def get_run_config():
-    args_run_config = parse_args()
-    if args_run_config['parse_args']:
-        return args_run_config
+    default_run_config = {}
+    default_run_config['devices'] = [0, 1]
+    default_run_config['dataset'] = 'reddit'
+    # default_run_config['dataset'] = 'products'
+    # default_run_config['dataset'] = 'papers100M'
+    # default_run_config['dataset'] = 'com-friendster'
+    default_run_config['root_path'] = '/graph-learning/samgraph/'
+    default_run_config['pipelining'] = False
+    default_run_config['num_sampling_worker'] = 16
 
-    run_config = {}
-    run_config['devices'] = [0, 1]
-    run_config['num_worker'] = len(run_config['devices'])
-    run_config['dataset'] = 'reddit'
-    # run_config['dataset'] = 'products'
-    # run_config['dataset'] = 'papers100M'
-    # run_config['dataset'] = 'com-friendster'
-    run_config['root_path'] = '/graph-learning/samgraph/'
-    run_config['pipelining'] = False
+    default_run_config['fanout'] = [5, 10, 15]
+    # we use the average result of 10 epochs, the first epoch is used to warm up the system
+    default_run_config['num_epoch'] = 11
+    default_run_config['num_hidden'] = 256
+    default_run_config['batch_size'] = 8000
+    default_run_config['lr'] = 0.003
+    default_run_config['dropout'] = 0.5
 
-    run_config['fanout'] = [5, 10, 15]
+    run_config = parse_args(default_run_config)
+
+    # the first epoch is used to warm up the system
+    run_config['num_epoch'] += 1
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    # we use the average result of 10 epochs, the first epoch is used to warm up the system
-    run_config['num_epoch'] = 11
-    run_config['num_hidden'] = 256
-    run_config['batch_size'] = 8000
-    run_config['lr'] = 0.003
-    run_config['dropout'] = 0.5
+    run_config['num_worker'] = len(run_config['devices'])
+    run_config['num_sampling_worker'] = run_config['num_sampling_worker'] // run_config['num_worker']
 
-    if run_config['pipelining'] == True:
-        run_config['num_sampling_worker'] = 16 // run_config['num_worker']
-    else:
+    if run_config['pipelining'] == False:
         run_config['num_sampling_worker'] = 0
+
+    print(*run_config.items(), sep='\n')
 
     return run_config
 
@@ -227,7 +226,6 @@ def run(worker_id, run_config):
 
 if __name__ == '__main__':
     run_config = get_run_config()
-    print(run_config)
 
     dataset = fastgraph.dataset(
         run_config['dataset'], run_config['root_path'])

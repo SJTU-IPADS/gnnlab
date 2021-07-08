@@ -12,14 +12,14 @@ fi
 apps="pinsage"
 datasets="reddit products papers100M com-friendster"
 # datasets="reddit products"
-epochs=11
+epochs=3
 
 echo "Runing evaluations for dgl..."
 for app in $apps; do
     echo "  eval $app..."
     for dataset in $datasets; do
         echo "    running $dataset..."
-        python dgl/train_${app}.py --parse-args --dataset $dataset --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_${app}_${dataset}.log" 2>&1
+        python dgl/train_${app}.py --dataset $dataset --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_${app}_${dataset}.log" 2>&1
     done
 done
 echo
@@ -30,7 +30,7 @@ for app in $apps; do
     echo "  eval $app..."
     for dataset in $datasets; do
         echo "    running $dataset..."
-        python dgl/train_${app}.py --parse-args --dataset $dataset --pipelining --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_pipelining_${app}_${dataset}.log" 2>&1
+        python dgl/train_${app}.py --dataset $dataset --pipelining --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_pipelining_${app}_${dataset}.log" 2>&1
     done
 done
 echo
@@ -41,7 +41,7 @@ for app in $apps; do
     echo "  eval $app..."
     for dataset in $datasets; do
         echo "    running $dataset..."
-        python dgl/train_${app}_multi_gpu.py --parse-args --dataset $dataset --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_mutli_gpu_${app}_${dataset}.log" 2>&1
+        python dgl/train_${app}_multi_gpu.py --dataset $dataset --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_mutli_gpu_${app}_${dataset}.log" 2>&1
     done
 done
 echo
@@ -52,7 +52,7 @@ for app in $apps; do
     echo "  eval $app..."
     for dataset in $datasets; do
         echo "    running $dataset..."
-        python dgl/train_${app}_multi_gpu.py --parse-args --dataset $dataset --pipelining --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_mutli_gpu_pipelining_${app}_${dataset}.log" 2>&1
+        python dgl/train_${app}_multi_gpu.py --dataset $dataset --pipelining --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_mutli_gpu_pipelining_${app}_${dataset}.log" 2>&1
     done
 done
 echo
