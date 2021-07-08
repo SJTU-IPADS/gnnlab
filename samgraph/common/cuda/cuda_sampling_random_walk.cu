@@ -44,24 +44,21 @@ __global__ void sample_random_walk(
       for (size_t step_idx = 0; step_idx < random_walk_length; step_idx++) {
         /*
          *  Get the position on the output position of random walk
-         *  suppose that num_random_walk = 3, num_input = 2
+         *  suppose that num_random_walk = 2, num_input = 2
          *
          *  layout:
          *     [first step of walk 0 of node 0]
-         *     [first step of walk 0 of node 0]
-         *     [first step of walk 0 of node 0]
+         *     [first step of walk 1 of node 0]
+         *     [second step of walk 0 of node 0]
+         *     [second step of walk 1 of node 0]
          *     [first step of walk 0 of node 1]
-         *     [first step of walk 0 of node 1]
-         *     [first step of walk 0 of node 1]
-         *     [second step of walk 0 of node 0]
-         *     [second step of walk 0 of node 0]
-         *     [second step of walk 0 of node 0]
-         *     [second step of walk 0 of node 0]
-         *     [second step of walk 0 of node 0]
-         *     [second step of walk 0 of node 0]
+         *     [first step of walk 1 of node 1]
+         *     [second step of walk 0 of node 1]
+         *     [second step of walk 1 of node 1]
+         *     ......
          */
-        size_t pos = step_idx * num_input * num_random_walk +
-                     node_idx * num_random_walk + random_walk_idx;
+        size_t pos = node_idx * num_random_walk * random_walk_length +
+                     step_idx * num_random_walk + random_walk_idx;
         if (node == Constant::kEmptyKey) {
           tmp_src[pos] = Constant::kEmptyKey;
         } else {

@@ -150,10 +150,10 @@ def get_run_config():
     # we have to set this to 1 to prevent GPU out-of-memory
     default_run_config['max_copying_jobs'] = 2
 
-    default_run_config['random_walk_length'] = 2
+    default_run_config['random_walk_length'] = 3
     default_run_config['random_walk_restart_prob'] = 0.5
-    default_run_config['num_random_walk'] = 3
-    default_run_config['num_neighbor'] = 3
+    default_run_config['num_random_walk'] = 4
+    default_run_config['num_neighbor'] = 5
     default_run_config['num_layer'] = 3
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     default_run_config['num_epoch'] = 10

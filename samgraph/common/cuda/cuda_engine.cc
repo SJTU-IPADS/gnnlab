@@ -71,12 +71,12 @@ void GPUEngine::Init() {
                                        _batch_size, _sampler_ctx);
 
   if (RunConfig::sample_type == kRandomWalk) {
-    size_t max_nodes = PredictNumNodes(_batch_size, _fanout, _fanout.size());
-    size_t max_edges = PredictNumRandomWalkEdges(
-        _batch_size, _fanout, _fanout.size(), RunConfig::num_random_walk,
-        RunConfig::random_walk_length);
+    size_t max_nodes =
+        PredictNumNodes(_batch_size, _fanout, _fanout.size() - 1);
+    size_t edges_per_node =
+        RunConfig::num_random_walk * RunConfig::random_walk_length;
     _frequency_hashmap =
-        new FrequencyHashmap(max_nodes, max_edges, _sampler_ctx);
+        new FrequencyHashmap(max_nodes, edges_per_node, _sampler_ctx);
   } else {
     _frequency_hashmap = nullptr;
   }

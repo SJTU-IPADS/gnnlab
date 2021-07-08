@@ -48,8 +48,6 @@ class Constant {
   static constexpr size_t kRandomWalkMaxThreads = 512 * 1024;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
-  static constexpr LongIdType kEmptyLongKey =
-      std::numeric_limits<LongIdType>::max();
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;

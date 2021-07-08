@@ -307,6 +307,10 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
       <<<grid, block, 0, cu_stream>>>(input, num_input, device_table, _version);
   device->StreamSync(_ctx, stream);
 
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates "
+                "generate_hashmap_duplicates with "
+             << num_input << " inputs";
+
   IdType *item_prefix = static_cast<IdType *>(
       device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1)));
   LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
