@@ -170,6 +170,8 @@ def get_run_config():
     default_run_config['lr'] = 0.003
     default_run_config['dropout'] = 0.5
 
+    print('Evaluation time: ', time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.localtime()))
     run_config = parse_args(default_run_config)
 
     # the first epoch is used to warm up the system

@@ -87,86 +87,94 @@ class PinSAGE(nn.Module):
         return h
 
 
-def parse_args():
-    argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument('--parse-args', action='store_true', default=False)
-    argparser.add_argument('--arch', type=str, default='arch0')
-    argparser.add_argument('--pipeline', action='store_true', default=False)
-    argparser.add_argument('--cache-policy', type=int, default=1)
-    argparser.add_argument('--cache-percentage', type=float, default=0)
+def parse_args(default_run_config):
+    argparser = argparse.ArgumentParser("PinSAGE Training")
+    argparser.add_argument(
+        '--arch', type=str, default=default_run_config['arch'])
+    argparser.add_argument('--sample_type', type=int,
+                           default=default_run_config['sample_type'])
+    argparser.add_argument('--pipeline', action='store_true',
+                           default=default_run_config['pipeline'])
+
     argparser.add_argument('--dataset-path', type=str,
-                           default='/graph-learning/samgraph/papers100M')
-    argparser.add_argument('--max-sampling-jobs', type=int, default=10)
-    argparser.add_argument('--max-copying-jobs', type=int, default=10)
+                           default=default_run_config['dataset_path'])
+    argparser.add_argument('--cache-policy', type=int,
+                           default=default_run_config['cache_policy'])
+    argparser.add_argument('--cache-percentage', type=float,
+                           default=default_run_config['cache_percentage'])
+    argparser.add_argument('--max-sampling-jobs', type=int,
+                           default=default_run_config['max_sampling_jobs'])
+    argparser.add_argument('--max-copying-jobs', type=int,
+                           default=default_run_config['max_copying_jobs'])
 
-    argparser.add_argument('--random-walk-length', type=int, default=3)
+    argparser.add_argument('--random-walk-length', type=int,
+                           default=default_run_config['random_walk_length'])
     argparser.add_argument('--random-walk-restart-prob',
-                           type=float, default=0.5)
-    argparser.add_argument('--num-random-walk', type=int, default=8)
-    argparser.add_argument('--num-neighbor', type=int, default=8)
-    argparser.add_argument('--num-layer', type=int, default=3)
+                           type=float, default=default_run_config['random_walk_restart_prob'])
+    argparser.add_argument('--num-random-walk', type=int,
+                           default=default_run_config['num_random_walk'])
+    argparser.add_argument('--num-neighbor', type=int,
+                           default=default_run_config['num_neighbor'])
+    argparser.add_argument('--num-layer', type=int,
+                           default=default_run_config['num_layer'])
 
-    argparser.add_argument('--num-epoch', type=int, default=11)
-    argparser.add_argument('--fanout', nargs='+',
-                           type=int, default=[5, 10, 15])
-    argparser.add_argument('--batch-size', type=int, default=8000)
-    argparser.add_argument('--num-hidden', type=int, default=256)
-    argparser.add_argument('--lr', type=float, default=0.003)
-    argparser.add_argument('--dropout', type=float, default=0.5)
+    argparser.add_argument('--num-epoch', type=int,
+                           default=default_run_config['num_epoch'])
+    argparser.add_argument('--batch-size', type=int,
+                           default=default_run_config['batch_size'])
+    argparser.add_argument('--num-hidden', type=int,
+                           default=default_run_config['num_hidden'])
+    argparser.add_argument(
+        '--lr', type=float, default=default_run_config['lr'])
+    argparser.add_argument('--dropout', type=float,
+                           default=default_run_config['dropout'])
 
-    run_config = vars(argparser.parse_args())
-    run_config['arch'] = sam.meepo_archs[run_config['arch']]
-    run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
-    run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
-    run_config['sample_type'] = sam.kRandomWalk
-
-    run_config['num_fanout'] = run_config['num_layer'] = len(
-        run_config['fanout'])
-
-    # arch1 doesn't support pipelining
-    if run_config['arch_type'] == sam.kArch1:
-        run_config['pipeline'] = False
-
-    return run_config
+    return vars(argparser.parse_args())
 
 
 def get_run_config():
-    args_run_config = parse_args()
-    if args_run_config['parse_args']:
-        return args_run_config
+    default_run_config = {}
+    default_run_config['arch'] = 'arch3'
+    default_run_config['sample_type'] = sam.kRandomWalk
+    default_run_config['pipeline'] = False
+    default_run_config['cache_policy'] = sam.kCacheByHeuristic
+    default_run_config['cache_percentage'] = 0.25
 
-    run_config = {}
-    run_config['arch'] = sam.meepo_archs['arch3']
-    run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['sample_type'] = sam.kRandomWalk
-    run_config['pipeline'] = False
-    run_config['cache_policy'] = sam.kCacheByHeuristic
-    run_config['cache_percentage'] = 0.25
-    # run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
-    # run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
-    run_config['dataset_path'] = '/graph-learning/samgraph/products'
-    # run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+    default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
+    # default_run_config['dataset_path'] = '/graph-learning/samgraph/products'
+    # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
-    run_config['max_sampling_jobs'] = 10
+    default_run_config['max_sampling_jobs'] = 10
     # default max_copying_jobs should be 10, but when training on com-friendster,
     # we have to set this to 1 to prevent GPU out-of-memory
-    run_config['max_copying_jobs'] = 2
+    default_run_config['max_copying_jobs'] = 2
 
+    default_run_config['random_walk_length'] = 2
+    default_run_config['random_walk_restart_prob'] = 0.5
+    default_run_config['num_random_walk'] = 3
+    default_run_config['num_neighbor'] = 3
+    default_run_config['num_layer'] = 3
+    # we use the average result of 10 epochs, the first epoch is used to warm up the system
+    default_run_config['num_epoch'] = 10
+    default_run_config['num_hidden'] = 256
+    default_run_config['batch_size'] = 8000
+    default_run_config['lr'] = 0.003
+    default_run_config['dropout'] = 0.5
+
+    run_config = parse_args(default_run_config)
+    print('Evaluation time: ', time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.localtime()))
+    print(*run_config.items(), sep='\n')
+
+    run_config['arch'] = sam.meepo_archs[run_config['arch']]
+    run_config['arch_type'] = run_config['arch']['arch_type']
+    run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
-
-    run_config['random_walk_length'] = 2
-    run_config['random_walk_restart_prob'] = 0.5
-    run_config['num_random_walk'] = 3
-    run_config['num_neighbor'] = 3
-    run_config['num_layer'] = 3
-    # we use the average result of 10 epochs, the first epoch is used to warm up the system
-    run_config['num_epoch'] = 11
-    run_config['num_hidden'] = 256
-    run_config['batch_size'] = 8000
-    run_config['lr'] = 0.003
-    run_config['dropout'] = 0.5
+    run_config['sample_type'] = sam.kRandomWalk
+    # the first epoch is used to warm up the system
+    run_config['num_epoch'] += 1
 
     # arch1 doesn't support pipelining
     if run_config['arch_type'] == sam.kArch1:

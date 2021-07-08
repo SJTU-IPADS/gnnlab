@@ -97,6 +97,8 @@ def get_run_config():
     if run_config['pipelining'] == False:
         run_config['num_sampling_worker'] = 0
 
+    print('Evaluation time: ', time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.localtime()))
     print(*run_config.items(), sep='\n')
 
     return run_config
