@@ -136,7 +136,7 @@ def get_run_config():
     default_run_config = {}
     default_run_config['arch'] = 'arch3'
     default_run_config['sample_type'] = sam.kRandomWalk
-    default_run_config['pipeline'] = False
+    default_run_config['pipeline'] = False  # default value must be false
     default_run_config['cache_policy'] = sam.kCacheByHeuristic
     default_run_config['cache_percentage'] = 0.25
 
@@ -158,7 +158,7 @@ def get_run_config():
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
-    default_run_config['batch_size'] = 8000
+    default_run_config['batch_size'] = 2000
     default_run_config['lr'] = 0.003
     default_run_config['dropout'] = 0.5
 

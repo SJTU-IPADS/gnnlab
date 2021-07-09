@@ -53,6 +53,9 @@ void GPUBatchSanityCheck(IdType *map, const IdType *input,
                          const size_t num_input, Context ctx,
                          StreamHandle stream);
 
+void GPUSanityCheckList(const IdType *input, size_t num_input,
+                        IdType invalid_val, Context ctx, StreamHandle stream);
+
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph

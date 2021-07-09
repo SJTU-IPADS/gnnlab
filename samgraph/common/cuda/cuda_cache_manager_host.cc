@@ -25,9 +25,10 @@ void extract_miss_data(void *output_miss, const IdType *miss_src_index,
 
 #pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
   for (size_t i = 0; i < num_miss; i++) {
+    size_t src_idx = miss_src_index[i];
 #pragma omp simd
     for (size_t j = 0; j < dim; j++) {
-      output_miss_data[i * dim + j] = cpu_src_data[miss_src_index[i] * dim + j];
+      output_miss_data[i * dim + j] = cpu_src_data[src_idx * dim + j];
     }
   }
 }

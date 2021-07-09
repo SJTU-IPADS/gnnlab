@@ -8,20 +8,100 @@ if [ ! -d $LOG_DIR/$OUTPUT_DIR ]; then
     mkdir -p $LOG_DIR/$OUTPUT_DIR
 fi
 
-app="gcn graphsage pinsage"
-# apps="pinsage"
-datasets="reddit products papers100M com-friendster"
-# datasets="reddit products"
+apps="gcn graphsage pinsage"
+apps0="gcn graphsage"
+apps1="pinsage"
+root_path="/graph-learning/samgraph/"
+datasets0="reddit products"
+datasets1="papers100M"
+datasets2="com-friendster"
 epochs=10
+cache_by_degree=0
+cache_by_heuristic=1
+
 # epochs=1
 
-echo "Runing evaluations for samgraph..."
+# echo "Runing evaluations for samgraph..."
+# for app in $apps; do
+#     echo "  eval $app..."
+#     for dataset in $datasets0; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch1 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_${app}_${dataset}.log" 2>&1
+#     done
+
+#     for dataset in $datasets1; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --cache-percentage 0.0 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_${app}_${dataset}.log" 2>&1
+#     done
+
+#     for dataset in $datasets2; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --cache-percentage 0.0 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_${app}_${dataset}.log" 2>&1
+#     done
+# done
+# echo
+# echo
+
+echo "Runing pipeline evaluations for samgraph..."
 for app in $apps; do
     echo "  eval $app..."
-    for dataset in $datasets; do
+    for dataset in $datasets1; do
         echo "    running $dataset..."
-        python samgraph/train_${app}.py --dataset $dataset --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/dgl_${app}_${dataset}.log" 2>&1
+        python samgraph/train_${app}.py --arch arch3 --cache-percentage 0.0 --pipeline --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_pipeline_${app}_${dataset}.log" 2>&1
+    done
+
+    for dataset in $datasets2; do
+        echo "    running $dataset..."
+        python samgraph/train_${app}.py --arch arch3 --cache-percentage 0.0 --pipeline --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_pipeline_${app}_${dataset}.log" 2>&1
     done
 done
 echo
 echo
+
+
+
+# echo "Runing cache evaluations for samgraph..."
+# for app in $apps; do
+#     echo "  eval $app..."
+#     for dataset in $datasets1; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --cache-policy ${cache_by_heuristic} --cache-percentage 0.25 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_cache_${app}_${dataset}.log" 2>&1
+#     done
+
+#     for dataset in $datasets2; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --cache-policy ${cache_by_heuristic} --cache-percentage 0.25 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_cache_${app}_${dataset}.log" 2>&1
+#     done
+# done
+# echo
+# echo
+
+
+# echo "Runing cache+pipeline evaluations for samgraph..."
+# for app in $apps0; do
+#     echo "  eval $app..."
+#     for dataset in $datasets1; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --pipeline --cache-policy ${cache_by_heuristic} --cache-percentage 0.25 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_cache_pipeline_${app}_${dataset}.log" 2>&1
+#     done
+
+#     for dataset in $datasets2; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --max-copying-jobs 1 --pipeline --cache-policy ${cache_by_heuristic} --cache-percentage 0.25 --dataset-path  ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_cache_pipeline_${app}_${dataset}.log" 2>&1
+#     done
+# done
+
+# for app in $apps1; do
+#     echo "  eval $app..."
+#     for dataset in $datasets1; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --pipeline --cache-policy ${cache_by_heuristic} --cache-percentage 0.4 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_cache_pipeline_${app}_${dataset}.log" 2>&1
+#     done
+
+#     for dataset in $datasets2; do
+#         echo "    running $dataset..."
+#         python samgraph/train_${app}.py --arch arch3 --max-copying-jobs 10 --pipeline --cache-policy ${cache_by_heuristic} --cache-percentage 0.4 --dataset-path ${root_path}${dataset} --num-epoch ${epochs} > "$LOG_DIR/$OUTPUT_DIR/samgraph_cache_pipeline_${app}_${dataset}.log" 2>&1
+#     done
+# done
+# echo
+# echo

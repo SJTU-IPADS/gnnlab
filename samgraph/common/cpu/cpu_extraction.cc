@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "../common.h"
 #include "../logging.h"
 #include "../run_config.h"

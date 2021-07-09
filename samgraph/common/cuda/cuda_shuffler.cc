@@ -126,6 +126,8 @@ TensorPtr GPUShuffler::GetBatch(StreamHandle stream) {
 
   if (RunConfig::option_sanity_check) {
     LOG(INFO) << "Doing batch sanity check";
+    GPUSanityCheckList(static_cast<const IdType *>(tensor->Data()), size,
+                       Constant::kEmptyKey, tensor->Ctx(), stream);
     GPUBatchSanityCheck(_sanity_check_map,
                         static_cast<const IdType *>(tensor->Data()), size,
                         tensor->Ctx(), stream);

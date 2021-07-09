@@ -80,7 +80,7 @@ def get_run_config():
     default_run_config = {}
     default_run_config['arch'] = 'arch1'
     default_run_config['sample_type'] = sam.kKHop0
-    default_run_config['pipeline'] = True
+    default_run_config['pipeline'] = False  # default value must be false
     default_run_config['cache_policy'] = sam.kCacheByHeuristic
     default_run_config['cache_percentage'] = 0.25
 

@@ -94,6 +94,7 @@ setup(
                 'samgraph/common/cpu/cpu_sampling_khop1.cc',
                 'samgraph/common/cpu/cpu_sampling_random_walk.cc',
                 'samgraph/common/cpu/cpu_sampling_weighted_khop.cc',
+                'samgraph/common/cpu/cpu_sanity_check.cc',
                 'samgraph/common/cpu/cpu_shuffler.cc',
                 'samgraph/common/cpu/mmap_cpu_device.cc',
                 'samgraph/common/cuda/cuda_cache_manager_device.cu',

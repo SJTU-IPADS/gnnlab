@@ -83,7 +83,7 @@ def get_run_config():
     default_run_config = {}
     default_run_config['arch'] = 'arch3'
     default_run_config['sample_type'] = sam.kKHop0
-    default_run_config['pipeline'] = True
+    default_run_config['pipeline'] = False  # default value must be false
     default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/products'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'

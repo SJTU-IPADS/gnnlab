@@ -156,7 +156,7 @@ def get_run_config():
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
-    default_run_config['pipelining'] = False
+    default_run_config['pipelining'] = False # default value must be false
     default_run_config['num_sampling_worker'] = 16
 
     default_run_config['random_walk_length'] = 4

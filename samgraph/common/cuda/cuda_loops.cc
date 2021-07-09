@@ -305,14 +305,14 @@ void DoIdCopy(TaskPtr task) {
       task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
       output_nodes->Ctx(), copy_stream);
 
+  sampler_device->StreamSync(sampler_ctx, copy_stream);
+
   task->input_nodes = input_nodes;
   task->output_nodes = output_nodes;
 
   Profiler::Get().LogStepAdd(
       task->key, kLogL1IdBytes,
       input_nodes->NumBytes() + output_nodes->NumBytes());
-
-  sampler_device->StreamSync(sampler_ctx, copy_stream);
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -342,6 +342,11 @@ void DoCPUFeatureExtract(TaskPtr task) {
       Tensor::Empty(label_type, {num_ouput}, CPU(),
                     "task.output_label_cpu" + std::to_string(task->key));
 
+  LOG(DEBUG) << "DoCPUFeatureExtract input_feat cpu malloc "
+             << ToReadableSize(task->input_feat->NumBytes());
+  LOG(DEBUG) << "DoCPUFeatureExtract output_label cpu malloc "
+             << ToReadableSize(task->output_label->NumBytes());
+
   auto feat_dst = task->input_feat->MutableData();
   auto feat_src = dataset->feat->Data();
 
@@ -350,6 +355,7 @@ void DoCPUFeatureExtract(TaskPtr task) {
 
   auto label_dst = task->output_label->MutableData();
   auto label_src = dataset->label->Data();
+
   cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
 
   if (RunConfig::option_log_node_access) {
@@ -493,12 +499,12 @@ void DoCacheIdCopy(TaskPtr task) {
       task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
       output_nodes->Ctx(), copy_stream);
 
+  sampler_device->StreamSync(sampler_ctx, copy_stream);
+
   task->output_nodes = output_nodes;
 
   Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes,
                              output_nodes->NumBytes());
-
-  sampler_device->StreamSync(sampler_ctx, copy_stream);
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }

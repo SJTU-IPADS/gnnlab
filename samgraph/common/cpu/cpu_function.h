@@ -34,6 +34,9 @@ void CPUExtract(void *dst, const void *src, const IdType *index,
 
 IdType RandomID(const IdType &min, const IdType &max);
 
+void CPUSanityCheckList(const IdType *input, size_t num_input,
+                        IdType invalid_val);
+
 }  // namespace cpu
 }  // namespace common
 }  // namespace samgraph

@@ -60,6 +60,17 @@ void CheckDuplicatedEdges(utility::GraphPtr graph) {
   }
 }
 
+void CheckTrainSet(utility::GraphPtr graph) {
+  size_t num_train_set = graph->num_train_set;
+  uint32_t *train_set = graph->train_set;
+
+  for (size_t i = 0; i < num_train_set; i++) {
+    if (train_set[i] == 4294967295) {
+      std::cout << "index " << i << " has node " << train_set[i] << std::endl;
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   utility::Options::InitOptions("Graph property");
   OPTIONS_PARSE(argc, argv);
@@ -67,6 +78,7 @@ int main(int argc, char *argv[]) {
   utility::GraphLoader graph_loader(utility::Options::root);
   auto graph = graph_loader.GetGraphDataset(utility::Options::graph);
 
-  CheckCSRValid(graph);
-  CheckDuplicatedEdges(graph);
+  // CheckCSRValid(graph);
+  // CheckDuplicatedEdges(graph);
+  CheckTrainSet(graph);
 }
