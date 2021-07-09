@@ -13,6 +13,7 @@ namespace samgraph {
 namespace common {
 
 using IdType = unsigned int;
+using Id64Type = unsigned long long int;
 
 enum DataType {
   kF32 = 0,

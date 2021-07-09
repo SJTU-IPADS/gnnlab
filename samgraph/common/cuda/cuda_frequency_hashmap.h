@@ -146,6 +146,7 @@ class FrequencyHashmap {
   IdType *_unique_src;
   IdType *_unique_dst;
   IdType *_unique_frequency;
+  Id64Type *_unique_combination_key;  // 63:32 src  31:0 frequency
   size_t _num_unique;
   const size_t _unique_list_size;
 };

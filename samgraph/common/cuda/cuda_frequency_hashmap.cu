@@ -45,6 +45,7 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
     const IdType key =
         atomicCAS(&GetMutableNode(pos)->key, Constant::kEmptyKey, id);
     if (key == Constant::kEmptyKey || key == id) {
+      // printf("Insert %u insert at pos %u\n", id, pos);
       return true;
     } else {
       return false;
@@ -56,6 +57,7 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
 
     IdType delta = 1;
     while (!AttemptInsertNodeAt(pos, id)) {
+      // printf("node %u insert pos %u fail\n", id, pos);
       pos = NodeHash(pos + delta);
       delta += 1;
     }
@@ -324,13 +326,12 @@ __global__ void generate_unique_edges(
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
-__global__ void reorder_unique(IdType *unique_idx,
-                               const IdType *tmp_unique_node_idx,
-                               const IdType *tmp_unique_dst,
-                               const IdType *tmp_unique_frequency,
-                               IdType *unique_node_idx, IdType *unique_dst,
-                               IdType *unique_frequency,
-                               const size_t num_unique) {
+__global__ void reorder_unique(
+    const IdType *unique_src, const IdType *unique_idx,
+    const IdType *tmp_unique_node_idx, const IdType *tmp_unique_dst,
+    const IdType *tmp_unique_frequency, IdType *unique_node_idx,
+    IdType *unique_dst, IdType *unique_frequency,
+    Id64Type *unique_combination_key, const size_t num_unique) {
   assert(BLOCK_SIZE == blockDim.x);
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -343,6 +344,9 @@ __global__ void reorder_unique(IdType *unique_idx,
       unique_node_idx[index] = tmp_unique_node_idx[origin_idx];
       unique_dst[index] = tmp_unique_dst[origin_idx];
       unique_frequency[index] = tmp_unique_frequency[origin_idx];
+      unique_combination_key[index] =
+          (((Id64Type)unique_src[index]) << 32) |
+          ((Id64Type)tmp_unique_frequency[origin_idx]);
     }
   }
 }
@@ -467,9 +471,11 @@ FrequencyHashmap::FrequencyHashmap(const size_t max_nodes,
       device->AllocDataSpace(_ctx, sizeof(IdType) * _unique_list_size));
   _unique_frequency = static_cast<IdType *>(
       device->AllocDataSpace(_ctx, sizeof(IdType) * _unique_list_size));
+  _unique_combination_key = static_cast<Id64Type *>(
+      device->AllocDataSpace(_ctx, sizeof(Id64Type) * _unique_list_size));
 
   auto device_table = MutableDeviceFrequencyHashmap(this);
-  dim3 grid0(RoundUpDiv(_node_list_size, Constant::kCudaTileSize));
+  dim3 grid0(RoundUpDiv(_ntable_size, Constant::kCudaTileSize));
   dim3 grid1(RoundUpDiv(_etable_size, Constant::kCudaTileSize));
   dim3 grid2(RoundUpDiv(_unique_list_size, Constant::kCudaTileSize));
   dim3 block0(Constant::kCudaBlockSize);
@@ -483,8 +489,8 @@ FrequencyHashmap::FrequencyHashmap(const size_t max_nodes,
   init_unique_range<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid2, block2>>>(_unique_range, _unique_list_size);
 
-  LOG(INFO) << "FrequencyHashmap node table size: " << _ntable_size
-            << " edge table size: " << _etable_size;
+  LOG(INFO) << "FrequencyHashmap init with node table size: " << _ntable_size
+            << " and edge table size: " << _etable_size;
 }
 
 FrequencyHashmap::~FrequencyHashmap() {
@@ -498,6 +504,7 @@ FrequencyHashmap::~FrequencyHashmap() {
   device->FreeDataSpace(_ctx, _unique_src);
   device->FreeDataSpace(_ctx, _unique_dst);
   device->FreeDataSpace(_ctx, _unique_frequency);
+  device->FreeDataSpace(_ctx, _unique_combination_key);
 }
 
 void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
@@ -615,7 +622,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
                          sizeof(IdType) * _num_unique, _ctx, _ctx, stream);
 
   size_t workspace_bytes3;
-  CUDA_CALL(cub::DeviceRadixSort::SortPairs(
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
       nullptr, workspace_bytes3, static_cast<IdType *>(nullptr),
       static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr),
       static_cast<IdType *>(nullptr), _num_unique, 0, sizeof(IdType) * 8,
@@ -623,7 +630,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   device->StreamSync(_ctx, stream);
 
   void *workspace3 = device->AllocWorkspace(_ctx, workspace_bytes3);
-  CUDA_CALL(cub::DeviceRadixSort::SortPairs(
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
       workspace3, workspace_bytes3, _unique_src, _unique_src, unique_idx,
       unique_idx, _num_unique, 0, sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
@@ -634,8 +641,9 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
 
   reorder_unique<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid3, block3, 0, cu_stream>>>(
-          unique_idx, tmp_unique_node_idx, tmp_unique_dst, tmp_unique_frequency,
-          _unique_node_idx, _unique_dst, _unique_frequency, _num_unique);
+          _unique_src, unique_idx, tmp_unique_node_idx, tmp_unique_dst,
+          tmp_unique_frequency, _unique_node_idx, _unique_dst,
+          _unique_frequency, _unique_combination_key, _num_unique);
   device->StreamSync(_ctx, stream);
   double step5_time = t5.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 5 finish";
@@ -648,14 +656,14 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   _num_node = num_input_node;
 
   size_t workspace_bytes4;
-  CUDA_CALL(cub::DeviceRadixSort::SortKeys(
+  CUDA_CALL(cub::DeviceRadixSort::SortKeysDescending(
       nullptr, workspace_bytes4, static_cast<IdType *>(nullptr),
       static_cast<IdType *>(nullptr), num_input_node, 0, sizeof(IdType) * 8,
       cu_stream));
   device->StreamSync(_ctx, stream);
 
   void *workspace4 = device->AllocWorkspace(_ctx, workspace_bytes4);
-  CUDA_CALL(cub::DeviceRadixSort::SortKeys(
+  CUDA_CALL(cub::DeviceRadixSort::SortKeysDescending(
       workspace4, workspace_bytes4, _node_list, _node_list, num_input_node, 0,
       sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
@@ -687,20 +695,35 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   // 8. segment-sort the edge for every node using the frequency as key
   //    and the dst as value.
   Timer t8;
+  // size_t workspace_bytes5;
+  // CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairsDescending(
+  //     nullptr, workspace_bytes5, static_cast<IdType *>(nullptr),
+  //     static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr),
+  //     static_cast<IdType *>(nullptr), _num_unique, num_input_node,
+  //     static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr), 0,
+  //     sizeof(IdType) * 8, cu_stream));
+  // device->StreamSync(_ctx, stream);
+
+  // void *workspace5 = device->AllocWorkspace(_ctx, workspace_bytes5);
+  // CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairsDescending(
+  //     workspace5, workspace_bytes5, _unique_frequency, _unique_frequency,
+  //     _unique_dst, _unique_dst, _num_unique, num_input_node, num_edge_prefix,
+  //     num_edge_prefix + 1, 0, sizeof(IdType) * 8, cu_stream));
+  // device->StreamSync(_ctx, stream);
+
   size_t workspace_bytes5;
-  CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairsDescending(
-      nullptr, workspace_bytes5, static_cast<IdType *>(nullptr),
-      static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr),
-      static_cast<IdType *>(nullptr), _num_unique, num_input_node,
-      static_cast<IdType *>(nullptr), static_cast<IdType *>(nullptr), 0,
-      sizeof(IdType) * 8, cu_stream));
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
+      nullptr, workspace_bytes5, static_cast<Id64Type *>(nullptr),
+      static_cast<Id64Type *>(nullptr), static_cast<IdType *>(nullptr),
+      static_cast<IdType *>(nullptr), _num_unique, 0, sizeof(Id64Type) * 8,
+      cu_stream));
   device->StreamSync(_ctx, stream);
 
   void *workspace5 = device->AllocWorkspace(_ctx, workspace_bytes5);
-  CUDA_CALL(cub::DeviceSegmentedRadixSort::SortPairsDescending(
-      workspace5, workspace_bytes5, _unique_frequency, _unique_frequency,
-      _unique_dst, _unique_dst, _num_unique, num_input_node, num_edge_prefix,
-      num_edge_prefix + 1, 0, sizeof(IdType) * 8, cu_stream));
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
+      workspace5, workspace_bytes5, _unique_combination_key,
+      _unique_combination_key, _unique_dst, _unique_dst, _num_unique, 0,
+      sizeof(Id64Type) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
   double step8_time = t8.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 8 finish";
@@ -750,6 +773,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   device->FreeWorkspace(_ctx, unique_idx);
   device->FreeWorkspace(_ctx, tmp_unique_frequency);
   device->FreeWorkspace(_ctx, tmp_unique_dst);
+  device->FreeWorkspace(_ctx, tmp_unique_node_idx);
   device->FreeWorkspace(_ctx, device_num_unique);
   device->FreeWorkspace(_ctx, num_unique_prefix);
   device->FreeWorkspace(_ctx, workspace2);

@@ -133,6 +133,9 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
   frequency_hashmap->GetTopK(tmp_src, tmp_dst, num_samples, input, num_input, K,
                              out_src, out_dst, out_data, num_out, stream,
                              task_key);
+
+  sampler_device->FreeWorkspace(ctx, tmp_dst);
+  sampler_device->FreeWorkspace(ctx, tmp_src);
   double topk_time = t1.Passed();
 
   Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkSampleCooTime,

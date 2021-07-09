@@ -206,15 +206,15 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "        L3  khop sample coo  %.4lf | khop sort coo     %.4lf | "
         "khop count edge   %.4lf | khop compact edge %.4lf\n"
         "        L3  walk sample coo  %.4lf | walk topk total   %.4lf | "
-        "walk topk step1   %.4lf | walk topk step2 %.4lf\n"
+        "walk topk step1   %.4lf | walk topk step2   %.4lf\n"
         "        L3  walk topk step3  %.4lf | walk topk step4   %.4lf | "
-        "walk topk step5   %.4lf | walk topk step6 %.4lf\n"
-        "        L3  walk topk step7  %.4lf | walk topk step8   %.4lf | "
-        "walk topk step9   %.4lf\n"
-        "        L3  walk topk step10 %.4lf | walk topk step11  %.4lf | "
-        "walk topk step12  %.4lf\n"
-        "        L3  remap populate   %.4lf | remap mapnode     %.4lf | "
-        "remap mapedge     %.4lf\n",
+        "walk topk step5   %.4lf\n"
+        "        L3  walk topk step6  %.4lf | walk topk step   %.4lf | "
+        "walk topk step8   %.4lf\n"
+        "        L3  walk topk step9  %.4lf | walk topk step10 %.4lf | "
+        "walk topk step11  %.4lf\n"
+        "        L3  remap unique     %.4lf | remap populate    %.4lf | "
+        "remap mapnode     %.4lf | remap mapedge     %.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL3KHopSampleCooTime],
         _step_buf[kLogL3KHopSampleSortCooTime],
         _step_buf[kLogL3KHopSampleCountEdgeTime],
@@ -233,6 +233,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL3RandomWalkTopKStep10Time],
         _step_buf[kLogL3RandomWalkTopKStep11Time],
         _step_buf[kLogL3RandomWalkTopKStep12Time],
+        _step_buf[kLogL3RemapFillUniqueTime],
         _step_buf[kLogL3RemapPopulateTime], _step_buf[kLogL3RemapMapNodeTime],
         _step_buf[kLogL3RemapMapEdgeTime]);
   } else if (level >= 3) {
@@ -241,15 +242,15 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "        L3  khop sample coo  %.4lf | khop sort coo      %.4lf | "
         "khop count edge     %.4lf | khop compact edge %.4lf\n"
         "        L3  walk sample coo  %.4lf | walk topk total    %.4lf | "
-        "walk topk step1     %.4lf | walk topk step2 %.4lf\n"
+        "walk topk step1     %.4lf | walk topk step2   %.4lf\n"
         "        L3  walk topk step3  %.4lf | walk topk step4    %.4lf | "
-        "walk topk step5     %.4lf | walk topk step6 %.4lf\n"
-        "        L3  walk topk step7  %.4lf | walk topk step8    %.4lf | "
-        "walk topk step9     %.4lf\n"
-        "        L3  walk topk step10 %.4lf | walk topk step11   %.4lf | "
-        "walk topk step12    %.4lf\n"
-        "        L3  remap populate   %.4lf | remap mapnode      %.4lf | "
-        "remap mapedge       %.4lf\n"
+        "walk topk step5     %.4lf\n"
+        "        L3  walk topk step6  %.4lf | walk topk step7    %.4lf | "
+        "walk topk step8     %.4lf\n"
+        "        L3  walk topk step9  %.4lf | walk topk step10   %.4lf | "
+        "walk topk step11    %.4lf\n"
+        "        L3  remap     unique %.4lf | remap populate     %.4lf | "
+        "remap mapnode       %.4lf | remap mapedge     %.4lf\n"
         "        L3  cache get_index  %.4lf | cache copy_index   %.4lf | "
         "cache extract_miss  %.4lf\n"
         "        L3  cache copy_miss  %.4lf | cache combine_miss %.4lf | "
@@ -272,6 +273,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL3RandomWalkTopKStep10Time],
         _step_buf[kLogL3RandomWalkTopKStep11Time],
         _step_buf[kLogL3RandomWalkTopKStep12Time],
+        _step_buf[kLogL3RemapFillUniqueTime],
         _step_buf[kLogL3RemapPopulateTime], _step_buf[kLogL3RemapMapNodeTime],
         _step_buf[kLogL3RemapMapEdgeTime], _step_buf[kLogL3CacheGetIndexTime],
         _step_buf[KLogL3CacheCopyIndexTime],

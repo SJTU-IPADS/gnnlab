@@ -140,9 +140,9 @@ def get_run_config():
     default_run_config['cache_policy'] = sam.kCacheByHeuristic
     default_run_config['cache_percentage'] = 0.25
 
-    default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
+    # default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/products'
-    # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
+    default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     default_run_config['max_sampling_jobs'] = 10

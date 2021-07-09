@@ -46,12 +46,14 @@ void DoGPUSample(TaskPtr task) {
   OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
   hash_table->Reset(sample_stream);
 
+  Timer t;
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
   hash_table->FillWithUnique(
       static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
       sample_stream);
   task->graphs.resize(num_layers);
+  double fill_unique_time = t.Passed();
 
   const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
   const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
@@ -213,6 +215,8 @@ void DoGPUSample(TaskPtr task) {
   task->input_nodes = cur_input;
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
                           static_cast<double>(task->input_nodes->Shape()[0]));
+  Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
+                             fill_unique_time);
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
