@@ -49,7 +49,6 @@ enum LogStepItem {
   kLogL3RandomWalkTopKStep9Time,
   kLogL3RandomWalkTopKStep10Time,
   kLogL3RandomWalkTopKStep11Time,
-  kLogL3RandomWalkTopKStep12Time,
   kLogL3RemapFillUniqueTime,
   kLogL3RemapPopulateTime,
   kLogL3RemapMapNodeTime,
