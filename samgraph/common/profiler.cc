@@ -248,7 +248,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "walk topk step8     %.4lf\n"
         "        L3  walk topk step9  %.4lf | walk topk step10   %.4lf | "
         "walk topk step11    %.4lf\n"
-        "        L3  remap     unique %.4lf | remap populate     %.4lf | "
+        "        L3  remap unique     %.4lf | remap populate     %.4lf | "
         "remap mapnode       %.4lf | remap mapedge     %.4lf\n"
         "        L3  cache get_index  %.4lf | cache copy_index   %.4lf | "
         "cache extract_miss  %.4lf\n"
