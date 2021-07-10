@@ -268,7 +268,7 @@ void DoGraphCopy(TaskPtr task) {
       graph->data = graph_data;
     }
 
-    sampler_device->StreamSync(trainer_ctx, copy_stream);
+    sampler_device->StreamSync(sampler_ctx, copy_stream);
 
     graph->row = train_row;
     graph->col = train_col;
