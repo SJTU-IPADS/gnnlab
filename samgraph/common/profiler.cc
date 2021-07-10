@@ -151,11 +151,12 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
         "        L1  sample         %10.4lf | copy         %10.4lf | "
-        "train  %.4lf\n"
+        "convert time %.4lf | train  %.4lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
-        _step_buf[kLogL1CopyTime], _step_buf[kLogL1TrainTime],
+        _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
+        _step_buf[kLogL1TrainTime],
         ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
@@ -164,12 +165,13 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
         "        L1  sample         %10.4lf | copy         %10.4lf | "
-        "train  %.4lf\n"
+        "convert time %.4lf | train  %.4lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
         "        L1  miss nbytes    %10s\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
-        _step_buf[kLogL1CopyTime], _step_buf[kLogL1TrainTime],
+        _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
+        _step_buf[kLogL1TrainTime],
         ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),

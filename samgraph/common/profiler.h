@@ -16,6 +16,7 @@ enum LogStepItem {
   kLogL1NumNode,
   kLogL1SampleTime,
   kLogL1CopyTime,
+  kLogL1ConvertTime,
   kLogL1TrainTime,
   kLogL1FeatureBytes,
   kLogL1LabelBytes,
@@ -66,6 +67,7 @@ enum LogStepItem {
 enum LogEpochItem {
   kLogEpochSampleTime = 0,
   kLogEpochCopyTime,
+  kLogEpochConvertTime,
   kLogEpochTrainTime,
   kLogEpochTotalTime,
   kNumLogEpochItems

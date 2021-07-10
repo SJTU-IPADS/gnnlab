@@ -93,6 +93,7 @@ kLogL1NumSample = get_next_enum_val(step_log_val)
 kLogL1NumNode = get_next_enum_val(step_log_val)
 kLogL1SampleTime = get_next_enum_val(step_log_val)
 kLogL1CopyTime = get_next_enum_val(step_log_val)
+kLogL1ConvertTime = get_next_enum_val(step_log_val)
 kLogL1TrainTime = get_next_enum_val(step_log_val)
 kLogL1FeatureBytes = get_next_enum_val(step_log_val)
 kLogL1LabelBytes = get_next_enum_val(step_log_val)
@@ -140,8 +141,9 @@ kLogL3CacheCombineCacheTime = get_next_enum_val(step_log_val)
 # Epoch Log
 kLogEpochSampleTime = 0
 kLogEpochCopyTime = 1
-kLogEpochTrainTime = 2
-kLogEpochTotalTime = 3
+kLogEpochConvertTime = 2
+kLogEpochTrainTime = 3
+kLogEpochTotalTime = 4
 
 
 class SamGraphBasics(object):

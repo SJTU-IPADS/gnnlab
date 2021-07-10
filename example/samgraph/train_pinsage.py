@@ -158,7 +158,7 @@ def get_run_config():
     # we use the average result of 10 epochs, the first epoch is used to warm up the system
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
-    default_run_config['batch_size'] = 2000
+    default_run_config['batch_size'] = 8000
     default_run_config['lr'] = 0.003
     default_run_config['dropout'] = 0.5
 
@@ -213,6 +213,7 @@ def run():
 
     epoch_sample_times = []
     epoch_copy_times = []
+    epoch_convert_times = []
     epoch_train_times = []
     epoch_total_times = []
 
@@ -245,10 +246,12 @@ def run():
                 epoch, step, sam.kLogL1SampleTime)
             copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
             convert_time = t2 - t1
-            train_time = (t3 - t2) + (t2 - t1)
+            train_time = t3 - t2
             total_time = t3 - t0
 
             sam.log_step(epoch, step, sam.kLogL1TrainTime, train_time)
+            sam.log_step(epoch, step, sam.kLogL1ConvertTime, convert_time)
+            sam.log_epoch_add(epoch, sam.kLogEpochConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
 
@@ -277,13 +280,15 @@ def run():
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
         epoch_copy_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
+        epoch_convert_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime))
         epoch_train_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
         epoch_total_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
 
-    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-        np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]),  np.mean(epoch_train_times[1:])))
+    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
+        np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
 
     sam.report_node_access()
     sam.shutdown()
