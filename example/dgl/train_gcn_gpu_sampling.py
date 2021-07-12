@@ -15,6 +15,7 @@ from dgl.nn.pytorch import GraphConv
 import fastgraph
 import time
 import numpy as np
+from gsampler.UserSampler import UserSampler
 
 
 class GCN(nn.Module):
@@ -81,7 +82,7 @@ def parse_args(default_run_config):
 
 def get_run_config():
     default_run_config = {}
-    default_run_config['device'] = 'cuda:0'
+    default_run_config['device'] = 'cuda:1'
     # default_run_config['dataset'] = 'reddit'
     # default_run_config['dataset'] = 'products'
     default_run_config['dataset'] = 'papers100M'
@@ -125,7 +126,12 @@ def run():
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
-    sampler = dgl.dataloading.MultiLayerNeighborSampler(run_config['fanout'])
+    ctx = dgl.ndarray.gpu(1)
+    topo_g = g._graph
+    topo_g = topo_g.copy_to(ctx)
+    print("topo_g.ctx: ", topo_g.ctx)
+
+    sampler = UserSampler(run_config['fanout'], topo_g)
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nids,
@@ -136,6 +142,8 @@ def run():
         drop_last=False
         # ,num_workers=run_config['num_sampling_worker']
     )
+    while(1):
+        pass
 
     model = GCN(in_feats, run_config['num_hidden'],
                 n_classes, run_config['num_layer'], F.relu, run_config['dropout'])
@@ -169,13 +177,13 @@ def run():
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
             t1 = time.time()
-            blocks = [block.int().to(device) for block in blocks]
-            blocks = [block.int().to(device) for block in blocks]
-            batch_inputs = blocks[0].srcdata['feat']
-            batch_labels = blocks[-1].dstdata['label']
+            batch_inputs = blocks[0].srcdata['feat'].to(device)
+            batch_labels = blocks[-1].dstdata['label'].to(device)
             t2 = time.time()
 
             # Compute loss and prediction
+            print("batch_inputs: ", batch_inputs.device)
+            print("batch_labels: ", batch_labels.device)
             batch_pred = model(blocks, batch_inputs)
             loss = loss_fcn(batch_pred, batch_labels)
             optimizer.zero_grad()
