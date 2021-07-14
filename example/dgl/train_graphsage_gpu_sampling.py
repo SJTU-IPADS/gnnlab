@@ -1,24 +1,17 @@
-"""GCN using DGL nn package
-
-References:
-- Semi-Supervised Classification with Graph Convolutional Networks
-- Paper: https://arxiv.org/abs/1609.02907
-- Code: https://github.com/tkipf/gcn
-"""
 import argparse
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
 import dgl
-from dgl.nn.pytorch import GraphConv
+import torch
+import dgl.nn.pytorch as dglnn
+import torch.optim as optim
+import torch.nn as nn
+import torch.nn.functional as F
 import fastgraph
 import time
 import numpy as np
 from gsampler.UserSampler import UserSampler
 
 
-class GCN(nn.Module):
+class SAGE(nn.Module):
     def __init__(self,
                  in_feats,
                  n_hidden,
@@ -26,31 +19,30 @@ class GCN(nn.Module):
                  n_layers,
                  activation,
                  dropout):
-        super(GCN, self).__init__()
+        super().__init__()
+        self.n_layers = n_layers
+        self.n_hidden = n_hidden
+        self.n_classes = n_classes
         self.layers = nn.ModuleList()
-        # input layer
-        self.layers.append(
-            GraphConv(in_feats, n_hidden, activation=activation, allow_zero_in_degree=True))
-        # hidden layers
+        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, 'mean'))
         for _ in range(1, n_layers - 1):
-            self.layers.append(
-                GraphConv(n_hidden, n_hidden, activation=activation, allow_zero_in_degree=True))
-        # output layer
-        self.layers.append(
-            GraphConv(n_hidden, n_classes, allow_zero_in_degree=True))
-        self.dropout = nn.Dropout(p=dropout)
+            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, 'mean'))
+        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
+        self.dropout = nn.Dropout(dropout)
+        self.activation = activation
 
-    def forward(self, blocks, features):
-        h = features
-        for i, layer in enumerate(self.layers):
-            if i != 0:
+    def forward(self, blocks, x):
+        h = x
+        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
+            h = layer(block, h)
+            if l != len(self.layers) - 1:
+                h = self.activation(h)
                 h = self.dropout(h)
-            h = layer(blocks[i], h)
         return h
 
 
 def parse_args(default_run_config):
-    argparser = argparse.ArgumentParser("GCN Training")
+    argparser = argparse.ArgumentParser("GraphSage Training")
     argparser.add_argument('--device', type=str,
                            default=default_run_config['device'])
     argparser.add_argument('--dataset', type=str,
@@ -74,8 +66,6 @@ def parse_args(default_run_config):
         '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
-    argparser.add_argument('--weight-decay', type=float,
-                           default=default_run_config['weight_decay'])
 
     return vars(argparser.parse_args())
 
@@ -83,9 +73,9 @@ def parse_args(default_run_config):
 def get_run_config():
     default_run_config = {}
     default_run_config['device'] = 'cuda:1'
-    # default_run_config['dataset'] = 'reddit'
+    default_run_config['dataset'] = 'reddit'
     # default_run_config['dataset'] = 'products'
-    default_run_config['dataset'] = 'papers100M'
+    # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
     default_run_config['pipelining'] = False  # default value must be false
@@ -95,9 +85,8 @@ def get_run_config():
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
-    default_run_config['lr'] = 0.01
+    default_run_config['lr'] = 0.003
     default_run_config['dropout'] = 0.5
-    default_run_config['weight_decay'] = 0.0005
 
     run_config = parse_args(default_run_config)
 
@@ -105,6 +94,7 @@ def get_run_config():
     run_config['num_epoch'] += 1
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
+
     if run_config['pipelining'] == False:
         run_config['num_sampling_worker'] = 0
 
@@ -141,15 +131,14 @@ def run():
         shuffle=True,
         drop_last=False
         # ,num_workers=run_config['num_sampling_worker']
-    )
+        )
 
-    model = GCN(in_feats, run_config['num_hidden'],
-                n_classes, run_config['num_layer'], F.relu, run_config['dropout'])
+    model = SAGE(in_feats, run_config['num_hidden'], n_classes,
+                 run_config['num_layer'], F.relu, run_config['dropout'])
     model = model.to(device)
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
-    optimizer = optim.Adam(
-        model.parameters(), lr=run_config['lr'], weight_decay=run_config['weight_decay'])
+    optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
     num_epoch = run_config['num_epoch']
 
     model.train()
@@ -185,6 +174,7 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
             t3 = time.time()
 
             sample_times.append(t1 - t0)
