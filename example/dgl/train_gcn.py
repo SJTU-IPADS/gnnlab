@@ -15,6 +15,7 @@ from dgl.nn.pytorch import GraphConv
 import fastgraph
 import time
 import numpy as np
+import sys
 
 
 class GCN(nn.Module):
@@ -82,9 +83,9 @@ def parse_args(default_run_config):
 def get_run_config():
     default_run_config = {}
     default_run_config['device'] = 'cuda:0'
-    default_run_config['dataset'] = 'reddit'
+    # default_run_config['dataset'] = 'reddit'
     # default_run_config['dataset'] = 'products'
-    # default_run_config['dataset'] = 'papers100M'
+    default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
     default_run_config['pipelining'] = False  # default value must be false
@@ -117,6 +118,12 @@ def get_run_config():
 def run():
     run_config = get_run_config()
     device = torch.device(run_config['device'])
+    dgl_ctx = None
+    if (device.type == 'cuda'):
+        dgl_ctx = dgl.ndarray.gpu(device.index)
+    else:
+        print("Device is illegal.", file=sys.stderr)
+        exit(-1)
 
     dataset = fastgraph.dataset(
         run_config['dataset'], run_config['root_path'])
@@ -130,6 +137,7 @@ def run():
         g,
         train_nids,
         sampler,
+        # device=device,
         batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=False,
@@ -166,11 +174,14 @@ def run():
 
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
+            for block in blocks:
+                block._graph=block._graph.copy_to(dgl_ctx)
             t1 = time.time()
-            blocks = [block.int().to(device) for block in blocks]
-            blocks = [block.int().to(device) for block in blocks]
-            batch_inputs = blocks[0].srcdata['feat']
-            batch_labels = blocks[-1].dstdata['label']
+            # blocks = [block.int().to(device) for block in blocks]
+            # batch_inputs = blocks[0].srcdata['feat']
+            # batch_labels = blocks[-1].dstdata['label']
+            batch_inputs = blocks[0].srcdata['feat'].to(device)
+            batch_labels = blocks[-1].dstdata['label'].to(device)
             t2 = time.time()
 
             # Compute loss and prediction

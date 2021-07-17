@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import fastgraph
 import time
 import numpy as np
+import sys
 
 
 class SAGE(nn.Module):
@@ -107,6 +108,12 @@ def get_run_config():
 def run():
     run_config = get_run_config()
     device = torch.device(run_config['device'])
+    dgl_ctx = None
+    if (device.type == 'cuda'):
+        dgl_ctx = dgl.ndarray.gpu(device.index)
+    else:
+        print("Device is illegal.", file=sys.stderr)
+        exit(-1)
 
     dataset = fastgraph.dataset(
         run_config['dataset'], run_config['root_path'])
@@ -155,10 +162,14 @@ def run():
 
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
+            for block in blocks:
+                block._graph=block._graph.copy_to(dgl_ctx)
             t1 = time.time()
-            blocks = [block.int().to(device) for block in blocks]
-            batch_inputs = blocks[0].srcdata['feat']
-            batch_labels = blocks[-1].dstdata['label']
+            # blocks = [block.int().to(device) for block in blocks]
+            # batch_inputs = blocks[0].srcdata['feat']
+            # batch_labels = blocks[-1].dstdata['label']
+            batch_inputs = blocks[0].srcdata['feat'].to(device)
+            batch_labels = blocks[-1].dstdata['label'].to(device)
             t2 = time.time()
 
             # Compute loss and prediction
