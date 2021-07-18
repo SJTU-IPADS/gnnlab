@@ -192,6 +192,8 @@ def run():
             loss.backward()
             optimizer.step()
             t3 = time.time()
+            batch_inputs = None
+            batch_labels = None
 
             sample_times.append(t1 - t0)
             copy_times.append(t2 - t1)
@@ -209,6 +211,7 @@ def run():
             num_samples.append(num_sample)
             num_nodes.append(blocks[0].num_src_nodes())
 
+            # print('extract {:.5f}, moving {:.5f} ref {:.5f}'.format((tt1-t1), (t2-tt1), (tt2-tt1)))
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()

@@ -182,6 +182,8 @@ def run():
             optimizer.step()
 
             t3 = time.time()
+            batch_inputs = None
+            batch_labels = None
 
             sample_times.append(t1 - t0)
             copy_times.append(t2 - t1)
