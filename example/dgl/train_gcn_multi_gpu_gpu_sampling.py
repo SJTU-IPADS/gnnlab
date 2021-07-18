@@ -190,6 +190,8 @@ def run(worker_id, run_config):
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
         epoch_total_time = 0.0
+        if (num_worker > 1):
+            dataloader.set_epoch(num_epoch)
 
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
