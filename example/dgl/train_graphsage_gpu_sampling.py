@@ -108,6 +108,12 @@ def get_run_config():
 def run():
     run_config = get_run_config()
     device = torch.device(run_config['device'])
+    dgl_ctx = None
+    if (device.type == 'cuda'):
+        dgl_ctx = dgl.ndarray.gpu(device.index)
+    else:
+        print("Device is illegal.", file=sys.stderr)
+        exit(-1)
 
     dataset = fastgraph.dataset(
         run_config['dataset'], run_config['root_path'])
@@ -116,7 +122,7 @@ def run():
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
-    ctx = dgl.ndarray.gpu(1)
+    ctx = dgl_ctx
     topo_g = g._graph
     topo_g = topo_g.copy_to(ctx)
     print("topo_g.ctx: ", topo_g.ctx)
