@@ -131,6 +131,7 @@ def run(worker_id, run_config):
                                              world_size=world_size,
                                              rank=worker_id)
     torch.cuda.set_device(dev_id)
+    dgl_ctx = dgl.ndarray.gpu(dev_id)
 
     dataset = run_config['dataset']
     g = run_config['g']
@@ -187,10 +188,12 @@ def run(worker_id, run_config):
 
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
+            for block in blocks:
+                block._graph=block._graph.copy_to(dgl_ctx)
             t1 = time.time()
-            blocks = [block.int().to(dev_id) for block in blocks]
-            batch_inputs = blocks[0].srcdata['feat']
-            batch_labels = blocks[-1].dstdata['label']
+            # blocks = [block.int().to(dev_id) for block in blocks]
+            batch_inputs = blocks[0].srcdata['feat'].to(dev_id)
+            batch_labels = blocks[-1].dstdata['label'].to(dev_id)
             t2 = time.time()
 
             # Compute loss and prediction

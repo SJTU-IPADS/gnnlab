@@ -146,7 +146,9 @@ def run():
     epoch_copy_times = []
     epoch_train_times = []
     epoch_total_times = []
+    epoch_nodes_transform_times = []
 
+    nodes_transform_times = []
     sample_times = []
     copy_times = []
     train_times = []
@@ -159,9 +161,11 @@ def run():
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
         epoch_total_time = 0.0
+        epoch_nodes_transform_time = 0.0
 
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
+            tt = time.time()
             for block in blocks:
                 block._graph=block._graph.copy_to(dgl_ctx)
             t1 = time.time()
@@ -181,11 +185,13 @@ def run():
 
             t3 = time.time()
 
-            sample_times.append(t1 - t0)
+            sample_times.append(tt - t0)
+            nodes_transform_times.append(t1 - tt)
             copy_times.append(t2 - t1)
             train_times.append(t3 - t2)
             total_times.append(t3 - t0)
 
+            epoch_nodes_transform_time += (t1 - tt)
             epoch_sample_time += (t1 - t0)
             epoch_copy_time += (t2 - t1)
             epoch_train_time += (t3 - t2)
@@ -197,17 +203,18 @@ def run():
             num_samples.append(num_sample)
             num_nodes.append(blocks[0].num_src_nodes())
 
-            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
+            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Nodes copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(nodes_transform_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
+        epoch_nodes_transform_times.append(epoch_nodes_transform_time)
         epoch_sample_times.append(epoch_sample_time)
         epoch_copy_times.append(epoch_copy_time)
         epoch_train_times.append(epoch_train_time)
         epoch_total_times.append(epoch_total_time)
 
-    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-        np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Nodes copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
+        np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_nodes_transform_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
 
 if __name__ == '__main__':
