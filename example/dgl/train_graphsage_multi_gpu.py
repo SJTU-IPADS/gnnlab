@@ -173,7 +173,7 @@ def run(worker_id, run_config):
         epoch_train_time = 0.0
         epoch_total_time = 0.0
         if (num_worker > 1):
-            dataloader.set_epoch(num_epoch)
+            dataloader.set_epoch(epoch)
 
 
         t0 = time.time()
