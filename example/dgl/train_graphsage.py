@@ -130,6 +130,7 @@ def run():
         batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=False,
+        # prefetch_factor=200,
         num_workers=run_config['num_sampling_worker'])
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
@@ -191,8 +192,8 @@ def run():
             train_times.append(t3 - t2)
             total_times.append(t3 - t0)
 
+            epoch_sample_time += (tt - t0)
             epoch_nodes_transform_time += (t1 - tt)
-            epoch_sample_time += (t1 - t0)
             epoch_copy_time += (t2 - t1)
             epoch_train_time += (t3 - t2)
             epoch_total_time += (t3 - t0)
