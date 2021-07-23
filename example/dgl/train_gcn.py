@@ -168,6 +168,8 @@ def run():
     total_times = []
     num_nodes = []
     num_samples = []
+    all_nodes = 0
+    all_samples = 0
 
     for epoch in range(num_epoch):
         epoch_sample_time = 0.0
@@ -214,6 +216,8 @@ def run():
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
             num_nodes.append(blocks[0].num_src_nodes())
+            all_nodes += blocks[0].num_src_nodes()
+            all_samples += num_sample
 
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Nodes copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(nodes_transform_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
@@ -227,6 +231,8 @@ def run():
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Nodes copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_nodes_transform_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+    print("Avg nodes: {:.4f}".format(all_nodes / num_epoch))
+    print("Avg samples: {:.4f}".format(all_samples / num_epoch))
 
 
 if __name__ == '__main__':
