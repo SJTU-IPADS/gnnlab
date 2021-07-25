@@ -436,10 +436,10 @@ void DoGPULabelExtract(TaskPtr task) {
              trainer_ctx, trainer_copy_stream, task->key);
 
   LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
-
-  trainer_device->CopyDataFromTo(label_dst, 0, train_label->MutableData(), 0,
-                                 GetTensorBytes(label_type, {num_ouput}), CPU(),
-                                 train_label->Ctx(), trainer_copy_stream);
+  /** SXN: this copy is buggy! */
+  // trainer_device->CopyDataFromTo(label_dst, 0, train_label->MutableData(), 0,
+  //                                GetTensorBytes(label_type, {num_ouput}), CPU(),
+  //                                train_label->Ctx(), trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
   task->output_label = train_label;
