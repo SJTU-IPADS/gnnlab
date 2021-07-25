@@ -185,7 +185,7 @@ def run(worker_id, run_config):
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
             t1 = time.time()
-            blocks = [block.int().to(dev_id) for block in blocks]
+            # blocks = [block.int().to(dev_id) for block in blocks]
             batch_inputs = blocks[0].srcdata['feat']
             batch_labels = blocks[-1].dstdata['label']
             t2 = time.time()
