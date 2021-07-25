@@ -25,6 +25,8 @@ enum LogStepItem {
   kLogL1MissBytes,
   // L2
   kLogL2ShuffleTime,
+  kLogL2LastLayerTime,
+  kLogL2LastLayerSize,
   kLogL2CoreSampleTime,
   kLogL2IdRemapTime,
   kLogL2GraphCopyTime,

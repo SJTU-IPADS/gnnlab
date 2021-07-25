@@ -184,22 +184,26 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "    [%s Profiler Level 2 E%u S%u]\n"
         "        L2  shuffle     %.4lf | core sample  %.4lf | id remap  %.4lf\n"
         "        L2  graph copy  %.4lf | id copy      %.4lf | extract   %.4lf |"
-        " feat copy %.4lf\n",
+        " feat copy %.4lf\n"
+        "        L2  last layer sample time %.4lf | size %.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL2ShuffleTime],
         _step_buf[kLogL2CoreSampleTime], _step_buf[kLogL2IdRemapTime],
         _step_buf[kLogL2GraphCopyTime], _step_buf[kLogL2IdCopyTime],
-        _step_buf[kLogL2ExtractTime], _step_buf[kLogL2FeatCopyTime]);
+        _step_buf[kLogL2ExtractTime], _step_buf[kLogL2FeatCopyTime],
+        _step_buf[kLogL2LastLayerTime], _step_buf[kLogL2LastLayerSize]);
   } else if (level >= 2) {
     printf(
         "    [%s Profiler Level 2 E%u S%u]\n"
         "        L2  shuffle     %.4lf | core sample  %.4lf | "
         "id remap        %.4lf\n"
         "        L2  graph copy  %.4lf | id copy      %.4lf | "
-        "cache feat copy %.4lf\n",
+        "cache feat copy %.4lf\n"
+        "        L2  last layer sample time %.4lf | size %.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL2ShuffleTime],
         _step_buf[kLogL2CoreSampleTime], _step_buf[kLogL2IdRemapTime],
         _step_buf[kLogL2GraphCopyTime], _step_buf[kLogL2IdCopyTime],
-        _step_buf[kLogL2CacheCopyTime]);
+        _step_buf[kLogL2CacheCopyTime],
+        _step_buf[kLogL2LastLayerTime], _step_buf[kLogL2LastLayerSize]);
   }
 
   if (level >= 3 && !RunConfig::UseGPUCache()) {

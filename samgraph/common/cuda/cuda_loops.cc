@@ -65,6 +65,7 @@ void DoGPUSample(TaskPtr task) {
   auto cur_input = task->output_nodes;
 
   for (int i = last_layer_idx; i >= 0; i--) {
+    Timer tlayer;
     Timer t0;
     const size_t fanout = fanouts[i];
     const IdType *input = static_cast<const IdType *>(cur_input->Data());
@@ -169,6 +170,7 @@ void DoGPUSample(TaskPtr task) {
 
     double map_edges_time = t3.Passed();
     double remap_time = t1.Passed();
+    double layer_time = tlayer.Passed();
 
     auto train_graph = std::make_shared<TrainGraph>();
     train_graph->num_src = num_unique;
@@ -195,7 +197,12 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
-
+    if (i == (int)last_layer_idx) {
+        Profiler::Get().LogStepAdd(task->key, kLogL2LastLayerTime,
+                                   layer_time);
+        Profiler::Get().LogStepAdd(task->key, kLogL2LastLayerSize,
+                                   num_unique);
+    }
     Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
                                core_sample_time);
     Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
