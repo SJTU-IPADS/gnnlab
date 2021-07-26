@@ -15,6 +15,19 @@ class GPUCacheManager {
                   double cache_percentage);
   ~GPUCacheManager();
 
+  /**
+   * @brief Get the Miss Cache Index object
+   * 
+   * @param output_miss_src_index original node id
+   * @param output_miss_dst_index remapped node id(idx in `nodes`)
+   * @param num_output_miss 
+   * @param output_cache_src_index rank of original node id
+   * @param output_cache_dst_index remapped node id(idx in `nodes`)
+   * @param num_output_cache 
+   * @param nodes 
+   * @param num_nodes 
+   * @param stream 
+   */
   void GetMissCacheIndex(IdType* output_miss_src_index,
                          IdType* output_miss_dst_index, size_t* num_output_miss,
                          IdType* output_cache_src_index,
