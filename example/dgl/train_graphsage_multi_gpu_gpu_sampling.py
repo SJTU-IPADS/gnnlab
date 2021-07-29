@@ -186,8 +186,8 @@ def run(worker_id, run_config):
         for step, (_, _, blocks) in enumerate(dataloader):
             t1 = time.time()
             # blocks = [block.int().to(dev_id) for block in blocks]
-            batch_inputs = blocks[0].srcdata['feat']
-            batch_labels = blocks[-1].dstdata['label']
+            batch_inputs = blocks[0].srcdata['feat'].to(device)
+            batch_labels = blocks[-1].dstdata['label'].to(device)
             t2 = time.time()
 
             # Compute loss and prediction
