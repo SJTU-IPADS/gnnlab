@@ -566,7 +566,7 @@ __global__ void generate_num_edge(const IdType *nodes, const size_t num_nodes,
 #else
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void generate_num_edge(const IdType *, const size_t num_nodes,
-                                  const size_t K, IdType *num_edge_prefix,
+                                  const size_t K, IdType *,
                                   IdType *num_output_prefix,
                                   DeviceFrequencyHashmap table) {
   assert(BLOCK_SIZE == blockDim.x);
@@ -580,13 +580,11 @@ __global__ void generate_num_edge(const IdType *, const size_t num_nodes,
        index += BLOCK_SIZE) {
     if (index < num_nodes) {
       const NodeBucket &count = *table.SearchNode(index);
-      num_edge_prefix[index] = count;
       num_output_prefix[index] = count > K ? K : count;
     }
   }
 
   if (threadIdx.x == 0 && blockIdx.x == 0) {
-    num_edge_prefix[num_nodes] = 0;
     num_output_prefix[num_nodes] = 0;
   }
 }
@@ -1260,8 +1258,7 @@ void FrequencyHashmap::GetTopK(
   //    also count the number of output edges for each nodes.
   //    prefix sum for array of unique edge number.
   Timer t7;
-  IdType *num_edge_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, (num_input_node + 1) * sizeof(IdType)));
+  IdType *num_edge_prefix = _node_table;
   IdType *num_output_prefix = static_cast<IdType *>(
       device->AllocWorkspace(_ctx, (num_input_node + 1) * sizeof(IdType)));
   generate_num_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
@@ -1309,7 +1306,7 @@ void FrequencyHashmap::GetTopK(
   // 11. reset data
   Timer t11;
   reset_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid_input_node, block_input_node, 0, cu_stream>>>(device_table, input_nodes, num_input_node);
+      <<<grid_input_node, block_input_node, 0, cu_stream>>>(device_table, input_nodes, num_input_node + 1);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
 
   reset_edge_table_revised<Constant::kCudaBlockSize, Constant::kCudaTileSize>
@@ -1323,7 +1320,6 @@ void FrequencyHashmap::GetTopK(
   _num_unique = 0;
 
   device->FreeWorkspace(_ctx, num_output_prefix);
-  device->FreeWorkspace(_ctx, num_edge_prefix);
   device->FreeWorkspace(_ctx, workspace4);
   device->FreeWorkspace(_ctx, num_unique_prefix);
   device->FreeWorkspace(_ctx, workspace2);
