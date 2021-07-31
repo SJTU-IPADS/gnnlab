@@ -146,7 +146,10 @@ class FrequencyHashmap {
   const size_t _etable_size;
   const size_t _per_node_etable_size;
 
+#ifndef SXN_REVISED
   IdType *_node_list;
+#else
+#endif
   size_t _num_node;
   const size_t _node_list_size;
 
