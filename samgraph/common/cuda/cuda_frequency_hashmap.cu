@@ -1107,7 +1107,6 @@ void FrequencyHashmap::GetTopK(
 
   // 2. count frequency of every unique edge and
   //    count unique edges for every node
-  /** SXN: try to record pos in device_table */
   Timer t2;
   IdType *num_unique_prefix = static_cast<IdType *>(
       device->AllocWorkspace(_ctx, sizeof(IdType) * (grid_input_edge.x + 1)));
@@ -1116,6 +1115,7 @@ void FrequencyHashmap::GetTopK(
                                         _edges_per_node, num_unique_prefix,
                                         device_table);
   device->StreamSync(_ctx, stream);
+  /** pos in device_table is now stored in input_src */
   double step2_time = t2.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 2 finish";
 
@@ -1261,8 +1261,8 @@ void FrequencyHashmap::GetTopK(
       <<<grid_input_node, block_input_node, 0, cu_stream>>>(device_table, _node_list, num_input_node);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
 
-  reset_edge_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid_uniq_e, block_uniq_e, 0, cu_stream>>>(device_table, _unique_node_idx,
+  reset_edge_table_revised<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid_uniq_e, block_uniq_e, 0, cu_stream>>>(device_table, tmp_unique_pos,
                                         _unique_dst, _num_unique);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
   double step11_time = t11.Passed();
