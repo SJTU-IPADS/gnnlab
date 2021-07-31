@@ -48,6 +48,7 @@ class DeviceFrequencyHashmap {
     return pos;
   }
 
+  /** SXN: a fall back path? avoid potential infinite loop */
   inline __device__ IdType SearchEdgeForPosition(const IdType node_idx,
                                                  const IdType dst) const {
     IdType start_off = node_idx * _per_node_etable_size;
@@ -73,6 +74,9 @@ class DeviceFrequencyHashmap {
     const IdType pos = SearchEdgeForPosition(node_idx, dst);
     return &_edge_table[pos];
   }
+  inline __device__ IdType PosToNodeIdx(const IdType pos) const {
+    return pos / _per_node_etable_size;
+  }
 
  protected:
   const NodeBucket *_node_table;
@@ -81,18 +85,10 @@ class DeviceFrequencyHashmap {
   const size_t _etable_size;
   const size_t _per_node_etable_size;
 
-  const IdType *_unique_node_idx;
-  const IdType *_unique_src;
-  const IdType *_unique_dst;
-  const IdType *_unique_count;
-  const size_t _unique_size;
-
   explicit DeviceFrequencyHashmap(
       const NodeBucket *node_table, const EdgeBucket *edge_table,
       const size_t ntable_size, const size_t etable_size,
-      const size_t per_node_etable_size, const IdType *unique_src,
-      const IdType *unique_dst, const IdType *unique_count,
-      const size_t unique_size);
+      const size_t per_node_etable_size);
 
   inline __device__ IdType NodeHash(const IdType id) const {
     return id % _ntable_size;
@@ -118,7 +114,11 @@ class FrequencyHashmap {
                    const size_t edge_table_scale = kDefaultEdgeTableScale);
   ~FrequencyHashmap();
 
+#ifndef SXN_REVISED
   void GetTopK(const IdType *input_src, const IdType *input_dst,
+#else
+  void GetTopK(IdType *input_src, IdType *input_dst,
+#endif
                const size_t num_input_edge, const IdType *input_nodes,
                const size_t num_input_node, const size_t K, IdType *output_src,
                IdType *output_dst, IdType *output_data, size_t *num_output,
@@ -141,11 +141,17 @@ class FrequencyHashmap {
   size_t _num_node;
   const size_t _node_list_size;
 
+
+#ifndef SXN_REVISED
   IdType *_unique_range;
   IdType *_unique_node_idx;
   IdType *_unique_src;
   IdType *_unique_dst;
   IdType *_unique_frequency;
+#else
+  IdType *_unique_node_idx;
+  IdType *_unique_dst;
+#endif
   Id64Type *_unique_combination_key;  // 63:32 src  31:0 frequency
   size_t _num_unique;
   const size_t _unique_list_size;
