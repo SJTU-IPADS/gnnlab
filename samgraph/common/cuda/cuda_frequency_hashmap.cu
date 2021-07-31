@@ -41,6 +41,7 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
     return GetMutableEdge(pos);
   }
 
+#ifndef SXN_REVISED
   inline __device__ bool AttemptInsertNodeAt(const IdType pos,
                                              const IdType id) {
     const IdType key =
@@ -64,6 +65,11 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
     }
     return GetMutableNode(pos);
   }
+#else
+  inline __device__ NodeIterator InsertNode(const IdType id) {
+    return GetMutableNode(id);
+  }
+#endif
 
   inline __device__ bool AttemptInsertEdgeAt(const IdType pos, const IdType src,
                                              const IdType dst,
@@ -82,8 +88,8 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
       /** SXN: remove atomic by checking swapped out key */
       if (key == Constant::kEmptyKey) {
         edge_iter->index = index;
-        NodeIterator node_iter = SearchNode(src);
-        atomicAdd(&node_iter->count, 1U);
+        NodeIterator node_iter = SearchNode(PosToNodeIdx(pos));
+        atomicAdd(node_iter, 1U);
       }
 #endif
       return true;
@@ -136,8 +142,12 @@ __global__ void init_node_table(MutableDeviceFrequencyHashmap table,
        index += BLOCK_SIZE) {
     if (index < num_bucket) {
       NodeIterator node_iter = table.GetMutableNode(index);
+#ifndef SXN_REVISED
       node_iter->key = Constant::kEmptyKey;
       node_iter->count = 0;
+#else
+      *node_iter = 0;
+#endif
     }
   }
 }
@@ -181,6 +191,7 @@ __global__ void init_unique_range(IdType *_unique_range,
   }
 }
 
+#ifndef SXN_REVISED
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void reset_node_table(MutableDeviceFrequencyHashmap table,
                                  const IdType *nodes, const size_t num_nodes) {
@@ -201,6 +212,26 @@ __global__ void reset_node_table(MutableDeviceFrequencyHashmap table,
     }
   }
 }
+#else
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void reset_node_table(MutableDeviceFrequencyHashmap table,
+                                 const IdType *nodes, const size_t num_nodes) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  using NodeIterator = typename MutableDeviceFrequencyHashmap::NodeIterator;
+
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_nodes) {
+      NodeIterator node_iter = table.SearchNode(index);
+      *node_iter = 0;
+    }
+  }
+}
+#endif
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void reset_edge_table(MutableDeviceFrequencyHashmap table,
@@ -250,6 +281,7 @@ __global__ void reset_edge_table_revised(MutableDeviceFrequencyHashmap table,
   }
 }
 
+#ifndef SXN_REVISED
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void populate_node_table(const IdType *nodes,
                                     const size_t num_input_node,
@@ -266,6 +298,24 @@ __global__ void populate_node_table(const IdType *nodes,
     }
   }
 }
+#else
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void populate_node_table(const IdType *,
+                                    const size_t num_input_node,
+                                    MutableDeviceFrequencyHashmap table) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_input_node) {
+      table.InsertNode(index);
+    }
+  }
+}
+#endif
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_frequency(const IdType *input_src,
@@ -502,7 +552,7 @@ __global__ void reorder_unique(
     }
   }
 }
-
+#ifndef SXN_REVISED
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void generate_num_edge(const IdType *nodes, const size_t num_nodes,
                                   const size_t K, IdType *num_edge_prefix,
@@ -529,6 +579,34 @@ __global__ void generate_num_edge(const IdType *nodes, const size_t num_nodes,
     num_output_prefix[num_nodes] = 0;
   }
 }
+#else
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void generate_num_edge(const IdType *, const size_t num_nodes,
+                                  const size_t K, IdType *num_edge_prefix,
+                                  IdType *num_output_prefix,
+                                  DeviceFrequencyHashmap table) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  using NodeBucket = typename DeviceFrequencyHashmap::NodeBucket;
+
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_nodes) {
+      const NodeBucket &count = *table.SearchNode(index);
+      num_edge_prefix[index] = count;
+      num_output_prefix[index] = count > K ? K : count;
+    }
+  }
+
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    num_edge_prefix[num_nodes] = 0;
+    num_output_prefix[num_nodes] = 0;
+  }
+}
+#endif
 
 __global__ void compact_output(const IdType *unique_src,
                                const IdType *unique_dst,
@@ -662,7 +740,11 @@ FrequencyHashmap::FrequencyHashmap(const size_t max_nodes,
     : _ctx(ctx),
       _max_nodes(max_nodes),
       _edges_per_node(edges_per_node),
+#ifndef SXN_REVISED
       _ntable_size(TableSize(max_nodes, node_table_scale)),
+#else
+      _ntable_size(max_nodes + 1),
+#endif
       _etable_size(max_nodes * TableSize(edges_per_node, edge_table_scale)),
       _per_node_etable_size(TableSize(edges_per_node, edge_table_scale)),
       _num_node(0),

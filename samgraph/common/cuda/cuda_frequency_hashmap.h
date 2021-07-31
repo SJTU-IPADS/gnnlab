@@ -17,10 +17,14 @@ class FrequencyHashmap;
 
 class DeviceFrequencyHashmap {
  public:
+#ifndef SXN_REVISED
   struct NodeBucket {
     IdType key;
     IdType count;  // district edge count
   };
+#else
+  using NodeBucket = IdType;
+#endif
 
   struct EdgeBucket {
     IdType key;
@@ -36,6 +40,7 @@ class DeviceFrequencyHashmap {
       default;
 
   inline __device__ IdType SearchNodeForPosition(const IdType id) const {
+#ifndef SXN_REVISED
     IdType pos = NodeHash(id);
 
     IdType delta = 1;
@@ -46,6 +51,10 @@ class DeviceFrequencyHashmap {
     assert(pos < _ntable_size);
 
     return pos;
+#else
+    assert(id < _ntable_size);
+    return id;
+#endif
   }
 
   /** SXN: a fall back path? avoid potential infinite loop */
