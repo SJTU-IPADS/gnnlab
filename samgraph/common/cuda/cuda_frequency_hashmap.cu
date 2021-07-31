@@ -308,7 +308,7 @@ __global__ void count_frequency(const IdType *input_src,
 }
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_frequency_revised(
-                                const IdType *input_src,
+                                IdType *input_src,
                                 IdType *input_dst,
                                 const size_t num_input_edge,
                                 const size_t edges_per_node,
@@ -329,8 +329,9 @@ __global__ void count_frequency_revised(
       IdType node_idx = index / edges_per_node;
       EdgeIterator edge_iter =
           table.InsertEdge(node_idx, input_src[index], input_dst[index], index);
-      input_dst[index] = table.GetRelativePos(edge_iter);
+      input_src[index] = Constant::kEmptyKey;
       if (edge_iter->index == index) {
+        input_src[index] = table.GetRelativePos(edge_iter);
         ++count;
       }
     }
@@ -406,7 +407,8 @@ __global__ void generate_unique_edges(
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void generate_unique_edges_pos(
-    const IdType *input_src, const IdType *input_dst,
+    IdType *input_src,
+    const IdType *input_nodes,
     const size_t num_input_edge, IdType *item_prefix,
     Id64Type * unique_combination_key,
     IdType *unique_edge_pos, const size_t edges_per_node,
@@ -430,20 +432,13 @@ __global__ void generate_unique_edges_pos(
     const IdType index = threadIdx.x + i * BLOCK_SIZE + blockIdx.x * TILE_SIZE;
 
     IdType node_idx = index / edges_per_node;
-    FlagType flag;
-    EdgeBucket *bucket;
+    FlagType flag = 0;
+    EdgeBucket *bucket = nullptr;
     if (index < num_input_edge && input_src[index] != Constant::kEmptyKey) {
       /** SXN: optimize: input dst can be modified to location in hash_table,
        * thus no need to search */
-      // bucket = table.SearchEdge(node_idx, input_dst[index]);
-      bucket = table.GetMutableEdge(input_dst[index]);
-      flag = bucket->index == index;
-    } else {
-      flag = 0;
-    }
-
-    if (!flag) {
-      bucket = nullptr;
+      bucket = table.GetMutableEdge(input_src[index]);
+      flag = 1;
     }
 
     BlockScan(temp_space).ExclusiveSum(flag, flag, prefix_op);
@@ -453,7 +448,7 @@ __global__ void generate_unique_edges_pos(
       const IdType pos = offset + flag;
       unique_edge_pos[pos] = table.GetRelativePos(bucket);
       unique_combination_key[pos] = 
-          (((Id64Type)input_src[index]) << 32) |
+          (((Id64Type)input_nodes[node_idx]) << 32) |
           ((Id64Type)bucket->count); 
     }
   }
@@ -1085,12 +1080,8 @@ void FrequencyHashmap::GetTopK(
   auto device = Device::Get(_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
-  size_t workspace_bytes0;
   size_t workspace_bytes1;
   size_t workspace_bytes2;
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      nullptr, workspace_bytes0, static_cast<IdType *>(nullptr),
-      static_cast<IdType *>(nullptr), grid_input_node.x + 1, cu_stream));
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       nullptr, workspace_bytes1, static_cast<IdType *>(nullptr),
       static_cast<IdType *>(nullptr), grid_input_edge.x + 1, cu_stream));
@@ -1099,7 +1090,6 @@ void FrequencyHashmap::GetTopK(
       static_cast<IdType *>(nullptr), num_input_node + 1, cu_stream));
   device->StreamSync(_ctx, stream);
 
-  void *workspace0 = device->AllocWorkspace(_ctx, workspace_bytes0);
   void *workspace1 = device->AllocWorkspace(_ctx, workspace_bytes1);
   void *workspace2 = device->AllocWorkspace(_ctx, workspace_bytes2);
 
@@ -1147,11 +1137,11 @@ void FrequencyHashmap::GetTopK(
   device->StreamSync(_ctx, stream);
   LOG(DEBUG) << "FrequencyHashmap::Before gettopk step 4,  number of unique is " << _num_unique;
   /** location in edge table */
-  IdType *tmp_unique_pos = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, sizeof(IdType) * _num_unique));
-
+  /** now we reuse input_dst as pos */
+  IdType *tmp_unique_pos = input_dst;
+  input_dst = nullptr;
   generate_unique_edges_pos<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid_input_edge, block_input_edge, 0, cu_stream>>>(input_src, input_dst, num_input_edge,
+      <<<grid_input_edge, block_input_edge, 0, cu_stream>>>(input_src, input_nodes, num_input_edge,
                                         num_unique_prefix, _unique_combination_key, tmp_unique_pos,
                                         _edges_per_node, device_table);
   device->StreamSync(_ctx, stream);
@@ -1162,8 +1152,9 @@ void FrequencyHashmap::GetTopK(
   // 5. pair-sort unique array using src as key
   //    construct the array of unique dst, unique node idx
   Timer t5;
-  // Id64Type *alt_key = static_cast<Id64Type *>(device->AllocDataSpace(_ctx, sizeof(Id64Type) * _unique_list_size));
-  IdType   *alt_val = static_cast<IdType   *>(device->AllocWorkspace(_ctx, sizeof(IdType)   * _num_unique));
+  /** now we reuse input_src as sort tmp space */
+  IdType *alt_val = input_src;
+  input_src = nullptr;
   cub::DoubleBuffer<Id64Type> keys(_unique_combination_key, reinterpret_cast<Id64Type*>(_unique_node_idx));
   cub::DoubleBuffer<IdType>   vals(tmp_unique_pos, alt_val);
 
@@ -1199,11 +1190,6 @@ void FrequencyHashmap::GetTopK(
 
   // 6. sort the unique src node array.
   Timer t6;
-  device->CopyDataFromTo(input_nodes, 0, _node_list, 0,
-                         num_input_node * sizeof(IdType), _ctx, _ctx, stream);
-  device->StreamSync(_ctx, stream);
-  _num_node = num_input_node;
-
   size_t workspace_bytes6;
   CUDA_CALL(cub::DeviceRadixSort::SortKeysDescending(
       nullptr, workspace_bytes6, static_cast<IdType *>(nullptr),
@@ -1213,7 +1199,7 @@ void FrequencyHashmap::GetTopK(
 
   void *workspace6 = device->AllocWorkspace(_ctx, workspace_bytes6);
   CUDA_CALL(cub::DeviceRadixSort::SortKeysDescending(
-      workspace6, workspace_bytes6, _node_list, _node_list, num_input_node, 0,
+      workspace6, workspace_bytes6, input_nodes, _node_list, num_input_node, 0,
       sizeof(IdType) * 8, cu_stream));
   device->StreamSync(_ctx, stream);
 
@@ -1289,12 +1275,9 @@ void FrequencyHashmap::GetTopK(
   device->FreeWorkspace(_ctx, num_edge_prefix);
   device->FreeWorkspace(_ctx, workspace6);
   device->FreeWorkspace(_ctx, workspace4);
-  device->FreeWorkspace(_ctx, alt_val);
-  device->FreeWorkspace(_ctx, tmp_unique_pos);
   device->FreeWorkspace(_ctx, num_unique_prefix);
   device->FreeWorkspace(_ctx, workspace2);
   device->FreeWorkspace(_ctx, workspace1);
-  device->FreeWorkspace(_ctx, workspace0);
 
   Profiler::Get().LogStepAdd(task_key, kLogL3RandomWalkTopKStep1Time,
                              step1_time);
