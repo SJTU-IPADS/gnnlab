@@ -31,8 +31,12 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
       : DeviceFrequencyHashmap(host_map->DeviceHandle()) {}
 
   inline __device__ NodeIterator SearchNode(const IdType id) {
+#ifndef SXN_REVISED
     const IdType pos = SearchNodeForPosition(id);
     return GetMutableNode(pos);
+#else
+    return GetMutableNode(id);
+#endif
   }
 
   inline __device__ EdgeIterator SearchEdge(const IdType node_idx,
@@ -64,10 +68,6 @@ class MutableDeviceFrequencyHashmap : public DeviceFrequencyHashmap {
       delta += 1;
     }
     return GetMutableNode(pos);
-  }
-#else
-  inline __device__ NodeIterator InsertNode(const IdType id) {
-    return GetMutableNode(id);
   }
 #endif
 
@@ -634,7 +634,6 @@ __global__ void compact_output_revised(
     IdType *output_src, IdType *output_dst,
     IdType *output_data, size_t *num_output) {
   size_t i = blockIdx.x * blockDim.y + threadIdx.y;
-  const size_t stride = blockDim.y * gridDim.x;
 
   /** SXN: this loop `may` be unnecessary */
   if (i < num_nodes) {
@@ -1291,7 +1290,6 @@ void FrequencyHashmap::GetTopK(
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 9 finish";
 
   // 10. copy the result to the output array and set the value of num_output
-  /** SXN: bug: unique_frequency is not sorted according to unique_dst*/
   Timer t10;
   compact_output_revised<<<grid2, block2, 0, cu_stream>>>(
       input_nodes,

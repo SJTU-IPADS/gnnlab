@@ -39,8 +39,8 @@ class DeviceFrequencyHashmap {
   DeviceFrequencyHashmap &operator=(const DeviceFrequencyHashmap &other) =
       default;
 
-  inline __device__ IdType SearchNodeForPosition(const IdType id) const {
 #ifndef SXN_REVISED
+  inline __device__ IdType SearchNodeForPosition(const IdType id) const {
     IdType pos = NodeHash(id);
 
     IdType delta = 1;
@@ -51,11 +51,8 @@ class DeviceFrequencyHashmap {
     assert(pos < _ntable_size);
 
     return pos;
-#else
-    assert(id < _ntable_size);
-    return id;
-#endif
   }
+#endif
 
   /** SXN: a fall back path? avoid potential infinite loop */
   inline __device__ IdType SearchEdgeForPosition(const IdType node_idx,
@@ -73,10 +70,16 @@ class DeviceFrequencyHashmap {
     return start_off + pos;
   }
 
+#ifndef SXN_REVISED
   inline __device__ ConstNodeIterator SearchNode(const IdType id) {
     const IdType pos = SearchNodeForPosition(id);
     return &_node_table[pos];
   }
+#else
+  inline __device__ ConstNodeIterator SearchNode(const IdType id) {
+    return &_node_table[id];
+  }
+#endif
 
   inline __device__ ConstEdgeIterator SearchEdge(const IdType node_idx,
                                                  const IdType dst) {
@@ -99,9 +102,12 @@ class DeviceFrequencyHashmap {
       const size_t ntable_size, const size_t etable_size,
       const size_t per_node_etable_size);
 
+#ifndef SXN_REVISED
   inline __device__ IdType NodeHash(const IdType id) const {
     return id % _ntable_size;
   };
+#else
+#endif
 
   inline __device__ IdType EdgeHash(const IdType id) const {
     return id % _per_node_etable_size;
