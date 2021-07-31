@@ -183,7 +183,7 @@ __global__ void init_unique_range(IdType *_unique_range,
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void reset_node_table(MutableDeviceFrequencyHashmap table,
-                                 IdType *nodes, const size_t num_nodes) {
+                                 const IdType *nodes, const size_t num_nodes) {
   assert(BLOCK_SIZE == blockDim.x);
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -409,6 +409,7 @@ template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void generate_unique_edges_pos(
     IdType *input_src,
     const IdType *input_nodes,
+    const size_t num_input_node,
     const size_t num_input_edge, IdType *item_prefix,
     Id64Type * unique_combination_key,
     IdType *unique_edge_pos, const size_t edges_per_node,
@@ -448,7 +449,7 @@ __global__ void generate_unique_edges_pos(
       const IdType pos = offset + flag;
       unique_edge_pos[pos] = table.GetRelativePos(bucket);
       unique_combination_key[pos] = 
-          (((Id64Type)input_nodes[node_idx]) << 32) |
+          (Id64Type)((num_input_node - node_idx) << 32) | 
           ((Id64Type)bucket->count); 
     }
   }
@@ -564,6 +565,7 @@ __global__ void compact_output(const IdType *unique_src,
   }
 }
 __global__ void compact_output_revised(
+    const IdType* input_nodes,
     const Id64Type *unique_combination_key,
     const IdType *unique_dst,
     const size_t num_nodes, const size_t K,
@@ -583,7 +585,7 @@ __global__ void compact_output_revised(
       IdType from_off = num_unique_prefix[i] + k;
       IdType to_off = num_output_prefix[i] + k;
 
-      output_src[to_off] = (unique_combination_key[from_off] >> 32);
+      output_src[to_off] = input_nodes[num_nodes - (unique_combination_key[from_off] >> 32)];
       output_data[to_off] = (unique_combination_key[from_off]);
       output_dst[to_off] = unique_dst[from_off];
 
@@ -1141,7 +1143,7 @@ void FrequencyHashmap::GetTopK(
   IdType *tmp_unique_pos = input_dst;
   input_dst = nullptr;
   generate_unique_edges_pos<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid_input_edge, block_input_edge, 0, cu_stream>>>(input_src, input_nodes, num_input_edge,
+      <<<grid_input_edge, block_input_edge, 0, cu_stream>>>(input_src, input_nodes, num_input_node, num_input_edge,
                                         num_unique_prefix, _unique_combination_key, tmp_unique_pos,
                                         _edges_per_node, device_table);
   device->StreamSync(_ctx, stream);
@@ -1198,10 +1200,10 @@ void FrequencyHashmap::GetTopK(
   device->StreamSync(_ctx, stream);
 
   void *workspace6 = device->AllocWorkspace(_ctx, workspace_bytes6);
-  CUDA_CALL(cub::DeviceRadixSort::SortKeysDescending(
-      workspace6, workspace_bytes6, input_nodes, _node_list, num_input_node, 0,
-      sizeof(IdType) * 8, cu_stream));
-  device->StreamSync(_ctx, stream);
+  // CUDA_CALL(cub::DeviceRadixSort::SortKeysDescending(
+  //     workspace6, workspace_bytes6, input_nodes, _node_list, num_input_node, 0,
+  //     sizeof(IdType) * 8, cu_stream));
+  // device->StreamSync(_ctx, stream);
 
   double step6_time = t6.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 6 finish";
@@ -1215,7 +1217,7 @@ void FrequencyHashmap::GetTopK(
   IdType *num_output_prefix = static_cast<IdType *>(
       device->AllocWorkspace(_ctx, (num_input_node + 1) * sizeof(IdType)));
   generate_num_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid_input_node, block_input_node, 0, cu_stream>>>(_node_list, num_input_node, K,
+      <<<grid_input_node, block_input_node, 0, cu_stream>>>(input_nodes, num_input_node, K,
                                         num_edge_prefix, num_output_prefix,
                                         device_table);
   device->StreamSync(_ctx, stream);
@@ -1247,6 +1249,7 @@ void FrequencyHashmap::GetTopK(
   /** SXN: bug: unique_frequency is not sorted according to unique_dst*/
   Timer t10;
   compact_output_revised<<<grid2, block2, 0, cu_stream>>>(
+      input_nodes,
       _unique_combination_key, _unique_dst, num_input_node, K,
       num_edge_prefix, num_output_prefix, output_src, output_dst, output_data,
       num_output);
@@ -1258,7 +1261,7 @@ void FrequencyHashmap::GetTopK(
   // 11. reset data
   Timer t11;
   reset_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid_input_node, block_input_node, 0, cu_stream>>>(device_table, _node_list, num_input_node);
+      <<<grid_input_node, block_input_node, 0, cu_stream>>>(device_table, input_nodes, num_input_node);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
 
   reset_edge_table_revised<Constant::kCudaBlockSize, Constant::kCudaTileSize>
