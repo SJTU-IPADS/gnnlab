@@ -123,11 +123,14 @@ def run():
     n_classes = dataset.num_class
 
     ctx = dgl_ctx
+    g = g.to(device)
     topo_g = g._graph
-    topo_g = topo_g.copy_to(ctx)
+    # topo_g = topo_g.copy_to(ctx)
     print("topo_g.ctx: ", topo_g.ctx)
 
-    sampler = UserSampler(run_config['fanout'], topo_g)
+    # sampler = UserSampler(run_config['fanout'], topo_g)
+    train_nids = train_nids.to(device)
+    sampler = dgl.dataloading.MultiLayerNeighborSampler(run_config['fanout'])
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nids,

@@ -138,15 +138,18 @@ def run(worker_id, run_config):
 
     ctx = dgl.ndarray.gpu(worker_id)
     device = dgl.backend.to_backend_ctx(ctx)
+    g = g.to(device)
     topo_g = g._graph
-    topo_g = topo_g.copy_to(ctx)
+    # topo_g = topo_g.copy_to(ctx)
     print("topo_g.ctx: ", topo_g.ctx)
 
     train_nids = dataset.train_set
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
-    sampler = UserSampler(run_config['fanout'], topo_g)
+    # sampler = UserSampler(run_config['fanout'], topo_g)
+    train_nids = train_nids.to(device)
+    sampler = dgl.dataloading.MultiLayerNeighborSampler(run_config['fanout'])
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nids,

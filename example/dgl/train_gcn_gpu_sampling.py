@@ -17,6 +17,9 @@ import time
 import numpy as np
 from gsampler.UserSampler import UserSampler
 
+import cProfile
+import pstats
+
 
 class GCN(nn.Module):
     def __init__(self,
@@ -47,6 +50,39 @@ class GCN(nn.Module):
                 h = self.dropout(h)
             h = layer(blocks[i], h)
         return h
+
+def evaluate(g, model, eval_nids, fanout, device):
+    model.eval()
+    total = 0
+    total_correct = 0
+
+    g = g.to(device)
+    topo_g = g._graph
+    # sampler = UserSampler(fanout, topo_g)
+    eval_nids = eval_nids.to(device)
+    sampler = dgl.dataloading.MultiLayerNeighborSampler(fanout)
+    dataloader = dgl.dataloading.NodeDataLoader(
+        g,
+        eval_nids,
+        sampler,
+        device=device,
+        batch_size=4000,
+        shuffle=True,
+        drop_last=False
+    )
+
+    for _, _, blocks in dataloader:
+        batch_inputs = blocks[0].srcdata['feat'].to(device)
+        batch_labels = blocks[-1].dstdata['label'].to(device)
+        total += len(batch_labels)
+        outputs = model(blocks, batch_inputs)
+        _, predicted = torch.max(outputs.data, 1)
+        total_correct += (predicted == batch_labels.data).sum().item()
+
+    acc = 1.0 * total_correct / total
+    model.train()
+
+    return acc
 
 
 def parse_args(default_run_config):
@@ -132,12 +168,19 @@ def run():
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
+    # validate and test
+    valid_nids = dataset.valid_set
+    test_nids = dataset.test_set
+
     ctx = dgl_ctx
+    g = g.to(device)
     topo_g = g._graph
-    topo_g = topo_g.copy_to(ctx)
+    # topo_g = topo_g.copy_to(ctx)
     print("topo_g.ctx: ", topo_g.ctx)
 
-    sampler = UserSampler(run_config['fanout'], topo_g)
+    # sampler = UserSampler(run_config['fanout'], topo_g)
+    train_nids = train_nids.to(device)
+    sampler = dgl.dataloading.MultiLayerNeighborSampler(run_config['fanout'])
     dataloader = dgl.dataloading.NodeDataLoader(
         g,
         train_nids,
@@ -174,6 +217,8 @@ def run():
     all_nodes = 0
     all_samples = 0
 
+    # profiler = cProfile.Profile()
+
     for epoch in range(num_epoch):
         epoch_sample_time = 0.0
         epoch_copy_time = 0.0
@@ -181,11 +226,14 @@ def run():
         epoch_total_time = 0.0
 
         t0 = time.time()
+
+        # profiler.enable()
         for step, (_, _, blocks) in enumerate(dataloader):
             t1 = time.time()
             batch_inputs = blocks[0].srcdata['feat'].to(device)
             batch_labels = blocks[-1].dstdata['label'].to(device)
             t2 = time.time()
+            # profiler.disable()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_inputs)
@@ -220,15 +268,28 @@ def run():
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
+            # profiler.enable()
+
+        # profiler.disable()
         epoch_sample_times.append(epoch_sample_time)
         epoch_copy_times.append(epoch_copy_time)
         epoch_train_times.append(epoch_train_time)
         epoch_total_times.append(epoch_total_time)
 
+        # evaluation
+        acc = evaluate(g, model, valid_nids, run_config['fanout'], device)
+        print("\33[33mValidate accuracy\33[0m {:.2%}".format(acc))
+
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+    # evaluation
+    acc = evaluate(g, model, test_nids, run_config['fanout'], device)
+    print("\33[33mTest accuracy\33[0m {:.2%}".format(acc))
     print("Avg nodes: {:.4f}".format(all_nodes / num_epoch))
     print("Avg samples: {:.4f}".format(all_samples / num_epoch))
+
+    # p = pstats.Stats(profiler).sort_stats('tottime')
+    # p.dump_stats('tmp.prof')
 
 
 if __name__ == '__main__':
