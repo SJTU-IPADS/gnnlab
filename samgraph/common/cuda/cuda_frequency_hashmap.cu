@@ -1226,7 +1226,7 @@ void FrequencyHashmap::GetTopK(
 
   void *workspace4 = device->AllocWorkspace(_ctx, workspace_bytes4);
   CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
-      workspace4, workspace_bytes4, keys, vals, _num_unique, 0, sizeof(IdType) * 8,
+      workspace4, workspace_bytes4, keys, vals, _num_unique, 0, sizeof(Id64Type) * 8,
       cu_stream));
   device->StreamSync(_ctx, stream);
 
