@@ -643,8 +643,9 @@ __global__ void compact_output_revised(
     while (k < max_output) {
       IdType from_off = num_unique_prefix[i] + k;
       IdType to_off = num_output_prefix[i] + k;
-
-      output_src[to_off] = input_nodes[num_nodes - (unique_combination_key[from_off] >> 32)];
+      // IdType src_node_idx = num_nodes - (unique_combination_key[from_off] >> 32);
+      // assert(src_node_idx == i);
+      output_src[to_off] = input_nodes[i];
       output_data[to_off] = (unique_combination_key[from_off]);
       output_dst[to_off] = unique_dst[from_off];
 
@@ -1265,10 +1266,10 @@ void FrequencyHashmap::GetTopK(
                                         num_edge_prefix, num_output_prefix,
                                         device_table);
   device->StreamSync(_ctx, stream);
-
+  /** FIX: only the first num_input_node items are used in num_edge_prefix. reset also only rests these.(notice the grid size) */
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
                                           num_edge_prefix, num_edge_prefix,
-                                          num_input_node + 1, cu_stream));
+                                          num_input_node, cu_stream));
   device->StreamSync(_ctx, stream);
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
@@ -1304,7 +1305,7 @@ void FrequencyHashmap::GetTopK(
   // 11. reset data
   Timer t11;
   reset_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid_input_node, block_input_node, 0, cu_stream>>>(device_table, input_nodes, num_input_node + 1);
+      <<<grid_input_node, block_input_node, 0, cu_stream>>>(device_table, input_nodes, num_input_node);
   Device::Get(_ctx)->StreamSync(_ctx, stream);
 
   reset_edge_table_revised<Constant::kCudaBlockSize, Constant::kCudaTileSize>
