@@ -94,7 +94,8 @@ def get_run_config():
     # we have to set this to 1 to prevent GPU out-of-memory
     default_run_config['max_copying_jobs'] = 2
 
-    default_run_config['fanout'] = [5, 10, 15]
+    # default_run_config['fanout'] = [5, 10, 15]
+    default_run_config['fanout'] = [25, 10]
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000

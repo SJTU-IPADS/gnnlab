@@ -84,7 +84,7 @@ namespace torch {
 
   CHECK_EQ(key, graph_batch->key);
   ::torch::Tensor tensor = ::torch::from_blob(
-      data->MutableData(), {(long long)data->Shape()[0]}, [data](void* data) {},
+      data->MutableData(), {(long long)data->Shape()[0]}, [data](void* ) {},
       ::torch::TensorOptions().dtype(::torch::kI32).device(device));
 
   return tensor;

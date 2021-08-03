@@ -155,6 +155,8 @@ __global__ void combine_miss_data(void *output, const void *miss,
   size_t i = blockIdx.x * blockDim.y + threadIdx.y;
   const size_t stride = blockDim.y * gridDim.x;
 
+  /** SXN: why need a loop?*/
+  /** SXN: ans: this loop is not necessary*/
   while (i < num_miss) {
     size_t col = threadIdx.x;
     const size_t dst_idx = miss_dst_index[i];
