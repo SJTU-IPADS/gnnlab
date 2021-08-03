@@ -198,9 +198,9 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
     if (i == (int)last_layer_idx) {
-        Profiler::Get().LogStepAdd(task->key, kLogL2LastLayerTime,
+        Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
                                    layer_time);
-        Profiler::Get().LogStepAdd(task->key, kLogL2LastLayerSize,
+        Profiler::Get().LogStep(task->key, kLogL2LastLayerSize,
                                    num_unique);
     }
     Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
