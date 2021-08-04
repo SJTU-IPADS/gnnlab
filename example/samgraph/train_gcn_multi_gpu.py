@@ -1,6 +1,6 @@
 import argparse
 import time
-import torch as th
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -77,6 +77,10 @@ def parse_args(default_run_config):
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
+    argparser.add_argument('--sample-devices', nargs='+',
+                           type=int, default=default_run_config['sample_devices'])
+    argparser.add_argument('--train-devices', nargs='+',
+                           type=int, default=default_run_config['train_devices'])
 
     return vars(argparser.parse_args())
 
@@ -108,6 +112,7 @@ def get_run_config():
     default_run_config['dropout'] = 0.5
     default_run_config['weight_decay'] = 0.0005
     default_run_config['sample_devices'] = [sam.cpu()]
+    # default_run_config['train_devices'] = [sam.gpu(0), sam.gpu(1)]
     default_run_config['train_devices'] = [sam.gpu(0), sam.gpu(1)]
 
     run_config = parse_args(default_run_config)
@@ -117,11 +122,11 @@ def get_run_config():
     print(*run_config.items(), sep='\n')
 
     # TODO: change the arch configuration to support multi-GPU train
-    '''
     run_config['arch'] = sam.meepo_archs[run_config['arch']]
     run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
+    '''
     '''
     # FIXME: convert to sampler_ctx and trainer_ctx
     run_config['num_sample_worker'] = len(run_config['sample_devices'])
@@ -137,7 +142,7 @@ def get_run_config():
 
     return run_config
 
-def run_init():
+def run_init(run_config):
     sam.config(run_config)
     sam.config_khop(run_config)
     sam.init()
@@ -162,24 +167,39 @@ def run_sample(worker_id, run_config, epoch_barrier):
         epoch_barrier.wait()
 
 def run_train(worker_id, run_config, epoch_barrier):
+    ctx= run_config['train_devices'][worker_id]
     queue = run_config['mpq']
-    dev_id = run_config['train_devices'][worker_id]
     num_worker = run_config['num_train_worker']
+    train_device = torch.device('cuda:%d' % ctx.device_id)
+    print("train_device: ", train_device)
 
+    if num_worker > 1:
+        dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+            master_ip='127.0.0.1', master_port='12345')
+        world_size = num_worker
+        torch.distributed.init_process_group(backend="nccl",
+                                             init_method=dist_init_method,
+                                             world_size=world_size,
+                                             rank=worker_id)
+    torch.cuda.set_device(train_device)
 
-    train_device = th.device('cuda:%d' % dev_id)
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
+    print(in_feat, num_class, num_layer)
 
     model = GCN(in_feat, run_config['num_hidden'], num_class,
                 num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
+    print("model")
+    if num_worker > 1:
+        model = DistributedDataParallel(
+            model, device_ids=[train_device], output_device=train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(train_device)
-    optimizer = optim.Adam(model.parameters(
-    ), lr=run_config['lr'], weight_decay=run_config['weight_decay'])
+    optimizer = optim.Adam(
+        model.parameters(), lr=run_config['lr'], weight_decay=run_config['weight_decay'])
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -202,12 +222,17 @@ def run_train(worker_id, run_config, epoch_barrier):
 
     for epoch in range(num_epoch):
         for step in range(num_step):
+            t0 = time.time()
+            if not run_config['pipeline']:
+                sam.sample_once()
+            batch_key = sam.get_next_batch(epoch, step)
             # TODO: get blocks, input_nodes, output_nodes from queue
             # (blocks, input_nodes, output_nodes) = queue.get(True)
             # TODO: implement the extract step with input_nodes and output_nodes
             t1 = time.time()
             # TODO: implement the extract step with input_nodes and output_nodes
-            batch_input, batch_label = sam.extract(input_nodes, output_nodes)
+            # batch_input, batch_label = sam.extract(input_nodes, output_nodes)
+            blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
             t2 = time.time()
 
             # Compute loss and prediction
@@ -249,6 +274,9 @@ def run_train(worker_id, run_config, epoch_barrier):
             ))
 
             sam.report_step_average(epoch, step)
+        # sync the train workers
+        if num_worker > 1:
+            torch.distributed.barrier()
         # sync with sample process each epoch
         epoch_barrier.wait()
 
@@ -262,6 +290,10 @@ def run_train(worker_id, run_config, epoch_barrier):
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
         epoch_total_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
+
+    # sync the train workers
+    if num_worker > 1:
+        torch.distributed.barrier()
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
@@ -278,7 +310,7 @@ if __name__ == '__main__':
     run_config["mpq"] = mp.Queue()
     epoch_barrier = mp.Barrier(num_sample_worker + num_train_worker)
 
-    run_init()
+    run_init(run_config)
 
     workers = []
     # sample processes
