@@ -32,19 +32,15 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
   inline __device__ bool AttemptInsertAtO2N(const IdType pos, const IdType id,
                                             const IdType index,
                                             const IdType version) {
+    auto iter = GetMutableO2N(pos);
     const IdType key =
-        atomicCAS(&GetMutableO2N(pos)->key, Constant::kEmptyKey, id);
-    if (key == Constant::kEmptyKey || key == id) {
-      // we either set a match key, or found a matching key, so then place the
-      // minimum index in position. Match the type of atomicMin, so ignore
-      // linting
-      atomicMin(&GetMutableO2N(pos)->index, index);
-      atomicCAS(&GetMutableO2N(pos)->version, Constant::kEmptyKey, version);
+        atomicCAS(&(iter->key), Constant::kEmptyKey, id);
+    if (key == Constant::kEmptyKey) {
+      iter->index = index;
+      iter->version = version;
       return true;
-    } else {
-      // we need to search elsewhere
-      return false;
     }
+    return key == id;
   }
 
   inline __device__ IteratorO2N InsertO2N(const IdType id, const IdType index,
