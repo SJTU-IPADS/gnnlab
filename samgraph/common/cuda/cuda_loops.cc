@@ -325,11 +325,8 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
                << ToReadableSize((num_samples + +hash_table->NumItems()) *
                                  sizeof(IdType));
 
-    // IdType num_unique;
-    // const IdType *unique;
-    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
     IdType num_unique;
+    const IdType *unique;
 
     // if (i == 0) {
     //   // last layer, no need to put into hash table again
@@ -349,14 +346,9 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
     // } else 
     {
       hash_table->FillWithDupRevised(out_dst, num_samples,
-                                     unique, &num_unique,
                                     sample_stream);
-      // hash_table->RefUnique(unique, &num_unique);
+      hash_table->RefUnique(unique, &num_unique);
     }
-    // Populate the hash table with newly sampled nodes
-    // IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
-    //     sampler_ctx, num_unique * sizeof(IdType)));
-    // hash_table->CopyUnique(unique, sample_stream);
 
     double populate_time = t2.Passed();
 
