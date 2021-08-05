@@ -93,6 +93,9 @@ class OrderedHashTable {
                           IdType *const unique, IdType *const num_unique,
                           StreamHandle stream);
 
+  void FillWithDupRevised(const IdType *const input, const size_t num_input,
+                          IdType *const unique, IdType *const num_unique,
+                          StreamHandle stream);
   void FillWithUnique(const IdType *const input, const size_t num_input,
                       StreamHandle stream);
 

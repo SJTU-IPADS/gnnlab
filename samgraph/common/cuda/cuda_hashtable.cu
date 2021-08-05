@@ -173,6 +173,42 @@ __global__ void count_hashmap(const IdType *items, const size_t num_items,
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void generate_count_hashmap_duplicates(
+    const IdType *const items, const size_t num_items,
+    MutableDeviceOrderedHashTable table, 
+    IdType *const num_unique, const IdType version) {
+  assert(BLOCK_SIZE == blockDim.x);
+
+  using BlockReduce = typename cub::BlockReduce<IdType, BLOCK_SIZE>;
+  using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
+
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  IdType count = 0;
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_items) {
+      BucketO2N *iter = table.InsertO2N(items[index], index, version);
+      if (iter->index == index && iter->version == version) {
+        ++count;
+      }
+    }
+  }
+
+  __shared__ typename BlockReduce::TempStorage temp_space;
+  count = BlockReduce(temp_space).Sum(count);
+
+  if (threadIdx.x == 0) {
+    num_unique[blockIdx.x] = count;
+    if (blockIdx.x == 0) {
+      num_unique[gridDim.x] = 0;
+    }
+  }
+}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void compact_hashmap(const IdType *const items,
                                 const size_t num_items,
                                 MutableDeviceOrderedHashTable table,
@@ -370,6 +406,91 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
   _num_items = *num_unique;
 }
 
+
+void OrderedHashTable::FillWithDupRevised(const IdType *const input,
+                                          const size_t num_input,
+                                          IdType *const unique,
+                                          IdType *const num_unique,
+                                          StreamHandle stream) {
+  const size_t num_tiles = RoundUpDiv(num_input, Constant::kCudaTileSize);
+  const dim3 grid(num_tiles);
+  const dim3 block(Constant::kCudaBlockSize);
+
+  auto device_table = MutableDeviceOrderedHashTable(this);
+  auto device = Device::Get(_ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+
+  IdType *item_prefix = static_cast<IdType *>(
+      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1)));
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
+             << ToReadableSize(sizeof(IdType) * (grid.x + 1));
+  
+  // 1. insert into o2n table, collect each block's new insertion count
+  generate_count_hashmap_duplicates<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid, block, 0, cu_stream>>>(input, num_input, device_table, item_prefix, _version);
+  device->StreamSync(_ctx, stream);
+
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates "
+                "generate_count_hashmap_duplicates with "
+             << num_input << " inputs";
+
+  // 2. partial sum
+  size_t workspace_bytes;
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
+      nullptr, workspace_bytes, static_cast<IdType *>(nullptr),
+      static_cast<IdType *>(nullptr), grid.x + 1, cu_stream));
+  device->StreamSync(_ctx, stream);
+
+  void *workspace = device->AllocWorkspace(_ctx, workspace_bytes);
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
+             << ToReadableSize(sizeof(IdType) * (num_input + 1));
+
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
+                                          item_prefix, item_prefix, grid.x + 1,
+                                          cu_stream));
+  device->StreamSync(_ctx, stream);
+
+  IdType *gpu_num_unique =
+      static_cast<IdType *>(device->AllocWorkspace(_ctx, sizeof(IdType)));
+  LOG(DEBUG)
+      << "OrderedHashTable::FillWithDuplicates cuda gpu_num_unique malloc "
+      << ToReadableSize(sizeof(IdType));
+
+  // 3. now each block knows where in n2o to put the node
+  compact_hashmap<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid, block, 0, cu_stream>>>(input, num_input, device_table,
+                                      item_prefix, gpu_num_unique, _num_items,
+                                      _version);
+  device->StreamSync(_ctx, stream);
+  
+  device->CopyDataFromTo(gpu_num_unique, 0, num_unique, 0, sizeof(IdType), _ctx,
+                         CPU(), stream);
+  device->StreamSync(_ctx, stream);
+
+  // If the number of input equals to 0, the kernel won't
+  // be executed then the value of num_unique will be wrong.
+  // We have to manually set the num_unique on this situation.
+  if (num_input == 0) {
+    *num_unique = _num_items;
+  } else {
+    // device->CopyDataFromTo(gpu_num_unique, 0, &_num_items, 0, sizeof(IdType), _ctx,
+    //                        CPU(), stream);
+    // device->StreamSync(_ctx, stream);
+  }
+
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique "
+             << _num_items;
+  device->CopyDataFromTo(_n2o_table, 0, unique, 0,
+                         sizeof(IdType) * (*num_unique), _ctx, _ctx, stream);
+  device->StreamSync(_ctx, stream);
+
+  device->FreeWorkspace(_ctx, gpu_num_unique);
+  device->FreeWorkspace(_ctx, item_prefix);
+  device->FreeWorkspace(_ctx, workspace);
+
+  _version++;
+  _num_items = *num_unique;
+}
 void OrderedHashTable::FillWithUnique(const IdType *const input,
                                       const size_t num_input,
                                       StreamHandle stream) {

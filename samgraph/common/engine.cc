@@ -34,6 +34,7 @@ void Engine::Create() {
     case kArch1:
     case kArch2:
     case kArch3:
+    case kArch4:
       LOG(INFO) << "Use GPU Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new cuda::GPUEngine();
       break;

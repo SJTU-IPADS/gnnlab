@@ -228,6 +228,206 @@ void DoGPUSample(TaskPtr task) {
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
 
+void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
+  auto fanouts = GPUEngine::Get()->GetFanout();
+  auto num_layers = fanouts.size();
+  auto last_layer_idx = num_layers - 1;
+
+  auto dataset = GPUEngine::Get()->GetGraphDataset();
+  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  auto sample_stream = GPUEngine::Get()->GetSampleStream();
+
+  auto random_states = GPUEngine::Get()->GetRandomStates();
+
+  OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
+  hash_table->Reset(sample_stream);
+
+  Timer t;
+  auto output_nodes = task->output_nodes;
+  size_t num_train_node = output_nodes->Shape()[0];
+  hash_table->FillWithUnique(
+      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
+      sample_stream);
+  task->graphs.resize(num_layers);
+  double fill_unique_time = t.Passed();
+
+  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
+  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
+  const float *prob_table =
+      static_cast<const float *>(dataset->prob_table->Data());
+  const IdType *alias_table =
+      static_cast<const IdType *>(dataset->alias_table->Data());
+
+  const IdType* input = static_cast<IdType *>(task->output_nodes->MutableData());
+  size_t num_input = task->output_nodes->Shape()[0];
+
+  for (int i = last_layer_idx; i >= 0; i--) {
+    Timer tlayer;
+    Timer t0;
+    const size_t fanout = fanouts[i];
+    LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
+
+    IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+    IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+    size_t *num_out = static_cast<size_t *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    size_t num_samples;
+
+    LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
+    LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
+               << ToReadableSize(num_input * fanout * sizeof(IdType));
+    LOG(DEBUG) << "DoGPUSample: cuda out_dst malloc "
+               << ToReadableSize(num_input * fanout * sizeof(IdType));
+    LOG(DEBUG) << "DoGPUSample: cuda num_out malloc "
+               << ToReadableSize(sizeof(size_t));
+
+    // Sample a compact coo graph
+    switch (RunConfig::sample_type) {
+      case kKHop0:
+        GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
+        break;
+      case kKHop1:
+        GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
+        break;
+      case kWeightedKHop:
+        GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
+                              num_input, fanout, out_src, out_dst, num_out,
+                              sampler_ctx, sample_stream, random_states,
+                              task->key);
+        break;
+      case kRandomWalk:
+        // to ensure all neighbour of last layer covers sampled nodes
+      default:
+        CHECK(0);
+    }
+
+    // Get nnz
+    sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),
+                                   sampler_ctx, CPU(), sample_stream);
+    sampler_device->StreamSync(sampler_ctx, sample_stream);
+
+    LOG(DEBUG) << "DoGPUSample: "
+               << "layer " << i << " number of samples " << num_samples;
+
+    double core_sample_time = t0.Passed();
+
+    Timer t1;
+    Timer t2;
+
+    LOG(DEBUG) << "GPUSample: cuda unique malloc "
+               << ToReadableSize((num_samples + +hash_table->NumItems()) *
+                                 sizeof(IdType));
+
+    // IdType num_unique;
+    // const IdType *unique;
+    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
+    IdType num_unique;
+
+    // if (i == 0) {
+    //   // last layer, no need to put into hash table again
+    //   hash_table->RefUnique(unique, &num_unique);
+    // } else if (i == 1) {
+    //   // 2nd last layer
+    //   hash_table->FillWithDupRevised(out_dst, num_samples,
+    //                                 sample_stream);
+    //   hash_table->RefUnique(unique, &num_unique);
+    //   hash_table->FillNeighbours(indptr, indices, sample_stream);
+    //   size_t num_unique;
+    //   const IdType *unique;
+    //   hash_table->RefUnique(unique, &num_unique);
+    //   task->input_nodes = Tensor::CopyBlob(
+    //       unique, DataType::kI32, {num_unique}, sampler_ctx, sampler_ctx, 
+    //       "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
+    // } else 
+    {
+      hash_table->FillWithDupRevised(out_dst, num_samples,
+                                     unique, &num_unique,
+                                    sample_stream);
+      // hash_table->RefUnique(unique, &num_unique);
+    }
+    // Populate the hash table with newly sampled nodes
+    // IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
+    //     sampler_ctx, num_unique * sizeof(IdType)));
+    // hash_table->CopyUnique(unique, sample_stream);
+
+    double populate_time = t2.Passed();
+
+    double remap_time = t1.Passed();
+
+    double layer_time = tlayer.Passed();
+
+    auto train_graph = std::make_shared<TrainGraph>();
+    train_graph->num_src = num_unique;
+    train_graph->num_dst = num_input;
+    train_graph->num_edge = num_samples;
+    train_graph->col = Tensor::FromBlob(
+        out_src, DataType::kI32, {num_samples}, sampler_ctx,
+        "train_graph.row_cuda_sample_" + std::to_string(task->key) + "_" +
+            std::to_string(i));
+    train_graph->row = Tensor::FromBlob(
+        out_dst, DataType::kI32, {num_samples}, sampler_ctx,
+        "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
+            std::to_string(i));
+
+    task->graphs[i] = train_graph;
+
+    // Do some clean jobs
+    sampler_device->FreeWorkspace(sampler_ctx, num_out);
+    if (i == (int)last_layer_idx) {
+        Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
+                                   layer_time);
+        Profiler::Get().LogStep(task->key, kLogL2LastLayerSize,
+                                   num_unique);
+    }
+    Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
+                               core_sample_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,
+                               populate_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime, 0);
+    input = unique;
+    num_input = num_unique;
+    LOG(DEBUG) << "GPUSample: finish layer " << i;
+  }
+
+  // remap edges
+  for (int i = last_layer_idx; i>=0; i--) {
+    std::shared_ptr<TrainGraph> train_graph = task->graphs[i];
+    size_t num_samples = train_graph->num_edge;
+    IdType *new_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_samples * sizeof(IdType)));
+    IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_samples * sizeof(IdType)));
+    std::shared_ptr<Tensor> col = train_graph->col;
+    IdType *old_src = static_cast<IdType *>(train_graph->col->MutableData());
+    IdType *old_dst = static_cast<IdType *>(train_graph->row->MutableData());
+    GPUMapEdges(old_src, new_src, old_dst, new_dst, num_samples, hash_table->DeviceHandle(), sampler_ctx, sample_stream);
+    train_graph->col->ReplaceData(static_cast<void*>(new_src));
+    train_graph->row->ReplaceData(static_cast<void*>(new_dst));
+  }
+
+  task->input_nodes = Tensor::CopyBlob(
+      input, DataType::kI32, {num_input}, sampler_ctx, sampler_ctx, 
+      "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
+  task->graph_remapped.store(true, std::memory_order_release);
+
+  Profiler::Get().LogStep(task->key, kLogL1NumNode,
+                          num_input);
+  Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
+                             fill_unique_time);
+
+  LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
+  nbr_cb(task);
+}
+
 void DoGraphCopy(TaskPtr task) {
   auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();

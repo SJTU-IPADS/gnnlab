@@ -103,6 +103,9 @@ void GPUEngine::Start() {
     case kArch3:
       func = GetArch3Loops();
       break;
+    case kArch4:
+      func = GetArch4Loops();
+      break;
     default:
       // Not supported arch 0
       CHECK(0);
@@ -187,6 +190,9 @@ void GPUEngine::RunSampleOnce() {
     case kArch3:
       RunArch3LoopsOnce();
       break;
+    case kArch4:
+      RunArch4LoopsOnce();
+      break;
     default:
       // Not supported arch 0
       CHECK(0);
@@ -207,6 +213,9 @@ void GPUEngine::ArchCheck() {
     case kArch3:
       CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
       CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
+      break;
+    case kArch4:
+      CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
       break;
     default:
       CHECK(0);
@@ -238,6 +247,10 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       ret[Constant::kFeatFile] = MMAP();
       ret[Constant::kLabelFile] =
           RunConfig::UseGPUCache() ? _trainer_ctx : MMAP();
+      break;
+    case kArch4:
+      ret[Constant::kFeatFile] = MMAP();
+      ret[Constant::kLabelFile] = MMAP();
       break;
     default:
       CHECK(0);

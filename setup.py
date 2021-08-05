@@ -107,6 +107,7 @@ setup(
                 'samgraph/common/cuda/cuda_loops_arch1.cc',
                 'samgraph/common/cuda/cuda_loops_arch2.cc',
                 'samgraph/common/cuda/cuda_loops_arch3.cc',
+                'samgraph/common/cuda/cuda_loops_arch4.cc',
                 'samgraph/common/cuda/cuda_loops.cc',
                 'samgraph/common/cuda/cuda_mapping.cu',
                 'samgraph/common/cuda/cuda_random_states.cu',

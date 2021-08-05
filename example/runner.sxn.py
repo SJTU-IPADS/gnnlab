@@ -16,6 +16,7 @@ class Arch(Enum):
   arch1 = 1
   arch2 = 2
   arch3 = 3
+  arch4 = 4
 
 
 class App(Enum):

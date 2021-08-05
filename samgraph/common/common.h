@@ -39,7 +39,7 @@ enum SampleType {
 // arch1: standalone mode (single GPU for both sampling and training)
 // arch2: offload mode (offload the feature extraction to CPU)
 // arch3: dedicated mode (dedicated GPU for sampling and training)
-enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3 };
+enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3, kArch4 };
 
 // cache by degree: cache the nodes with large degree
 // cache by heuristic: cache the training set and the first hop neighbors first,

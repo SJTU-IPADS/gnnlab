@@ -51,6 +51,7 @@ kArch0 = 0
 kArch1 = 1
 kArch2 = 2
 kArch3 = 3
+kArch4 = 4
 
 kCacheByDegree = 0
 kCacheByHeuristic = 1
@@ -75,6 +76,11 @@ meepo_archs = {
         'arch_type': kArch3,
         'sampler_ctx': gpu(0),
         'trainer_ctx': gpu(1)
+    },
+    'arch4': {
+        'arch_type': kArch4,
+        'sampler_ctx': gpu(1),
+        'trainer_ctx': gpu(0)
     }
 }
 
