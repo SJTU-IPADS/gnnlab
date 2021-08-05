@@ -181,7 +181,7 @@ __global__ void compact_hashmap(const IdType *const items,
                                 const size_t num_items,
                                 MutableDeviceOrderedHashTable table,
                                 const IdType *const num_items_prefix,
-                                size_t *const num_unique_items,
+                                IdType *const num_unique_items,
                                 const IdType global_offset,
                                 const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
@@ -293,7 +293,7 @@ void OrderedHashTable::Reset(StreamHandle stream) {
 void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                                           const size_t num_input,
                                           IdType *const unique,
-                                          size_t *const num_unique,
+                                          IdType *const num_unique,
                                           StreamHandle stream) {
   const size_t num_tiles = RoundUpDiv(num_input, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
@@ -336,11 +336,11 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                                           cu_stream));
   device->StreamSync(_ctx, stream);
 
-  size_t *gpu_num_unique =
-      static_cast<size_t *>(device->AllocWorkspace(_ctx, sizeof(size_t)));
+  IdType *gpu_num_unique =
+      static_cast<IdType *>(device->AllocWorkspace(_ctx, sizeof(IdType)));
   LOG(DEBUG)
       << "OrderedHashTable::FillWithDuplicates cuda gpu_num_unique malloc "
-      << ToReadableSize(sizeof(size_t));
+      << ToReadableSize(sizeof(IdType));
 
   compact_hashmap<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(input, num_input, device_table,
@@ -348,7 +348,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
                                       _version);
   device->StreamSync(_ctx, stream);
 
-  device->CopyDataFromTo(gpu_num_unique, 0, num_unique, 0, sizeof(size_t), _ctx,
+  device->CopyDataFromTo(gpu_num_unique, 0, num_unique, 0, sizeof(IdType), _ctx,
                          CPU(), stream);
   device->StreamSync(_ctx, stream);
 

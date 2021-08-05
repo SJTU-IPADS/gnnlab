@@ -90,7 +90,7 @@ class OrderedHashTable {
   void Reset(StreamHandle stream);
 
   void FillWithDuplicates(const IdType *const input, const size_t num_input,
-                          IdType *const unique, size_t *const num_unique,
+                          IdType *const unique, IdType *const num_unique,
                           StreamHandle stream);
 
   void FillWithUnique(const IdType *const input, const size_t num_input,
