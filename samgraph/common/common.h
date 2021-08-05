@@ -1,6 +1,7 @@
 #ifndef SAMGRAPH_COMMON_H
 #define SAMGRAPH_COMMON_H
 
+#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <functional>
@@ -150,6 +151,8 @@ struct Task {
   TensorPtr input_feat;
   // Output label tensor
   TensorPtr output_label;
+  std::atomic_bool graph_remapped;
+  Task() : graph_remapped(false) {}
 };
 
 using GraphBatch = Task;
