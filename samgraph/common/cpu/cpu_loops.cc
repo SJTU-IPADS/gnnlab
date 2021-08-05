@@ -55,7 +55,7 @@ void DoCPUSample(TaskPtr task) {
   const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
 
   auto cur_input = task->output_nodes;
-  size_t last_layer_num_unique;
+  size_t last_layer_num_unique = 0;
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer t0;
     const size_t fanout = fanouts[i];
@@ -104,7 +104,7 @@ void DoCPUSample(TaskPtr task) {
     double map_nodes_time = t3.Passed();
 
     Timer t4;
-    if (i == last_layer_idx) {
+    if (i == (int)last_layer_idx) {
       last_layer_num_unique = num_unique;
     }
     // Mapping edges

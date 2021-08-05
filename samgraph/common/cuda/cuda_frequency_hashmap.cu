@@ -768,16 +768,16 @@ FrequencyHashmap::FrequencyHashmap(const size_t max_nodes,
   auto device_table = MutableDeviceFrequencyHashmap(this);
   dim3 grid0(RoundUpDiv(_ntable_size, Constant::kCudaTileSize));
   dim3 grid1(RoundUpDiv(_etable_size, Constant::kCudaTileSize));
-  dim3 grid2(RoundUpDiv(_unique_list_size, Constant::kCudaTileSize));
   dim3 block0(Constant::kCudaBlockSize);
   dim3 block1(Constant::kCudaBlockSize);
-  dim3 block2(Constant::kCudaBlockSize);
 
   init_node_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid0, block0>>>(device_table, _ntable_size);
   init_edge_table<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid1, block1>>>(device_table, _etable_size);
 #ifndef SXN_REVISED
+  dim3 grid2(RoundUpDiv(_unique_list_size, Constant::kCudaTileSize));
+  dim3 block2(Constant::kCudaBlockSize);
   init_unique_range<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid2, block2>>>(_unique_range, _unique_list_size);
 #else
