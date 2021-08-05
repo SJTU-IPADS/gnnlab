@@ -49,6 +49,12 @@ void GPUExtract(void *dst, const void *src, const IdType *index,
                 size_t num_index, size_t dim, DataType dtype, Context ctx,
                 StreamHandle stream, uint64_t task_key);
 
+void GPUExtractNeighbour(const IdType *indptr, const IdType *indices,
+                    const IdType *input, const size_t num_input,
+                    IdType *&output,
+                    size_t *num_out, Context ctx, StreamHandle stream,
+                    const uint64_t task_key);
+
 void GPUBatchSanityCheck(IdType *map, const IdType *input,
                          const size_t num_input, Context ctx,
                          StreamHandle stream);
