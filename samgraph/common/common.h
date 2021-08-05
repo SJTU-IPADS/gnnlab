@@ -43,7 +43,10 @@ enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3 };
 // cache by degree: cache the nodes with large degree
 // cache by heuristic: cache the training set and the first hop neighbors first,
 // then the nodes with large degree
-enum CachePolicy { kCacheByDegree = 0, kCacheByHeuristic };
+enum CachePolicy {
+  kCacheByDegree = 0,
+  kCacheByHeuristic,
+};
 
 struct Context {
   DeviceType device_type;

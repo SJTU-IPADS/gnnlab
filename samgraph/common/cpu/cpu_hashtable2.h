@@ -7,7 +7,7 @@
 namespace samgraph {
 namespace common {
 namespace cpu {
-
+/** SXN: FIXME: this hash table is buggy when fanout is set to large number */
 // An optimized parallel hashtable
 class CPUHashTable2 : public CPUHashTable {
  public:

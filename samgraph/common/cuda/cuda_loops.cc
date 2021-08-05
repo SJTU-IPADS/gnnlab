@@ -543,7 +543,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
       Tensor::Empty(feat_type, {num_input, feat_dim}, trainer_ctx,
                     "task.train_feat_cuda_" + std::to_string(task->key));
 
-  // 1. Get index of miss data and cache data
+  // 0. Get index of miss data and cache data
   // feature data has cache, so we only need to extract the miss data
   Timer t0;
 
@@ -569,7 +569,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   double get_index_time = t0.Passed();
 
-  // 2. Move the miss index
+  // 1. Move the miss index
 
   Timer t1;
 
@@ -612,7 +612,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   double copy_idx_time = t1.Passed();
 
-  // 3. Extract and copy the miss data
+  // 2. Extract the miss data
   Timer t2;
 
   void *cpu_output_miss = cpu_device->AllocWorkspace(
@@ -625,6 +625,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   double extract_miss_time = t2.Passed();
 
+  // 3. Copy the miss data
   Timer t3;
 
   trainer_device->CopyDataFromTo(
@@ -646,7 +647,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   double combine_miss_time = t4.Passed();
 
-  // 4. Combine cache data
+  // 5. Combine cache data
   Timer t5;
   cache_manager->CombineCacheData(
       train_feat->MutableData(), trainer_output_cache_src_index,
@@ -669,17 +670,15 @@ void DoCacheFeatureCopy(TaskPtr task) {
   Profiler::Get().LogStep(
       task->key, kLogL1MissBytes,
       GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-  Profiler::Get().LogStep(task->key, kLogL3CacheGetIndexTime, get_index_time);
-  Profiler::Get().LogStep(task->key, KLogL3CacheCopyIndexTime, copy_idx_time);
+  Profiler::Get().LogStep(task->key, kLogL3CacheGetIndexTime, get_index_time); // t0, step 0
+  Profiler::Get().LogStep(task->key, KLogL3CacheCopyIndexTime, copy_idx_time); // t1, step 1
+  Profiler::Get().LogStep(task->key, kLogL3CacheExtractMissTime,
+                          extract_miss_time); // t2, step2
+  Profiler::Get().LogStep(task->key, kLogL3CacheCopyMissTime, copy_miss_time); // t3, step 3
   Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
-                          extract_miss_time);
-  Profiler::Get().LogStep(task->key, kLogL3CacheCopyMissTime, copy_miss_time);
-  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
-                          extract_miss_time);
-  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
-                          combine_miss_time);
+                          combine_miss_time);  // t4, step 4
   Profiler::Get().LogStep(task->key, kLogL3CacheCombineCacheTime,
-                          combine_cache_time);
+                          combine_cache_time); // t5, step 5
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }

@@ -48,6 +48,7 @@ class Engine {
   }
 
   void ReportThreadFinish() { _joined_thread_cnt.fetch_add(1); }
+  virtual void ExamineDataset() {}
 
   static void Create();
   static Engine* Get() { return _engine; }
