@@ -68,6 +68,7 @@ class Tensor {
   const std::vector<size_t>& Shape() const { return _shape; }
   const void* Data() const { return _data; }
   void* MutableData() { return _data; }
+  void ReplaceData(void* data);
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
 
@@ -83,6 +84,9 @@ class Tensor {
   static TensorPtr FromBlob(void* data, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name);
+  static TensorPtr CopyBlob(const void * data, DataType dtype,
+                            std::vector<size_t> shape, Context from_ctx,
+                            Context to_ctx, std::string name, StreamHandle stream = nullptr);
 
  private:
   void* _data;
