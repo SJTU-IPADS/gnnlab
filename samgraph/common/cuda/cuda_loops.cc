@@ -357,7 +357,7 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
       IdType *nbrs;
       size_t num_nbrs_dup;
       GPUExtractNeighbour(indptr, indices, input, num_input, nbrs, &num_nbrs_dup, sampler_ctx, sample_stream, task->key);
-      hash_table->FillWithDupRevised(nbrs, num_nbrs_dup, sample_stream);
+      hash_table->FillWithDupMutable(nbrs, num_nbrs_dup, sample_stream);
       sampler_device->FreeWorkspace(sampler_ctx, nbrs);
       hash_table->RefUnique(unique, &num_unique);
     } else if (i == 1) {

@@ -96,6 +96,8 @@ class OrderedHashTable {
   void FillWithDupRevised(const IdType *const input, const size_t num_input,
                           // IdType *const unique, IdType *const num_unique,
                           StreamHandle stream);
+  void FillWithDupMutable(IdType *const input, const size_t num_input,
+                          StreamHandle stream);
   void CopyUnique(IdType * const unique, StreamHandle stream);
   void RefUnique(const IdType * &unique, IdType * const num_unique);
   /** add all neighbours of nodes in hashtable to hashtable */
