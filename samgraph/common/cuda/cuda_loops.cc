@@ -337,14 +337,29 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
     //                                 sample_stream);
     //   hash_table->RefUnique(unique, &num_unique);
     //   hash_table->FillNeighbours(indptr, indices, sample_stream);
-    //   size_t num_unique;
+    //   IdType num_unique;
     //   const IdType *unique;
     //   hash_table->RefUnique(unique, &num_unique);
     //   task->input_nodes = Tensor::CopyBlob(
     //       unique, DataType::kI32, {num_unique}, sampler_ctx, sampler_ctx, 
     //       "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
     // } else 
-    {
+    // {
+    //   hash_table->FillWithDupRevised(out_dst, num_samples,
+    //                                 sample_stream);
+    //   hash_table->RefUnique(unique, &num_unique);
+    // }
+
+    if (i == 0) {
+      // last layer, no need to put into hash table again
+      hash_table->FillNeighbours(indptr, indices, sample_stream);
+      hash_table->RefUnique(unique, &num_unique);
+    } else if (i == 1) {
+      // 2nd last layer
+      hash_table->FillWithDupRevised(out_dst, num_samples,
+                                    sample_stream);
+      hash_table->RefUnique(unique, &num_unique);
+    } else {
       hash_table->FillWithDupRevised(out_dst, num_samples,
                                     sample_stream);
       hash_table->RefUnique(unique, &num_unique);

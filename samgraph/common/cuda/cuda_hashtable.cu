@@ -209,6 +209,56 @@ __global__ void generate_count_hashmap_duplicates(
 }
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void gen_count_hashmap_neighbour(
+    const IdType *const items, const size_t num_items,
+    const IdType *const indptr, const IdType *const indices,
+    MutableDeviceOrderedHashTable table,
+    IdType *const num_unique, 
+    IdType *const block_max_degree, 
+    const IdType version) {
+  assert(BLOCK_SIZE == blockDim.x);
+
+  using BlockReduce = typename cub::BlockReduce<IdType, BLOCK_SIZE>;
+  using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
+
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  IdType count = 0;
+  IdType thread_max_degree = 0;
+#pragma unroll
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    if (index < num_items) {
+      const IdType orig_id = items[index];
+      const IdType off = indptr[orig_id];
+      const IdType off_end = indptr[orig_id + 1];
+      thread_max_degree = (thread_max_degree > (off_end-off)) ? thread_max_degree : (off_end-off) ;
+      for (IdType j = off; j < off_end; j++) {
+        const IdType nbr_orig_id = indices[j];
+        BucketO2N *iter = table.InsertO2N(nbr_orig_id, index, version);
+        if (iter->index == index && iter->version == version) {
+          ++count;
+        }
+      }
+    }
+  }
+
+  __shared__ typename BlockReduce::TempStorage temp_space1;
+  __shared__ typename BlockReduce::TempStorage temp_space2;
+  IdType max_degree = BlockReduce(temp_space1).Reduce(thread_max_degree, cub::Max());
+  count = BlockReduce(temp_space2).Sum(count);
+
+  if (threadIdx.x == 0) {
+    num_unique[blockIdx.x] = count;
+    block_max_degree[blockIdx.x] = max_degree;
+    if (blockIdx.x == 0) {
+      num_unique[gridDim.x] = 0;
+    }
+  }
+}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void compact_hashmap(const IdType *const items,
                                 const size_t num_items,
                                 MutableDeviceOrderedHashTable table,
@@ -315,6 +365,72 @@ __global__ void compact_hashmap_revised(
   //   *num_unique_items = global_offset + num_items_prefix[gridDim.x];
   // }
 }
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void compact_hashmap_neighbour(
+      const IdType *const items, const size_t num_items,
+      const IdType *const indptr, const IdType *const indices,
+      MutableDeviceOrderedHashTable table,
+      const IdType *const num_items_prefix,
+      const IdType *const block_max_degree,
+      IdType *const num_unique_items,
+      const IdType global_offset,
+      const IdType version) {
+  assert(BLOCK_SIZE == blockDim.x);
+
+  using FlagType = IdType;
+  using BlockScan = typename cub::BlockScan<FlagType, BLOCK_SIZE>;
+  using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
+
+  constexpr const IdType VALS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
+
+  __shared__ typename BlockScan::TempStorage temp_space;
+
+  const IdType offset = num_items_prefix[blockIdx.x];
+
+  BlockPrefixCallbackOp<FlagType> prefix_op(0);
+
+  // count successful placements
+  for (IdType i = 0; i < VALS_PER_THREAD; ++i) {
+    const IdType index = threadIdx.x + i * BLOCK_SIZE + blockIdx.x * TILE_SIZE;
+    
+    FlagType flag;
+    IdType orig_id;
+    IdType off;
+    IdType len = 0;
+    if (index < num_items) {
+      orig_id = items[index];
+      off = indptr[orig_id];
+      len = indptr[orig_id + 1] - off;
+    }
+    assert(block_max_degree[blockIdx.x] >= len);
+
+    for (IdType j = 0; j < block_max_degree[blockIdx.x]; j++) {
+      BucketO2N *kv;
+      if (j < len) {
+        const IdType nbr_orig_id = indices[off + j];
+        kv = table.SearchO2N(nbr_orig_id);
+        flag = kv->version == version && kv->index == index;
+      } else {
+        flag = 0;
+      }
+      if (!flag) kv = nullptr;
+      
+      BlockScan(temp_space).ExclusiveSum(flag, flag, prefix_op);
+      __syncthreads();
+      
+      if (kv) {
+        const IdType pos = global_offset + offset + flag;
+        kv->local = pos;
+        table.InsertN2O(pos, items[index]);
+      }
+    }
+  }
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    *num_unique_items = global_offset + num_items_prefix[gridDim.x];
+  }
+}
+
 // DeviceOrderedHashTable implementation
 DeviceOrderedHashTable::DeviceOrderedHashTable(const BucketO2N *const o2n_table,
                                                const BucketN2O *const n2o_table,
@@ -532,6 +648,76 @@ void OrderedHashTable::FillWithDupRevised(const IdType *const input,
 
   _version++;
 }
+
+void OrderedHashTable::FillNeighbours(
+    const IdType *const indptr, const IdType *const indices,
+    StreamHandle stream) {
+  const size_t num_input = _num_items;
+  const IdType *const input = reinterpret_cast<IdType*>(_n2o_table);
+  
+  const size_t num_tiles = RoundUpDiv(num_input, Constant::kCudaTileSize);
+  const dim3 grid(num_tiles);
+  const dim3 block(Constant::kCudaBlockSize);
+
+  auto device_table = MutableDeviceOrderedHashTable(this);
+  auto device = Device::Get(_ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+
+  IdType *item_prefix = static_cast<IdType *>(
+      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1) * 2));
+  IdType *each_block_max_cnt = item_prefix + grid.x + 1;
+  LOG(DEBUG) << "OrderedHashTable::FillNeighbours cuda item_prefix malloc "
+             << ToReadableSize(sizeof(IdType) * (grid.x + 1));
+
+  // 1. insert into o2n table, collect each block's new insertion count
+  gen_count_hashmap_neighbour<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid, block, 0, cu_stream>>>(
+          input, num_input, indptr, indices, device_table, 
+          item_prefix, each_block_max_cnt, _version);
+  device->StreamSync(_ctx, stream);
+
+  // 2. partial sum
+  size_t workspace_bytes;
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
+      nullptr, workspace_bytes, static_cast<IdType *>(nullptr),
+      static_cast<IdType *>(nullptr), grid.x + 1, cu_stream));
+  device->StreamSync(_ctx, stream);
+
+  void *workspace = device->AllocWorkspace(_ctx, workspace_bytes);
+  LOG(DEBUG) << "OrderedHashTable::FillNeighbours cuda item_prefix malloc "
+             << ToReadableSize(workspace_bytes);
+
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
+                                          item_prefix, item_prefix, grid.x + 1,
+                                          cu_stream));
+  device->StreamSync(_ctx, stream);
+
+  IdType *gpu_num_unique =
+      static_cast<IdType *>(device->AllocWorkspace(_ctx, sizeof(IdType)));
+
+  // 3.now each block knows where in n2o to put the node
+  compact_hashmap_neighbour<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid, block, 0, cu_stream>>>(
+          input, num_input, indptr, indices, device_table, 
+          item_prefix, each_block_max_cnt, 
+          gpu_num_unique, _num_items, _version);
+  device->StreamSync(_ctx, stream);
+  if (num_input != 0) {
+    device->CopyDataFromTo(gpu_num_unique, 0, &_num_items, 0, sizeof(IdType), _ctx,
+                           CPU(), stream);
+    device->StreamSync(_ctx, stream);
+  }
+
+  LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates num_unique "
+             << _num_items;
+
+  device->FreeWorkspace(_ctx, gpu_num_unique);
+  device->FreeWorkspace(_ctx, item_prefix);
+  device->FreeWorkspace(_ctx, workspace);
+
+  _version++;
+}
+
 void OrderedHashTable::FillWithUnique(const IdType *const input,
                                       const size_t num_input,
                                       StreamHandle stream) {

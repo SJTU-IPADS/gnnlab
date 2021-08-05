@@ -98,6 +98,10 @@ class OrderedHashTable {
                           StreamHandle stream);
   void CopyUnique(IdType * const unique, StreamHandle stream);
   void RefUnique(const IdType * &unique, IdType * const num_unique);
+  /** add all neighbours of nodes in hashtable to hashtable */
+  void FillNeighbours(const IdType *const indptr, const IdType *const indices,
+                      StreamHandle stream);
+
   void FillWithUnique(const IdType *const input, const size_t num_input,
                       StreamHandle stream);
 
