@@ -351,20 +351,29 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
     // }
 
     if (i == 0) {
-      // last layer, no need to put into hash table again
+      // // last layer, no need to put into hash table again
       // hash_table->FillNeighbours(indptr, indices, sample_stream);
       // hash_table->RefUnique(unique, &num_unique);
-      IdType *nbrs;
-      size_t num_nbrs_dup;
-      GPUExtractNeighbour(indptr, indices, input, num_input, nbrs, &num_nbrs_dup, sampler_ctx, sample_stream, task->key);
-      hash_table->FillWithDupMutable(nbrs, num_nbrs_dup, sample_stream);
-      sampler_device->FreeWorkspace(sampler_ctx, nbrs);
       hash_table->RefUnique(unique, &num_unique);
     } else if (i == 1) {
       // 2nd last layer
       hash_table->FillWithDupRevised(out_dst, num_samples,
                                     sample_stream);
       hash_table->RefUnique(unique, &num_unique);
+      {
+        IdType *nbrs;
+        size_t num_nbrs_dup;
+        GPUExtractNeighbour(indptr, indices, unique, num_unique, nbrs, &num_nbrs_dup, sampler_ctx, sample_stream, task->key);
+        hash_table->FillWithDupMutable(nbrs, num_nbrs_dup, sample_stream);
+        sampler_device->FreeWorkspace(sampler_ctx, nbrs);
+        const IdType * ids_prefetch;
+        IdType n_ids_prefetch;
+        hash_table->RefUnique(ids_prefetch, &n_ids_prefetch);
+        task->input_nodes = Tensor::CopyBlob(
+            ids_prefetch, DataType::kI32, {n_ids_prefetch}, sampler_ctx, sampler_ctx, 
+            "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
+        nbr_cb(task);
+      }
     } else {
       hash_table->FillWithDupRevised(out_dst, num_samples,
                                     sample_stream);
@@ -427,10 +436,8 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
     train_graph->row->ReplaceData(static_cast<void*>(new_dst));
   }
 
-  task->input_nodes = Tensor::CopyBlob(
-      input, DataType::kI32, {num_input}, sampler_ctx, sampler_ctx, 
-      "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
   task->graph_remapped.store(true, std::memory_order_release);
+  LOG(DEBUG) << "edge remapping done " << task->key;
 
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
                           num_input);
@@ -438,7 +445,6 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
                              fill_unique_time);
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
-  nbr_cb(task);
 }
 
 void DoGraphCopy(TaskPtr task) {
