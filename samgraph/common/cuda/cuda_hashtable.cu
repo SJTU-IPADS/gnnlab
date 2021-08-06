@@ -33,6 +33,7 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
                                             const IdType index,
                                             const IdType version) {
     auto iter = GetMutableO2N(pos);
+#ifndef SXN_NAIVE_HASHMAP
     const IdType key =
         atomicCAS(&(iter->key), Constant::kEmptyKey, id);
     if (key == Constant::kEmptyKey) {
@@ -41,10 +42,22 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
       return true;
     }
     return key == id;
+#else
+    if (iter->key != Constant::kEmptyKey) return true;
+    const IdType key =
+        atomicCAS(&(iter->key), Constant::kEmptyKey, id);
+    if (key == Constant::kEmptyKey) {
+      iter->index = index;
+      iter->version = version;
+      return true;
+    }
+    return true;
+#endif
   }
 
   inline __device__ IteratorO2N InsertO2N(const IdType id, const IdType index,
                                           const IdType version) {
+#ifndef SXN_NAIVE_HASHMAP
     IdType pos = HashO2N(id);
 
     // linearly scan for an empty slot or matching entry
@@ -54,6 +67,11 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
       delta += 1;
     }
 
+#else
+    IdType pos = id;
+    bool succ = AttemptInsertAtO2N(pos, id, index, version);
+    assert(succ);
+#endif
     return GetMutableO2N(pos);
   }
 
@@ -641,7 +659,11 @@ DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
 OrderedHashTable::OrderedHashTable(const size_t size, Context ctx,
                                    const size_t scale)
     : _o2n_table(nullptr),
+#ifndef SXN_NAIVE_HASHMAP
       _o2n_size(TableSize(size, scale)),
+#else
+      _o2n_size(size),
+#endif
       _n2o_size(size),
       _ctx(ctx),
       _version(0),

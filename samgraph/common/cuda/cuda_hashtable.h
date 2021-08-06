@@ -50,6 +50,7 @@ class DeviceOrderedHashTable {
                                   const size_t o2n_size, const size_t n2o_size);
 
   inline __device__ IdType SearchForPositionO2N(const IdType id) const {
+#ifndef SXN_NAIVE_HASHMAP
     IdType pos = HashO2N(id);
 
     // linearly scan for matching entry
@@ -62,10 +63,17 @@ class DeviceOrderedHashTable {
     assert(pos < _o2n_size);
 
     return pos;
+#else
+    return id;
+#endif
   }
 
   inline __device__ IdType HashO2N(const IdType id) const {
+#ifndef SXN_NAIVE_HASHMAP
     return id % _o2n_size;
+#else
+    return id;
+#endif
   }
 
   friend class OrderedHashTable;

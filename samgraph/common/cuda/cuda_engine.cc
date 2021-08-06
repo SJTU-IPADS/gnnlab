@@ -53,8 +53,13 @@ void GPUEngine::Init() {
       new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _shuffler->NumStep();
 
+#ifndef SXN_NAIVE_HASHMAP
   _hashtable = new OrderedHashTable(
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
+#else
+  _hashtable = new OrderedHashTable(
+      _dataset->num_node, _sampler_ctx, 1);
+#endif
 
   if (RunConfig::UseGPUCache()) {
     _cache_manager = new GPUCacheManager(
