@@ -306,59 +306,45 @@ __global__ void gen_count_hashmap_neighbour_single_loop(
     const IdType *const indptr, const IdType *const indices,
     MutableDeviceOrderedHashTable table,
     IdType *const num_unique, 
-    IdType *const block_max_iter, 
+    IdType *const,
     const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
-  using BlockReduce = typename cub::BlockReduce<IdType, BLOCK_SIZE>;
   using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
 
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+  const size_t thread_end = (num_items < block_end) ? num_items : block_end;
 
-  IdType count = 0;
-  __shared__ typename BlockReduce::TempStorage temp_space1;
-  __shared__ typename BlockReduce::TempStorage temp_space2;
-  IdType iter = 0;
+  IdType thread_count = 0;
   IdType cur_index = threadIdx.x + block_start;
   IdType cur_j = 0;
   IdType cur_off = 0;
   IdType cur_len = 0;
-  const size_t thread_end = (num_items < block_end) ? num_items : block_end;
   if (cur_index < thread_end) {
     auto orig_id = items[cur_index];
     cur_off = indptr[orig_id];
     cur_len = indptr[orig_id + 1] - cur_off;
   }
-  while (true) {
-    if (cur_index >= thread_end) {
-      break;
-    } else if (cur_j >= cur_len) {
+  while (cur_index < thread_end) {
+    if (cur_j >= cur_len) {
       cur_index += BLOCK_SIZE;
-      if (cur_index < thread_end) {
-        auto orig_id = items[cur_index];
-        cur_off = indptr[orig_id];
-        cur_len = indptr[orig_id + 1] - cur_off;
-        cur_j = 0;
-      }
+      if (cur_index >= thread_end) break;
+      auto orig_id = items[cur_index];
+      cur_off = indptr[orig_id];
+      cur_len = indptr[orig_id + 1] - cur_off;
+      cur_j = 0;
     } else {
       const IdType nbr_orig_id = indices[cur_j + cur_off];
       BucketO2N *bucket = table.InsertO2N(nbr_orig_id, cur_index, version);
-      count += (bucket->index == cur_index && bucket->version == version);
+      thread_count += (bucket->index == cur_index && bucket->version == version);
       cur_j++;
     }
-    iter++;
   }
-  IdType max_iter = BlockReduce(temp_space1).Reduce(iter, cub::Max());
 
-  count = BlockReduce(temp_space2).Sum(count);
-
-  if (threadIdx.x == 0) {
-    num_unique[blockIdx.x] = count;
-    block_max_iter[blockIdx.x] = max_iter;
-    if (blockIdx.x == 0) {
-      num_unique[gridDim.x] = 0;
-    }
+  num_unique[blockIdx.x * blockDim.x + threadIdx.x] = thread_count;
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    num_unique[gridDim.x * blockDim.x] = 0;
   }
 }
 
@@ -589,68 +575,51 @@ __global__ void compact_hashmap_neighbour_single_loop(
       const IdType *const indptr, const IdType *const indices,
       MutableDeviceOrderedHashTable table,
       const IdType *const num_items_prefix,
-      const IdType *const block_max_iter,
+      const IdType *const,
       IdType *const num_unique_items,
       const IdType global_offset,
       const IdType version) {
   assert(BLOCK_SIZE == blockDim.x);
 
-  using FlagType = IdType;
-  using BlockScan = typename cub::BlockScan<FlagType, BLOCK_SIZE>;
   using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
 
-  constexpr const IdType VALS_PER_THREAD = TILE_SIZE / BLOCK_SIZE;
-
-  __shared__ typename BlockScan::TempStorage temp_space;
-
-  const IdType offset = num_items_prefix[blockIdx.x];
-
-  BlockPrefixCallbackOp<FlagType> prefix_op(0);
-
-  IdType cur_index = threadIdx.x + TILE_SIZE * blockIdx.x;
+  const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+  const size_t thread_offset = num_items_prefix[blockIdx.x * blockDim.x + threadIdx.x];
+  const size_t thread_end = (num_items < block_end) ? num_items : block_end;
+
+  IdType thread_pos = 0;
+  IdType cur_index = threadIdx.x + block_start;
   IdType cur_j = 0;
   IdType cur_off = 0;
   IdType cur_len = 0;
-  const size_t thread_end = (num_items < block_end) ? num_items : block_end;
   if (cur_index < thread_end) {
     auto orig_id = items[cur_index];
     cur_off = indptr[orig_id];
     cur_len = indptr[orig_id + 1] - cur_off;
   }
-  for (IdType iter = 0; iter < block_max_iter[blockIdx.x]; iter++) {
-    FlagType flag = 0;
-    BucketO2N *kv = nullptr;
-    IdType nbr_orig_id;
-    if (cur_index >= thread_end) {
-    } else if (cur_j >= cur_len) {
+  while (cur_index < thread_end) {
+    if (cur_j >= cur_len) {
       cur_index += BLOCK_SIZE;
-      if (cur_index < thread_end) {
-        auto orig_id = items[cur_index];
-        cur_off = indptr[orig_id];
-        cur_len = indptr[orig_id + 1] - cur_off;
-        cur_j = 0;
-      }
+      if (cur_index >= thread_end) break;
+      auto orig_id = items[cur_index];
+      cur_off = indptr[orig_id];
+      cur_len = indptr[orig_id + 1] - cur_off;
+      cur_j = 0;
     } else {
-      nbr_orig_id = indices[cur_j + cur_off];
-      kv = table.SearchO2N(nbr_orig_id);
-      flag = (kv->index == cur_index && kv->version == version);
-      if (!flag) kv = nullptr;
+      const IdType nbr_orig_id = indices[cur_j + cur_off];
+      BucketO2N *kv = table.SearchO2N(nbr_orig_id);
+      if (kv->index == cur_index && kv->version == version) {
+        kv->local = global_offset + thread_offset + thread_pos;
+        table.InsertN2O(kv->local, nbr_orig_id);
+        thread_pos ++;
+      }
       cur_j++;
-    }
-
-    BlockScan(temp_space).ExclusiveSum(flag, flag, prefix_op);
-    __syncthreads();
-    
-    if (kv) {
-      const IdType pos = global_offset + offset + flag;
-      kv->local = pos;
-      table.InsertN2O(pos, nbr_orig_id);
     }
   }
 
   if (threadIdx.x == 0 && blockIdx.x == 0) {
-    *num_unique_items = global_offset + num_items_prefix[gridDim.x];
+    *num_unique_items = global_offset + num_items_prefix[gridDim.x * blockDim.x];
   }
 }
 
@@ -950,24 +919,24 @@ void OrderedHashTable::FillNeighbours(
   auto device = Device::Get(_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
+  size_t n_item_prefix = grid.x * block.x + 1;
   IdType *item_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1) * 2));
-  IdType *each_block_max_cnt = item_prefix + grid.x + 1;
+      device->AllocWorkspace(_ctx, sizeof(IdType) * n_item_prefix));
   LOG(DEBUG) << "OrderedHashTable::FillNeighbours cuda item_prefix malloc "
-             << ToReadableSize(sizeof(IdType) * (grid.x + 1));
+             << ToReadableSize(sizeof(IdType) * n_item_prefix);
 
   // 1. insert into o2n table, collect each block's new insertion count
   gen_count_hashmap_neighbour_single_loop<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
           input, num_input, indptr, indices, device_table, 
-          item_prefix, each_block_max_cnt, _version);
+          item_prefix, nullptr, _version);
   device->StreamSync(_ctx, stream);
 
   // 2. partial sum
   size_t workspace_bytes;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
       nullptr, workspace_bytes, static_cast<IdType *>(nullptr),
-      static_cast<IdType *>(nullptr), grid.x + 1, cu_stream));
+      static_cast<IdType *>(nullptr), n_item_prefix, cu_stream));
   device->StreamSync(_ctx, stream);
 
   void *workspace = device->AllocWorkspace(_ctx, workspace_bytes);
@@ -975,7 +944,7 @@ void OrderedHashTable::FillNeighbours(
              << ToReadableSize(workspace_bytes);
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
-                                          item_prefix, item_prefix, grid.x + 1,
+                                          item_prefix, item_prefix, n_item_prefix,
                                           cu_stream));
   device->StreamSync(_ctx, stream);
 
@@ -986,7 +955,7 @@ void OrderedHashTable::FillNeighbours(
   compact_hashmap_neighbour_single_loop<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
           input, num_input, indptr, indices, device_table, 
-          item_prefix, each_block_max_cnt, 
+          item_prefix, nullptr, 
           gpu_num_unique, _num_items, _version);
   device->StreamSync(_ctx, stream);
   if (num_input != 0) {
