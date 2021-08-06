@@ -52,6 +52,8 @@ kArch1 = 1
 kArch2 = 2
 kArch3 = 3
 
+kArch5 = 5
+
 kCacheByDegree = 0
 kCacheByHeuristic = 1
 
@@ -75,7 +77,12 @@ meepo_archs = {
         'arch_type': kArch3,
         'sampler_ctx': gpu(0),
         'trainer_ctx': gpu(1)
-    }
+    },
+    'arch5': {
+        'arch_type': kArch5,
+        'sampler_ctx': cpu(),
+        'trainer_ctx': [gpu(0), gpu(1)]
+        }
 }
 
 
@@ -280,6 +287,29 @@ class SamGraphBasics(object):
 
     def init(self):
         return self.C_LIB_CTYPES.samgraph_init()
+
+    # for multi-GPUs train
+    def data_init(self):
+        pass
+        # return self.C_LIB_CTYPES.samgraph_data_init()
+    # for multi-GPUs train
+    def sample_init(self, device_type, device_id):
+        pass
+        '''
+        return self.C_LIB_CTYPES.samgraph_sample_init(
+                    ctypes.c_int(device_type),
+                    ctypes.c_int(device_id)
+                )
+        '''
+    # for multi-GPUs train
+    def train_init(self, device_type, device_id):
+        pass
+        '''
+        return self.C_LIB_CTYPES.samgraph_train_init(
+                    ctypes.c_int(device_type),
+                    ctypes.c_int(device_id)
+                )
+        '''
 
     def start(self):
         return self.C_LIB_CTYPES.samgraph_start()
