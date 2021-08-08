@@ -901,6 +901,179 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }
+/**
+ * @brief FIXME: remove redundant code
+ */
+void DoDynamicCacheFeatureCopy(TaskPtr task) {
+  auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();
+  auto trainer_device = Device::Get(trainer_ctx);
+  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  auto cpu_device = Device::Get(CPU());
+  auto sampler_copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
+  auto trainer_copy_stream = GPUEngine::Get()->GetTrainerCopyStream();
+
+  auto dataset = GPUEngine::Get()->GetGraphDataset();
+  auto cache_manager = GPUEngine::Get()->GetDynamicCacheManager();
+
+  auto input_nodes = task->input_nodes;
+  auto feat = dataset->feat;
+  auto feat_dim = dataset->feat->Shape()[1];
+  auto feat_type = dataset->feat->Type();
+
+  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto num_input = input_nodes->Shape()[0];
+
+  CHECK_EQ(input_nodes->Ctx().device_type, sampler_ctx.device_type);
+  CHECK_EQ(input_nodes->Ctx().device_id, sampler_ctx.device_id);
+
+  auto train_feat =
+      Tensor::Empty(feat_type, {num_input, feat_dim}, trainer_ctx,
+                    "task.train_feat_cuda_" + std::to_string(task->key));
+
+  // 0. Get index of miss data and cache data
+  // feature data has cache, so we only need to extract the miss data
+  Timer t0;
+
+  IdType *sampler_output_miss_src_index = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+  IdType *sampler_output_miss_dst_index = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+  IdType *sampler_output_cache_src_index = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+  IdType *sampler_output_cache_dst_index = static_cast<IdType *>(
+      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+
+  size_t num_output_miss;
+  size_t num_output_cache;
+
+  cache_manager->GetMissCacheIndex(
+      sampler_output_miss_src_index, sampler_output_miss_dst_index,
+      &num_output_miss, sampler_output_cache_src_index,
+      sampler_output_cache_dst_index, &num_output_cache, input_data, num_input,
+      sampler_copy_stream);
+
+  CHECK_EQ(num_output_miss + num_output_cache, num_input);
+
+  double get_index_time = t0.Passed();
+
+  // 1. Move the miss index
+
+  Timer t1;
+
+  IdType *cpu_output_miss_src_index = static_cast<IdType *>(
+      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_output_miss));
+  IdType *trainer_output_miss_dst_index =
+      static_cast<IdType *>(trainer_device->AllocWorkspace(
+          trainer_ctx, sizeof(IdType) * num_output_miss));
+  IdType *trainer_output_cache_src_index =
+      static_cast<IdType *>(trainer_device->AllocWorkspace(
+          trainer_ctx, sizeof(IdType) * num_output_cache));
+  IdType *trainer_output_cache_dst_index =
+      static_cast<IdType *>(trainer_device->AllocWorkspace(
+          trainer_ctx, sizeof(IdType) * num_output_cache));
+
+  sampler_device->CopyDataFromTo(sampler_output_miss_src_index, 0,
+                                 cpu_output_miss_src_index, 0,
+                                 num_output_miss * sizeof(IdType), sampler_ctx,
+                                 CPU(), sampler_copy_stream);
+  sampler_device->CopyDataFromTo(sampler_output_miss_dst_index, 0,
+                                 trainer_output_miss_dst_index, 0,
+                                 num_output_miss * sizeof(IdType), sampler_ctx,
+                                 trainer_ctx, sampler_copy_stream);
+  trainer_device->CopyDataFromTo(sampler_output_cache_src_index, 0,
+                                 trainer_output_cache_src_index, 0,
+                                 num_output_cache * sizeof(IdType), sampler_ctx,
+                                 trainer_ctx, trainer_copy_stream);
+  trainer_device->CopyDataFromTo(sampler_output_cache_dst_index, 0,
+                                 trainer_output_cache_dst_index, 0,
+                                 num_output_cache * sizeof(IdType), sampler_ctx,
+                                 trainer_ctx, trainer_copy_stream);
+
+  sampler_device->StreamSync(sampler_ctx, sampler_copy_stream);
+  trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
+
+  sampler_device->FreeWorkspace(sampler_ctx, sampler_output_miss_src_index);
+  sampler_device->FreeWorkspace(sampler_ctx, sampler_output_miss_dst_index);
+  sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_src_index);
+  sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_dst_index);
+
+  double copy_idx_time = t1.Passed();
+
+  // 2. Extract the miss data
+  Timer t2;
+
+  void *cpu_output_miss = cpu_device->AllocWorkspace(
+      CPU(), GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
+  void *trainer_output_miss = trainer_device->AllocWorkspace(
+      trainer_ctx, GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
+
+  cache_manager->ExtractMissData(cpu_output_miss, cpu_output_miss_src_index,
+                                 num_output_miss);
+
+  double extract_miss_time = t2.Passed();
+
+  // 3. Copy the miss data
+  Timer t3;
+
+  trainer_device->CopyDataFromTo(
+      cpu_output_miss, 0, trainer_output_miss, 0,
+      GetTensorBytes(feat_type, {num_output_miss, feat_dim}), CPU(),
+      trainer_ctx, trainer_copy_stream);
+  trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
+
+  cpu_device->FreeWorkspace(CPU(), cpu_output_miss);
+
+  double copy_miss_time = t3.Passed();
+
+  // 4. Combine miss data
+  Timer t4;
+  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss,
+                                 trainer_output_miss_dst_index, num_output_miss,
+                                 trainer_copy_stream);
+  trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
+
+  double combine_miss_time = t4.Passed();
+
+  // 5. Combine cache data
+  Timer t5;
+  cache_manager->CombineCacheData(
+      train_feat->MutableData(), trainer_output_cache_src_index,
+      trainer_output_cache_dst_index, num_output_cache, trainer_copy_stream);
+  trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
+
+  double combine_cache_time = t5.Passed();
+
+  task->input_feat = train_feat;
+
+  // 5. Free space
+  cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
+  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
+  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
+  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
+  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
+
+  // 6. Replace dynamic cache
+  cache_manager->ReplaceCacheGPU(task->input_nodes, task->input_feat, sampler_copy_stream);
+  sampler_device->StreamSync(sampler_ctx, sampler_copy_stream);
+
+  Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
+                          train_feat->NumBytes());
+  Profiler::Get().LogStep(
+      task->key, kLogL1MissBytes,
+      GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
+  Profiler::Get().LogStep(task->key, kLogL3CacheGetIndexTime, get_index_time); // t0, step 0
+  Profiler::Get().LogStep(task->key, KLogL3CacheCopyIndexTime, copy_idx_time); // t1, step 1
+  Profiler::Get().LogStep(task->key, kLogL3CacheExtractMissTime,
+                          extract_miss_time); // t2, step2
+  Profiler::Get().LogStep(task->key, kLogL3CacheCopyMissTime, copy_miss_time); // t3, step 3
+  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
+                          combine_miss_time);  // t4, step 4
+  Profiler::Get().LogStep(task->key, kLogL3CacheCombineCacheTime,
+                          combine_cache_time); // t5, step 5
+
+  LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
+}
 
 }  // namespace cuda
 }  // namespace common

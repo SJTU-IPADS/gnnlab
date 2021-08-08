@@ -36,6 +36,7 @@ class GPUEngine : public Engine {
   OrderedHashTable* GetHashtable() { return _hashtable; }
   GPURandomStates* GetRandomStates() { return _random_states; }
   GPUCacheManager* GetCacheManager() { return _cache_manager; }
+  GPUDynamicCacheManager* GetDynamicCacheManager() { return _dynamic_cache_manager; }
   FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
@@ -60,6 +61,7 @@ class GPUEngine : public Engine {
   GPURandomStates* _random_states;
   // Feature cache in GPU
   GPUCacheManager* _cache_manager;
+  GPUDynamicCacheManager* _dynamic_cache_manager;
   // Frequency hashmap
   FrequencyHashmap* _frequency_hashmap;
 

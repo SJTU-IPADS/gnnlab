@@ -67,8 +67,16 @@ void GPUEngine::Init() {
         _dataset->feat->Type(), _dataset->feat->Shape()[1],
         static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
         _dataset->num_node, RunConfig::cache_percentage);
+    _dynamic_cache_manager = nullptr;
+  } else if (RunConfig::UseDynamicGPUCache()) {
+    _dynamic_cache_manager = new GPUDynamicCacheManager(
+      _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+      _dataset->feat->Type(), _dataset->feat->Shape()[1],
+      _dataset->num_node);
+    _cache_manager = nullptr;
   } else {
     _cache_manager = nullptr;
+    _dynamic_cache_manager = nullptr;
   }
 
   // Create CUDA random states for sampling
@@ -255,7 +263,8 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       break;
     case kArch4:
       ret[Constant::kFeatFile] = MMAP();
-      ret[Constant::kLabelFile] = MMAP();
+      ret[Constant::kLabelFile] = 
+          RunConfig::UseDynamicGPUCache() ? _trainer_ctx : MMAP();
       break;
     default:
       CHECK(0);

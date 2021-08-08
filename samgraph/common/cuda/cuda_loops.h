@@ -31,6 +31,7 @@ void DoGPUFeatureExtract(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
 void DoFeatureCopy(TaskPtr task);
 void DoCacheFeatureCopy(TaskPtr task);
+void DoDynamicCacheFeatureCopy(TaskPtr task);
 
 }  // namespace cuda
 }  // namespace common
