@@ -49,6 +49,9 @@ struct RunConfig {
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;
   }
+  static inline bool UseDynamicGPUCache() {
+    return cache_policy == kDynamicCache;
+  }
   static void LoadConfigFromEnv();
 };
 

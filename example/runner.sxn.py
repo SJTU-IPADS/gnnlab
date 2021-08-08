@@ -9,7 +9,8 @@ root_path="/graph-learning/samgraph/"
 class CachePolicy(Enum):
   cache_by_degree = 0
   cache_by_heuristic = 1
-  no_cache = 2
+  dynamic_cache = 2
+  no_cache = 3
 
 class Arch(Enum):
   arch0 = 0

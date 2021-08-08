@@ -181,6 +181,8 @@ void Engine::LoadGraphDataset() {
             {meta[Constant::kMetaNumNode]},
             ctx_map[Constant::kCacheByHeuristicFile], "dataset.ranking_nodes");
         break;
+      case kDynamicCache:
+        break;
       default:
         CHECK(0);
     }
@@ -189,6 +191,9 @@ void Engine::LoadGraphDataset() {
   double loading_time = t.Passed();
   LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path << ") successfully ("
             << loading_time << " secs)";
+  LOG(DEBUG) << "dataset(" << _dataset_path << ") has "
+             << _dataset->num_node << " nodes, "
+             << _dataset->num_edge << " edges ";
 }
 
 bool Engine::IsAllThreadFinish(int total_thread_num) {
