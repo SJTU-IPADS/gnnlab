@@ -24,6 +24,8 @@ class DistEngine : public Engine {
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
+  void SampleInit(int device_type, int device_id);
+  void TrainInit(int device_type, int device_id)
 
   // TODO: decide CPU or GPU to shuffling, sampling and id remapping
   CPUShuffler* GetShuffler() { return _shuffler; }
@@ -33,9 +35,12 @@ class DistEngine : public Engine {
   static DistEngine* Get() { return dynamic_cast<DistEngine*>(Engine::_engine); }
 
  private:
+  // Copy data sampling needed for subprocess
+  void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream);
   // Task queue
   std::vector<std::thread*> _threads;
 
+  cudaStream_t _sampler_stream;
   cudaStream_t _work_stream;
   // Random node batch generator
   CPUShuffler* _shuffler;

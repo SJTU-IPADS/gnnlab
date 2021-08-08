@@ -35,6 +35,10 @@ report_epoch = _basics.report_epoch
 report_epoch_average = _basics.report_epoch_average
 report_node_access = _basics.report_node_access
 
+# mult-GPUs training APIs
+data_init = _basics.data_init
+sample_init = _basics.sample_init
+train_init = _basics.train_init
 
 def get_graph_feat(batch_key):
     return c_lib.samgraph_torch_get_graph_feat(batch_key)
