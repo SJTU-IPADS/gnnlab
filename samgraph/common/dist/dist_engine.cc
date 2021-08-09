@@ -73,10 +73,22 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   Device::Get(sampler_ctx)
   SampleDataCopy(_sampler_ctx, _sampler_stream);
 
-  // TODO: map the _shuffler and _hash_table to difference device
-  _shuffler =
-      new CPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
+  _shuffler = nullptr;
+  switch(device_type) {
+    case kCPU:
+      _shuffler = new CPUShuffler(_dataset->train_set,
+          _num_epoch, _batch_size, false);
+      break;
+    case kGPU:
+      _shuffler = new GPUShuffler(_dataset->train_set,
+          _num_epoch, _batch_size, false);
+      break;
+    default:
+        LOG(FATAL) << "shuffler does not support device_type: "
+                   << device_type;
+  }
   _num_step = _shuffler->NumStep();
+  // TODO: map the _hash_table to difference device
 
   _initialize = true;
 }

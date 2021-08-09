@@ -43,7 +43,7 @@ class DistEngine : public Engine {
   cudaStream_t _sampler_stream;
   cudaStream_t _work_stream;
   // Random node batch generator
-  CPUShuffler* _shuffler;
+  Shuffler* _shuffler;
   // Hash table
   CPUHashTable* _hash_table;
 

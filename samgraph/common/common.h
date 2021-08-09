@@ -200,6 +200,16 @@ inline T Min(T a, T b) {
   return a < b ? a : b;
 }
 
+// shuffler virtual class
+class Shuffler {
+ public:
+  virtual TensorPtr GetBatch() = 0;
+  virtual uint64_t Epoch() = 0;
+  virtual uint64_t Step() = 0;
+  virtual size_t NumEpoch() = 0;
+  virtual size_t NumStep() = 0;
+};
+
 }  // namespace common
 }  // namespace samgraph
 

@@ -9,7 +9,7 @@
 namespace samgraph {
 namespace common {
 
-class CPUShuffler {
+class CPUShuffler : public Shuffler {
  public:
   CPUShuffler(TensorPtr input, int num_epoch, size_t batch_size,
               bool drop_last);
