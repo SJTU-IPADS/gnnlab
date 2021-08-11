@@ -151,8 +151,6 @@ def run():
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
 
-    if run_config['pipeline']:
-        sam.start()
 
     model.train()
 
@@ -175,6 +173,8 @@ def run():
             t0 = time.time()
             if not run_config['pipeline']:
                 sam.sample_once()
+            elif epoch + step == 0:
+                sam.start()
             batch_key = sam.get_next_batch(epoch, step)
             t1 = time.time()
             sam.trace_step_begin_now (batch_key, sam.kL1Event_Convert)
