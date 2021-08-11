@@ -177,16 +177,20 @@ def run():
                 sam.sample_once()
             batch_key = sam.get_next_batch(epoch, step)
             t1 = time.time()
+            sam.trace_step_begin_now (batch_key, sam.kL1Event_Convert)
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
                 batch_key, num_layer)
             t2 = time.time()
+            sam.trace_step_end_now (batch_key, sam.kL1Event_Convert)
 
             # Compute loss and prediction
+            sam.trace_step_begin_now (batch_key, sam.kL1Event_Train)
             batch_pred = model(blocks, batch_input)
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            sam.trace_step_end_now   (batch_key, sam.kL1Event_Train)
             t3 = time.time()
 
             sample_time = sam.get_log_step_value(
@@ -236,6 +240,7 @@ def run():
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
 
     sam.report_node_access()
+    sam.dump_trace()
     sam.shutdown()
 
 

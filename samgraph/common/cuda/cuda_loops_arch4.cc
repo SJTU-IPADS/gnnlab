@@ -55,6 +55,9 @@ bool RunSampleSubLoopOnce() {
     Timer t1;
     DoGPUSampleDyCache(task, nbr_cb);
     double sample_time = t1.Passed();
+    Timer t2;
+    Profiler::Get().TraceStepBegin(task->key, kL1Event_Sample, t0.TimePointMicro());
+    Profiler::Get().TraceStepEnd(task->key, kL1Event_Sample, t2.TimePointMicro());
 
     Profiler::Get().LogStep(task->key, kLogL1SampleTime,
                             shuffle_time + sample_time);
@@ -102,10 +105,12 @@ bool RunDataCopySubLoopOnce() {
     Timer t3;
     DoGraphCopy(task);
     double graph_copy_time = t3.Passed();
+    Timer t4;
 
     LOG(DEBUG) << "Submit: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
-
+    Profiler::Get().TraceStepBegin(task->key, kL1Event_Copy, t2.TimePointMicro());
+    Profiler::Get().TraceStepEnd(task->key, kL1Event_Copy, t4.TimePointMicro());
     Profiler::Get().LogStep(
         task->key, kLogL1CopyTime,
         graph_copy_time + id_copy_time + extract_time + feat_copy_time);
@@ -153,10 +158,13 @@ bool RunCacheDataCopySubLoopOnce() {
     Timer t0;
     DoGraphCopy(task);
     double graph_copy_time = t0.Passed();
+    Timer t4;
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
+    Profiler::Get().TraceStepBegin(task->key, kL1Event_Copy, t1.TimePointMicro());
+    Profiler::Get().TraceStepEnd(task->key, kL1Event_Copy, t4.TimePointMicro());
     Profiler::Get().LogStep(
         task->key, kLogL1CopyTime,
         graph_copy_time + id_copy_time + cache_feat_copy_time);
