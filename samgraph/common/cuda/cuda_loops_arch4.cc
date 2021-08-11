@@ -180,7 +180,12 @@ void SampleSubLoop() {
 }
 
 void DataCopySubLoop() {
-  LoopOnceFunction func = RunDataCopySubLoopOnce;
+  LoopOnceFunction func;
+  if (RunConfig::UseDynamicGPUCache()) {
+    func = RunCacheDataCopySubLoopOnce;
+  } else {
+    func = RunDataCopySubLoopOnce;
+  }
 
   while (func() && !GPUEngine::Get()->ShouldShutdown()) {
   }
