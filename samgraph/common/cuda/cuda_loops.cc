@@ -262,6 +262,8 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   const IdType* input = static_cast<IdType *>(task->output_nodes->MutableData());
   size_t num_input = task->output_nodes->Shape()[0];
 
+  Timer prefetc_improved;
+  double get_neighbour_time;
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer tlayer;
     Timer t0;
@@ -361,6 +363,7 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
                                     sample_stream);
       hash_table->RefUnique(unique, &num_unique);
       {
+        Timer tt;
         IdType *nbrs;
         size_t num_nbrs_dup;
         GPUExtractNeighbour(indptr, indices, unique, num_unique, nbrs, &num_nbrs_dup, sampler_ctx, sample_stream, task->key);
@@ -372,7 +375,9 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
         task->input_nodes = Tensor::CopyBlob(
             ids_prefetch, DataType::kI32, {n_ids_prefetch}, sampler_ctx, sampler_ctx, 
             "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
+        get_neighbour_time = tt.Passed();
         nbr_cb(task);
+        prefetc_improved.Reset();
       }
     } else {
       hash_table->FillWithDupRevised(out_dst, num_samples,
@@ -437,12 +442,16 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   }
 
   task->graph_remapped.store(true, std::memory_order_release);
+  double prefetch_improved =  prefetc_improved.Passed();
   LOG(DEBUG) << "edge remapping done " << task->key;
 
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
                           num_input);
   Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
                              fill_unique_time);
+  Profiler::Get().LogStep(task->key, kLogL1PrefetchAdvanced, prefetch_improved);
+  Profiler::Get().LogStep(task->key, kLogL1GetNeighbourTime, get_neighbour_time);
+
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
@@ -1044,18 +1053,20 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
 
   double combine_cache_time = t5.Passed();
 
+  // 6. Replace dynamic cache
+  Timer t6;
+  cache_manager->ReplaceCacheGPU(task->input_nodes, train_feat, sampler_copy_stream);
+  sampler_device->StreamSync(sampler_ctx, sampler_copy_stream);
+  double replace_cache_time = t6.Passed();
+
   task->input_feat = train_feat;
 
-  // 5. Free space
+  // 7. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
-
-  // 6. Replace dynamic cache
-  cache_manager->ReplaceCacheGPU(task->input_nodes, task->input_feat, sampler_copy_stream);
-  sampler_device->StreamSync(sampler_ctx, sampler_copy_stream);
 
   Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
                           train_feat->NumBytes());

@@ -23,6 +23,8 @@ enum LogStepItem {
   kLogL1IdBytes,
   kLogL1GraphBytes,
   kLogL1MissBytes,
+  kLogL1PrefetchAdvanced,
+  kLogL1GetNeighbourTime,
   // L2
   kLogL2ShuffleTime,
   kLogL2LastLayerTime,

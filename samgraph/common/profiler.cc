@@ -147,7 +147,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
     level = 3;
   }
 
-  if (level >= 1 && !RunConfig::UseGPUCache()) {
+  if (level >= 1 && !RunConfig::UseGPUCache() && !RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
         "        L1  sample         %10.4lf | copy         %10.4lf | "
@@ -161,7 +161,29 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str());
-  } else {
+  } else if (level >= 1 && RunConfig::UseDynamicGPUCache()) {
+    printf(
+        "    [%s Profiler Level 1 E%u S%u]\n"
+        "        L1  sample         %10.4lf | copy         %10.4lf | "
+        "convert time %.4lf | train  %.4lf\n"
+        "        L1  feature nbytes %10s | label nbytes %10s\n"
+        "        L1  id nbytes      %10s | graph nbytes %10s\n"
+        "        L1  miss nbytes    %10s | hit rate %10s \n"
+        "        L1  nodes          %10.1lf | cache rate %10s \n"
+        "        L1  prefetch adv   %10.4lf | get nbr time %10.4lf\n",
+        type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
+        _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
+        _step_buf[kLogL1TrainTime],
+        ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1MissBytes]).c_str(),
+        ToPercentage(1 - _step_buf[kLogL1MissBytes] / _step_buf[kLogL1FeatureBytes]).c_str(),
+        _step_buf[kLogL1NumNode],
+        ToPercentage(_step_buf[kLogL1NumNode] / Engine::Get()->GetGraphDataset()->num_node).c_str(),
+        _step_buf[kLogL1PrefetchAdvanced], _step_buf[kLogL1GetNeighbourTime]);
+  } else if (level >= 1) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
         "        L1  sample         %10.4lf | copy         %10.4lf | "
