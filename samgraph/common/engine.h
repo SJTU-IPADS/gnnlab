@@ -26,11 +26,11 @@ class Engine {
   size_t NumEpoch() { return _num_epoch; }
   size_t NumStep() { return _num_step; }
 
-  uint64_t GetBatchKey(uint64_t epoch, uint64_t step) {
+  inline uint64_t GetBatchKey(uint64_t epoch, uint64_t step) {
     return epoch * _num_step + step;
   }
-  uint64_t GetEpochFromKey(uint64_t key) { return key / _num_step; };
-  uint64_t GetStepFromKey(uint64_t key) { return key % _num_step; }
+  inline uint64_t GetEpochFromKey(uint64_t key) { return key / _num_step; };
+  inline uint64_t GetStepFromKey(uint64_t key) { return key % _num_step; }
 
   bool ShouldShutdown() { return _should_shutdown; }
   bool IsInitialized() { return _initialize; }
