@@ -28,6 +28,15 @@ LogData::LogData(size_t num_logs) {
   cnt = 0;
 }
 
+TraceEvent::TraceEvent() {
+  begin = 0;
+  end = 0;
+}
+
+TraceData::TraceData(size_t num_traces) {
+  events.resize(num_traces, TraceEvent());
+}
+
 Profiler::Profiler() {
   size_t num_step_items = static_cast<size_t>(kNumLogStepItems);
   size_t num_step_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
@@ -38,6 +47,9 @@ Profiler::Profiler() {
   _step_buf.resize(num_step_items);
   _epoch_data.resize(num_epoch_items, LogData(num_epoch_logs));
   _epoch_buf.resize(num_epoch_items);
+
+  _step_trace.resize(kNumTraceItems, TraceData(num_step_logs));
+  _num_step = Engine::Get()->NumStep();
 
   _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
@@ -125,6 +137,79 @@ void Profiler::ReportEpochAverage(uint64_t epoch) {
   }
 
   OutputEpoch(epoch, "Epoch(average)");
+}
+
+namespace {
+
+#define F(name) #name ,
+const char* trace_item_names[] = { TRACE_TYPES( F ) nullptr };
+#undef F
+
+std::string trace_item_to_string(TraceItem item) {
+  return trace_item_names[(int)item];
+}
+
+struct TraceJsonHelper {
+  std::string name;
+  std::string ph;
+  uint64_t pid, tid;
+  uint64_t ts;
+  std::string cat = "";
+  uint64_t id = 0;
+  TraceJsonHelper& set_name  (std::string n   ) {this->name = n    ; return *this;}
+  TraceJsonHelper& set_begin (                ) {this->ph   = "B"  ; return *this;}
+  TraceJsonHelper& set_end   (                ) {this->ph   = "E"  ; return *this;}
+  TraceJsonHelper& set_pid   (uint64_t    pid ) {this->pid  = pid  ; return *this;}
+  TraceJsonHelper& set_tid   (uint64_t    tid ) {this->tid  = tid  ; return *this;}
+  TraceJsonHelper& set_ts    (uint64_t    ts  ) {this->ts   = ts   ; return *this;}
+  TraceJsonHelper& set_cat   (std::string cat ) {this->cat  = cat  ; return *this;}
+  TraceJsonHelper& set_id    (uint64_t    id  ) {this->id   = id   ; return *this;}
+  std::string to_json(bool & first) {
+    std::stringstream ss;
+    if (! first) {
+      ss << ",";
+    } else {
+      first = false;
+    }
+    ss  << "{"
+        << "\"name\":" << "\"" << name << "\"" << ","
+        << "\"ph\":"   << "\"" << ph << "\"" << ","
+        << "\"pid\":"  << pid << ","
+        << "\"tid\":"  << tid << ","
+        << "\"ts\":"   << ts  << ","
+        << "\"cat\":"  << "\"" << cat << "\"" << ","
+        << "\"id\":"   << id
+        << "}\n";
+    
+    return ss.str();
+  }
+};
+
+}
+
+void Profiler::DumpTrace(std::ostream &of) {
+  bool first = true;
+  of << "[\n";
+  for (size_t item = 0; item < kNumTraceItems; item++) {
+    uint64_t tid = (item < kL1Event_Copy) ? 0 : ((item < kL1Event_Convert) ? 1 : 2);
+    for (size_t key = 0; key < _step_trace[item].events.size(); key++) {
+      if (_step_trace[item].events[key].begin == 0) continue;
+      auto & event = _step_trace[item].events[key];
+      if (event.end == 0) {
+        LOG(WARNING) << "An event without end";
+        continue;
+      }
+      TraceJsonHelper tjs;
+      tjs.set_name(trace_item_to_string((TraceItem)item) + "-" + std::to_string(key))
+         .set_pid(0)
+         .set_tid(tid);
+      tjs.set_begin().set_ts(event.begin);
+      of << tjs.to_json(first);
+      tjs.set_end().set_ts(event.end);
+      of << tjs.to_json(first);
+    }
+  }
+  of << "]\n";
 }
 
 Profiler &Profiler::Get() {

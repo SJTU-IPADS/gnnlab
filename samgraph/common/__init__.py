@@ -157,6 +157,28 @@ kLogEpochTrainTime = 3
 kLogEpochTotalTime = 4
 
 
+step_event_val = [0]
+
+kL1Event_Sample                      = get_next_enum_val(step_event_val)
+kL2Event_Sample_Shuffle              = get_next_enum_val(step_event_val)
+kL2Event_Sample_Core                 = get_next_enum_val(step_event_val)
+kL2Event_Sample_IdRemap              = get_next_enum_val(step_event_val)
+kL1Event_Copy                        = get_next_enum_val(step_event_val)
+kL2Event_Copy_Id                     = get_next_enum_val(step_event_val)
+kL2Event_Copy_Graph                  = get_next_enum_val(step_event_val)
+kL2Event_Copy_Extract                = get_next_enum_val(step_event_val)
+kL2Event_Copy_FeatCopy               = get_next_enum_val(step_event_val)
+kL2Event_Copy_CacheCopy              = get_next_enum_val(step_event_val)
+kL3Event_Copy_CacheCopy_GetIndex     = get_next_enum_val(step_event_val)
+kL3Event_Copy_CacheCopy_CopyIndex    = get_next_enum_val(step_event_val)
+kL3Event_Copy_CacheCopy_ExtractMiss  = get_next_enum_val(step_event_val)
+kL3Event_Copy_CacheCopy_CopyMiss     = get_next_enum_val(step_event_val)
+kL3Event_Copy_CacheCopy_CombineMiss  = get_next_enum_val(step_event_val)
+kL3Event_Copy_CacheCopy_CombineCache = get_next_enum_val(step_event_val)
+kL1Event_Convert                     = get_next_enum_val(step_event_val)
+kL1Event_Train                       = get_next_enum_val(step_event_val)
+
+
 class SamGraphBasics(object):
     def __init__(self, pkg_path, *args):
         full_path = get_extension_full_path(pkg_path, *args)
@@ -207,6 +229,16 @@ class SamGraphBasics(object):
             ctypes.c_uint64,)
         self.C_LIB_CTYPES.samgraph_report_epoch_average.argtypes = (
             ctypes.c_uint64,)
+
+        self.C_LIB_CTYPES.samgraph_trace_step_begin.argtypes = (
+            ctypes.c_uint64, ctypes.c_int, ctypes.c_uint64)
+        self.C_LIB_CTYPES.samgraph_trace_step_end.argtypes = (
+            ctypes.c_uint64, ctypes.c_int, ctypes.c_uint64)
+
+        self.C_LIB_CTYPES.samgraph_trace_step_begin_now.argtypes = (
+            ctypes.c_uint64, ctypes.c_int)
+        self.C_LIB_CTYPES.samgraph_trace_step_end_now.argtypes = (
+            ctypes.c_uint64, ctypes.c_int)
 
         self.C_LIB_CTYPES.samgraph_steps_per_epoch.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_num_class.restype = ctypes.c_size_t
@@ -352,3 +384,14 @@ class SamGraphBasics(object):
 
     def report_node_access(self):
         return self.C_LIB_CTYPES.samgraph_report_node_access()
+    
+    def trace_step_begin(self, key, item, us):
+        return self.C_LIB_CTYPES.samgraph_trace_step_begin(key, item, us)
+    def trace_step_end(self, key, item, us):
+        return self.C_LIB_CTYPES.samgraph_trace_step_end(key, item, us)
+    def trace_step_begin_now(self, key, item):
+        return self.C_LIB_CTYPES.samgraph_trace_step_begin_now(key, item)
+    def trace_step_end_now(self, key, item):
+        return self.C_LIB_CTYPES.samgraph_trace_step_end_now(key, item)
+    def dump_trace(self):
+        return self.C_LIB_CTYPES.samgraph_dump_trace()

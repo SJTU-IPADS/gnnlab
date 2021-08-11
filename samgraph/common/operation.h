@@ -66,6 +66,16 @@ void samgraph_report_epoch(uint64_t epoch);
 void samgraph_report_epoch_average(uint64_t epoch);
 
 void samgraph_report_node_access();
+
+void samgraph_trace_step_begin(uint64_t key, int item, uint64_t ts);
+
+void samgraph_trace_step_end(uint64_t key, int item, uint64_t ts);
+
+void samgraph_trace_step_begin_now(uint64_t key, int item);
+
+void samgraph_trace_step_end_now(uint64_t key, int item);
+
+void samgraph_dump_trace();
 }
 
 }  // namespace common

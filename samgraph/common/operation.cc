@@ -3,6 +3,7 @@
 #include <cuda_profiler_api.h>
 #include <cuda_runtime.h>
 
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -13,6 +14,7 @@
 #include "logging.h"
 #include "profiler.h"
 #include "run_config.h"
+#include "timer.h"
 
 namespace samgraph {
 namespace common {
@@ -207,6 +209,24 @@ void samgraph_report_node_access() {
   if (RunConfig::option_log_node_access) {
     Profiler::Get().ReportNodeAccess();
   }
+}
+
+void samgraph_trace_step_begin(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), us);
+}
+void samgraph_trace_step_end(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), us);
+}
+void samgraph_trace_step_begin_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), t.TimePointMicro());
+}
+void samgraph_trace_step_end_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), t.TimePointMicro());
+}
+void samgraph_dump_trace() {
+  Profiler::Get().DumpTrace(std::cout);
 }
 }
 }  // namespace common
