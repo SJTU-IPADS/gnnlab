@@ -235,6 +235,7 @@ def run():
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
 
     sam.report_node_access()
+    sam.dump_trace()
     sam.shutdown()
 
 
