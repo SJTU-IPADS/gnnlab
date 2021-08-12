@@ -7,10 +7,12 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <thread>
 
 #include "common.h"
 #include "constant.h"
 #include "graph_pool.h"
+#include "run_config.h"
 
 namespace samgraph {
 namespace common {
@@ -46,6 +48,13 @@ class Engine {
   void SetGraphBatch(std::shared_ptr<GraphBatch> batch) {
     _graph_batch = batch;
   }
+  void WaitBarrier() {
+    while (inner_counter > outer_counter) {
+      std::this_thread::sleep_for(std::chrono::nanoseconds(100));
+    }
+  }
+  void ForwardBarrier();
+  void ForwardInnerBarrier();
 
   void ReportThreadFinish() { _joined_thread_cnt.fetch_add(1); }
   virtual void ExamineDataset() {}
@@ -55,9 +64,9 @@ class Engine {
 
  protected:
   // Whether the server is initialized
-  bool _initialize;
+  volatile bool _initialize;
   // The engine is going to be shutdowned
-  bool _should_shutdown;
+  volatile bool _should_shutdown;
   // Sampling engine device
   Context _sampler_ctx;
   // Training device
@@ -86,6 +95,9 @@ class Engine {
 
   void LoadGraphDataset();
   bool IsAllThreadFinish(int total_thread_num);
+
+  volatile int inner_counter = 0;
+  volatile int outer_counter = 0;
 
   static Engine* _engine;
 };

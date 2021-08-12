@@ -159,6 +159,7 @@ kLogEpochTotalTime = 4
 
 step_event_val = [0]
 
+kL0Event_Train_Step                  = get_next_enum_val(step_event_val)
 kL1Event_Sample                      = get_next_enum_val(step_event_val)
 kL2Event_Sample_Shuffle              = get_next_enum_val(step_event_val)
 kL2Event_Sample_Core                 = get_next_enum_val(step_event_val)
@@ -395,3 +396,5 @@ class SamGraphBasics(object):
         return self.C_LIB_CTYPES.samgraph_trace_step_end_now(key, item)
     def dump_trace(self):
         return self.C_LIB_CTYPES.samgraph_dump_trace()
+    def forward_barrier(self):
+        return self.C_LIB_CTYPES.samgraph_forward_barrier()

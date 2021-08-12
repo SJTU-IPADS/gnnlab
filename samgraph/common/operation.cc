@@ -226,7 +226,10 @@ void samgraph_trace_step_end_now(uint64_t key, int item) {
   Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), t.TimePointMicro());
 }
 void samgraph_dump_trace() {
-  Profiler::Get().DumpTrace(std::cout);
+  Profiler::Get().DumpTrace(std::cerr);
+}
+void samgraph_forward_barrier() {
+  Engine::Get()->ForwardBarrier();
 }
 }
 }  // namespace common

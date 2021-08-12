@@ -201,5 +201,12 @@ bool Engine::IsAllThreadFinish(int total_thread_num) {
   return (k == total_thread_num);
 };
 
+void Engine::ForwardBarrier() {
+  outer_counter++;
+}
+void Engine::ForwardInnerBarrier() {
+  inner_counter++;
+}
+
 }  // namespace common
 }  // namespace samgraph

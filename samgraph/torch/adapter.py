@@ -39,6 +39,7 @@ trace_step_end = _basics.trace_step_end
 trace_step_begin_now = _basics.trace_step_begin_now
 trace_step_end_now = _basics.trace_step_end_now
 dump_trace = _basics.dump_trace
+forward_barrier = _basics.forward_barrier
 
 
 def get_graph_feat(batch_key):

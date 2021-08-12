@@ -39,9 +39,9 @@ namespace {
 bool RunSampleSubLoopOnce() {
   auto next_op = kDataCopy;
   auto next_q = GPUEngine::Get()->GetTaskQueue(next_op);
-  if (next_q->Full()) {
+  while (next_q->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-    return true;
+    // return true;
   }
 
   Timer t0;
@@ -73,9 +73,9 @@ bool RunSampleSubLoopOnce() {
 
 bool RunDataCopySubLoopOnce() {
   auto graph_pool = GPUEngine::Get()->GetGraphPool();
-  if (graph_pool->Full()) {
+  while (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-    return true;
+    // return true;
   }
 
   auto this_op = kDataCopy;
@@ -130,9 +130,9 @@ bool RunDataCopySubLoopOnce() {
 
 bool RunCacheDataCopySubLoopOnce() {
   auto graph_pool = GPUEngine::Get()->GetGraphPool();
-  if (graph_pool->Full()) {
+  while (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-    return true;
+    // return true;
   }
 
   auto this_op = kDataCopy;
@@ -182,8 +182,17 @@ bool RunCacheDataCopySubLoopOnce() {
 }
 
 void SampleSubLoop() {
-  while (RunSampleSubLoopOnce() && !GPUEngine::Get()->ShouldShutdown()) {
+  for (size_t cur_epoch = 0; cur_epoch < GPUEngine::Get()->NumEpoch(); cur_epoch++) {
+    if (RunConfig::barriered_epoch == -1 || RunConfig::barriered_epoch == static_cast<int>(cur_epoch)) {
+      Engine::Get()->WaitBarrier();
+    }
+    for (size_t cur_step = 0; cur_step < GPUEngine::Get()->NumStep(); cur_step++) {
+      RunSampleSubLoopOnce();
+    }
+    Engine::Get()->ForwardInnerBarrier();
   }
+  while(!GPUEngine::Get()->ShouldShutdown()) {}
+
   GPUEngine::Get()->ReportThreadFinish();
 }
 

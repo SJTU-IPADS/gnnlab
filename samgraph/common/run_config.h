@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "cpu/cpu_common.h"
-#include "logging.h"
+// #include "logging.h"
 
 namespace samgraph {
 namespace common {
@@ -43,6 +43,7 @@ struct RunConfig {
   static bool option_profile_cuda;
   static bool option_log_node_access;
   static bool option_sanity_check;
+  static int barriered_epoch;
 
   static int kOMPThreadNum;
 

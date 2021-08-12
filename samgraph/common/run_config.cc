@@ -36,6 +36,8 @@ cpu::CPUHashType RunConfig::cpu_hash_type = cpu::kCPUHash2;
 bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;
 bool RunConfig::option_sanity_check = false;
+// env key: on -1, all epochs; on 0: no barrier; on other: which epoch to barrier
+int RunConfig::barriered_epoch;
 
 int RunConfig::kOMPThreadNum = 40;
 
@@ -50,6 +52,13 @@ void RunConfig::LoadConfigFromEnv() {
 
   if (IsEnvSet(Constant::kEnvSanityCheck)) {
     RunConfig::option_sanity_check = true;
+  }
+  // num_epoch is set before here
+  {
+    std::string barrier_epoch = GetEnv(Constant::kBarrierEpoch);
+    if (barrier_epoch == "") barrier_epoch = "0";
+    RunConfig::barriered_epoch = std::stoi(barrier_epoch);
+    LOG(DEBUG) << "barriered_epoch=" << RunConfig::barriered_epoch;
   }
 }
 

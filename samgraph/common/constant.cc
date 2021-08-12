@@ -32,6 +32,7 @@ const std::string Constant::kEnvProfileLevel = "SAMGRAPH_PROFILE_LEVEL";
 const std::string Constant::kEnvProfileCuda = "SAMGRAPH_PROFILE_CUDA";
 const std::string Constant::kEnvLogNodeAccess = "SAMGRAPH_LOG_NODE_ACCESS";
 const std::string Constant::kEnvSanityCheck = "SAMGRAPH_SANITY_CHECK";
+const std::string Constant::kBarrierEpoch = "SAMGRAPH_BARRIER_EPOCH";
 
 const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";

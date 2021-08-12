@@ -87,6 +87,7 @@ struct LogData {
 };
 
 #define TRACE_TYPES( F ) \
+  F(kL0Event_Train_Step) \
   F(kL1Event_Sample) \
   F(kL2Event_Sample_Shuffle) \
   F(kL2Event_Sample_Core) \
