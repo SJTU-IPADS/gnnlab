@@ -116,6 +116,7 @@ setup(
                 'samgraph/common/cuda/cuda_sampling_weighted_khop.cu',
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
+                'samgraph/common/dist/dist_engine.cc',
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(

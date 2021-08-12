@@ -13,7 +13,7 @@ class CPUShuffler : public Shuffler {
  public:
   CPUShuffler(TensorPtr input, int num_epoch, size_t batch_size,
               bool drop_last);
-  TensorPtr GetBatch();
+  TensorPtr GetBatch(StreamHandle stream = nullptr);
 
   uint64_t Epoch() { return _cur_epoch; }
   uint64_t Step() { return _cur_step; }

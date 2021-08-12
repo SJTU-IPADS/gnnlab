@@ -11,6 +11,7 @@
 #include "constant.h"
 #include "cpu/cpu_engine.h"
 #include "cuda/cuda_engine.h"
+#include "dist/dist_engine.h"
 #include "logging.h"
 #include "profiler.h"
 #include "run_config.h"
@@ -36,6 +37,10 @@ void Engine::Create() {
     case kArch3:
       LOG(INFO) << "Use GPU Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new cuda::GPUEngine();
+      break;
+    case kArch5:
+      LOG(INFO) << "Use Dist Engine (Arch " << RunConfig::run_arch << ")";
+      _engine = new dist::DistEngine();
       break;
     default:
       CHECK(0);

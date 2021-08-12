@@ -203,12 +203,14 @@ inline T Min(T a, T b) {
 // shuffler virtual class
 class Shuffler {
  public:
-  virtual TensorPtr GetBatch() = 0;
+  virtual ~Shuffler() {};
+  virtual TensorPtr GetBatch(StreamHandle stream = nullptr) = 0;
   virtual uint64_t Epoch() = 0;
   virtual uint64_t Step() = 0;
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
 };
+
 
 }  // namespace common
 }  // namespace samgraph

@@ -162,10 +162,11 @@ TensorPtr Tensor::FromBlob(void *data, DataType dtype,
 
 TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   CHECK(source && source->Defined());
+  std::vector<size_t> shape = source->Shape();
+  auto dtype = source->_dtype;
   CHECK_GT(shape.size(), 0);
 
   TensorPtr tensor = std::make_shared<Tensor>();
-  std::vector<size_t> shape = source->Shape();
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
 
   tensor->_dtype = source->_dtype;
@@ -174,7 +175,7 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   tensor->_ctx = ctx;
   tensor->_data =
       Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
-  tensor->_name = source->name;
+  tensor->_name = source->_name;
   Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
                                    nbytes, source->_ctx, tensor->_ctx, stream);
   Device::Get(tensor->_ctx)->StreamSync(tensor->_ctx, stream);

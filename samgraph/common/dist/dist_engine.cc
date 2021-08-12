@@ -1,16 +1,25 @@
 #include "dist_engine.h"
 
+#include <chrono>
+#include <cstdlib>
+#include <numeric>
+
 #include "../constant.h"
 #include "../device.h"
 #include "../logging.h"
 #include "../run_config.h"
 #include "../timer.h"
+#include "../cuda/cuda_common.h"
+#include "../cuda/cuda_loops.h"
+#include "../cpu/cpu_engine.h"
 
 // TODO: decide CPU or GPU to shuffling, sampling and id remapping
+/*
 #include "cpu_hashtable0.h"
 #include "cpu_hashtable1.h"
 #include "cpu_hashtable2.h"
 #include "cpu_loops.h"
+*/
 
 namespace samgraph {
 namespace common {
@@ -31,7 +40,9 @@ void DistEngine::Init() {
   _fanout = RunConfig::fanout;
   _num_epoch = RunConfig::num_epoch;
   _joined_thread_cnt = 0;
-  _sampler_stream = 0;
+  _sample_stream = nullptr;
+  _sampler_copy_stream = nullptr;
+  _trainer_copy_stream = nullptr;
 
   // Check whether the ctx configuration is allowable
   ArchCheck();
@@ -65,13 +76,16 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   RunConfig::sampler_ctx = Context{static_cast<DeviceType>(device_type), device_id};
   _sampler_ctx = RunConfig::sampler_ctx;
   if (_sampler_ctx.device_type == kGPU) {
-    _sampler_stream = Device.Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+    _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+    _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+
+    Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
+    Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
   }
   // batch results set
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
-  Device::Get(sampler_ctx)
-  SampleDataCopy(_sampler_ctx, _sampler_stream);
+  SampleDataCopy(_sampler_ctx, _sample_stream);
 
   _shuffler = nullptr;
   switch(device_type) {
@@ -89,6 +103,42 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   }
   _num_step = _shuffler->NumStep();
   // TODO: map the _hash_table to difference device
+  //       _hashtable only support GPU device
+  _hashtable = new OrderedHashTable(
+      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
+
+  // FIXME: cache not supported
+  if (RunConfig::UseGPUCache()) {
+    _cache_manager = new GPUCacheManager(
+        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+        _dataset->feat->Type(), _dataset->feat->Shape()[1],
+        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
+        _dataset->num_node, RunConfig::cache_percentage);
+  } else {
+    _cache_manager = nullptr;
+  }
+
+  // Create CUDA random states for sampling
+  _random_states = new GPURandomStates(RunConfig::sample_type, _fanout,
+                                       _batch_size, _sampler_ctx);
+
+  if (RunConfig::sample_type == kRandomWalk) {
+    size_t max_nodes =
+        PredictNumNodes(_batch_size, _fanout, _fanout.size() - 1);
+    size_t edges_per_node =
+        RunConfig::num_random_walk * RunConfig::random_walk_length;
+    _frequency_hashmap =
+        new FrequencyHashmap(max_nodes, edges_per_node, _sampler_ctx);
+  } else {
+    _frequency_hashmap = nullptr;
+  }
+
+  // Create queues
+  for (int i = 0; i < QueueNum; i++) {
+    LOG(DEBUG) << "Create task queue" << i;
+    _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+  }
+  _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   _initialize = true;
 }
@@ -103,9 +153,12 @@ void DistEngine::TrainInit(int device_type, int device_id) {
   _trainer_ctx = RunConfig::trainer_ctx;
 
   // Create CUDA streams
+  // TODO: create cuda streams that training needs
+  /*
   _work_stream = static_cast<cudaStream_t>(
       Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx));
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _work_stream);
+  */
 
   _initialize = true;
 }
@@ -116,7 +169,64 @@ void DistEngine::Start() {
 }
 
 void DistEngine::Shutdown() {
-  LOG(FATAL) << "DistEngine needs not implement the Shutdown function!!!";
+  if (_should_shutdown) {
+    return;
+  }
+
+  _should_shutdown = true;
+  int total_thread_num = _threads.size();
+
+  while (!IsAllThreadFinish(total_thread_num)) {
+    // wait until all threads joined
+    std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+  }
+
+  for (size_t i = 0; i < _threads.size(); i++) {
+    _threads[i]->join();
+    delete _threads[i];
+    _threads[i] = nullptr;
+  }
+
+  // free queue
+  for (size_t i = 0; i < QueueNum; i++) {
+    if (_queues[i]) {
+      delete _queues[i];
+      _queues[i] = nullptr;
+    }
+  }
+
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
+  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
+  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
+
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
+  Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _trainer_copy_stream);
+
+  delete _dataset;
+  delete _shuffler;
+  delete _graph_pool;
+  delete _random_states;
+
+  if (_cache_manager != nullptr) {
+    delete _cache_manager;
+  }
+
+  if (_frequency_hashmap != nullptr) {
+    delete _frequency_hashmap;
+  }
+
+  _dataset = nullptr;
+  _shuffler = nullptr;
+  _graph_pool = nullptr;
+  _cache_manager = nullptr;
+  _random_states = nullptr;
+  _frequency_hashmap = nullptr;
+
+  _threads.clear();
+  _joined_thread_cnt = 0;
+  _initialize = false;
+  _should_shutdown = false;
 }
 
 // TODO: implement it!
@@ -126,7 +236,7 @@ void DistEngine::RunSampleOnce() {
   LOG(DEBUG) << "RunSampleOnce finished.";
 }
 
-void CPUEngine::ArchCheck() {
+void DistEngine::ArchCheck() {
   CHECK_EQ(RunConfig::run_arch, kArch5);
 }
 

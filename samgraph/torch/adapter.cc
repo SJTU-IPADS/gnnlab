@@ -7,6 +7,7 @@
 
 #include "../common/common.h"
 #include "../common/cuda/cuda_engine.h"
+#include "../common/dist/dist_engine.h"
 #include "../common/profiler.h"
 #include "../common/timer.h"
 
