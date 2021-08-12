@@ -130,7 +130,10 @@ def run():
     sam.config_khop(run_config)
     sam.init()
 
-    train_device = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
+    sample_device = th.device('cuda:%d' % run_config['sampler_ctx'].device_id)
+    train_device  = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
+    print("sampling using {}".format(th.cuda.get_device_name(sample_device)))
+    print("training using {}".format(th.cuda.get_device_name(train_device)))
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
@@ -148,23 +151,25 @@ def run():
 
     model.train()
 
-    epoch_sample_times = []
-    epoch_copy_times = []
-    epoch_convert_times = []
-    epoch_train_times = []
-    epoch_total_times = []
+    epoch_sample_times  = [0 for i in range(num_epoch)]
+    epoch_copy_times    = [0 for i in range(num_epoch)]
+    epoch_convert_times = [0 for i in range(num_epoch)]
+    epoch_train_times   = [0 for i in range(num_epoch)]
+    epoch_total_times   = [0 for i in range(num_epoch)]
 
-    sample_times = []
-    copy_times = []
-    convert_times = []
-    train_times = []
-    total_times = []
-    num_nodes = []
-    num_samples = []
+    # sample_times  = [0 for i in range(num_epoch * num_step)]
+    # copy_times    = [0 for i in range(num_epoch * num_step)]
+    # convert_times = [0 for i in range(num_epoch * num_step)]
+    # train_times   = [0 for i in range(num_epoch * num_step)]
+    # total_times   = [0 for i in range(num_epoch * num_step)]
+    # num_nodes     = [0 for i in range(num_epoch * num_step)]
+    # num_samples   = [0 for i in range(num_epoch * num_step)]
 
+    cur_step_key = 0
     for epoch in range(num_epoch):
         for step in range(num_step):
             t0 = time.time()
+            sam.trace_step_begin_now (epoch * num_step + step, sam.kL0Event_Train_Step)
             if not run_config['pipeline']:
                 sam.sample_once()
             elif epoch + step == 0:
@@ -184,51 +189,48 @@ def run():
             optimizer.step()
             sam.trace_step_end_now   (batch_key, sam.kL1Event_Train)
             t3 = time.time()
+            sam.trace_step_end_now (epoch * num_step + step, sam.kL0Event_Train_Step)
 
-            sample_time = sam.get_log_step_value(
-                epoch, step, sam.kLogL1SampleTime)
-            copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
+            # sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
+            # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
             convert_time = t2 - t1
             train_time = t3 - t2
             total_time = t3 - t0
 
-            sam.log_step(epoch, step, sam.kLogL1TrainTime, train_time)
+            # num_node = sam.get_log_step_value(epoch, step, sam.kLogL1NumNode)
+            # num_sample = sam.get_log_step_value(epoch, step, sam.kLogL1NumSample)
+
+            sam.log_step(epoch, step, sam.kLogL1TrainTime,   train_time)
             sam.log_step(epoch, step, sam.kLogL1ConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochConvertTime, convert_time)
-            sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
-            sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
+            sam.log_epoch_add(epoch, sam.kLogEpochTrainTime,   train_time)
+            sam.log_epoch_add(epoch, sam.kLogEpochTotalTime,   total_time)
 
-            sample_times.append(sample_time)
-            copy_times.append(copy_time)
-            convert_times.append(convert_time)
-            train_times.append(train_time)
-            total_times.append(total_time)
+            # sample_times  [cur_step_key] = sample_time
+            # copy_times    [cur_step_key] = copy_time
+            # convert_times [cur_step_key] = convert_time
+            # train_times   [cur_step_key] = train_time
+            # total_times   [cur_step_key] = total_time
 
-            num_sample = 0
-            for block in blocks:
-                num_sample += block.num_edges()
-            num_samples.append(num_sample)
-            num_nodes.append(blocks[0].num_src_nodes())
+            # num_nodes     [cur_step_key] = num_node
+            # num_samples   [cur_step_key] = num_sample
 
-            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(
-                    sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
-            ))
+            # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
+            #     epoch, step, num_node, num_sample, total_time, 
+            #         sample_time, copy_time, train_time, convert_time, loss
+            # ))
 
-            sam.report_step_average(epoch, step)
+            # sam.report_step_average(epoch, step)
+            sam.report_step(epoch, step)
+            cur_step_key += 1
 
         # sam.report_epoch_average(epoch)
 
-        epoch_sample_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
-        epoch_copy_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
-        epoch_convert_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime))
-        epoch_train_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
-        epoch_total_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
+        epoch_sample_times  [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
+        epoch_copy_times    [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime)
+        epoch_convert_times [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime)
+        epoch_train_times   [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime)
+        epoch_total_times   [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime)
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
