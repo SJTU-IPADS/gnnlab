@@ -56,6 +56,7 @@ void DoCPUSample(TaskPtr task) {
 
   auto cur_input = task->output_nodes;
   size_t last_layer_num_unique = 0;
+  size_t total_num_samples = 0;
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer t0;
     const size_t fanout = fanouts[i];
@@ -140,7 +141,7 @@ void DoCPUSample(TaskPtr task) {
         Tensor::FromBlob((void *)unique, DataType::kI32, {num_unique}, CPU(),
                          "cur_input_unique_cpu_" + std::to_string(task->key) +
                              "_" + std::to_string(i));
-
+    total_num_samples += num_out;
     cpu_device->FreeWorkspace(CPU(), out_src);
     cpu_device->FreeWorkspace(CPU(), out_dst);
 
@@ -160,6 +161,7 @@ void DoCPUSample(TaskPtr task) {
   task->input_nodes = cur_input;
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
                           static_cast<double>(task->input_nodes->Shape()[0]));
+  Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
   Profiler::Get().LogStep(task->key, kLogL2LastLayerSize,
                           static_cast<double>(last_layer_num_unique));
 }

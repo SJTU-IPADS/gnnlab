@@ -63,6 +63,7 @@ void DoGPUSample(TaskPtr task) {
       static_cast<const IdType *>(dataset->alias_table->Data());
 
   auto cur_input = task->output_nodes;
+  size_t total_num_samples = 0;
 
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer tlayer;
@@ -193,6 +194,8 @@ void DoGPUSample(TaskPtr task) {
 
     task->graphs[i] = train_graph;
 
+    total_num_samples += num_samples;
+
     // Do some clean jobs
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
@@ -221,7 +224,8 @@ void DoGPUSample(TaskPtr task) {
 
   task->input_nodes = cur_input;
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
-                          static_cast<double>(task->input_nodes->Shape()[0]));
+                          static_cast<double>(cur_input->Shape()[0]));
+  Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
   Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
                              fill_unique_time);
 
@@ -426,6 +430,7 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   }
 
   // remap edges
+  size_t total_num_samples = 0;
   for (int i = last_layer_idx; i>=0; i--) {
     std::shared_ptr<TrainGraph> train_graph = task->graphs[i];
     size_t num_samples = train_graph->num_edge;
@@ -439,14 +444,15 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
     GPUMapEdges(old_src, new_src, old_dst, new_dst, num_samples, hash_table->DeviceHandle(), sampler_ctx, sample_stream);
     train_graph->col->ReplaceData(static_cast<void*>(new_src));
     train_graph->row->ReplaceData(static_cast<void*>(new_dst));
+    total_num_samples += num_samples;
   }
 
   task->graph_remapped.store(true, std::memory_order_release);
   double prefetch_improved =  prefetc_improved.Passed();
   LOG(DEBUG) << "edge remapping done " << task->key;
 
-  Profiler::Get().LogStep(task->key, kLogL1NumNode,
-                          num_input);
+  Profiler::Get().LogStep(task->key, kLogL1NumNode, num_input);
+  Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
   Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
                              fill_unique_time);
   Profiler::Get().LogStep(task->key, kLogL1PrefetchAdvanced, prefetch_improved);
