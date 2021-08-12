@@ -191,7 +191,16 @@ void Profiler::DumpTrace(std::ostream &of) {
   bool first = true;
   of << "[\n";
   for (size_t item = 0; item < kNumTraceItems; item++) {
-    uint64_t tid = (item < kL1Event_Copy) ? 0 : ((item < kL1Event_Convert) ? 1 : 2);
+    uint64_t tid = 0;
+    if (item < kL1Event_Sample) {
+      tid = 0;
+    } else if (item < kL1Event_Copy) {
+      tid = 1;
+    } else if (item < kL1Event_Convert) {
+      tid = 2;
+    } else {
+      tid = 3;
+    }
     for (size_t key = 0; key < _step_trace[item].events.size(); key++) {
       if (_step_trace[item].events[key].begin == 0) continue;
       auto & event = _step_trace[item].events[key];
