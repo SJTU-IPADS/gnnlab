@@ -67,7 +67,6 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
   }
 }
 
-// TODO: add sample_init for sampling process
 void DistEngine::SampleInit(int device_type, int device_id) {
   if (_initialize) {
     LOG(FATAL) << "DistEngine already initialized!";
@@ -77,6 +76,7 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   _sampler_ctx = RunConfig::sampler_ctx;
   if (_sampler_ctx.device_type == kGPU) {
     _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
+    // XXX: if remove value _sampler_copy_stream ?
     _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
 
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
@@ -102,12 +102,13 @@ void DistEngine::SampleInit(int device_type, int device_id) {
                    << device_type;
   }
   _num_step = _shuffler->NumStep();
-  // TODO: map the _hash_table to difference device
+  // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
   _hashtable = new OrderedHashTable(
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
 
-  // FIXME: cache not supported
+  // TODO: cache needs to support
+  //       _trainer_ctx is not initialized
   if (RunConfig::UseGPUCache()) {
     _cache_manager = new GPUCacheManager(
         _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
@@ -134,6 +135,8 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   }
 
   // Create queues
+  // XXX: what is the usage of value _queues ?
+  //      the differences between _queues and _graph_pool ?
   for (int i = 0; i < QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
     _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
@@ -143,7 +146,6 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   _initialize = true;
 }
 
-// TODO: add train_init for extracting and training process
 void DistEngine::TrainInit(int device_type, int device_id) {
   if (_initialize) {
     LOG(FATAL) << "DistEngine already initialized!";
@@ -153,12 +155,19 @@ void DistEngine::TrainInit(int device_type, int device_id) {
   _trainer_ctx = RunConfig::trainer_ctx;
 
   // Create CUDA streams
-  // TODO: create cuda streams that training needs
+  // XXX: create cuda streams that training needs
+  //       only support GPU sampling
+  _trainer_copy_stream = Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx);
+  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
+  // next code is for CPU sampling
   /*
   _work_stream = static_cast<cudaStream_t>(
       Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx));
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _work_stream);
   */
+
+  // results pool
+  _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   _initialize = true;
 }
@@ -232,7 +241,13 @@ void DistEngine::Shutdown() {
 // TODO: implement it!
 //       and split the sampling and extracting
 void DistEngine::RunSampleOnce() {
-
+  switch (RunConfig::run_arch) {
+    case kArch5:
+      RunArch5LoopsOnce();
+      break
+    default:
+      CHECK(0);
+  }
   LOG(DEBUG) << "RunSampleOnce finished.";
 }
 
