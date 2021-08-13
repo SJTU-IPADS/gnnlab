@@ -23,8 +23,6 @@ namespace samgraph {
 namespace common {
 namespace dist {
 
-using namespace cuda;
-
 class DistEngine : public Engine {
  public:
   DistEngine();
@@ -37,12 +35,12 @@ class DistEngine : public Engine {
   void TrainInit(int device_type, int device_id);
 
   // TODO: decide CPU or GPU to shuffling, sampling and id remapping
-  GPUShuffler* GetShuffler() { return static_cast<GPUShuffler*>(_shuffler); }
-  TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
-  OrderedHashTable* GetHashtable() { return _hashtable; }
-  GPURandomStates* GetRandomStates() { return _random_states; }
-  GPUCacheManager* GetCacheManager() { return _cache_manager; }
-  FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
+  cuda::GPUShuffler* GetShuffler() { return static_cast<cuda::GPUShuffler*>(_shuffler); }
+  TaskQueue* GetTaskQueue(cuda::QueueType qt) { return _queues[qt]; }
+  cuda::OrderedHashTable* GetHashtable() { return _hashtable; }
+  cuda::GPURandomStates* GetRandomStates() { return _random_states; }
+  cuda::GPUCacheManager* GetCacheManager() { return _cache_manager; }
+  cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
@@ -64,13 +62,13 @@ class DistEngine : public Engine {
   // Random node batch generator
   Shuffler* _shuffler;
   // Hash table
-  OrderedHashTable* _hashtable;
+  cuda::OrderedHashTable* _hashtable;
   // CUDA random states
-  GPURandomStates* _random_states;
+  cuda::GPURandomStates* _random_states;
   // Feature cache in GPU
-  GPUCacheManager* _cache_manager;
+  cuda::GPUCacheManager* _cache_manager;
   // Frequency hashmap
-  FrequencyHashmap* _frequency_hashmap;
+  cuda::FrequencyHashmap* _frequency_hashmap;
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;

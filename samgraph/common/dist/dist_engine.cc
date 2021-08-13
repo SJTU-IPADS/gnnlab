@@ -10,8 +10,8 @@
 #include "../run_config.h"
 #include "../timer.h"
 #include "../cuda/cuda_common.h"
-#include "../cuda/cuda_loops.h"
 #include "../cpu/cpu_engine.h"
+#include "dist_loops.h"
 
 // TODO: decide CPU or GPU to shuffling, sampling and id remapping
 /*
@@ -45,7 +45,7 @@ void DistEngine::Init() {
   _trainer_copy_stream = nullptr;
 
   // Check whether the ctx configuration is allowable
-  ArchCheck();
+  DistEngine::ArchCheck();
 
   // Load the target graph data
   LoadGraphDataset();
@@ -94,7 +94,7 @@ void DistEngine::SampleInit(int device_type, int device_id) {
           _num_epoch, _batch_size, false);
       break;
     case kGPU:
-      _shuffler = new GPUShuffler(_dataset->train_set,
+      _shuffler = new cuda::GPUShuffler(_dataset->train_set,
           _num_epoch, _batch_size, false);
       break;
     default:
@@ -104,13 +104,13 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   _num_step = _shuffler->NumStep();
   // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
-  _hashtable = new OrderedHashTable(
+  _hashtable = new cuda::OrderedHashTable(
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
 
   // TODO: cache needs to support
   //       _trainer_ctx is not initialized
   if (RunConfig::UseGPUCache()) {
-    _cache_manager = new GPUCacheManager(
+    _cache_manager = new cuda::GPUCacheManager(
         _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
         _dataset->feat->Type(), _dataset->feat->Shape()[1],
         static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
@@ -120,7 +120,7 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   }
 
   // Create CUDA random states for sampling
-  _random_states = new GPURandomStates(RunConfig::sample_type, _fanout,
+  _random_states = new cuda::GPURandomStates(RunConfig::sample_type, _fanout,
                                        _batch_size, _sampler_ctx);
 
   if (RunConfig::sample_type == kRandomWalk) {
@@ -129,7 +129,7 @@ void DistEngine::SampleInit(int device_type, int device_id) {
     size_t edges_per_node =
         RunConfig::num_random_walk * RunConfig::random_walk_length;
     _frequency_hashmap =
-        new FrequencyHashmap(max_nodes, edges_per_node, _sampler_ctx);
+        new cuda::FrequencyHashmap(max_nodes, edges_per_node, _sampler_ctx);
   } else {
     _frequency_hashmap = nullptr;
   }
@@ -137,7 +137,7 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   // Create queues
   // XXX: what is the usage of value _queues ?
   //      the differences between _queues and _graph_pool ?
-  for (int i = 0; i < QueueNum; i++) {
+  for (int i = 0; i < cuda::QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
     _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
   }
@@ -197,7 +197,7 @@ void DistEngine::Shutdown() {
   }
 
   // free queue
-  for (size_t i = 0; i < QueueNum; i++) {
+  for (size_t i = 0; i < cuda::QueueNum; i++) {
     if (_queues[i]) {
       delete _queues[i];
       _queues[i] = nullptr;
@@ -244,7 +244,7 @@ void DistEngine::RunSampleOnce() {
   switch (RunConfig::run_arch) {
     case kArch5:
       RunArch5LoopsOnce();
-      break
+      break;
     default:
       CHECK(0);
   }
