@@ -14,6 +14,8 @@ void RunArch5LoopsOnce();
 // common steps
 TaskPtr DoShuffle();
 void DoGPUSample(TaskPtr task);
+void DoGraphCopy(TaskPtr task);
+void DoIdCopy(TaskPtr task);
 void DoCPUFeatureExtract(TaskPtr task);
 void DoFeatureCopy(TaskPtr task);
 

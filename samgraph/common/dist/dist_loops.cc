@@ -228,6 +228,103 @@ void DoGPUSample(TaskPtr task) {
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
 
+void DoGraphCopy(TaskPtr task) {
+  auto copy_ctx = CPU();
+  auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
+  auto copy_device = Device::Get(copy_ctx);
+  auto copy_stream = nullptr;
+
+  for (size_t i = 0; i < task->graphs.size(); i++) {
+    auto graph = task->graphs[i];
+    auto train_row =
+        Tensor::Empty(graph->row->Type(), graph->row->Shape(), trainer_ctx,
+                      "train_graph.row_cuda_train_" +
+                          std::to_string(task->key) + "_" + std::to_string(i));
+    auto train_col =
+        Tensor::Empty(graph->col->Type(), graph->col->Shape(), trainer_ctx,
+                      "train_graph.col_cuda_train_" +
+                          std::to_string(task->key) + "_" + std::to_string(i));
+
+    LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
+               << ToReadableSize(graph->row->NumBytes());
+    LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
+               << ToReadableSize(graph->col->NumBytes());
+
+    copy_device->CopyDataFromTo(graph->row->Data(), 0,
+                                   train_row->MutableData(), 0,
+                                   graph->row->NumBytes(), graph->row->Ctx(),
+                                   train_row->Ctx(), copy_stream);
+    copy_device->CopyDataFromTo(graph->col->Data(), 0,
+                                   train_col->MutableData(), 0,
+                                   graph->col->NumBytes(), graph->col->Ctx(),
+                                   train_col->Ctx(), copy_stream);
+
+    // XXX: Random walk is successful here?
+    if (RunConfig::sample_type == kRandomWalk) {
+      auto graph_data = Tensor::Empty(
+          graph->data->Type(), graph->data->Shape(), trainer_ctx,
+          "train_graph.data_cuda_train_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
+
+      LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda graph data malloc "
+                 << ToReadableSize(graph->data->NumBytes());
+
+      copy_device->CopyDataFromTo(
+          graph->data->Data(), 0, graph_data->MutableData(), 0,
+          graph->data->NumBytes(), graph->data->Ctx(), graph_data->Ctx(),
+          copy_stream);
+      graph->data = graph_data;
+    }
+
+    copy_device->StreamSync(copy_ctx, copy_stream);
+
+    graph->row = train_row;
+    graph->col = train_col;
+
+    Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
+                               train_row->NumBytes() + train_col->NumBytes());
+  }
+
+  LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
+}
+
+void DoIdCopy(TaskPtr task) {
+  auto copy_ctx = CPU();
+  auto copy_device = Device::Get(copy_ctx);
+  auto copy_stream = nullptr;
+
+  auto input_nodes =
+      Tensor::Empty(task->input_nodes->Type(), task->input_nodes->Shape(),
+                    CPU(), "task.input_nodes_cpu_" + std::to_string(task->key));
+  auto output_nodes = Tensor::Empty(
+      task->output_nodes->Type(), task->output_nodes->Shape(), CPU(),
+      "task.output_nodes_cpu_" + std::to_string(task->key));
+  LOG(DEBUG) << "IdCopyDevice2Host input_nodes cpu malloc "
+             << ToReadableSize(input_nodes->NumBytes());
+  LOG(DEBUG) << "IdCopyDevice2Host output_nodes cpu malloc "
+             << ToReadableSize(output_nodes->NumBytes());
+
+  copy_device->CopyDataFromTo(
+      task->input_nodes->Data(), 0, input_nodes->MutableData(), 0,
+      task->input_nodes->NumBytes(), task->input_nodes->Ctx(),
+      input_nodes->Ctx(), copy_stream);
+  copy_device->CopyDataFromTo(
+      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
+      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
+      output_nodes->Ctx(), copy_stream);
+
+  copy_device->StreamSync(copy_ctx, copy_stream);
+
+  task->input_nodes = input_nodes;
+  task->output_nodes = output_nodes;
+
+  Profiler::Get().LogStepAdd(
+      task->key, kLogL1IdBytes,
+      input_nodes->NumBytes() + output_nodes->NumBytes());
+
+  LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
+}
+
 void DoCPUFeatureExtract(TaskPtr task) {
   auto dataset = DistEngine::Get()->GetGraphDataset();
 
