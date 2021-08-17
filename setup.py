@@ -81,6 +81,7 @@ setup(
                 'samgraph/common/run_config.cc',
                 'samgraph/common/task_queue.cc',
                 'samgraph/common/workspace_pool.cc',
+                'samgraph/common/memory_queue.cc',
                 'samgraph/common/cpu/cpu_device.cc',
                 'samgraph/common/cpu/cpu_engine.cc',
                 'samgraph/common/cpu/cpu_extraction.cc',
@@ -117,6 +118,8 @@ setup(
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
                 'samgraph/common/dist/dist_engine.cc',
+                'samgraph/common/dist/dist_loops.cc',
+                'samgraph/common/dist/dist_loops_arch5.cc',
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(

@@ -131,6 +131,7 @@ bool RunDataCopySubLoopOnce() {
 
 } // namespace
 
+// TODO: split the sampling and extracting
 void RunArch5LoopsOnce() {
   RunSampleSubLoopOnce();
   if (!RunConfig::UseGPUCache()) {

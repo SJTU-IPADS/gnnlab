@@ -53,5 +53,7 @@ void RunConfig::LoadConfigFromEnv() {
   }
 }
 
+std::string RunConfig::shared_meta_path = "/shared_meta_data";
+
 }  // namespace common
 }  // namespace samgraph

@@ -50,6 +50,8 @@ struct RunConfig {
     return cache_percentage > 0 && run_arch != kArch1;
   }
   static void LoadConfigFromEnv();
+  // shared memory meta_data path
+  static std::string shared_meta_path;
 };
 
 }  // namespace common
