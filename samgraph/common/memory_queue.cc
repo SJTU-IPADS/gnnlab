@@ -20,10 +20,12 @@ MemoryQueue::MemoryQueue(std::string meta_memory_name) {
     _meta_data = reinterpret_cast<QueueMetaData*> (mmap(NULL, sizeof(QueueMetaData), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     CHECK_NE(_meta_data, MAP_FAILED);
   }
+  prefix = meta_memory_name;
 }
 
 std::string MemoryQueue::Key2String(size_t key) {
-  return "shared_memory_" + std::to_string(key);
+  // return "shared_memory_" + std::to_string(key);
+  return prefix + std::to_string(key);
 }
 
 MemoryQueue::~MemoryQueue() {

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef SAMGRAPH_MEMORY_QUEUE_H
 #define SAMGRAPH_MEMORY_QUEUE_H
 
@@ -30,6 +31,7 @@ class SharedData {
  public:
   SharedData(void* data, size_t size, std::string name) : _data(data), _size(size), _shared_name(name) {};
   const void* Data() { return _data; }
+  size_t Size() { return _size; }
   ~SharedData() {
     shm_unlink(_shared_name.c_str());
   };
@@ -85,6 +87,7 @@ class MemoryQueue {
   QueueMetaData* _meta_data;
   std::string _meta_memory_name;
   std::string Key2String(size_t key);
+  std::string prefix;
 };
 
 }  // namespace common
