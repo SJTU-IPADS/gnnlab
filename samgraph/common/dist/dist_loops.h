@@ -4,12 +4,13 @@
 #define SAMGRAPH_DIST_LOOPS_H
 
 #include "../common.h"
+#include "dist_engine.h"
 
 namespace samgraph {
 namespace common {
 namespace dist {
 
-void RunArch5LoopsOnce();
+void RunArch5LoopsOnce(DistType dist_type);
 
 // common steps
 TaskPtr DoShuffle();

@@ -13,6 +13,7 @@
 #include "logging.h"
 #include "profiler.h"
 #include "run_config.h"
+#include "./dist/dist_engine.h"
 
 namespace samgraph {
 namespace common {
@@ -207,6 +208,29 @@ void samgraph_report_node_access() {
   if (RunConfig::option_log_node_access) {
     Profiler::Get().ReportNodeAccess();
   }
+}
+
+void samgraph_data_init() {
+  CHECK(RunConfig::is_configured);
+  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
+  Engine::Create();
+  Engine::Get()->Init();
+
+  LOG(INFO) << "SamGraph data has been initialied successfully";
+}
+void samgraph_sample_init(int device_type, int device_id) {
+  CHECK(RunConfig::is_configured);
+  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
+  dist::DistEngine::Get()->SampleInit(device_type, device_id);
+
+  LOG(INFO) << "SamGraph sample has been initialied successfully";
+}
+void samgraph_train_init(int device_type, int device_id) {
+  CHECK(RunConfig::is_configured);
+  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
+  dist::DistEngine::Get()->TrainInit(device_type, device_id);
+
+  LOG(INFO) << "SamGraph train has been initialied successfully";
 }
 }
 }  // namespace common

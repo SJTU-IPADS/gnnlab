@@ -68,11 +68,11 @@ void samgraph_report_epoch_average(uint64_t epoch);
 void samgraph_report_node_access();
 
 // for multi-GPUs train, call data_init before fork
-/*
 void samgraph_data_init();
 void samgraph_sample_init(int device_type, int device_id);
 void samgraph_train_init(int device_type, int device_id);
-*/
+void samgraph_sample();
+void samgraph_extract();
 
 
 }

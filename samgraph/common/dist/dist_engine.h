@@ -23,6 +23,8 @@ namespace samgraph {
 namespace common {
 namespace dist {
 
+enum class DistType {Sample = 0, Extract, Default};
+
 class DistEngine : public Engine {
  public:
   DistEngine();
@@ -72,6 +74,8 @@ class DistEngine : public Engine {
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;
+  // Dist type: Sample or Extract
+  DistType _dist_type;
 };
 
 }  // namespace dist

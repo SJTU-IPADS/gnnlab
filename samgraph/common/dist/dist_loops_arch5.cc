@@ -10,7 +10,6 @@
 #include "../run_config.h"
 #include "../timer.h"
 
-#include "dist_engine.h"
 #include "dist_loops.h"
 #include "../cuda/cuda_function.h"
 #include "../cuda/cuda_hashtable.h"
@@ -129,13 +128,19 @@ bool RunDataCopySubLoopOnce() {
 } // namespace
 
 // TODO: split the sampling and extracting
-void RunArch5LoopsOnce() {
-  RunSampleSubLoopOnce();
-  if (!RunConfig::UseGPUCache()) {
-    // RunDataCopySubLoopOnce();
+void RunArch5LoopsOnce(DistType dist_type) {
+  if (dist_type == DistType::Sample) {
+    RunSampleSubLoopOnce();
+  }
+  else if (dist_type == DistType::Extract) {
+    if (!RunConfig::UseGPUCache()) {
+      RunDataCopySubLoopOnce();
+    } else {
+      // TODO: implement function RunCacheDataCopySubLoopOnce
+      LOG(FATAL) << "RunCacheDataCopySubLoopOnce needs to implement!";
+    }
   } else {
-    // TODO: implement function RunCacheDataCopySubLoopOnce
-    LOG(FATAL) << "RunCacheDataCopySubLoopOnce needs to implement!";
+    LOG(FATAL) << "dist type is illegal!";
   }
 
 }

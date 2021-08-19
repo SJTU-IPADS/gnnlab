@@ -43,6 +43,7 @@ void DistEngine::Init() {
   _sample_stream = nullptr;
   _sampler_copy_stream = nullptr;
   _trainer_copy_stream = nullptr;
+  _dist_type = DistType::Default;
 
   // Check whether the ctx configuration is allowable
   DistEngine::ArchCheck();
@@ -72,6 +73,7 @@ void DistEngine::SampleInit(int device_type, int device_id) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
+  _dist_type = DistType::Sample;
   RunConfig::sampler_ctx = Context{static_cast<DeviceType>(device_type), device_id};
   _sampler_ctx = RunConfig::sampler_ctx;
   if (_sampler_ctx.device_type == kGPU) {
@@ -135,8 +137,6 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   }
 
   // Create queues
-  // XXX: what is the usage of value _queues ?
-  //      the differences between _queues and _graph_pool ?
   for (int i = 0; i < cuda::QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
     _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
@@ -151,6 +151,7 @@ void DistEngine::TrainInit(int device_type, int device_id) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
+  _dist_type = DistType::Extract;
   RunConfig::trainer_ctx = Context{static_cast<DeviceType>(device_type), device_id};
   _trainer_ctx = RunConfig::trainer_ctx;
 
@@ -243,7 +244,7 @@ void DistEngine::Shutdown() {
 void DistEngine::RunSampleOnce() {
   switch (RunConfig::run_arch) {
     case kArch5:
-      RunArch5LoopsOnce();
+      RunArch5LoopsOnce(_dist_type);
       break;
     default:
       CHECK(0);

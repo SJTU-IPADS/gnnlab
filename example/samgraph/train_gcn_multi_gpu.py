@@ -77,17 +77,19 @@ def parse_args(default_run_config):
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
+    '''
     argparser.add_argument('--sample-devices', nargs='+',
                            type=int, default=default_run_config['sample_devices'])
     argparser.add_argument('--train-devices', nargs='+',
                            type=int, default=default_run_config['train_devices'])
+    '''
 
     return vars(argparser.parse_args())
 
 
 def get_run_config():
     default_run_config = {}
-    default_run_config['arch'] = 'arch0'
+    default_run_config['arch'] = 'arch5'
     default_run_config['sample_type'] = sam.kKHop0
     default_run_config['pipeline'] = False  # default value must be false
     default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
@@ -111,9 +113,9 @@ def get_run_config():
     default_run_config['lr'] = 0.003
     default_run_config['dropout'] = 0.5
     default_run_config['weight_decay'] = 0.0005
-    default_run_config['sample_devices'] = [sam.cpu()]
+    # default_run_config['sample_devices'] = [sam.cpu()]
     # default_run_config['train_devices'] = [sam.gpu(0), sam.gpu(1)]
-    default_run_config['train_devices'] = [sam.gpu(0), sam.gpu(1)]
+    # default_run_config['train_devices'] = [sam.gpu(0), sam.gpu(1)]
 
     run_config = parse_args(default_run_config)
 
@@ -129,8 +131,8 @@ def get_run_config():
     '''
     '''
     # FIXME: convert to sampler_ctx and trainer_ctx
-    run_config['num_sample_worker'] = len(run_config['sample_devices'])
-    run_config['num_train_worker'] = len(run_config['train_devices'])
+    run_config['num_sample_worker'] = 1 # len(run_config['sampler_ctx'])
+    run_config['num_train_worker'] = 1 # len(run_config['trainer_ctx'])
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -145,10 +147,12 @@ def get_run_config():
 def run_init(run_config):
     sam.config(run_config)
     sam.config_khop(run_config)
-    sam.init()
+    sam.data_init()
 
 def run_sample(worker_id, run_config, epoch_barrier):
     queue = run_config['mpq']
+    ctx = run_config['sampler_ctx']
+    sam.sample_init(ctx.device_type, ctx.device_id)
     if run_config['pipeline']:
         sam.start()
 
@@ -159,16 +163,12 @@ def run_sample(worker_id, run_config, epoch_barrier):
         for step in range(num_step):
             if not run_config['pipeline']:
                 sam.sample_once()
-            batch_key = sam.get_next_batch(epoch, step)
-            # TODO: add a API provide the blocks, input_nodes, output_nodes
-            blocks, input_nodes, output_nodes = sam.get_dgl_blocks_multigpu(batch_key, num_layer)
-            # TODO: send blocks and nodes
-            queue.put((blocks, input_nodes, output_nodes))
         epoch_barrier.wait()
 
 def run_train(worker_id, run_config, epoch_barrier):
-    ctx= run_config['train_devices'][worker_id]
+    ctx= run_config['trainer_ctx'] # [worker_id]
     queue = run_config['mpq']
+    sam.train_init(ctx.device_type, ctx.device_id)
     num_worker = run_config['num_train_worker']
     train_device = torch.device('cuda:%d' % ctx.device_id)
     print("train_device: ", train_device)
