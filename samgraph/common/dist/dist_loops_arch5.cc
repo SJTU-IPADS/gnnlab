@@ -63,10 +63,7 @@ bool RunSampleSubLoopOnce() {
     double sample_time = t1.Passed();
 
     // TODO: implement function "sendTask" to send task
-    next_q->AddTask(task);
-    // XXX: remove this submission
-    LOG(DEBUG) << "Submit: process task with key " << task->key;
-    graph_pool->Submit(task->key, task);
+    next_q->Send(task);
 
     Profiler::Get().LogStep(task->key, kLogL1SampleTime,
                             shuffle_time + sample_time);
@@ -90,7 +87,7 @@ bool RunDataCopySubLoopOnce() {
   auto this_op = cuda::kDataCopy;
   auto q = DistEngine::Get()->GetTaskQueue(this_op);
   // TODO: implement function "recvTask" to receive the task
-  auto task = q->GetTask();
+  auto task = q->Recv();
 
   if (task) {
     Timer t0;

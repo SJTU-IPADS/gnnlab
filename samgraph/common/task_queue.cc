@@ -40,6 +40,7 @@ std::shared_ptr<Task> TaskQueue::GetTask() {
 
 namespace {
   using T = uint32_t;
+
   struct TransData {
     bool     weight; // if have weight values
     int      num_layer;
@@ -52,6 +53,7 @@ namespace {
     //   GraphData: <num_src|num_dst|num_edge|row|col|data> : layer 2
     //   ...
   };
+
   struct GraphData {
     size_t num_src;
     size_t num_dst;
@@ -59,12 +61,13 @@ namespace {
     T data[0];
     // row|col|[data]
   };
+
   size_t GetDataBytes(std::shared_ptr<Task> task) {
     size_t ret = 0;
     ret += task->input_nodes->NumBytes();
     ret += task->output_nodes->NumBytes();
     for (auto &graph : task->graphs) {
-      ret += 3 * sizeof(size_t);
+      ret += sizeof(GraphData);
       ret += graph->row->NumBytes();
       ret += graph->col->NumBytes();
       if (graph->data != nullptr) {
@@ -73,6 +76,7 @@ namespace {
     }
     return ret;
   }
+
   void* ToData(std::shared_ptr<Task> task) {
     bool weight = false;
     if (task->graphs[0]->data != nullptr) {
@@ -85,21 +89,29 @@ namespace {
     ptr->key = task->key;
     ptr->input_size = task->input_nodes->Shape()[0];
     ptr->output_size = task->output_nodes->Shape()[0];
+
+    CHECK_EQ(sizeof(T) * ptr->input_size, task->input_nodes->NumBytes());
     std::memcpy(ptr->data, task->input_nodes->Data(),
                 sizeof(T) * ptr->input_size);
+
+    CHECK_EQ(sizeof(T) * ptr->output_size, task->output_nodes->NumBytes());
     std::memcpy(ptr->data + ptr->input_size, task->output_nodes->Data(),
                 sizeof(T) * ptr->output_size);
+
     GraphData* graph_data = reinterpret_cast<GraphData*>(ptr->data + ptr->input_size + ptr->output_size);
     for (auto &graph : task->graphs) {
       graph_data->num_src = graph->num_src;
       graph_data->num_dst = graph->num_dst;
       graph_data->num_edge = graph->num_edge;
+      CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->row->NumBytes());
       std::memcpy(graph_data->data, graph->row->Data(),
                   graph->row->NumBytes());
+      CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->col->NumBytes());
       std::memcpy(graph_data->data + graph->num_edge,
                   graph->col->Data(),
                   graph->col->NumBytes());
       if (weight) {
+        CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->data->NumBytes());
         std::memcpy(graph_data->data + 2 * graph->num_edge,
                     graph->data->Data(),
                     graph->data->NumBytes());
@@ -110,6 +122,7 @@ namespace {
     }
     return static_cast<void*>(ptr);
   }
+
   Context data_ctx = Context{kCPU, 0};
   TensorPtr to_tensor(const void* ptr, size_t nbytes, std::string name) {
     void* data = Device::Get(data_ctx)->
@@ -118,29 +131,36 @@ namespace {
     TensorPtr ret = Tensor::FromBlob(data, kI32, {(nbytes/sizeof(T))}, data_ctx, name);
     return ret;
   }
+
   std::shared_ptr<Task> ParseData(const void* ptr) {
     const TransData* trans_data = static_cast<const TransData*>(ptr);
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
+
     task->input_nodes = to_tensor(trans_data->data,
-        trans_data->input_size * sizeof(T), "input");
+        trans_data->input_size * sizeof(T), "input_" + std::to_string(task->key));
     task->output_nodes = to_tensor(trans_data->data + trans_data->input_size,
-        trans_data->output_size * sizeof(T), "output");
-    // TODO: parse the graph data
+        trans_data->output_size * sizeof(T), "output_" + std::to_string(task->key));
+
     task->graphs.resize(trans_data->num_layer);
     const GraphData *graph_data = reinterpret_cast<const GraphData*>(
         trans_data->data + trans_data->input_size + trans_data->output_size);
+
+    int layer = 0;
     for (auto &graph : task->graphs) {
       graph->num_src = graph_data->num_src;
       graph->num_dst = graph_data->num_dst;
       graph->num_edge = graph_data->num_edge;
       graph->row = to_tensor(graph_data->data,
-          graph->num_edge * sizeof(T), "train_graph.row");
+          graph->num_edge * sizeof(T),
+          "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer));
       graph->col = to_tensor(graph_data->data + graph->num_edge,
-          graph->num_edge * sizeof(T), "train_graph.col");
+          graph->num_edge * sizeof(T),
+          "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer));
       if (trans_data->weight) {
         graph->data = to_tensor(graph_data->data + 2 * graph->num_edge,
-            graph->num_edge * sizeof(T), "train_graph.weight");
+            graph->num_edge * sizeof(T),
+            "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer));
         graph_data = reinterpret_cast<const GraphData*>(
             graph_data->data + 3 * graph->num_edge);
       } else {
@@ -148,6 +168,7 @@ namespace {
         graph_data = reinterpret_cast<const GraphData*>(
             graph_data->data + 2 * graph->num_edge);
       }
+      ++layer;
     }
     return task;
   }
@@ -156,7 +177,7 @@ namespace {
 bool TaskQueue::Send(std::shared_ptr<Task> task) {
   void* data = ToData(task);
   size_t bytes = sizeof(TransData) + GetDataBytes(task);
-  int ret = _mq->Send(data, bytes);
+  size_t ret = _mq->Send(data, bytes);
   return (ret == bytes);
 }
 

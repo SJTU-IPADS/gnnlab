@@ -37,10 +37,8 @@ class SharedData {
   };
 };
 
-namespace {
-
 template <typename T, T N>
-struct MetaData {
+struct MQ_MetaData {
   T send_cnt;
   T recv_cnt;
   T max_size;
@@ -69,9 +67,7 @@ struct MetaData {
   }
 };
 
-} // namespace
-
-using QueueMetaData = MetaData<size_t, 1024>;
+using QueueMetaData = MQ_MetaData<size_t, 1024>;
 
 class MemoryQueue {
  public:
