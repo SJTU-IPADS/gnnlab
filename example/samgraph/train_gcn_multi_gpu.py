@@ -8,6 +8,7 @@ import numpy as np
 from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
+import os
 
 import samgraph.torch as sam
 
@@ -150,25 +151,33 @@ def run_init(run_config):
     sam.data_init()
 
 def run_sample(worker_id, run_config, epoch_barrier):
+    print('pid of run_sample is: ', os.getpid())
     queue = run_config['mpq']
     ctx = run_config['sampler_ctx']
     sam.sample_init(ctx.device_type, ctx.device_id)
+    epoch_barrier.wait()
     if run_config['pipeline']:
         sam.start()
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
 
+    print(f"num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
         for step in range(num_step):
             if not run_config['pipeline']:
+                print("start sample_once...")
                 sam.sample_once()
+                print("end sample_once")
         epoch_barrier.wait()
 
 def run_train(worker_id, run_config, epoch_barrier):
+    os.environ['SAMGRAPH_LOG_LEVEL'] = 'debug'
+    print('pid of run_train is: ', os.getpid())
     ctx= run_config['trainer_ctx'] # [worker_id]
     queue = run_config['mpq']
     sam.train_init(ctx.device_type, ctx.device_id)
+    epoch_barrier.wait()
     num_worker = run_config['num_train_worker']
     train_device = torch.device('cuda:%d' % ctx.device_id)
     print("train_device: ", train_device)
@@ -186,12 +195,10 @@ def run_train(worker_id, run_config, epoch_barrier):
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
-    print(in_feat, num_class, num_layer)
 
     model = GCN(in_feat, run_config['num_hidden'], num_class,
                 num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
-    print("model")
     if num_worker > 1:
         model = DistributedDataParallel(
             model, device_ids=[train_device], output_device=train_device)
@@ -220,11 +227,14 @@ def run_train(worker_id, run_config, epoch_barrier):
     num_nodes = []
     num_samples = []
 
+    print(f"num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
         for step in range(num_step):
             t0 = time.time()
+            print(f"before epoch: {epoch}, step: {step}")
             if not run_config['pipeline']:
                 sam.sample_once()
+            print(f"epoch: {epoch}, step: {step}")
             batch_key = sam.get_next_batch(epoch, step)
             # TODO: get blocks, input_nodes, output_nodes from queue
             # (blocks, input_nodes, output_nodes) = queue.get(True)

@@ -2,6 +2,7 @@
 #include "memory_queue.h"
 #include "device.h"
 #include "run_config.h"
+#include "./dist/dist_engine.h"
 
 namespace samgraph {
 namespace common {
@@ -77,12 +78,23 @@ namespace {
     return ret;
   }
 
+  Context data_ctx = Context{kCPU, 0};
+  void CopyTo(const TensorPtr& tensor, void* to) {
+    auto source_ctx = tensor->Ctx();
+    auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+    auto nbytes = tensor->NumBytes();
+    Device::Get(source_ctx)->CopyDataFromTo(tensor->Data(), 0, to, 0,
+                nbytes, source_ctx, data_ctx, stream);
+    Device::Get(source_ctx)->StreamSync(source_ctx, stream);
+  }
+
   void* ToData(std::shared_ptr<Task> task) {
     bool weight = false;
     if (task->graphs[0]->data != nullptr) {
       weight = true;
     }
     size_t data_size = GetDataBytes(task);
+    LOG(DEBUG) << "ToData transform data size: " << data_size << " bytes";
     TransData* ptr = static_cast<TransData*>(malloc(sizeof(TransData) + data_size));
     ptr->weight = weight;
     ptr->num_layer = (task->graphs.size());
@@ -91,30 +103,27 @@ namespace {
     ptr->output_size = task->output_nodes->Shape()[0];
 
     CHECK_EQ(sizeof(T) * ptr->input_size, task->input_nodes->NumBytes());
-    std::memcpy(ptr->data, task->input_nodes->Data(),
-                sizeof(T) * ptr->input_size);
+    CopyTo(task->input_nodes, ptr->data);
 
     CHECK_EQ(sizeof(T) * ptr->output_size, task->output_nodes->NumBytes());
-    std::memcpy(ptr->data + ptr->input_size, task->output_nodes->Data(),
-                sizeof(T) * ptr->output_size);
+    CopyTo(task->output_nodes, ptr->data + ptr->input_size);
 
     GraphData* graph_data = reinterpret_cast<GraphData*>(ptr->data + ptr->input_size + ptr->output_size);
+    LOG(DEBUG) << "ToData with task graphs layer: " << task->graphs.size();
     for (auto &graph : task->graphs) {
       graph_data->num_src = graph->num_src;
       graph_data->num_dst = graph->num_dst;
       graph_data->num_edge = graph->num_edge;
+
       CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->row->NumBytes());
-      std::memcpy(graph_data->data, graph->row->Data(),
-                  graph->row->NumBytes());
+      CopyTo(graph->row, graph_data->data);
+
       CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->col->NumBytes());
-      std::memcpy(graph_data->data + graph->num_edge,
-                  graph->col->Data(),
-                  graph->col->NumBytes());
+      CopyTo(graph->col, graph_data->data + graph_data->num_edge);
+
       if (weight) {
         CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->data->NumBytes());
-        std::memcpy(graph_data->data + 2 * graph->num_edge,
-                    graph->data->Data(),
-                    graph->data->NumBytes());
+        CopyTo(graph->data, graph_data->data + 2 * graph_data->num_edge);
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 3 * graph->num_edge);
       } else {
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 2 * graph->num_edge);
@@ -123,8 +132,8 @@ namespace {
     return static_cast<void*>(ptr);
   }
 
-  Context data_ctx = Context{kCPU, 0};
-  TensorPtr to_tensor(const void* ptr, size_t nbytes, std::string name) {
+  TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name) {
+    LOG(DEBUG) << "TaskQueue ToTensor with name: " << name;
     void* data = Device::Get(data_ctx)->
       AllocWorkspace(data_ctx, nbytes);
     std::memcpy(data, ptr, nbytes);
@@ -137,12 +146,12 @@ namespace {
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
 
-    task->input_nodes = to_tensor(trans_data->data,
+    task->input_nodes = ToTensor(trans_data->data,
         trans_data->input_size * sizeof(T), "input_" + std::to_string(task->key));
-    task->output_nodes = to_tensor(trans_data->data + trans_data->input_size,
+    task->output_nodes = ToTensor(trans_data->data + trans_data->input_size,
         trans_data->output_size * sizeof(T), "output_" + std::to_string(task->key));
 
-    task->graphs.resize(trans_data->num_layer);
+    task->graphs.resize(trans_data->num_layer, std::make_shared<TrainGraph>());
     const GraphData *graph_data = reinterpret_cast<const GraphData*>(
         trans_data->data + trans_data->input_size + trans_data->output_size);
 
@@ -151,14 +160,14 @@ namespace {
       graph->num_src = graph_data->num_src;
       graph->num_dst = graph_data->num_dst;
       graph->num_edge = graph_data->num_edge;
-      graph->row = to_tensor(graph_data->data,
+      graph->row = ToTensor(graph_data->data,
           graph->num_edge * sizeof(T),
           "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer));
-      graph->col = to_tensor(graph_data->data + graph->num_edge,
+      graph->col = ToTensor(graph_data->data + graph->num_edge,
           graph->num_edge * sizeof(T),
           "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer));
       if (trans_data->weight) {
-        graph->data = to_tensor(graph_data->data + 2 * graph->num_edge,
+        graph->data = ToTensor(graph_data->data + 2 * graph->num_edge,
             graph->num_edge * sizeof(T),
             "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer));
         graph_data = reinterpret_cast<const GraphData*>(
@@ -175,15 +184,19 @@ namespace {
 } // namespace
 
 bool TaskQueue::Send(std::shared_ptr<Task> task) {
+  LOG(DEBUG) << "TaskQueue Send start with task key: " << task->key;
   void* data = ToData(task);
   size_t bytes = sizeof(TransData) + GetDataBytes(task);
+  LOG(DEBUG) << "TaskQueue Send data with " << bytes << " bytes";
   size_t ret = _mq->Send(data, bytes);
   return (ret == bytes);
 }
 
 std::shared_ptr<Task> TaskQueue::Recv() {
   std::shared_ptr<SharedData> shared_data = _mq->Recv();
+  LOG(DEBUG) << "TaskQueue Recv data with " << shared_data->Size() << " bytes";
   std::shared_ptr<Task> task = ParseData(shared_data->Data());
+  LOG(INFO) << "TaskQueue Recv a task with key: " << task->key;
   return task;
 }
 

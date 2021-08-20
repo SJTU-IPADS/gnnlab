@@ -216,21 +216,21 @@ void samgraph_data_init() {
   Engine::Create();
   Engine::Get()->Init();
 
-  LOG(INFO) << "SamGraph data has been initialied successfully";
+  LOG(INFO) << "SamGraph data has been initialized successfully";
 }
 void samgraph_sample_init(int device_type, int device_id) {
   CHECK(RunConfig::is_configured);
   CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
   dist::DistEngine::Get()->SampleInit(device_type, device_id);
 
-  LOG(INFO) << "SamGraph sample has been initialied successfully";
+  LOG(INFO) << "SamGraph sample has been initialized successfully";
 }
 void samgraph_train_init(int device_type, int device_id) {
   CHECK(RunConfig::is_configured);
   CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
   dist::DistEngine::Get()->TrainInit(device_type, device_id);
 
-  LOG(INFO) << "SamGraph train has been initialied successfully";
+  LOG(INFO) << "SamGraph train has been initialized successfully";
 }
 }
 }  // namespace common

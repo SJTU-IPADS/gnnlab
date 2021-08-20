@@ -45,7 +45,7 @@ struct MQ_MetaData {
   sem_t sem_list[N];
   void Init() {
     send_cnt = 0; recv_cnt = 0; max_size = N;
-    for (int i = 0; i < max_size; ++i) {
+    for (T i = 0; i < max_size; ++i) {
       sem_init(sem_list + i, 1, 0);
     }
   }

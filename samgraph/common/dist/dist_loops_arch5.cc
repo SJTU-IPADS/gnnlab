@@ -62,6 +62,7 @@ bool RunSampleSubLoopOnce() {
     double sample_time = t1.Passed();
 
     // TODO: implement function "sendTask" to send task
+    LOG(DEBUG) << "RunSampleOnce next_q Send task";
     next_q->Send(task);
 
     Profiler::Get().LogStep(task->key, kLogL1SampleTime,
@@ -130,9 +131,11 @@ bool RunDataCopySubLoopOnce() {
 // TODO: split the sampling and extracting
 void RunArch5LoopsOnce(DistType dist_type) {
   if (dist_type == DistType::Sample) {
+    LOG(DEBUG) << "RunArch5LoopsOnce with Sample!";
     RunSampleSubLoopOnce();
   }
   else if (dist_type == DistType::Extract) {
+    LOG(DEBUG) << "RunArch5LoopsOnce with Extract!";
     if (!RunConfig::UseGPUCache()) {
       RunDataCopySubLoopOnce();
     } else {

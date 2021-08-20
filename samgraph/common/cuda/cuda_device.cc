@@ -48,6 +48,9 @@ void GPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
   } else if (ctx_from.device_type == kCPU && ctx_to.device_type == kGPU) {
     CUDA_CALL(cudaSetDevice(ctx_to.device_id));
     GPUCopy(from, to, nbytes, cudaMemcpyHostToDevice, cu_stream);
+  } else if (ctx_from.device_type == kMMAP && ctx_to.device_type == kGPU) {
+    CUDA_CALL(cudaSetDevice(ctx_to.device_id));
+    GPUCopy(from, to, nbytes, cudaMemcpyHostToDevice, cu_stream);
   } else {
     LOG(FATAL) << "expect copy from/to GPU or between GPU";
   }

@@ -66,6 +66,7 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
       _dataset->alias_table->Tensor::CopyTo(_dataset->prob_table, sampler_ctx, stream);
     }
   }
+  LOG(DEBUG) << "SampleDataCopy finished!";
 }
 
 void DistEngine::SampleInit(int device_type, int device_id) {
@@ -78,14 +79,12 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   _sampler_ctx = RunConfig::sampler_ctx;
   if (_sampler_ctx.device_type == kGPU) {
     _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
-    // XXX: if remove value _sampler_copy_stream ?
+    // use sampler_ctx in task sending
     _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
 
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
   }
-  // batch results set
-  _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   SampleDataCopy(_sampler_ctx, _sample_stream);
 
@@ -141,6 +140,7 @@ void DistEngine::SampleInit(int device_type, int device_id) {
     LOG(DEBUG) << "Create task queue" << i;
     _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
   }
+  // batch results set
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   _initialize = true;
@@ -167,6 +167,25 @@ void DistEngine::TrainInit(int device_type, int device_id) {
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _work_stream);
   */
 
+  _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) / _batch_size);
+
+  // TODO: cache needs to support
+  //       _trainer_ctx is not initialized
+  if (RunConfig::UseGPUCache()) {
+    _cache_manager = new cuda::GPUCacheManager(
+        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+        _dataset->feat->Type(), _dataset->feat->Shape()[1],
+        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
+        _dataset->num_node, RunConfig::cache_percentage);
+  } else {
+    _cache_manager = nullptr;
+  }
+
+  // Create queues
+  for (int i = 0; i < cuda::QueueNum; i++) {
+    LOG(DEBUG) << "Create task queue" << i;
+    _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+  }
   // results pool
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 

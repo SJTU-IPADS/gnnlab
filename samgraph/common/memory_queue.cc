@@ -21,6 +21,7 @@ MemoryQueue::MemoryQueue(std::string meta_memory_name) {
     CHECK_NE(_meta_data, MAP_FAILED);
   }
   prefix = meta_memory_name;
+  LOG(INFO) << "MemoryQueue initialized with prefix name: " << prefix;
 }
 
 std::string MemoryQueue::Key2String(size_t key) {
@@ -64,16 +65,21 @@ int MemoryQueue::Send(void* data, size_t size) {
 
   std::memcpy(shared_memory, data, size);
   _meta_data->SemPost(key);
+  LOG(DEBUG) << "MemoryQueue Send with key: " << key;
 
   return size;
 }
 
 std::shared_ptr<SharedData> MemoryQueue::Recv() {
+  LOG(DEBUG) << "MemoryQueue Recv:"
+             << " recv_cnt in meta_data is " << _meta_data->recv_cnt
+             << ", send_cnt in meta_data is " << _meta_data->send_cnt;
   while (_meta_data->recv_cnt == _meta_data->send_cnt) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     // return std::make_shared<SharedData>(nullptr, -1, "null");
   }
   auto key = _meta_data->Get();
+  LOG(DEBUG) << "MemoryQueue Recv with key: " << key;
   std::string shared_memory_name = Key2String(key);
 
   _meta_data->SemWait(key);
@@ -91,6 +97,7 @@ std::shared_ptr<SharedData> MemoryQueue::Recv() {
   CHECK_NE(shared_memory, MAP_FAILED);
 
   std::shared_ptr<SharedData> ret = std::make_shared<SharedData>(shared_memory, size, shared_memory_name);
+  LOG(DEBUG) << "MemoryQueue Recv success with key: " << key;
 
   return ret;
 }
