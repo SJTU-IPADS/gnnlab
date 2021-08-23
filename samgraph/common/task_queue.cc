@@ -88,6 +88,21 @@ namespace {
     Device::Get(source_ctx)->StreamSync(source_ctx, stream);
   }
 
+  // to print the information of a task
+/*
+  void PrintTask(std::shared_ptr<Task> task) {
+    std::cout << "key: " << task->key <<std::endl;
+    std::cout << "input size: " << task->input_nodes->Shape()[0] << std::endl;
+    std::cout << "output size: " << task->output_nodes->Shape()[0] << std::endl;
+    std::cout << "num layer: " << task->graphs.size() << std::endl;
+    int layer = 0;
+    for (const auto &g : task->graphs) {
+      std::cout << "layer " << layer << ", size: " << g->num_edge << std::endl;
+      ++layer;
+    }
+  }
+*/
+
   void* ToData(std::shared_ptr<Task> task) {
     bool weight = false;
     if (task->graphs[0]->data != nullptr) {
@@ -142,7 +157,7 @@ namespace {
   }
 
   std::shared_ptr<Task> ParseData(const void* ptr) {
-    const TransData* trans_data = static_cast<const TransData*>(ptr);
+    auto trans_data = static_cast<const TransData*>(ptr);
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
 
@@ -151,12 +166,13 @@ namespace {
     task->output_nodes = ToTensor(trans_data->data + trans_data->input_size,
         trans_data->output_size * sizeof(T), "output_" + std::to_string(task->key));
 
-    task->graphs.resize(trans_data->num_layer, std::make_shared<TrainGraph>());
-    const GraphData *graph_data = reinterpret_cast<const GraphData*>(
+    task->graphs.resize(trans_data->num_layer);
+    auto graph_data = reinterpret_cast<const GraphData*>(
         trans_data->data + trans_data->input_size + trans_data->output_size);
 
-    int layer = 0;
-    for (auto &graph : task->graphs) {
+    int num_layer = trans_data->num_layer;
+    for (int layer = 0; layer < num_layer; ++layer) {
+      auto graph = std::make_shared<TrainGraph>();
       graph->num_src = graph_data->num_src;
       graph->num_dst = graph_data->num_dst;
       graph->num_edge = graph_data->num_edge;
@@ -177,7 +193,7 @@ namespace {
         graph_data = reinterpret_cast<const GraphData*>(
             graph_data->data + 2 * graph->num_edge);
       }
-      ++layer;
+      task->graphs[layer] = graph;
     }
     return task;
   }

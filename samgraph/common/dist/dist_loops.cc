@@ -229,10 +229,10 @@ void DoGPUSample(TaskPtr task) {
 }
 
 void DoGraphCopy(TaskPtr task) {
-  auto copy_ctx = CPU();
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
-  auto copy_device = Device::Get(copy_ctx);
-  auto copy_stream = nullptr;
+  auto copy_ctx = trainer_ctx;
+  auto copy_device = Device::Get(trainer_ctx);
+  auto copy_stream = DistEngine::Get()->GetTrainerCopyStream();
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
