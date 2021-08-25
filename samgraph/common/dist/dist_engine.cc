@@ -44,6 +44,10 @@ void DistEngine::Init() {
   _sampler_copy_stream = nullptr;
   _trainer_copy_stream = nullptr;
   _dist_type = DistType::Default;
+  _shuffler = nullptr;
+  _random_states = nullptr;
+  _cache_manager = nullptr;
+  _frequency_hashmap = nullptr;
 
   // Check whether the ctx configuration is allowable
   DistEngine::ArchCheck();
@@ -224,18 +228,28 @@ void DistEngine::Shutdown() {
     }
   }
 
-  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
-  Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
-  Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
-
-  Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
-  Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _trainer_copy_stream);
+  if (_dist_type == DistType::Sample) {
+    Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
+    Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
+    Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+    Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
+  }
+  else if (_dist_type == DistType::Extract) {
+    Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
+    Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _trainer_copy_stream);
+  }
+  else {
+    LOG(FATAL) << "_dist_type is illegal!";
+  }
 
   delete _dataset;
-  delete _shuffler;
   delete _graph_pool;
-  delete _random_states;
+  if (_shuffler != nullptr) {
+    delete _shuffler;
+  }
+  if (_random_states != nullptr) {
+    delete _random_states;
+  }
 
   if (_cache_manager != nullptr) {
     delete _cache_manager;
@@ -256,10 +270,9 @@ void DistEngine::Shutdown() {
   _joined_thread_cnt = 0;
   _initialize = false;
   _should_shutdown = false;
+  LOG(INFO) << "DistEngine shutdown successfully!";
 }
 
-// TODO: implement it!
-//       and split the sampling and extracting
 void DistEngine::RunSampleOnce() {
   switch (RunConfig::run_arch) {
     case kArch5:

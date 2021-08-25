@@ -156,8 +156,6 @@ def run_sample(worker_id, run_config, epoch_barrier):
     ctx = run_config['sampler_ctx']
     sam.sample_init(ctx.device_type, ctx.device_id)
     epoch_barrier.wait()
-    if run_config['pipeline']:
-        sam.start()
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -165,14 +163,12 @@ def run_sample(worker_id, run_config, epoch_barrier):
     print(f"num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
         for step in range(num_step):
-            if not run_config['pipeline']:
-                print("start sample_once...")
-                sam.sample_once()
-                print("end sample_once")
+            print(f'sample epoch {epoch}, step {step}')
+            sam.sample_once()
         epoch_barrier.wait()
+    sam.shutdown()
 
 def run_train(worker_id, run_config, epoch_barrier):
-    os.environ['SAMGRAPH_LOG_LEVEL'] = 'debug'
     print('pid of run_train is: ', os.getpid())
     ctx= run_config['trainer_ctx'] # [worker_id]
     queue = run_config['mpq']
@@ -226,22 +222,17 @@ def run_train(worker_id, run_config, epoch_barrier):
     total_times = []
     num_nodes = []
     num_samples = []
+    epoch_t_l = []
 
     print(f"num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
+        epoch_t = time.time()
         for step in range(num_step):
             t0 = time.time()
-            print(f"before epoch: {epoch}, step: {step}")
-            if not run_config['pipeline']:
-                sam.sample_once()
-            print(f"epoch: {epoch}, step: {step}")
+            # do extracting process
+            sam.sample_once()
             batch_key = sam.get_next_batch(epoch, step)
-            # TODO: get blocks, input_nodes, output_nodes from queue
-            # (blocks, input_nodes, output_nodes) = queue.get(True)
-            # TODO: implement the extract step with input_nodes and output_nodes
             t1 = time.time()
-            # TODO: implement the extract step with input_nodes and output_nodes
-            # batch_input, batch_label = sam.extract(input_nodes, output_nodes)
             blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
             t2 = time.time()
 
@@ -272,6 +263,7 @@ def run_train(worker_id, run_config, epoch_barrier):
             train_times.append(train_time)
             total_times.append(total_time)
 
+            '''
             num_sample = 0
             for block in blocks:
                 num_sample += block.num_edges()
@@ -282,8 +274,11 @@ def run_train(worker_id, run_config, epoch_barrier):
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
+            '''
 
             sam.report_step_average(epoch, step)
+
+        epoch_t_l.append(time.time() - epoch_t)
         # sync the train workers
         if num_worker > 1:
             torch.distributed.barrier()
@@ -307,6 +302,7 @@ def run_train(worker_id, run_config, epoch_barrier):
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
+    print('Avg Epoch Time {:.4f}'.format(np.mean(epoch_t_l)))
 
     sam.report_node_access()
     sam.shutdown()
