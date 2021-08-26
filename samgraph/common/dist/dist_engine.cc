@@ -13,7 +13,7 @@
 #include "../cpu/cpu_engine.h"
 #include "dist_loops.h"
 
-// TODO: decide CPU or GPU to shuffling, sampling and id remapping
+// XXX: decide CPU or GPU to shuffling, sampling and id remapping
 /*
 #include "cpu_hashtable0.h"
 #include "cpu_hashtable1.h"
@@ -111,18 +111,6 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   //       _hashtable only support GPU device
   _hashtable = new cuda::OrderedHashTable(
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
-
-  // TODO: cache needs to support
-  //       _trainer_ctx is not initialized
-  if (RunConfig::UseGPUCache()) {
-    _cache_manager = new cuda::GPUCacheManager(
-        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
-        _dataset->feat->Type(), _dataset->feat->Shape()[1],
-        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
-        _dataset->num_node, RunConfig::cache_percentage);
-  } else {
-    _cache_manager = nullptr;
-  }
 
   // Create CUDA random states for sampling
   _random_states = new cuda::GPURandomStates(RunConfig::sample_type, _fanout,

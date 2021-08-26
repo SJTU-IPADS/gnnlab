@@ -325,6 +325,33 @@ void DoIdCopy(TaskPtr task) {
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
 
+void DoCacheIdCopy(TaskPtr task) {
+  auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
+  auto copy_ctx = trainer_ctx;
+  auto copy_device = Device::Get(trainer_ctx);
+  auto copy_stream = DistEngine::Get()->GetTrainerCopyStream();
+
+  auto output_nodes = Tensor::Empty(
+      task->output_nodes->Type(), task->output_nodes->Shape(), trainer_ctx,
+      "task.output_nodes_cuda_" + std::to_string(task->key));
+  LOG(DEBUG) << "IdCopyHost2Device output_nodes cuda malloc "
+             << ToReadableSize(output_nodes->NumBytes());
+
+  copy_device->CopyDataFromTo(
+      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
+      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
+      output_nodes->Ctx(), copy_stream);
+
+  copy_device->StreamSync(copy_ctx, copy_stream);
+
+  task->output_nodes = output_nodes;
+
+  Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes,
+                             output_nodes->NumBytes());
+
+  LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
+}
+
 void DoCPUFeatureExtract(TaskPtr task) {
   auto dataset = DistEngine::Get()->GetGraphDataset();
 
