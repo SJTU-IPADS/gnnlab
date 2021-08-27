@@ -12,12 +12,12 @@
 #include "../logging.h"
 #include "../graph_pool.h"
 #include "../task_queue.h"
-#include "../cuda/cuda_cache_manager.h"
 #include "../cuda/cuda_common.h"
 #include "../cuda/cuda_frequency_hashmap.h"
 #include "../cuda/cuda_hashtable.h"
 #include "../cuda/cuda_random_states.h"
 #include "../cuda/cuda_shuffler.h"
+#include "dist_cache_manager.h"
 
 namespace samgraph {
 namespace common {
@@ -41,7 +41,7 @@ class DistEngine : public Engine {
   TaskQueue* GetTaskQueue(cuda::QueueType qt) { return _queues[qt]; }
   cuda::OrderedHashTable* GetHashtable() { return _hashtable; }
   cuda::GPURandomStates* GetRandomStates() { return _random_states; }
-  cuda::GPUCacheManager* GetCacheManager() { return _cache_manager; }
+  DistCacheManager* GetCacheManager() { return _cache_manager; }
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
@@ -53,6 +53,8 @@ class DistEngine : public Engine {
  private:
   // Copy data sampling needed for subprocess
   void SampleDataCopy(Context sampler_ctx, StreamHandle stream);
+  // Copy data training needed for subprocess
+  void TrainDataCopy(Context trainer_ctx, StreamHandle stream);
   // Task queue
   std::vector<TaskQueue*> _queues;
   std::vector<std::thread*> _threads;
@@ -68,7 +70,7 @@ class DistEngine : public Engine {
   // CUDA random states
   cuda::GPURandomStates* _random_states;
   // Feature cache in GPU
-  cuda::GPUCacheManager* _cache_manager;
+  DistCacheManager* _cache_manager;
   // Frequency hashmap
   cuda::FrequencyHashmap* _frequency_hashmap;
 

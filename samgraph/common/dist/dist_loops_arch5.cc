@@ -145,7 +145,6 @@ bool RunCacheDataCopySubLoopOnce() {
     DoCacheIdCopy(task);
     double id_copy_time = t1.Passed();
 
-    // TODO: implement the cache options
     Timer t2;
     DoCacheFeatureCopy(task);
     DoGPULabelExtract(task);

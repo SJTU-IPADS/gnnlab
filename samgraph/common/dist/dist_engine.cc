@@ -138,6 +138,11 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   _initialize = true;
 }
 
+void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
+  _dataset->label = Tensor::CopyTo(_dataset->label, trainer_ctx, stream);
+  LOG(DEBUG) << "TrainDataCopy finished!";
+}
+
 void DistEngine::TrainInit(int device_type, int device_id) {
   if (_initialize) {
     LOG(FATAL) << "DistEngine already initialized!";
@@ -164,11 +169,12 @@ void DistEngine::TrainInit(int device_type, int device_id) {
   // TODO: cache needs to support
   //       _trainer_ctx is not initialized
   if (RunConfig::UseGPUCache()) {
-    _cache_manager = new cuda::GPUCacheManager(
-        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+    _cache_manager = new DistCacheManager(
+        _trainer_ctx, _dataset->feat->Data(),
         _dataset->feat->Type(), _dataset->feat->Shape()[1],
         static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
         _dataset->num_node, RunConfig::cache_percentage);
+    TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
   } else {
     _cache_manager = nullptr;
   }
@@ -274,6 +280,7 @@ void DistEngine::RunSampleOnce() {
 
 void DistEngine::ArchCheck() {
   CHECK_EQ(RunConfig::run_arch, kArch5);
+  CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
 }
 
 std::unordered_map<std::string, Context> DistEngine::GetGraphFileCtx() {
