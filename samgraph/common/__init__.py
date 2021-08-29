@@ -55,7 +55,10 @@ kArch4 = 4
 
 kCacheByDegree = 0
 kCacheByHeuristic = 1
-kDynamicCache = 2
+kCacheByPreSample = 2
+kCacheByDegreeHop = 3
+kCacheByPreSampleStatic = 4
+kDynamicCache = 5
 
 meepo_archs = {
     'arch0': {

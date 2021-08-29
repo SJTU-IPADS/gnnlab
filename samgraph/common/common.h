@@ -47,6 +47,9 @@ enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3, kArch4 };
 enum CachePolicy {
   kCacheByDegree = 0,
   kCacheByHeuristic,
+  kCacheByPreSample,
+  kCacheByDegreeHop,
+  kCacheByPreSampleStatic,
   kDynamicCache,
 };
 
