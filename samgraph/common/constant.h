@@ -62,6 +62,7 @@ class Constant {
   static const std::string kEnvLogNodeAccess;
   static const std::string kEnvSanityCheck;
   static const std::string kBarrierEpoch;
+  static const std::string kEnvDumpTrace;
 
   static const std::string kNodeAccessLogFile;
   static const std::string kNodeAccessFrequencyFile;

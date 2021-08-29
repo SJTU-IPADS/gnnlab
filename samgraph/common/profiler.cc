@@ -188,6 +188,7 @@ struct TraceJsonHelper {
 }
 
 void Profiler::DumpTrace(std::ostream &of) {
+  if (RunConfig::option_dump_trace == false) return;
   bool first = true;
   of << "[\n";
   for (size_t item = 0; item < kNumTraceItems; item++) {

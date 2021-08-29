@@ -38,6 +38,7 @@ bool RunConfig::option_log_node_access = false;
 bool RunConfig::option_sanity_check = false;
 // env key: on -1, all epochs; on 0: no barrier; on other: which epoch to barrier
 int RunConfig::barriered_epoch;
+bool RunConfig::option_dump_trace = false;
 
 int RunConfig::kOMPThreadNum = 40;
 
@@ -59,6 +60,10 @@ void RunConfig::LoadConfigFromEnv() {
     if (barrier_epoch == "") barrier_epoch = "0";
     RunConfig::barriered_epoch = std::stoi(barrier_epoch);
     LOG(DEBUG) << "barriered_epoch=" << RunConfig::barriered_epoch;
+  }
+
+  if (IsEnvSet(Constant::kEnvDumpTrace)) {
+    RunConfig::option_dump_trace = true;
   }
 }
 

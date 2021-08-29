@@ -44,6 +44,7 @@ struct RunConfig {
   static bool option_log_node_access;
   static bool option_sanity_check;
   static int barriered_epoch;
+  static bool option_dump_trace;
 
   static int kOMPThreadNum;
 
