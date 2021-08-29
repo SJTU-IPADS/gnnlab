@@ -324,6 +324,7 @@ void GPUCacheManager::CombineMissData(void *output, const void *miss,
                                       const size_t num_miss,
                                       StreamHandle stream) {
   LOG(DEBUG) << "GPUCacheManager::CombineMissData():  num_miss " << num_miss;
+  if (num_miss == 0) return;
 
   auto device = Device::Get(_trainer_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
