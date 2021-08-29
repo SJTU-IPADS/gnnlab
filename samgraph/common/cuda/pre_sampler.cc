@@ -36,6 +36,9 @@ TensorPtr PreSampler::DoPreSample(){
       case kCacheByPreSample:
         DoGPUSample(task);
         break;
+      case kCacheByPreSampleStatic:
+        DoGPUSampleAllNeighbour(task);
+        break;
       default:
         CHECK(0);
     }

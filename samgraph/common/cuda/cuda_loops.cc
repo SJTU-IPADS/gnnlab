@@ -462,6 +462,83 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
 
+void DoGPUSampleAllNeighbour(TaskPtr task) {
+  auto num_layers = GPUEngine::Get()->GetFanout().size();
+  auto last_layer_idx = num_layers - 1;
+
+  auto dataset = GPUEngine::Get()->GetGraphDataset();
+  auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  auto sample_stream = GPUEngine::Get()->GetSampleStream();
+
+  OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
+  hash_table->Reset(sample_stream);
+
+  Timer t;
+  auto output_nodes = task->output_nodes;
+  size_t num_train_node = output_nodes->Shape()[0];
+  hash_table->FillWithUnique(
+      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
+      sample_stream);
+  task->graphs.resize(num_layers);
+
+  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
+  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
+
+  const IdType* input = static_cast<IdType *>(task->output_nodes->MutableData());
+  size_t num_input = task->output_nodes->Shape()[0];
+
+  for (int i = last_layer_idx; i >= 0; i--) {
+    Timer tlayer;
+    Timer t0;
+    // const size_t fanout = fanouts[i];
+    LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
+
+    Timer t1;
+    Timer t2;
+
+    IdType num_unique;
+    const IdType *unique;
+
+    IdType *nbrs;
+    size_t num_nbrs_dup;
+    GPUExtractNeighbour(indptr, indices, input, num_input, nbrs, &num_nbrs_dup, sampler_ctx, sample_stream, task->key);
+    hash_table->FillWithDupMutable(nbrs, num_nbrs_dup, sample_stream);
+    sampler_device->FreeWorkspace(sampler_ctx, nbrs);
+    hash_table->RefUnique(unique, &num_unique);
+
+    // auto train_graph = std::make_shared<TrainGraph>();
+    // train_graph->num_src = num_unique;
+    // train_graph->num_dst = num_input;
+
+    // task->graphs[i] = train_graph;
+
+    // Do some clean jobs
+    // Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
+    //                            core_sample_time);
+    // Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    // Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,
+    //                            populate_time);
+    // Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime, 0);
+    input = unique;
+    num_input = num_unique;
+    LOG(DEBUG) << "GPUSample: finish layer " << i;
+  }
+
+  task->input_nodes = Tensor::CopyBlob(
+      input, DataType::kI32, {num_input}, sampler_ctx, sampler_ctx, 
+      "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
+
+  // Profiler::Get().LogStep(task->key, kLogL1NumNode, num_input);
+  // Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
+  // Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
+  //                            fill_unique_time);
+  // Profiler::Get().LogStep(task->key, kLogL1PrefetchAdvanced, prefetch_improved);
+  // Profiler::Get().LogStep(task->key, kLogL1GetNeighbourTime, get_neighbour_time);
+
+  LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
+}
+
 void DoGraphCopy(TaskPtr task) {
   auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto trainer_ctx = GPUEngine::Get()->GetTrainerCtx();

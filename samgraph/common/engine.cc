@@ -183,6 +183,7 @@ void Engine::LoadGraphDataset() {
             ctx_map[Constant::kCacheByHeuristicFile], "dataset.ranking_nodes");
         break;
       case kCacheByPreSample:
+      case kCacheByPreSampleStatic:
         break;
       case kCacheByDegreeHop:
         _dataset->ranking_nodes = Tensor::FromMmap(

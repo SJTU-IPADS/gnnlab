@@ -23,6 +23,7 @@ std::vector<LoopFunction> GetArch4Loops();
 TaskPtr DoShuffle();
 void DoGPUSample(TaskPtr task);
 void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> &neighbour_cb); 
+void DoGPUSampleAllNeighbour(TaskPtr task);
 void DoGraphCopy(TaskPtr task);
 void DoIdCopy(TaskPtr task);
 void DoCacheIdCopy(TaskPtr task);

@@ -87,6 +87,7 @@ void GPUEngine::Init() {
 
   if (RunConfig::UseGPUCache()) {
     switch (RunConfig::cache_policy) {
+      case kCacheByPreSampleStatic: 
       case kCacheByPreSample: {
         PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
         _dataset->ranking_nodes = PreSampler::Get()->DoPreSample();
