@@ -15,8 +15,10 @@ std::shared_ptr<GraphBatch> GraphPool::GetGraphBatch(uint64_t key) {
   while (true) {
     {
       std::lock_guard<std::mutex> lock(_mutex);
-      auto it = _pool.find(key);
-      if (this->_pool.find(key) != _pool.end()) {
+      // auto it = _pool.find(key);
+      auto it = _pool.begin();
+      // if (this->_pool.find(key) != _pool.end()) {
+      if (it != _pool.end()) {
         LOG(DEBUG) << "GraphPool: Get batch with key " << key;
         auto batch = it->second;
         _pool.erase(it);

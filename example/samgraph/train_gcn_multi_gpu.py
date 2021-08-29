@@ -9,7 +9,8 @@ from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 import os
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+os.environ["NCCL_DEBUG"] = "INFO"
 import samgraph.torch as sam
 
 
@@ -133,7 +134,7 @@ def get_run_config():
     '''
     # FIXME: convert to sampler_ctx and trainer_ctx
     run_config['num_sample_worker'] = 1 # len(run_config['sampler_ctx'])
-    run_config['num_train_worker'] = 1 # len(run_config['trainer_ctx'])
+    run_config['num_train_worker'] = 2 # len(run_config['trainer_ctx'])
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -159,8 +160,11 @@ def run_sample(worker_id, run_config, epoch_barrier):
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
+    # align the train_workers
+    num_train_worker = run_config['num_train_worker']
+    num_step = int(int(num_step / num_train_worker) * num_train_worker)
 
-    print(f"num_epoch: {num_epoch}, num_step: {num_step}")
+    print(f"sample num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
         for step in range(num_step):
             print(f'sample epoch {epoch}, step {step}')
@@ -169,8 +173,10 @@ def run_sample(worker_id, run_config, epoch_barrier):
     sam.shutdown()
 
 def run_train(worker_id, run_config, epoch_barrier):
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
     print('pid of run_train is: ', os.getpid())
-    ctx= run_config['trainer_ctx'] # [worker_id]
+    # ctx= run_config['trainer_ctx'] # [worker_id]
+    ctx= sam.gpu(worker_id) # [worker_id]
     queue = run_config['mpq']
     sam.train_init(ctx.device_type, ctx.device_id)
     epoch_barrier.wait()
@@ -206,6 +212,9 @@ def run_train(worker_id, run_config, epoch_barrier):
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
+    # align the train_workers
+    num_train_worker = run_config['num_train_worker']
+    num_step = int(int(num_step / num_train_worker) * num_train_worker)
 
     model.train()
 
@@ -224,25 +233,35 @@ def run_train(worker_id, run_config, epoch_barrier):
     num_samples = []
     epoch_t_l = []
 
-    print(f"num_epoch: {num_epoch}, num_step: {num_step}")
+    print(f"train num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
         epoch_t = time.time()
-        for step in range(num_step):
+        for step in range(worker_id, num_step, num_train_worker):
             t0 = time.time()
             # do extracting process
+            # print(f'epoch: {epoch}, step: {step}')
+            # print('train: sample_once')
             sam.sample_once()
+            # print('train: sample_once finished')
             batch_key = sam.get_next_batch(epoch, step)
+            # print('batch_key: ', batch_key)
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
+            # print('blocks device: ', blocks[0].device)
             t2 = time.time()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_input)
+            # print('batch_pred device: ', batch_pred.device)
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             t3 = time.time()
+
+            # sync the train workers
+            if (num_worker > 1) :
+                torch.distributed.barrier()
 
             sample_time = sam.get_log_step_value(
                 epoch, step, sam.kLogL1SampleTime)
@@ -263,7 +282,6 @@ def run_train(worker_id, run_config, epoch_barrier):
             train_times.append(train_time)
             total_times.append(total_time)
 
-            '''
             num_sample = 0
             for block in blocks:
                 num_sample += block.num_edges()
@@ -274,15 +292,16 @@ def run_train(worker_id, run_config, epoch_barrier):
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
-            '''
 
             sam.report_step_average(epoch, step)
 
         epoch_t_l.append(time.time() - epoch_t)
         # sync the train workers
         if num_worker > 1:
+            print("torch epoch barrier")
             torch.distributed.barrier()
         # sync with sample process each epoch
+        print("sample train epoch barrier")
         epoch_barrier.wait()
 
         epoch_sample_times.append(
@@ -309,6 +328,8 @@ def run_train(worker_id, run_config, epoch_barrier):
 
 
 if __name__ == '__main__':
+    # clear the shared memory files of samgraph
+    os.system('rm /dev/shm/shared_meta_data*')
     run_config = get_run_config()
 
     num_sample_worker = run_config['num_sample_worker']
