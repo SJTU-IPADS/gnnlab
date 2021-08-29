@@ -36,6 +36,12 @@ add_executable(
 )
 
 add_executable(
+    cache-by-degree-hop
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_degree_hop.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
     degree-info
     ${CMAKE_SOURCE_DIR}/toolkit/degree/degree_info.cc
     ${COMMON_SOURCE}
