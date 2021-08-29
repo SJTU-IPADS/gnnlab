@@ -11,6 +11,8 @@
 #include "../run_config.h"
 #include "cuda_common.h"
 #include "cuda_loops.h"
+#include "pre_sampler.h"
+#include "../profiler.h"
 
 namespace samgraph {
 namespace common {
@@ -61,24 +63,6 @@ void GPUEngine::Init() {
       _dataset->num_node, _sampler_ctx, 1);
 #endif
 
-  if (RunConfig::UseGPUCache()) {
-    _cache_manager = new GPUCacheManager(
-        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
-        _dataset->feat->Type(), _dataset->feat->Shape()[1],
-        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
-        _dataset->num_node, RunConfig::cache_percentage);
-    _dynamic_cache_manager = nullptr;
-  } else if (RunConfig::UseDynamicGPUCache()) {
-    _dynamic_cache_manager = new GPUDynamicCacheManager(
-      _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
-      _dataset->feat->Type(), _dataset->feat->Shape()[1],
-      _dataset->num_node);
-    _cache_manager = nullptr;
-  } else {
-    _cache_manager = nullptr;
-    _dynamic_cache_manager = nullptr;
-  }
-
   // Create CUDA random states for sampling
   _random_states = new GPURandomStates(RunConfig::sample_type, _fanout,
                                        _batch_size, _sampler_ctx);
@@ -100,6 +84,32 @@ void GPUEngine::Init() {
     _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
   }
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
+
+  if (RunConfig::UseGPUCache()) {
+    switch (RunConfig::cache_policy) {
+      case kCacheByPreSample: {
+        PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
+        _dataset->ranking_nodes = PreSampler::Get()->DoPreSample();
+        break;
+      }
+      default: ;
+    }
+    _cache_manager = new GPUCacheManager(
+        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+        _dataset->feat->Type(), _dataset->feat->Shape()[1],
+        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
+        _dataset->num_node, RunConfig::cache_percentage);
+    _dynamic_cache_manager = nullptr;
+  } else if (RunConfig::UseDynamicGPUCache()) {
+    _dynamic_cache_manager = new GPUDynamicCacheManager(
+      _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+      _dataset->feat->Type(), _dataset->feat->Shape()[1],
+      _dataset->num_node);
+    _cache_manager = nullptr;
+  } else {
+    _cache_manager = nullptr;
+    _dynamic_cache_manager = nullptr;
+  }
 
   _initialize = true;
 }
@@ -249,6 +259,7 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
   ret[Constant::kOutDegreeFile] = MMAP();
   ret[Constant::kCacheByDegreeFile] = MMAP();
   ret[Constant::kCacheByHeuristicFile] = MMAP();
+  ret[Constant::kCacheByDegreeHopFile] = MMAP();
 
   switch (RunConfig::run_arch) {
     case kArch1:

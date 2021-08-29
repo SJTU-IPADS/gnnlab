@@ -93,7 +93,12 @@ GPUCacheManager::GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
   cpu_device->FreeDataSpace(CPU(), tmp_cpu_data);
 
   std::unordered_map<CachePolicy, std::string> policy2str = {
-      {kCacheByDegree, "degree"}, {kCacheByHeuristic, "heuristic"}};
+      {kCacheByDegree, "degree"},
+      {kCacheByHeuristic, "heuristic"},
+      {kCacheByPreSample, "preSample"},
+      {kCacheByPreSampleStatic, "preSampleStatic"},
+      {kCacheByDegreeHop, "degree_hop"},
+  };
 
   LOG(INFO) << "GPU cache (policy: " << policy2str.at(RunConfig::cache_policy)
             << ") " << _num_cached_nodes << " / " << _num_nodes << " nodes ( "

@@ -181,6 +181,8 @@ void Engine::LoadGraphDataset() {
             {meta[Constant::kMetaNumNode]},
             ctx_map[Constant::kCacheByHeuristicFile], "dataset.ranking_nodes");
         break;
+      case kCacheByPreSample:
+        break;
       case kDynamicCache:
         break;
       default:
