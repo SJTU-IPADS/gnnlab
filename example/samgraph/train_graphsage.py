@@ -233,6 +233,7 @@ def run():
         epoch_total_times   [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime)
         sam.forward_barrier()
 
+    sam.report_step_average(num_epoch - 1, num_step - 1)
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
 
