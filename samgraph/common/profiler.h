@@ -145,6 +145,8 @@ class Profiler {
   void LogNodeAccess(uint64_t key, const IdType *input, size_t num_input);
   void ReportNodeAccess();
 
+  void ReportPreSampleSimilarity();
+
   static Profiler &Get();
 
  private:

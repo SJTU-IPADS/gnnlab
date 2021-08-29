@@ -39,6 +39,7 @@ const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";
 const std::string Constant::kNodeAccessSimilarityFile =
     "node_access_similarity";
+const std::string Constant::kNodeAccessPreSampleSimFile = "node_access_presample";
 const std::string Constant::kNodeAccessFileSuffix = ".txt";
 
 }  // namespace common
