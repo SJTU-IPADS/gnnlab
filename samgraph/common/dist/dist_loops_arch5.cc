@@ -173,14 +173,15 @@ bool RunCacheDataCopySubLoopOnce() {
 
 void RunArch5LoopsOnce(DistType dist_type) {
   if (dist_type == DistType::Sample) {
-    LOG(DEBUG) << "RunArch5LoopsOnce with Sample!";
+    LOG(INFO) << "RunArch5LoopsOnce with Sample!";
     RunSampleSubLoopOnce();
   }
   else if (dist_type == DistType::Extract) {
-    LOG(DEBUG) << "RunArch5LoopsOnce with Extract!";
     if (!RunConfig::UseGPUCache()) {
+      LOG(INFO) << "RunArch5LoopsOnce with Extract no Cache!";
       RunDataCopySubLoopOnce();
     } else {
+      LOG(INFO) << "RunArch5LoopsOnce with Extract Cache!";
       RunCacheDataCopySubLoopOnce();
     }
   } else {
