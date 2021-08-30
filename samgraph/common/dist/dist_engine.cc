@@ -195,6 +195,25 @@ void DistEngine::Start() {
   LOG(FATAL) << "DistEngine needs not implement the Start function!!!";
 }
 
+/**
+ * @param count: the total times to loop
+ */
+void DistEngine::StartExtract(int count) {
+  ExtractFunction func;
+  switch (RunConfig::run_arch) {
+    case kArch5:
+      func = GetArch5Loops();
+      break;
+    default:
+      // Not supported arch 0
+      CHECK(0);
+  }
+
+  // Start background threads
+  _threads.push_back(new std::thread(func, count));
+  LOG(DEBUG) << "Started a extracting background threads.";
+}
+
 void DistEngine::Shutdown() {
   if (_should_shutdown) {
     return;

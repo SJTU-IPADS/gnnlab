@@ -39,6 +39,7 @@ report_node_access = _basics.report_node_access
 data_init = _basics.data_init
 sample_init = _basics.sample_init
 train_init = _basics.train_init
+extract_start = _basics.extract_start
 
 def get_graph_feat(batch_key):
     return c_lib.samgraph_torch_get_graph_feat(batch_key)

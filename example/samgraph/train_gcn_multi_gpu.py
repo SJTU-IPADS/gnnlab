@@ -233,12 +233,14 @@ def run_train(worker_id, run_config, epoch_barrier):
     for epoch in range(num_epoch):
         epoch_barrier.wait()
         epoch_t = time.time()
+        sam.extract_start(int(num_step / num_worker))
+        # sam.extract_start(int(-1))
         for step in range(worker_id, num_step, num_worker):
             t0 = time.time()
             # do extracting process
             # print(f'train epoch: {epoch}, step: {step}')
             # print('train: sample_once')
-            sam.sample_once()
+            # sam.sample_once()
             # print('train: sample_once finished')
             batch_key = sam.get_next_batch(epoch, step)
             # print('batch_key: ', batch_key)

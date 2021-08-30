@@ -73,6 +73,7 @@ void samgraph_sample_init(int device_type, int device_id);
 void samgraph_train_init(int device_type, int device_id);
 void samgraph_sample();
 void samgraph_extract();
+void samgraph_extract_start(int count);
 
 
 }

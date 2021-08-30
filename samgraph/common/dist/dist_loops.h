@@ -24,6 +24,9 @@ void DoCacheIdCopy(TaskPtr task);
 void DoCacheFeatureCopy(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
 
+typedef void (*ExtractFunction)(int);
+ExtractFunction GetArch5Loops();
+
 }  // namespace dist
 }  // namespace common
 }  // namespace samgraph

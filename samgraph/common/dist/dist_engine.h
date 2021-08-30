@@ -35,8 +35,12 @@ class DistEngine : public Engine {
   void RunSampleOnce() override;
   void SampleInit(int device_type, int device_id);
   void TrainInit(int device_type, int device_id);
+  /**
+   * @param count: the total times to loop extract
+   */
+  void StartExtract(int count);
 
-  // TODO: decide CPU or GPU to shuffling, sampling and id remapping
+  // XXX: decide CPU or GPU to shuffling, sampling and id remapping
   cuda::GPUShuffler* GetShuffler() { return static_cast<cuda::GPUShuffler*>(_shuffler); }
   TaskQueue* GetTaskQueue(cuda::QueueType qt) { return _queues[qt]; }
   cuda::OrderedHashTable* GetHashtable() { return _hashtable; }

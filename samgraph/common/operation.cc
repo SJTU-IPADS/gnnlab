@@ -233,6 +233,10 @@ void samgraph_train_init(int device_type, int device_id) {
 
   LOG(INFO) << "SamGraph train has been initialized successfully";
 }
+void samgraph_extract_start(int count) {
+  dist::DistEngine::Get()->StartExtract(count);
+  LOG(INFO) << "SamGraph extract background thread start successfully";
+}
 }
 }  // namespace common
 }  // namespace samgraph

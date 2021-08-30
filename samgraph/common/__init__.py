@@ -303,6 +303,9 @@ class SamGraphBasics(object):
                     ctypes.c_int(device_type),
                     ctypes.c_int(device_id)
                 )
+    # for multi-GPUs train
+    def extract_start(self, count):
+        return self.C_LIB_CTYPES.samgraph_extract_start(ctypes.c_int(count))
 
     def start(self):
         return self.C_LIB_CTYPES.samgraph_start()

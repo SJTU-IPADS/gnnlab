@@ -78,9 +78,9 @@ bool RunSampleSubLoopOnce() {
 
 bool RunDataCopySubLoopOnce() {
   auto graph_pool = DistEngine::Get()->GetGraphPool();
-  if (graph_pool->Full()) {
+  while (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-    return true;
+    // return true;
   }
 
   auto this_op = cuda::kDataCopy;
@@ -126,9 +126,9 @@ bool RunDataCopySubLoopOnce() {
 
 bool RunCacheDataCopySubLoopOnce() {
   auto graph_pool = DistEngine::Get()->GetGraphPool();
-  if (graph_pool->Full()) {
+  while (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-    return true;
+    // return true;
   }
 
   auto this_op = cuda::kDataCopy;
@@ -169,6 +169,19 @@ bool RunCacheDataCopySubLoopOnce() {
   return true;
 }
 
+void DataCopySubLoop(int count) {
+  LoopOnceFunction func;
+  if (!RunConfig::UseGPUCache()) {
+    func = RunDataCopySubLoopOnce;
+  } else {
+    func = RunCacheDataCopySubLoopOnce;
+  }
+
+  while ((count--) && !DistEngine::Get()->ShouldShutdown() && func());
+
+  DistEngine::Get()->ReportThreadFinish();
+}
+
 } // namespace
 
 void RunArch5LoopsOnce(DistType dist_type) {
@@ -187,7 +200,10 @@ void RunArch5LoopsOnce(DistType dist_type) {
   } else {
     LOG(FATAL) << "dist type is illegal!";
   }
+}
 
+ExtractFunction GetArch5Loops() {
+  return DataCopySubLoop;
 }
 
 }  // namespace dist
