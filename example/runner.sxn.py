@@ -1,14 +1,14 @@
 import os
 import datetime
 from enum import Enum
+import copy
 
 LOG_DIR='run-logs/logs_samgraph_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-TMP_LOG_FILE = 'run-logs/tmp.log'
+TMP_LOG_DIR='run-logs/tmp_log_dir'
 
 root_path="/graph-learning/samgraph/"
 
 DO_MOCK=False
-TMP_LOG=True
 DURABLE_LOG=True
 
 class CachePolicy(Enum):
@@ -51,8 +51,10 @@ class RunConfig:
                pipeline:bool=False,
                max_sampling_jobs=10,
                max_copying_jobs=2,
-               arch:Arch=Arch.arch4,
-               epoch:int=3, logdir:str=LOG_DIR):
+               arch:Arch=Arch.arch3,
+               epoch:int=3,
+               batch_size:int=8000,
+               logdir:str=LOG_DIR):
     self.app           = app
     self.dataset       = dataset
     self.cache_policy  = cache_policy
@@ -62,6 +64,7 @@ class RunConfig:
     self.copy_job      = max_copying_jobs
     self.arch          = arch
     self.epoch         = epoch
+    self.batch_size    = batch_size
     self.logdir        = logdir
 
   def cache_log_name(self):
@@ -76,8 +79,12 @@ class RunConfig:
 
   def form_cmd(self):
     cmd_line = ''
+    cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '
+    cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE=0; '
     cmd_line += 'export SAMGRAPH_PROFILE_LEVEL=1; '
+    cmd_line += 'export SAMGRAPH_BARRIER_EPOCH=1; '
     cmd_line += 'export SAMGRAPH_LOG_LEVEL=warn; '
+    cmd_line += 'export SAMGRAPH_DUMP_TRACE=0; '
     cmd_line += f'python samgraph/train_{self.app.name}.py --arch {self.arch.name}'
     cmd_line += f' --max-sampling-jobs {self.sample_job}'
     cmd_line += f' --max-copying-jobs {self.copy_job}'
@@ -92,31 +99,41 @@ class RunConfig:
     
     cmd_line += f' --dataset-path {root_path}{str(self.dataset)}'
     cmd_line += f' --num-epoch {self.epoch}'
-    if TMP_LOG:
-      cmd_line += f' > \"{TMP_LOG_FILE}\" 2>&1'
-    elif DURABLE_LOG:
-      cmd_line += f' > \"{LOG_DIR}/'
-      cmd_line += '_'.join(['samgraph']+self.cache_log_name() + self.pipe_log_name()+[self.app.name, str(self.dataset)]) 
-      cmd_line += '.log\" 2>&1'
+    cmd_line += f' --batch-size {self.batch_size}'
+
+    if DURABLE_LOG:
+      std_out_log = self.get_log_fname() + '.log'
+      std_err_log = self.get_log_fname() + '.err.log'
+      cmd_line += f' > \"{std_out_log}\"'
+      cmd_line += f' 2> \"{std_err_log}\"'
+      cmd_line += ';'
+      cmd_line += ' sed -i \"/^Using.*/d\" \"' + std_err_log + "\"" 
     return cmd_line
+  
+  def get_log_fname(self):
+    std_out_log = f'{self.logdir}/'
+    std_out_log += '_'.join(['samgraph']+self.cache_log_name() + self.pipe_log_name()+[self.app.name, str(self.dataset), self.cache_policy.name, f'cache_rate_{int(self.cache_percent*100)}', f'batch_size_{self.batch_size}']) 
+    return std_out_log
 
   def beauty(self):
-    msg = ' '.join(['Running '] + self.cache_log_name() + self.pipe_log_name() + [self.app.name, self.dataset.name])
+    msg = ' '.join(['Running '] + self.cache_log_name() + self.pipe_log_name() + [self.app.name, str(self.dataset), self.cache_policy.name, f'cache:{self.cache_percent*100}%', f'batch_size:{self.batch_size}', ])
     return msg
     
-  def run(self, mock=False):
+  def run(self, mock=False, callback = None):
     if mock:
       print(self.form_cmd())
     else:
       print(self.beauty())
-      os.system('mkdir -p {}'.format(LOG_DIR))
+      os.system('mkdir -p {}'.format(self.logdir))
       os.system(self.form_cmd())
+      if callback != None:
+        callback(self)
     pass
 
-def run_in_list(conf_list : list):
+def run_in_list(conf_list : list, callback = None):
   for conf in conf_list:
     conf : RunConfig
-    conf.run(DO_MOCK)
+    conf.run(DO_MOCK, callback)
 
 class ConfigList:
   def __init__(self):
@@ -211,53 +228,89 @@ class ConfigList:
       RunConfig(App.pinsage,   Dataset.papers100M, cache_policy=CachePolicy.dynamic_cache, pipeline=True),
       RunConfig(App.pinsage,   Dataset.friendster, cache_policy=CachePolicy.dynamic_cache, pipeline=True),
     ]
-  
-  def select_app(self, app_indicator):
+
+  def select(self, key, val_indicator):
+    '''
+    available key: app, dataset, cache_policy, pipeline
+    '''
     newlist = []
     for cfg in self.conf_list:
-      if cfg.app in app_indicator:
-        newlist.append(cfg)
-    self.conf_list = newlist
-    return self
-  def select_dataset(self, ds_indicator):
-    newlist = []
-    for cfg in self.conf_list:
-      if cfg.dataset in ds_indicator:
-        newlist.append(cfg)
-    self.conf_list = newlist
-    return self
-  def select_cache(self, cache_indicator):
-    newlist = []
-    for cfg in self.conf_list:
-      if cfg.cache_policy in cache_indicator:
-        newlist.append(cfg)
-    self.conf_list = newlist
-    return self
-  def select_pipe(self, pipe_indicator):
-    newlist = []
-    for cfg in self.conf_list:
-      if cfg.pipeline in pipe_indicator:
+      if getattr(cfg, key) in val_indicator:
         newlist.append(cfg)
     self.conf_list = newlist
     return self
 
-run_in_list(ConfigList()
-  .select_app([
-    App.gcn,
-    # App.graphsage,
-    # App.pinsage,
-  ]).select_dataset([
-    Dataset.reddit,
-    # Dataset.products,
-    # Dataset.papers100M,
-    # Dataset.friendster,
-  ]).select_cache([
-    # CachePolicy.no_cache,
-    # CachePolicy.cache_by_degree,
-    # CachePolicy.cache_by_heuristic,
-    CachePolicy.dynamic_cache,
-  ]).select_pipe([
-    # False,
-    True,
-  ]).conf_list)
+  def override_arch(self, arch):
+    for cfg in self.conf_list:
+      cfg.arch = arch
+    return self
+
+  def override(self, key, val_list):
+    '''
+    available key: arch, logdir, cache_percent, cache_policy, batch_size
+    '''
+    if len(val_list) == 0:
+      return self
+    orig_list = self.conf_list
+    self.conf_list = []
+    for val in val_list:
+      new_list = copy.deepcopy(orig_list)
+      for cfg in new_list:
+        setattr(cfg, key, val)
+      self.conf_list += new_list
+    return self
+
+def tmp_call_back(cfg: RunConfig):
+  os.system(f"grep -A 4 'average' \"{cfg.get_log_fname()}.log\"")
+
+if __name__ == '__main__':
+  from sys import argv
+  for arg in argv[1:]:
+    if arg == '-m' or arg == '--mock':
+      DO_MOCK = True
+    elif arg == '-i' or arg == '--interactive':
+      DURABLE_LOG = False
+
+  run_in_list(ConfigList()
+    .select('app', [
+      App.gcn,
+      # App.graphsage,
+      # App.pinsage,
+    ]).select('dataset', [
+      # Dataset.reddit,
+      # Dataset.products,
+      Dataset.papers100M,
+      # Dataset.friendster,
+    ]).select('cache_policy', [
+      CachePolicy.no_cache,
+      # CachePolicy.cache_by_degree,
+      # CachePolicy.cache_by_heuristic,
+      # CachePolicy.dynamic_cache,
+    ]).select('pipeline', [
+      False,
+      # True,
+    ])
+    # .override_arch(Arch.arch0)
+    .override('logdir', [TMP_LOG_DIR])
+    .override('cache_policy', [
+      # CachePolicy.cache_by_degree,
+      CachePolicy.cache_by_heuristic,
+      # CachePolicy.cache_by_presample,
+      # CachePolicy.cache_by_degree_hop,
+      # CachePolicy.cache_by_presample_static,
+      # CachePolicy.cache_by_fake_optimal,
+    ])
+    .override('batch_size',[
+      # 1000,
+      8000,
+    ])
+    .override('cache_percent', [
+      # 0.0,
+      0.01,0.02,0.03,0.04,0.05,0.10,0.15,0.20,0.25,0.30,0.35,0.40,0.45,0.50,
+      # 0.55, 0.60,
+      # 1,
+    ])
+    .conf_list
+    # , tmp_call_back
+    )
 
