@@ -35,6 +35,7 @@ cpu::CPUHashType RunConfig::cpu_hash_type = cpu::kCPUHash2;
 
 bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;
+bool RunConfig::option_log_node_access_simple = false;
 bool RunConfig::option_sanity_check = false;
 // env key: on -1, all epochs; on 0: no barrier; on other: which epoch to barrier
 int RunConfig::barriered_epoch;
@@ -45,6 +46,10 @@ int RunConfig::kOMPThreadNum = 40;
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {
     RunConfig::option_profile_cuda = true;
+  }
+
+  if (IsEnvSet(Constant::kEnvLogNodeAccessSimple)) {
+    RunConfig::option_log_node_access_simple = true;
   }
 
   if (IsEnvSet(Constant::kEnvLogNodeAccess)) {

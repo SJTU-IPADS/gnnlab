@@ -676,7 +676,7 @@ void DoCPUFeatureExtract(TaskPtr task) {
 
   cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
 
-  if (RunConfig::option_log_node_access) {
+  if (RunConfig::option_log_node_access || RunConfig::option_log_node_access_simple) {
     Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
   }
 

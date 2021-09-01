@@ -249,14 +249,16 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "        L1  sample         %10.4lf | copy         %10.4lf | "
         "convert time %.4lf | train  %.4lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
-        "        L1  id nbytes      %10s | graph nbytes %10s\n",
+        "        L1  id nbytes      %10s | graph nbytes %10s\n"
+        "        L1  num nodes      %10lf | num samples  %10lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
         _step_buf[kLogL1TrainTime],
         ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
-        ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str());
+        ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
+        _step_buf[kLogL1NumNode],_step_buf[kLogL1NumSample]);
   } else if (level >= 1 && RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
@@ -286,7 +288,8 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "convert time %.4lf | train  %.4lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
-        "        L1  miss nbytes    %10s\n",
+        "        L1  miss nbytes    %10s\n"
+        "        L1  num nodes      %10lf | num samples  %10lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
         _step_buf[kLogL1TrainTime],
@@ -294,7 +297,8 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
-        ToReadableSize(_step_buf[kLogL1MissBytes]).c_str());
+        ToReadableSize(_step_buf[kLogL1MissBytes]).c_str(),
+        _step_buf[kLogL1NumNode],_step_buf[kLogL1NumSample]);
   }
 
   if (level >= 2 && !RunConfig::UseGPUCache()) {
@@ -578,6 +582,65 @@ void Profiler::ReportNodeAccess() {
   ofs1.close();
   ofs2.close();
 }
+
+void Profiler::ReportNodeAccessSimple() {
+  LOG(INFO) << "Writing the node access data to file...";
+
+  // std::ofstream ofs0(Constant::kNodeAccessLogFile + GetTimeString() +
+  //                        Constant::kNodeAccessFileSuffix,
+  //                    std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs1(Constant::kNodeAccessOptimalCacheBinFile + GetTimeString() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+  std::ofstream ofs2(Constant::kNodeAccessOptimalCacheHitFile + GetTimeString() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc);
+  size_t num_nodes = _node_access.size();
+  // (frequency, nodeid)
+  std::vector<std::pair<size_t, IdType>> records(num_nodes, {0, 0});
+  // how many times are nodes accessed
+  size_t frequency_sum = 0;
+
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+  for (IdType nodeid = 0; nodeid < _node_access.size(); nodeid++) {
+    size_t frequency = _node_access[nodeid];
+    records[nodeid] = {frequency, nodeid};
+  }
+
+  // Sorted by frequency
+#ifdef __linux__
+  __gnu_parallel::sort(records.begin(), records.end(),
+                       std::greater<std::pair<size_t, IdType>>());
+#else
+  std::sort(records.begin(), records.end(),
+            std::greater<std::pair<size_t, IdType>>());
+#endif
+
+  for (auto & p : records) {
+    size_t frequency = p.first;
+    IdType nodeid = p.second;
+    ofs1.write(reinterpret_cast<char*>(&nodeid), sizeof(IdType));
+    frequency_sum += frequency;
+    p.first = frequency_sum;
+  }
+
+  for (int cache_rate = 0; cache_rate <= 100; cache_rate++) {
+    double hit_rate = records[static_cast<int>((static_cast<double>(cache_rate) / 100) * num_nodes)].first / static_cast<double>(frequency_sum);
+    ofs2 << cache_rate << "\t" << hit_rate << "\n";
+  }
+
+  for (auto &p : records) {
+    IdType nodeid = p.second;
+    size_t prefix = p.first;
+    // ofs0 << nodeid << " " << _node_access[nodeid] << " " << prefix << " "
+    //      << static_cast<double>(prefix) / frequency_sum << "\n";
+  }
+
+  // ofs0.close();
+  ofs1.close();
+  ofs2.close();
+}
+
 
 void Profiler::ReportPreSampleSimilarity() {
   auto cache_node_tensor = cuda::PreSampler::Get()->GetRankNode();

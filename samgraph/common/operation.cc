@@ -206,6 +206,9 @@ void samgraph_report_epoch_average(uint64_t epoch) {
 }
 
 void samgraph_report_node_access() {
+  if (RunConfig::option_log_node_access_simple) {
+    Profiler::Get().ReportNodeAccessSimple();
+  }
   if (RunConfig::option_log_node_access) {
     Profiler::Get().ReportNodeAccess();
   }
