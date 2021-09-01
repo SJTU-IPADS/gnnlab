@@ -58,7 +58,8 @@ kCacheByHeuristic = 1
 kCacheByPreSample = 2
 kCacheByDegreeHop = 3
 kCacheByPreSampleStatic = 4
-kDynamicCache = 5
+kCacheByFakeOptimal = 5
+kDynamicCache = 6
 
 meepo_archs = {
     'arch0': {

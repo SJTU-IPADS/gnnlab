@@ -50,6 +50,7 @@ enum CachePolicy {
   kCacheByPreSample,
   kCacheByDegreeHop,
   kCacheByPreSampleStatic,
+  kCacheByFakeOptimal,
   kDynamicCache,
 };
 

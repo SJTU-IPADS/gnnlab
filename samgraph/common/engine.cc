@@ -92,6 +92,7 @@ void Engine::LoadGraphDataset() {
   CHECK(ctx_map.count(Constant::kCacheByDegreeFile) > 0);
   CHECK(ctx_map.count(Constant::kCacheByHeuristicFile) > 0);
   CHECK(ctx_map.count(Constant::kCacheByDegreeHopFile) > 0);
+  CHECK(ctx_map.count(Constant::kCacheByFakeOptimalFile) > 0);
 
   _dataset->num_node = meta[Constant::kMetaNumNode];
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
@@ -190,6 +191,12 @@ void Engine::LoadGraphDataset() {
             _dataset_path + Constant::kCacheByDegreeHopFile, DataType::kI32,
             {meta[Constant::kMetaNumNode]},
             ctx_map[Constant::kCacheByDegreeHopFile], "dataset.ranking_nodes");
+        break;
+      case kCacheByFakeOptimal:
+        _dataset->ranking_nodes = Tensor::FromMmap(
+            _dataset_path + Constant::kCacheByFakeOptimalFile, DataType::kI32,
+            {meta[Constant::kMetaNumNode]},
+            ctx_map[Constant::kCacheByFakeOptimalFile], "dataset.ranking_nodes");
         break;
       case kDynamicCache:
         break;

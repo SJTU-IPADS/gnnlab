@@ -98,6 +98,7 @@ GPUCacheManager::GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
       {kCacheByPreSample, "preSample"},
       {kCacheByPreSampleStatic, "preSampleStatic"},
       {kCacheByDegreeHop, "degree_hop"},
+      {kCacheByFakeOptimal, "fake_optimal"},
   };
 
   LOG(INFO) << "GPU cache (policy: " << policy2str.at(RunConfig::cache_policy)

@@ -17,8 +17,9 @@ class CachePolicy(Enum):
   cache_by_presample = 2
   cache_by_degree_hop = 3
   cache_by_presample_static = 4
-  dynamic_cache = 5
-  no_cache = 6
+  cache_by_fake_optimal = 5
+  dynamic_cache = 6
+  no_cache = 7
 
 class Arch(Enum):
   arch0 = 0
