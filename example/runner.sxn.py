@@ -231,6 +231,7 @@ class ConfigList:
 
   def select(self, key, val_indicator):
     '''
+    filter config list by key and list of value
     available key: app, dataset, cache_policy, pipeline
     '''
     newlist = []
@@ -241,12 +242,19 @@ class ConfigList:
     return self
 
   def override_arch(self, arch):
+    '''
+    override all arch in config list by arch
+    '''
     for cfg in self.conf_list:
       cfg.arch = arch
     return self
 
   def override(self, key, val_list):
     '''
+    override config list by key and value.
+    if len(val_list)>1, then config list is extended, example:
+       [cfg1(batch_size=4000)].override('batch_size',[1000,8000]) 
+    => [cfg1(batch_size=1000),cfg1(batch_size=8000)]
     available key: arch, logdir, cache_percent, cache_policy, batch_size
     '''
     if len(val_list) == 0:
