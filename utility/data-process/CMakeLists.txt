@@ -83,3 +83,9 @@ add_executable(
     ${COMMON_SOURCE}
 )
 
+
+add_executable(
+    train-graph-szie
+    ${CMAKE_SOURCE_DIR}/toolkit/train_graph_size/train_graph_size.cc
+    ${COMMON_SOURCE}
+)
