@@ -40,6 +40,11 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_degree_hop.cc
     ${COMMON_SOURCE}
 )
+add_executable(
+    cache-by-fake-optimal
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_fake_optimal.cc
+    ${COMMON_SOURCE}
+)
 
 add_executable(
     degree-info
