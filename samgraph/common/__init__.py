@@ -99,6 +99,8 @@ def get_next_enum_val(next_val):
 kLogL1NumSample = get_next_enum_val(step_log_val)
 kLogL1NumNode = get_next_enum_val(step_log_val)
 kLogL1SampleTime = get_next_enum_val(step_log_val)
+kLogL1SendTime = get_next_enum_val(step_log_val)
+kLogL1RecvTime = get_next_enum_val(step_log_val)
 kLogL1CopyTime = get_next_enum_val(step_log_val)
 kLogL1ConvertTime = get_next_enum_val(step_log_val)
 kLogL1TrainTime = get_next_enum_val(step_log_val)

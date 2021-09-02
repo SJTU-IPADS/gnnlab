@@ -15,6 +15,8 @@ enum LogStepItem {
   kLogL1NumSample = 0,
   kLogL1NumNode,
   kLogL1SampleTime,
+  kLogL1SendTime,
+  kLogL1RecvTime,
   kLogL1CopyTime,
   kLogL1ConvertTime,
   kLogL1TrainTime,

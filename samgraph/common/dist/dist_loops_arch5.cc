@@ -62,13 +62,17 @@ bool RunSampleSubLoopOnce() {
     double sample_time = t1.Passed();
 
     LOG(DEBUG) << "RunSampleOnce next_q Send task";
+    Timer t2;
     next_q->Send(task);
+    double send_time = t2.Passed();
 
     Profiler::Get().LogStep(task->key, kLogL1SampleTime,
-                            shuffle_time + sample_time);
+                            shuffle_time + sample_time + send_time);
+    Profiler::Get().LogStep(task->key, kLogL1SendTime,
+                            send_time);
     Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
-                                shuffle_time + sample_time);
+                                shuffle_time + sample_time + send_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
@@ -85,7 +89,9 @@ bool RunDataCopySubLoopOnce() {
 
   auto this_op = cuda::kDataCopy;
   auto q = DistEngine::Get()->GetTaskQueue(this_op);
+  Timer t4;
   auto task = q->Recv();
+  double recv_time = t4.Passed();
 
   if (task) {
     Timer t0;
@@ -109,7 +115,8 @@ bool RunDataCopySubLoopOnce() {
 
     Profiler::Get().LogStep(
         task->key, kLogL1CopyTime,
-        graph_copy_time + id_copy_time + extract_time + feat_copy_time);
+        recv_time + graph_copy_time + id_copy_time + extract_time + feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL1RecvTime, recv_time);
     Profiler::Get().LogStep(task->key, kLogL2GraphCopyTime, graph_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2ExtractTime, extract_time);
