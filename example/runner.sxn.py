@@ -19,7 +19,24 @@ class CachePolicy(Enum):
   cache_by_presample_static = 4
   cache_by_fake_optimal = 5
   dynamic_cache = 6
-  no_cache = 7
+
+  cache_by_presample_1 = 11
+  cache_by_presample_2 = 12
+  cache_by_presample_3 = 13
+  cache_by_presample_max = 14
+  no_cache = 20
+  def get_samgraph_policy_value(self):
+    if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
+      return CachePolicy.cache_by_presample.value
+    return self.value
+  def get_presample_epoch(self):
+    if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
+      return self.value - CachePolicy.cache_by_presample_1.value + 1
+    return 1
+  def get_log_fname(self):
+    if self is CachePolicy.cache_by_presample:
+      return CachePolicy.cache_by_presample_1.name
+    return self.name
 
 class Arch(Enum):
   arch0 = 0
@@ -79,6 +96,7 @@ class RunConfig:
 
   def form_cmd(self):
     cmd_line = ''
+    cmd_line += f'export SAMGRAPH_PRESAMPLE_EPOCH={self.cache_policy.get_presample_epoch()}; '
     cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '
     cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE=0; '
     cmd_line += 'export SAMGRAPH_PROFILE_LEVEL=1; '
@@ -92,7 +110,7 @@ class RunConfig:
       cmd_line += ' --pipeline'
 
     if self.cache_policy is not CachePolicy.no_cache:
-      cmd_line += f' --cache-policy {self.cache_policy.value} --cache-percentage {self.cache_percent}'
+      cmd_line += f' --cache-policy {self.cache_policy.get_samgraph_policy_value()} --cache-percentage {self.cache_percent}'
     else:
       cmd_line += f' --cache-percentage 0.0'
 
@@ -112,11 +130,17 @@ class RunConfig:
   
   def get_log_fname(self):
     std_out_log = f'{self.logdir}/'
-    std_out_log += '_'.join(['samgraph']+self.cache_log_name() + self.pipe_log_name()+[self.app.name, str(self.dataset), self.cache_policy.name, f'cache_rate_{int(self.cache_percent*100)}', f'batch_size_{self.batch_size}']) 
+    std_out_log += '_'.join(
+      ['samgraph']+self.cache_log_name() + self.pipe_log_name() +
+      [self.app.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
+      [f'cache_rate_{int(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}']) 
     return std_out_log
 
   def beauty(self):
-    msg = ' '.join(['Running '] + self.cache_log_name() + self.pipe_log_name() + [self.app.name, str(self.dataset), self.cache_policy.name, f'cache:{self.cache_percent*100}%', f'batch_size:{self.batch_size}', ])
+    msg = ' '.join(
+      ['Running '] + self.cache_log_name() + self.pipe_log_name() + 
+      [self.app.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
+      [f'cache rate:{int(self.cache_percent*100):0>3}%', f'batch size:{self.batch_size}', ])
     return msg
     
   def run(self, mock=False, callback = None):

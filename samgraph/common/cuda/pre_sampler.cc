@@ -30,26 +30,28 @@ PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
 TensorPtr PreSampler::DoPreSample(){
   auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-  for (size_t i = 0; i < _num_step; i++) {
-    auto task = DoShuffle();
-    switch (RunConfig::cache_policy) {
-      case kCacheByPreSample:
-        DoGPUSample(task);
-        break;
-      case kCacheByPreSampleStatic:
-        DoGPUSampleAllNeighbour(task);
-        break;
-      default:
-        CHECK(0);
-    }
-    size_t num_inputs = task->input_nodes->Shape()[0];
-    IdType* input_nodes = new IdType[num_inputs];
-    sampler_device->CopyDataFromTo(
-      task->input_nodes->Data(), 0, input_nodes, 0, 
-      num_inputs * sizeof(IdType), task->input_nodes->Ctx(), CPU());
-    for (size_t i = 0; i < num_inputs; i++) {
-      auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes[i]]);
-      *(freq_ptr+1) += 1;
+  for (int e = 0; e < RunConfig::presample_epoch; e++) {
+    for (size_t i = 0; i < _num_step; i++) {
+      auto task = DoShuffle();
+      switch (RunConfig::cache_policy) {
+        case kCacheByPreSample:
+          DoGPUSample(task);
+          break;
+        case kCacheByPreSampleStatic:
+          DoGPUSampleAllNeighbour(task);
+          break;
+        default:
+          CHECK(0);
+      }
+      size_t num_inputs = task->input_nodes->Shape()[0];
+      IdType* input_nodes = new IdType[num_inputs];
+      sampler_device->CopyDataFromTo(
+        task->input_nodes->Data(), 0, input_nodes, 0, 
+        num_inputs * sizeof(IdType), task->input_nodes->Ctx(), CPU());
+      for (size_t i = 0; i < num_inputs; i++) {
+        auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes[i]]);
+        *(freq_ptr+1) += 1;
+      }
     }
   }
 #ifdef __linux__
