@@ -47,6 +47,7 @@ class DistEngine : public Engine {
   cuda::GPURandomStates* GetRandomStates() { return _random_states; }
   DistCacheManager* GetCacheManager() { return _cache_manager; }
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
+  IdType *GetCacheHashtable() { return _cache_hashtable; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
@@ -57,6 +58,7 @@ class DistEngine : public Engine {
  private:
   // Copy data sampling needed for subprocess
   void SampleDataCopy(Context sampler_ctx, StreamHandle stream);
+  void SampleCacheTableInit();
   // Copy data training needed for subprocess
   void TrainDataCopy(Context trainer_ctx, StreamHandle stream);
   // Task queue
@@ -77,6 +79,8 @@ class DistEngine : public Engine {
   DistCacheManager* _cache_manager;
   // Frequency hashmap
   cuda::FrequencyHashmap* _frequency_hashmap;
+  // vertices cache hash table
+  IdType *_cache_hashtable;
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;

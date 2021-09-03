@@ -96,24 +96,24 @@ void DoGPUSample(TaskPtr task) {
     // Sample a compact coo graph
     switch (RunConfig::sample_type) {
       case kKHop0:
-        GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
+        cuda::GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
                        out_dst, num_out, sampler_ctx, sample_stream,
                        random_states, task->key);
         break;
       case kKHop1:
-        GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
+        cuda::GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
                        out_dst, num_out, sampler_ctx, sample_stream,
                        random_states, task->key);
         break;
       case kWeightedKHop:
-        GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
+        cuda::GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
                               num_input, fanout, out_src, out_dst, num_out,
                               sampler_ctx, sample_stream, random_states,
                               task->key);
         break;
       case kRandomWalk:
         CHECK_EQ(fanout, RunConfig::num_neighbor);
-        GPUSampleRandomWalk(
+        cuda::GPUSampleRandomWalk(
             indptr, indices, input, num_input, RunConfig::random_walk_length,
             RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
             RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
@@ -220,6 +220,72 @@ void DoGPUSample(TaskPtr task) {
   }
 
   task->input_nodes = cur_input;
+
+  // TODO: do get miss index
+  // Get index of miss data and cache data
+  Timer t4;
+  if (RunConfig::UseGPUCache()) {
+    auto input_nodes = reinterpret_cast<const IdType*>
+                        (cur_input->Data());
+    const size_t num_input = cur_input->Shape()[0];
+
+    IdType *sampler_output_miss_src_index = static_cast<IdType *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+    IdType *sampler_output_miss_dst_index = static_cast<IdType *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+    IdType *sampler_output_cache_src_index = static_cast<IdType *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+    IdType *sampler_output_cache_dst_index = static_cast<IdType *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+
+    size_t num_output_miss;
+    size_t num_output_cache;
+
+    cuda::GetMissCacheIndex(
+        DistEngine::Get()->GetCacheHashtable(), sampler_ctx,
+        sampler_output_miss_src_index, sampler_output_miss_dst_index,
+        &num_output_miss, sampler_output_cache_src_index,
+        sampler_output_cache_dst_index, &num_output_cache, input_nodes, num_input,
+        sample_stream);
+
+    CHECK_EQ(num_output_miss + num_output_cache, num_input);
+
+    // move index data to CPU memory
+    auto cpu_device = Device::Get(CPU());
+    IdType *cpu_output_src_index =
+      static_cast<IdType *>(cpu_device->AllocDataSpace(
+          CPU(), sizeof(IdType) * num_input));
+    IdType *cpu_output_dst_index =
+      static_cast<IdType *>(cpu_device->AllocDataSpace(
+          CPU(), sizeof(IdType) * num_input));
+
+    sampler_device->CopyDataFromTo(sampler_output_miss_src_index, 0,
+                                   cpu_output_src_index, 0,
+                                   num_output_miss * sizeof(IdType),
+                                   sampler_ctx, CPU(), sample_stream);
+    sampler_device->CopyDataFromTo(sampler_output_cache_src_index, num_output_miss,
+                                   cpu_output_src_index, num_output_miss,
+                                   num_output_cache * sizeof(IdType),
+                                   sampler_ctx, CPU(), sample_stream);
+    sampler_device->CopyDataFromTo(sampler_output_miss_dst_index, 0,
+                                   cpu_output_dst_index, 0,
+                                   num_output_miss * sizeof(IdType),
+                                   sampler_ctx, CPU(), sample_stream);
+    sampler_device->CopyDataFromTo(sampler_output_cache_dst_index, num_output_miss,
+                                   cpu_output_dst_index, num_output_miss,
+                                   num_output_cache * sizeof(IdType),
+                                   sampler_ctx, CPU(), sample_stream);
+
+    sampler_device->FreeWorkspace(sampler_ctx, sampler_output_miss_src_index);
+    sampler_device->FreeWorkspace(sampler_ctx, sampler_output_miss_dst_index);
+    sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_src_index);
+    sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_dst_index);
+
+    // TODO: use the cpu_output_src_index, cpu_output_dst_index
+  }
+  double get_index_time = t4.Passed();
+
+
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
                           static_cast<double>(task->input_nodes->Shape()[0]));
   Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,

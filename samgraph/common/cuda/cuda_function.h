@@ -56,6 +56,13 @@ void GPUBatchSanityCheck(IdType *map, const IdType *input,
 void GPUSanityCheckList(const IdType *input, size_t num_input,
                         IdType invalid_val, Context ctx, StreamHandle stream);
 
+void GetMissCacheIndex(
+    IdType *sampler_gpu_hashtable, Context sampler_ctx,
+    IdType *output_miss_src_index, IdType *output_miss_dst_index,
+    size_t *num_output_miss, IdType *output_cache_src_index,
+    IdType *output_cache_dst_index, size_t *num_output_cache,
+    const IdType *nodes, const size_t num_nodes, StreamHandle stream);
+
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph

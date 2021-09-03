@@ -43,7 +43,7 @@ namespace {
   using T = uint32_t;
 
   struct TransData {
-    bool     weight; // if have weight values
+    bool     have_data; // if have weight values
     int      num_layer;
     uint64_t key;
     size_t   input_size;
@@ -104,14 +104,14 @@ namespace {
 */
 
   void* ToData(std::shared_ptr<Task> task) {
-    bool weight = false;
+    bool have_data = false;
     if (task->graphs[0]->data != nullptr) {
-      weight = true;
+      have_data = true;
     }
     size_t data_size = GetDataBytes(task);
     LOG(DEBUG) << "ToData transform data size: " << data_size << " bytes";
     TransData* ptr = static_cast<TransData*>(malloc(sizeof(TransData) + data_size));
-    ptr->weight = weight;
+    ptr->have_data = have_data;
     ptr->num_layer = (task->graphs.size());
     ptr->key = task->key;
     ptr->input_size = task->input_nodes->Shape()[0];
@@ -136,7 +136,7 @@ namespace {
       CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->col->NumBytes());
       CopyTo(graph->col, graph_data->data + graph_data->num_edge);
 
-      if (weight) {
+      if (have_data) {
         CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->data->NumBytes());
         CopyTo(graph->data, graph_data->data + 2 * graph_data->num_edge);
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 3 * graph->num_edge);
@@ -182,7 +182,7 @@ namespace {
       graph->col = ToTensor(graph_data->data + graph->num_edge,
           graph->num_edge * sizeof(T),
           "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer));
-      if (trans_data->weight) {
+      if (trans_data->have_data) {
         graph->data = ToTensor(graph_data->data + 2 * graph->num_edge,
             graph->num_edge * sizeof(T),
             "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer));

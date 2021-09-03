@@ -48,6 +48,7 @@ void DistEngine::Init() {
   _random_states = nullptr;
   _cache_manager = nullptr;
   _frequency_hashmap = nullptr;
+  _cache_hashtable = nullptr;
 
   // Check whether the ctx configuration is allowable
   DistEngine::ArchCheck();
@@ -71,6 +72,47 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
     }
   }
   LOG(DEBUG) << "SampleDataCopy finished!";
+}
+
+void DistEngine::SampleCacheTableInit() {
+  size_t num_nodes = _dataset->num_node;
+  auto nodes = static_cast<const IdType*>(_dataset->ranking_nodes->Data());
+  size_t num_cached_nodes = num_nodes *
+                            (RunConfig::cache_percentage);
+  auto cpu_device = Device::Get(CPU());
+  auto sampler_gpu_device = Device::Get(_sampler_ctx);
+
+  IdType *tmp_cpu_hashtable = static_cast<IdType *>(
+      cpu_device->AllocDataSpace(CPU(), sizeof(IdType) * num_nodes));
+  _cache_hashtable =
+      static_cast<IdType *>(sampler_gpu_device->AllocDataSpace(
+          _sampler_ctx, sizeof(IdType) * num_nodes));
+
+  // 1. Initialize the cpu hashtable
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+  for (size_t i = 0; i < num_nodes; i++) {
+    tmp_cpu_hashtable[i] = Constant::kEmptyKey;
+  }
+
+  // 2. Populate the cpu hashtable
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+  for (size_t i = 0; i < num_cached_nodes; i++) {
+    tmp_cpu_hashtable[nodes[i]] = i;
+  }
+
+  // 3. Copy the cache from the cpu memory to gpu memory
+  sampler_gpu_device->CopyDataFromTo(
+      tmp_cpu_hashtable, 0, _cache_hashtable, 0,
+      sizeof(IdType) * num_nodes, CPU(), _sampler_ctx);
+
+  // 4. Free the cpu tmp cache data
+  cpu_device->FreeDataSpace(CPU(), tmp_cpu_hashtable);
+
+  std::unordered_map<CachePolicy, std::string> policy2str = {
+      {kCacheByDegree, "degree"}, {kCacheByHeuristic, "heuristic"}};
+
+  LOG(INFO) << "GPU cache (policy: " << policy2str.at(RunConfig::cache_policy)
+            << ") " << num_cached_nodes << " / " << num_nodes;
 }
 
 void DistEngine::SampleInit(int device_type, int device_id) {
@@ -107,6 +149,9 @@ void DistEngine::SampleInit(int device_type, int device_id) {
                    << device_type;
   }
   _num_step = _shuffler->NumStep();
+
+  SampleCacheTableInit();
+
   // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
   _hashtable = new cuda::OrderedHashTable(
@@ -166,8 +211,6 @@ void DistEngine::TrainInit(int device_type, int device_id) {
 
   _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) / _batch_size);
 
-  // TODO: cache needs to support
-  //       _trainer_ctx is not initialized
   if (RunConfig::UseGPUCache()) {
     _cache_manager = new DistCacheManager(
         _trainer_ctx, _dataset->feat->Data(),
@@ -270,6 +313,10 @@ void DistEngine::Shutdown() {
 
   if (_frequency_hashmap != nullptr) {
     delete _frequency_hashmap;
+  }
+
+  if (_cache_hashtable != nullptr) {
+    delete _cache_hashtable;
   }
 
   _dataset = nullptr;
