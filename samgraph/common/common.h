@@ -140,6 +140,10 @@ struct Task {
   std::vector<std::shared_ptr<TrainGraph>> graphs;
   // node ids of the last train graph
   TensorPtr input_nodes;
+  // new ids of the miss and cache data
+  TensorPtr input_dst_index;
+  // total number of miss data ids
+  size_t num_miss;
   // node ids of the first train graph
   TensorPtr output_nodes;
   // Input feature tensor

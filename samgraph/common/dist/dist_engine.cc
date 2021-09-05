@@ -150,7 +150,9 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   }
   _num_step = _shuffler->NumStep();
 
-  SampleCacheTableInit();
+  if (RunConfig::UseGPUCache()) {
+    SampleCacheTableInit();
+  }
 
   // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
@@ -212,12 +214,12 @@ void DistEngine::TrainInit(int device_type, int device_id) {
   _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) / _batch_size);
 
   if (RunConfig::UseGPUCache()) {
+    TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
     _cache_manager = new DistCacheManager(
         _trainer_ctx, _dataset->feat->Data(),
         _dataset->feat->Type(), _dataset->feat->Shape()[1],
         static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
         _dataset->num_node, RunConfig::cache_percentage);
-    TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
   } else {
     _cache_manager = nullptr;
   }

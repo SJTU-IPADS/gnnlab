@@ -40,7 +40,6 @@ std::shared_ptr<Task> TaskQueue::GetTask() {
 }
 
 namespace {
-  using T = uint32_t;
 
   struct TransData {
     bool     have_data; // if have weight values
@@ -48,8 +47,9 @@ namespace {
     uint64_t key;
     size_t   input_size;
     size_t   output_size;
-    T data[0];
-    // input_nodes|output_nodes|
+    size_t   num_miss;
+    IdType data[0];
+    // input_nodes|output_nodes| [input_dst_index]
     //   GraphData: <num_src|num_dst|num_edge|row|col|data> : layer 1
     //   GraphData: <num_src|num_dst|num_edge|row|col|data> : layer 2
     //   ...
@@ -59,7 +59,7 @@ namespace {
     size_t num_src;
     size_t num_dst;
     size_t num_edge;
-    T data[0];
+    IdType data[0];
     // row|col|[data]
   };
 
@@ -67,6 +67,9 @@ namespace {
     size_t ret = 0;
     ret += task->input_nodes->NumBytes();
     ret += task->output_nodes->NumBytes();
+    if (task->input_dst_index != nullptr) {
+      ret += task->input_dst_index->NumBytes();
+    }
     for (auto &graph : task->graphs) {
       ret += sizeof(GraphData);
       ret += graph->row->NumBytes();
@@ -116,28 +119,38 @@ namespace {
     ptr->key = task->key;
     ptr->input_size = task->input_nodes->Shape()[0];
     ptr->output_size = task->output_nodes->Shape()[0];
+    ptr->num_miss = task->num_miss;
 
-    CHECK_EQ(sizeof(T) * ptr->input_size, task->input_nodes->NumBytes());
-    CopyTo(task->input_nodes, ptr->data);
+    IdType* ptr_data = ptr->data;
+    CHECK_EQ(sizeof(IdType) * ptr->input_size, task->input_nodes->NumBytes());
+    CopyTo(task->input_nodes, ptr_data);
+    ptr_data += ptr->input_size;
 
-    CHECK_EQ(sizeof(T) * ptr->output_size, task->output_nodes->NumBytes());
-    CopyTo(task->output_nodes, ptr->data + ptr->input_size);
+    CHECK_EQ(sizeof(IdType) * ptr->output_size, task->output_nodes->NumBytes());
+    CopyTo(task->output_nodes, ptr_data);
+    ptr_data += ptr->output_size;
 
-    GraphData* graph_data = reinterpret_cast<GraphData*>(ptr->data + ptr->input_size + ptr->output_size);
+    if (task->input_dst_index != nullptr) {
+      CHECK_NE(ptr->num_miss, ptr->input_size);
+      CopyTo(task->input_dst_index, ptr_data);
+      ptr_data += ptr->input_size;
+    }
+
+    GraphData* graph_data = reinterpret_cast<GraphData*>(ptr_data);
     LOG(DEBUG) << "ToData with task graphs layer: " << task->graphs.size();
     for (auto &graph : task->graphs) {
       graph_data->num_src = graph->num_src;
       graph_data->num_dst = graph->num_dst;
       graph_data->num_edge = graph->num_edge;
 
-      CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->row->NumBytes());
+      CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->row->NumBytes());
       CopyTo(graph->row, graph_data->data);
 
-      CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->col->NumBytes());
+      CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->col->NumBytes());
       CopyTo(graph->col, graph_data->data + graph_data->num_edge);
 
       if (have_data) {
-        CHECK_EQ(sizeof(T) * graph_data->num_edge, graph->data->NumBytes());
+        CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->data->NumBytes());
         CopyTo(graph->data, graph_data->data + 2 * graph_data->num_edge);
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 3 * graph->num_edge);
       } else {
@@ -151,8 +164,8 @@ namespace {
     LOG(DEBUG) << "TaskQueue ToTensor with name: " << name;
     void* data = Device::Get(data_ctx)->
       AllocWorkspace(data_ctx, nbytes);
-    std::memcpy(data, ptr, nbytes);
-    TensorPtr ret = Tensor::FromBlob(data, kI32, {(nbytes/sizeof(T))}, data_ctx, name);
+    Device::Get(data_ctx)->CopyDataFromTo(ptr, 0, data, 0, nbytes, data_ctx, data_ctx);
+    TensorPtr ret = Tensor::FromBlob(data, kI32, {(nbytes/sizeof(IdType))}, data_ctx, name);
     return ret;
   }
 
@@ -160,15 +173,26 @@ namespace {
     auto trans_data = static_cast<const TransData*>(ptr);
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
+    task->num_miss = trans_data->num_miss;
 
-    task->input_nodes = ToTensor(trans_data->data,
-        trans_data->input_size * sizeof(T), "input_" + std::to_string(task->key));
-    task->output_nodes = ToTensor(trans_data->data + trans_data->input_size,
-        trans_data->output_size * sizeof(T), "output_" + std::to_string(task->key));
+    const IdType *trans_data_data = trans_data->data;
+
+    task->input_nodes = ToTensor(trans_data_data,
+        trans_data->input_size * sizeof(IdType), "input_" + std::to_string(task->key));
+    trans_data_data += trans_data->input_size;
+
+    task->output_nodes = ToTensor(trans_data_data,
+        trans_data->output_size * sizeof(IdType), "output_" + std::to_string(task->key));
+    trans_data_data += trans_data->output_size;
+
+    if (RunConfig::UseGPUCache()) {
+      task->input_dst_index = ToTensor(trans_data_data,
+          trans_data->input_size * sizeof(IdType), "cache_dst_index_" + std::to_string(task->key));
+      trans_data_data += trans_data->input_size;
+    }
 
     task->graphs.resize(trans_data->num_layer);
-    auto graph_data = reinterpret_cast<const GraphData*>(
-        trans_data->data + trans_data->input_size + trans_data->output_size);
+    auto graph_data = reinterpret_cast<const GraphData*>(trans_data_data);
 
     int num_layer = trans_data->num_layer;
     for (int layer = 0; layer < num_layer; ++layer) {
@@ -177,14 +201,14 @@ namespace {
       graph->num_dst = graph_data->num_dst;
       graph->num_edge = graph_data->num_edge;
       graph->row = ToTensor(graph_data->data,
-          graph->num_edge * sizeof(T),
+          graph->num_edge * sizeof(IdType),
           "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer));
       graph->col = ToTensor(graph_data->data + graph->num_edge,
-          graph->num_edge * sizeof(T),
+          graph->num_edge * sizeof(IdType),
           "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer));
       if (trans_data->have_data) {
         graph->data = ToTensor(graph_data->data + 2 * graph->num_edge,
-            graph->num_edge * sizeof(T),
+            graph->num_edge * sizeof(IdType),
             "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer));
         graph_data = reinterpret_cast<const GraphData*>(
             graph_data->data + 3 * graph->num_edge);
