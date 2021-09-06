@@ -10,13 +10,15 @@
 #include "common/graph_loader.h"
 #include "common/options.h"
 
-void TrainSize(utility::GraphPtr dataset) {
+void TrainSize(utility::GraphPtr dataset, int partition) {
   uint32_t *indptr = dataset->indptr;
   uint32_t *indices = dataset->indices;
   uint32_t *train_set = dataset->train_set;
   uint32_t num_train_set = dataset->num_train_set;
   uint32_t num_nodes = dataset->num_nodes;
   uint32_t num_edges = dataset->num_edges;
+
+  num_train_set /= partition;
 
   // std::vector<std::uint8_t> before(num_nodes, 0);
   volatile uint8_t*  before = new volatile uint8_t [num_nodes]();
@@ -77,12 +79,14 @@ void TrainSize(utility::GraphPtr dataset) {
 
 int main(int argc, char *argv[]) {
   utility::Options::InitOptions("Graph property");
+  int partition = 1;
+  utility::Options::CustomOption("-P,--partition", partition);
   OPTIONS_PARSE(argc, argv);
 
   utility::GraphLoader graph_loader(utility::Options::root);
   auto graph = graph_loader.GetGraphDataset(utility::Options::graph);
 
-  TrainSize(graph);
+  TrainSize(graph, partition);
 
   return 0;
 }
