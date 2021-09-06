@@ -42,9 +42,12 @@ struct MQ_MetaData {
   T send_cnt;
   T recv_cnt;
   T max_size;
+  T mq_nbytes;
   sem_t sem_list[N];
-  void Init() {
+  char data[0];
+  void Init(T mq_nbytes_t) {
     send_cnt = 0; recv_cnt = 0; max_size = N;
+    mq_nbytes = mq_nbytes_t;
     for (T i = 0; i < max_size; ++i) {
       sem_init(sem_list + i, 1, 0);
     }
@@ -65,25 +68,31 @@ struct MQ_MetaData {
     CHECK_NE(err, -1);
     return err;
   }
+  void* GetData(T key) {
+    T pos = (key % max_size);
+    return static_cast<void *>(data + (pos * mq_nbytes));
+  }
 };
 
-using QueueMetaData = MQ_MetaData<size_t, 1024>;
+constexpr size_t mq_size = 200;
+
+using QueueMetaData = MQ_MetaData<size_t, mq_size>;
 
 class MemoryQueue {
  public:
-  MemoryQueue(std::string meta_memory_name);
+  MemoryQueue(std::string meta_memory_name, size_t mq_nbytes);
   ~MemoryQueue();
   static MemoryQueue* Get() { return _mq; }
   static void Create();
   static void Destory();
   int Send(void* data, size_t size);
-  std::shared_ptr<SharedData> Recv();
+  void* Recv();
  private:
   static MemoryQueue *_mq;
   QueueMetaData* _meta_data;
   std::string _meta_memory_name;
   std::string Key2String(size_t key);
-  std::string prefix;
+  std::string _prefix;
 };
 
 }  // namespace common

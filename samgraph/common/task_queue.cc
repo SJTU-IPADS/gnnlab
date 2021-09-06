@@ -7,38 +7,6 @@
 namespace samgraph {
 namespace common {
 
-TaskQueue::TaskQueue(size_t max_len) {
-  _max_len = max_len;
-  _mq = std::make_shared<MemoryQueue>(RunConfig::shared_meta_path);
-}
-
-void TaskQueue::AddTask(std::shared_ptr<Task> task) {
-  std::lock_guard<std::mutex> lock(_mutex);
-  _q.push_back(task);
-}
-
-size_t TaskQueue::PendingLength() {
-  std::lock_guard<std::mutex> lock(_mutex);
-  return _q.size();
-}
-
-bool TaskQueue::Full() {
-  std::lock_guard<std::mutex> lock(_mutex);
-  return _q.size() >= _max_len;
-}
-
-std::shared_ptr<Task> TaskQueue::GetTask() {
-  std::lock_guard<std::mutex> lock(_mutex);
-  std::shared_ptr<Task> task;
-  for (auto it = _q.begin(); it != _q.end(); it++) {
-    task = *it;
-    _q.erase(it);
-
-    return task;
-  }
-  return nullptr;
-}
-
 namespace {
 
   struct TransData {
@@ -221,7 +189,59 @@ namespace {
     }
     return task;
   }
+
+  size_t GetMaxMQSize() {
+    const auto &fanout = RunConfig::fanout;
+    size_t layer_cnt = RunConfig::batch_size;
+    size_t ret = 0;
+    for (auto i : fanout) {
+      ret += sizeof(GraphData);
+      ret += (layer_cnt * i * 3 * sizeof(IdType));
+      layer_cnt = layer_cnt + layer_cnt * i;
+    }
+    ret += sizeof(TransData);
+    ret += (RunConfig::batch_size * sizeof(IdType)); // label size;
+    ret += (layer_cnt * sizeof(IdType));
+    if (RunConfig::UseGPUCache()) {
+      ret += (layer_cnt * sizeof(IdType));
+    }
+    return ret;
+  }
 } // namespace
+
+TaskQueue::TaskQueue(size_t max_len) {
+  _max_len = max_len;
+  size_t mq_nbytes = GetMaxMQSize();
+  _mq = std::make_shared<MemoryQueue>(RunConfig::shared_meta_path, mq_nbytes);
+}
+
+void TaskQueue::AddTask(std::shared_ptr<Task> task) {
+  std::lock_guard<std::mutex> lock(_mutex);
+  _q.push_back(task);
+}
+
+size_t TaskQueue::PendingLength() {
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _q.size();
+}
+
+bool TaskQueue::Full() {
+  std::lock_guard<std::mutex> lock(_mutex);
+  return _q.size() >= _max_len;
+}
+
+std::shared_ptr<Task> TaskQueue::GetTask() {
+  std::lock_guard<std::mutex> lock(_mutex);
+  std::shared_ptr<Task> task;
+  for (auto it = _q.begin(); it != _q.end(); it++) {
+    task = *it;
+    _q.erase(it);
+
+    return task;
+  }
+  return nullptr;
+}
+
 
 bool TaskQueue::Send(std::shared_ptr<Task> task) {
   LOG(DEBUG) << "TaskQueue Send start with task key: " << task->key;
@@ -233,9 +253,8 @@ bool TaskQueue::Send(std::shared_ptr<Task> task) {
 }
 
 std::shared_ptr<Task> TaskQueue::Recv() {
-  std::shared_ptr<SharedData> shared_data = _mq->Recv();
-  LOG(DEBUG) << "TaskQueue Recv data with " << shared_data->Size() << " bytes";
-  std::shared_ptr<Task> task = ParseData(shared_data->Data());
+  void* shared_data = _mq->Recv();
+  std::shared_ptr<Task> task = ParseData(shared_data);
   LOG(INFO) << "TaskQueue Recv a task with key: " << task->key;
   return task;
 }
