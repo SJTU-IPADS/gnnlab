@@ -318,7 +318,7 @@ void DistEngine::Shutdown() {
   }
 
   if (_cache_hashtable != nullptr) {
-    delete _cache_hashtable;
+    Device::Get(_sampler_ctx)->FreeDataSpace(_sampler_ctx, _cache_hashtable);
   }
 
   _dataset = nullptr;

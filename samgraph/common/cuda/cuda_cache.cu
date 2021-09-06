@@ -10,6 +10,8 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
+namespace {
+
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_miss_cache(const IdType *hashtable, const IdType *nodes,
                                  const size_t num_nodes, IdType *miss_counts,
@@ -136,6 +138,8 @@ __global__ void get_cache_index(const IdType *hashtable, const IdType *nodes,
   //          cache_counts_prefix[gridDim.x - 1]);
   // }
 }
+
+} // namespace
 
 void GetMissCacheIndex(
     IdType *sampler_gpu_hashtable, Context sampler_ctx,

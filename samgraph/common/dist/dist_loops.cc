@@ -219,11 +219,8 @@ void DoGPUSample(TaskPtr task) {
     LOG(DEBUG) << "GPUSample: finish layer " << i;
   }
 
-  task->input_nodes = cur_input;
-
-  // TODO: do get miss index
   // Get index of miss data and cache data
-  Timer t4;
+  // Timer t4;
   if (RunConfig::UseGPUCache()) {
     auto input_nodes = reinterpret_cast<const IdType*>
                         (cur_input->Data());
@@ -253,26 +250,26 @@ void DoGPUSample(TaskPtr task) {
     // move index data to CPU memory
     auto cpu_device = Device::Get(CPU());
     IdType *cpu_output_src_index =
-      static_cast<IdType *>(cpu_device->AllocDataSpace(
+      static_cast<IdType *>(cpu_device->AllocWorkspace(
           CPU(), sizeof(IdType) * num_input));
     IdType *cpu_output_dst_index =
-      static_cast<IdType *>(cpu_device->AllocDataSpace(
+      static_cast<IdType *>(cpu_device->AllocWorkspace(
           CPU(), sizeof(IdType) * num_input));
 
     sampler_device->CopyDataFromTo(sampler_output_miss_src_index, 0,
                                    cpu_output_src_index, 0,
                                    num_output_miss * sizeof(IdType),
                                    sampler_ctx, CPU(), sample_stream);
-    sampler_device->CopyDataFromTo(sampler_output_cache_src_index, num_output_miss,
-                                   cpu_output_src_index, num_output_miss,
+    sampler_device->CopyDataFromTo(sampler_output_cache_src_index, 0,
+                                   cpu_output_src_index, num_output_miss * sizeof(IdType),
                                    num_output_cache * sizeof(IdType),
                                    sampler_ctx, CPU(), sample_stream);
     sampler_device->CopyDataFromTo(sampler_output_miss_dst_index, 0,
                                    cpu_output_dst_index, 0,
                                    num_output_miss * sizeof(IdType),
                                    sampler_ctx, CPU(), sample_stream);
-    sampler_device->CopyDataFromTo(sampler_output_cache_dst_index, num_output_miss,
-                                   cpu_output_dst_index, num_output_miss,
+    sampler_device->CopyDataFromTo(sampler_output_cache_dst_index, 0,
+                                   cpu_output_dst_index, num_output_miss * sizeof(IdType),
                                    num_output_cache * sizeof(IdType),
                                    sampler_ctx, CPU(), sample_stream);
 
@@ -280,10 +277,45 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, sampler_output_miss_dst_index);
     sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_src_index);
     sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_dst_index);
+    /*
+    // debug ...
+    auto feat_num = DistEngine::Get()->GetGraphDataset()->feat->Shape()[0];
+    auto total_nodes = DistEngine::Get()->GetGraphDataset()->num_node;
+    CHECK_EQ(feat_num, total_nodes);
+    for (size_t i = 0; i < num_input; ++i) {
+      if (cpu_output_dst_index[i] >= num_input) {
+        std::cout << cpu_output_dst_index[i] << " vs " << num_input << std::endl;
+      }
+      CHECK(cpu_output_dst_index[i] < num_input);
+      if (i < num_output_miss) {
+        if (cpu_output_src_index[i] >= feat_num) {
+          std::cout << cpu_output_dst_index[i] << " vs " << feat_num << std::endl;
+        }
+        CHECK(cpu_output_src_index[i] < feat_num);
+      }
+      else {
+        if (cpu_output_src_index[i] >= static_cast<size_t>(feat_num * RunConfig::cache_percentage)) {
+          std::cout << cpu_output_src_index[i] << " vs " << static_cast<size_t>(feat_num * RunConfig::cache_percentage) << std::endl;
+        }
+        CHECK(cpu_output_src_index[i] < static_cast<size_t>(feat_num * RunConfig::cache_percentage));
+      }
+    }
+    */
 
-    // TODO: use the cpu_output_src_index, cpu_output_dst_index
+    task->input_nodes = Tensor::FromBlob(
+        (void *)cpu_output_src_index, DataType::kI32, {num_input}, CPU(),
+        "task_input_nodes_" + std::to_string(task->key));
+    task->input_dst_index = Tensor::FromBlob(
+        (void *)cpu_output_dst_index, DataType::kI32, {num_input}, CPU(),
+        "task_input_nodes_dst_index_" + std::to_string(task->key));
+    task->num_miss = num_output_miss;
   }
-  double get_index_time = t4.Passed();
+  else {
+    task->input_nodes = cur_input;
+    task->input_dst_index = nullptr;
+    task->num_miss = cur_input->Shape()[0];
+  }
+  // double get_index_time = t4.Passed();
 
 
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
@@ -516,7 +548,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
   auto feat_dim = dataset->feat->Shape()[1];
   auto feat_type = dataset->feat->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  // auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
   auto num_input = input_nodes->Shape()[0];
 
   CHECK_EQ(input_nodes->Ctx().device_type, cpu_ctx.device_type);
@@ -530,6 +562,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
   // feature data has cache, so we only need to extract the miss data
   Timer t0;
 
+  /*
   IdType *output_miss_src_index = static_cast<IdType *>(
       cpu_device->AllocWorkspace(cpu_ctx, sizeof(IdType) * num_input));
   IdType *output_miss_dst_index = static_cast<IdType *>(
@@ -538,16 +571,27 @@ void DoCacheFeatureCopy(TaskPtr task) {
       cpu_device->AllocWorkspace(cpu_ctx, sizeof(IdType) * num_input));
   IdType *output_cache_dst_index = static_cast<IdType *>(
       cpu_device->AllocWorkspace(cpu_ctx, sizeof(IdType) * num_input));
+  */
 
-  size_t num_output_miss;
-  size_t num_output_cache;
+  size_t num_output_miss = task->num_miss;
+  size_t num_output_cache = (num_input - num_output_miss);
 
+  auto output_miss_src_index = static_cast<const IdType *>(task->input_nodes->Data());
+  auto output_cache_src_index =
+    (output_miss_src_index + num_output_miss);
+  auto output_miss_dst_index = static_cast<const IdType *>(task->input_dst_index->Data());
+  auto output_cache_dst_index =
+    (output_miss_dst_index + num_output_miss);
+
+
+  /*
   cache_manager->GetMissCacheIndex(
       output_miss_src_index, output_miss_dst_index, &num_output_miss,
       output_cache_src_index, output_cache_dst_index, &num_output_cache,
       input_data, num_input);
 
   CHECK_EQ(num_output_miss + num_output_cache, num_input);
+  */
 
   double get_index_time = t0.Passed();
 
@@ -555,7 +599,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   Timer t1;
 
-  IdType *cpu_output_miss_src_index = output_miss_src_index;
+  const IdType *cpu_output_miss_src_index = output_miss_src_index;
   IdType *trainer_output_miss_dst_index =
       static_cast<IdType *>(trainer_device->AllocWorkspace(
           trainer_ctx, sizeof(IdType) * num_output_miss));
@@ -581,9 +625,11 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
+  /*
   cpu_device->FreeWorkspace(cpu_ctx, output_miss_dst_index);
   cpu_device->FreeWorkspace(cpu_ctx, output_cache_src_index);
   cpu_device->FreeWorkspace(cpu_ctx, output_cache_dst_index);
+  */
 
   double copy_idx_time = t1.Passed();
 
@@ -633,7 +679,6 @@ void DoCacheFeatureCopy(TaskPtr task) {
   task->input_feat = train_feat;
 
   // 5. Free space
-  cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
