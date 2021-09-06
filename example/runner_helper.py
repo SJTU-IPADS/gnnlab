@@ -48,6 +48,14 @@ class App(Enum):
   graphsage = 1
   pinsage = 2
 
+class SampleType(Enum):
+  kKHop0 = 0
+  kKHop1 = 1
+  kWeightedKHop = 2
+  kRandomWalk = 3
+  kWeightedKHopPrefix = 4
+
+  kDefaultForApp = 10
 
 class Dataset(Enum):
   reddit = 0
@@ -80,6 +88,7 @@ class RunConfig:
     self.epoch         = epoch
     self.batch_size    = batch_size
     self.logdir        = logdir
+    self.sample_type   = SampleType.kDefaultForApp
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -90,6 +99,14 @@ class RunConfig:
     if self.pipeline:
       return ["pipeline"]
     return []
+  def preprocess_sample_type(self):
+    if self.sample_type is SampleType.kDefaultForApp:
+      if self.app is App.pinsage:
+        self.sample_type = SampleType.kRandomWalk
+      else:
+        self.sample_type = SampleType.kKHop0
+    else:
+      return
 
   def form_cmd(self, durable_log=True):
     cmd_line = ''
@@ -101,6 +118,7 @@ class RunConfig:
     cmd_line += 'export SAMGRAPH_LOG_LEVEL=warn; '
     cmd_line += 'export SAMGRAPH_DUMP_TRACE=0; '
     cmd_line += f'python samgraph/train_{self.app.name}.py --arch {self.arch.name}'
+    cmd_line += f' --sample-type {self.sample_type.value}'
     cmd_line += f' --max-sampling-jobs {self.sample_job}'
     cmd_line += f' --max-copying-jobs {self.copy_job}'
     if self.pipeline:
@@ -126,17 +144,19 @@ class RunConfig:
     return cmd_line
   
   def get_log_fname(self):
+    self.preprocess_sample_type()
     std_out_log = f'{self.logdir}/'
     std_out_log += '_'.join(
       ['samgraph']+self.cache_log_name() + self.pipe_log_name() +
-      [self.app.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
+      [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
       [f'cache_rate_{int(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}']) 
     return std_out_log
 
   def beauty(self):
+    self.preprocess_sample_type()
     msg = ' '.join(
       ['Running '] + self.cache_log_name() + self.pipe_log_name() + 
-      [self.app.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
+      [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
       [f'cache rate:{int(self.cache_percent*100):0>3}%', f'batch size:{self.batch_size}', ])
     return msg
     

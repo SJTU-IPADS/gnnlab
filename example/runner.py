@@ -1,4 +1,4 @@
-from runner_helper import RunConfig, ConfigList, App, Dataset, CachePolicy, TMP_LOG_DIR, run_in_list
+from runner_helper import RunConfig, ConfigList, App, Dataset, CachePolicy, TMP_LOG_DIR, run_in_list, SampleType
 import os
 
 def tmp_call_back(cfg: RunConfig):
