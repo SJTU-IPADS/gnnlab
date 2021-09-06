@@ -62,6 +62,7 @@ class Dataset(Enum):
   products = 1
   papers100M = 2
   friendster = 3
+  papers100M_300 = 4
   def __str__(self):
     if self is Dataset.friendster:
       return 'com-friendster'
