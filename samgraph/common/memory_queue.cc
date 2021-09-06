@@ -50,6 +50,20 @@ void MemoryQueue::Destory() {
   _mq = nullptr;
 }
 
+void* MemoryQueue::GetPos(size_t &key) {
+  key = _meta_data->Put();
+  while (key >= _meta_data->recv_cnt + _meta_data->max_size) {
+    std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+  }
+  void* shared_memory = _meta_data->GetData(key);
+  return shared_memory;
+}
+
+void MemoryQueue::SimpleSend(size_t key) {
+  _meta_data->SemPost(key);
+  LOG(DEBUG) << "MemoryQueue Send with key: " << key;
+}
+
 int MemoryQueue::Send(void* data, size_t size) {
   auto key = _meta_data->Put();
   while (key >= _meta_data->recv_cnt + _meta_data->max_size) {

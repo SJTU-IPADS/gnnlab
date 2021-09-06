@@ -87,6 +87,8 @@ class MemoryQueue {
   static void Destory();
   int Send(void* data, size_t size);
   void* Recv();
+  void* GetPos(size_t &key);
+  void  SimpleSend(size_t key);
  private:
   static MemoryQueue *_mq;
   QueueMetaData* _meta_data;

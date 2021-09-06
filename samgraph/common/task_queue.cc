@@ -3,6 +3,7 @@
 #include "device.h"
 #include "run_config.h"
 #include "./dist/dist_engine.h"
+#include "timer.h"
 
 namespace samgraph {
 namespace common {
@@ -74,14 +75,15 @@ namespace {
   }
 */
 
-  void* ToData(std::shared_ptr<Task> task) {
+  void ToData(std::shared_ptr<Task> task, void* shared_ptr) {
+    // Timer tt;
     bool have_data = false;
     if (task->graphs[0]->data != nullptr) {
       have_data = true;
     }
     size_t data_size = GetDataBytes(task);
     LOG(DEBUG) << "ToData transform data size: " << data_size << " bytes";
-    TransData* ptr = static_cast<TransData*>(malloc(sizeof(TransData) + data_size));
+    TransData* ptr = static_cast<TransData*>(shared_ptr);
     ptr->have_data = have_data;
     ptr->num_layer = (task->graphs.size());
     ptr->key = task->key;
@@ -89,6 +91,7 @@ namespace {
     ptr->output_size = task->output_nodes->Shape()[0];
     ptr->num_miss = task->num_miss;
 
+    // Timer t0;
     IdType* ptr_data = ptr->data;
     CHECK_EQ(sizeof(IdType) * ptr->input_size, task->input_nodes->NumBytes());
     CopyTo(task->input_nodes, ptr_data);
@@ -103,7 +106,9 @@ namespace {
       CopyTo(task->input_dst_index, ptr_data);
       ptr_data += ptr->input_size;
     }
+    // double node_time = t0.Passed();
 
+    // Timer t1;
     GraphData* graph_data = reinterpret_cast<GraphData*>(ptr_data);
     LOG(DEBUG) << "ToData with task graphs layer: " << task->graphs.size();
     for (auto &graph : task->graphs) {
@@ -125,7 +130,9 @@ namespace {
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 2 * graph->num_edge);
       }
     }
-    return static_cast<void*>(ptr);
+    // double graph_time = t1.Passed();
+    // double total_time = tt.Passed();
+    // printf("copy nodes: %.6f, copy graph: %.6f, total: %.6f\n", node_time, graph_time, total_time);
   }
 
   TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name) {
@@ -244,12 +251,19 @@ std::shared_ptr<Task> TaskQueue::GetTask() {
 
 
 bool TaskQueue::Send(std::shared_ptr<Task> task) {
+  // Timer tt;
+  // Timer t0;
   LOG(DEBUG) << "TaskQueue Send start with task key: " << task->key;
-  void* data = ToData(task);
+  size_t key;
+  void* shared_ptr = _mq->GetPos(key);
+  ToData(task, shared_ptr);
   size_t bytes = sizeof(TransData) + GetDataBytes(task);
   LOG(DEBUG) << "TaskQueue Send data with " << bytes << " bytes";
-  size_t ret = _mq->Send(data, bytes);
-  return (ret == bytes);
+  // double send_time = t0.Passed();
+  // size_t ret = _mq->Send(data, bytes);
+  _mq->SimpleSend(key);
+  // double total = tt.Passed();
+  return true;
 }
 
 std::shared_ptr<Task> TaskQueue::Recv() {
