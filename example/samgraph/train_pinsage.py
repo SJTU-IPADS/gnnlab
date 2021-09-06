@@ -91,7 +91,7 @@ def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("PinSAGE Training")
     argparser.add_argument(
         '--arch', type=str, default=default_run_config['arch'])
-    argparser.add_argument('--sample_type', type=int,
+    argparser.add_argument('--sample-type', type=int,
                            default=default_run_config['sample_type'])
     argparser.add_argument('--pipeline', action='store_true',
                            default=default_run_config['pipeline'])
@@ -192,8 +192,8 @@ def run():
 
     sample_device = th.device('cuda:%d' % run_config['sampler_ctx'].device_id)
     train_device  = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
-    print("sampling using {}".format(th.cuda.get_device_name(sample_device)))
-    print("training using {}".format(th.cuda.get_device_name(train_device)))
+    print("('sampler_gpu', '{}')".format(th.cuda.get_device_name(sample_device)))
+    print("('trainer_gpu', '{}')".format(th.cuda.get_device_name(train_device)))
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
