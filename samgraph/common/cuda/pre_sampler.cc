@@ -1,4 +1,5 @@
 #include "pre_sampler.h"
+#include "../profiler.h"
 #include "../common.h"
 #include "../constant.h"
 #include "../logging.h"
@@ -62,6 +63,7 @@ TensorPtr PreSampler::DoPreSample(){
             std::greater<Id64Type>());
 #endif
   GPUEngine::Get()->GetShuffler()->Reset();
+  Profiler::Get().Reset();
   return GetRankNode();
 }
 

@@ -125,6 +125,7 @@ struct TraceData {
 class Profiler {
  public:
   Profiler();
+  void Reset();
   void LogStep(uint64_t key, LogStepItem item, double val);
   void LogStepAdd(uint64_t key, LogStepItem item, double val);
   void LogEpochAdd(uint64_t key, LogEpochItem item, double val);

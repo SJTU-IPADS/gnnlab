@@ -57,6 +57,32 @@ Profiler::Profiler() {
   _similarity.resize(num_step_logs);
 }
 
+void Profiler::Reset() {
+  size_t num_step_items = static_cast<size_t>(kNumLogStepItems);
+  size_t num_step_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
+  size_t num_epoch_items = static_cast<size_t>(kNumLogEpochItems);
+  size_t num_epoch_logs = Engine::Get()->NumEpoch();
+  _step_data.clear();
+  _step_data.resize(num_step_items, LogData(num_step_logs));
+  _step_buf.clear();
+  _step_buf.resize(num_step_items);
+  _epoch_data.clear();
+  _epoch_data.resize(num_epoch_items, LogData(num_epoch_logs));
+  _epoch_buf.clear();
+  _epoch_buf.resize(num_epoch_items);
+
+  _step_trace.clear();
+  _step_trace.resize(kNumTraceItems, TraceData(num_step_logs));
+  _num_step = Engine::Get()->NumStep();
+
+  _node_access.clear();
+  _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _last_visit.clear();
+  _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _similarity.clear();
+  _similarity.resize(num_step_logs);
+}
+
 void Profiler::LogStep(uint64_t key, LogStepItem item, double val) {
   size_t item_idx = static_cast<size_t>(item);
   _step_data[item_idx].vals[key] = val;
