@@ -116,6 +116,7 @@ setup(
                 'samgraph/common/cuda/cuda_sampling_khop1.cu',
                 'samgraph/common/cuda/cuda_sampling_random_walk.cu',
                 'samgraph/common/cuda/cuda_sampling_weighted_khop.cu',
+                'samgraph/common/cuda/cuda_sampling_weighted_khop_prefix.cu',
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
                 'samgraph/common/cuda/pre_sampler.cc',
@@ -125,12 +126,26 @@ setup(
                 here, '3rdparty/cub'), os.path.join(here, '3rdparty/parallel-hashmap')],
             libraries=['cusparse'],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
+            # these custom march may should be remove and merged
             extra_compile_args={
-                'cxx': ['-std=c++14', '-g', '-fopt-info',  '-fPIC',
+                'cxx': ['-std=c++14', '-g',
+                        # '-fopt-info',
+                        '-fPIC',
                         '-Ofast',
+                        '-DSXN_REVISED',
+                        '-DSXN_NAIVE_HASHMAP',
                         # '-O0',
                         '-Wall', '-fopenmp', '-march=native'],
-                'nvcc': ['-std=c++14', '-g', '--ptxas-options=-v', '--compiler-options', "'-fPIC'"]
+                'nvcc': ['-std=c++14',
+                         '-g',
+                        # '-G',
+                        #  '--ptxas-options=-v',
+                         '-DSXN_REVISED',
+                         '-DSXN_NAIVE_HASHMAP',
+                         '--compiler-options', "'-fPIC'",
+                         '-gencode=arch=compute_35,code=sm_35', # K40m
+                         '-gencode=arch=compute_70,code=sm_70', # V100
+                         ]
             })
     ],
     # $ setup.py publish support.
