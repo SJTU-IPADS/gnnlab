@@ -87,6 +87,11 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/toolkit/weight/create_alias_table.cc
     ${COMMON_SOURCE}
 )
+add_executable(
+    create-prob-prefix-table
+    ${CMAKE_SOURCE_DIR}/toolkit/weight/create_prob_prefix_table.cc
+    ${COMMON_SOURCE}
+)
 
 
 add_executable(

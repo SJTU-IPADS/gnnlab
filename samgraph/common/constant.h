@@ -23,6 +23,7 @@ class Constant {
 
   static const std::string kProbTableFile;
   static const std::string kAliasTableFile;
+  static const std::string kProbPrefixTableFile;
 
   static const std::string kInDegreeFile;
   static const std::string kOutDegreeFile;

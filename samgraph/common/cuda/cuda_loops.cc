@@ -61,6 +61,8 @@ void DoGPUSample(TaskPtr task) {
       static_cast<const float *>(dataset->prob_table->Data());
   const IdType *alias_table =
       static_cast<const IdType *>(dataset->alias_table->Data());
+  const uint32_t *prob_prefix_table =
+      static_cast<const uint32_t *>(dataset->prob_prefix_table->Data());
 
   auto cur_input = task->output_nodes;
   size_t total_num_samples = 0;
@@ -120,6 +122,12 @@ void DoGPUSample(TaskPtr task) {
             RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
             frequency_hashmap, sampler_ctx, sample_stream, random_states,
             task->key);
+        break;
+      case kWeightedKHopPrefix:
+        GPUSampleWeightedKHopPrefix(indptr, indices, prob_prefix_table, input,
+                              num_input, fanout, out_src, out_dst, num_out,
+                              sampler_ctx, sample_stream, random_states,
+                              task->key);
         break;
       default:
         CHECK(0);
@@ -309,6 +317,7 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
                               task->key);
         break;
       case kRandomWalk:
+      case kWeightedKHopPrefix:
         // to ensure all neighbour of last layer covers sampled nodes
       default:
         CHECK(0);

@@ -48,6 +48,7 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
       {kKHop1, "KHop1"},
       {kWeightedKHop, "WeightedKHop"},
       {kRandomWalk, "RandomWalk"},
+      {kWeightedKHopPrefix, "WeightedKHopPrefix"},
   };
 
   LOG(INFO) << "Use " << sample2str[RunConfig::sample_type]

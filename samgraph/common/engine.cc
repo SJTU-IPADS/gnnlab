@@ -153,9 +153,18 @@ void Engine::LoadGraphDataset() {
         _dataset_path + Constant::kAliasTableFile, DataType::kI32,
         {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kAliasTableFile],
         "dataset.alias_table");
+    _dataset->prob_prefix_table = Tensor::Null();
+  } else if (RunConfig::sample_type == kWeightedKHopPrefix){
+    _dataset->prob_table = Tensor::Null();
+    _dataset->alias_table = Tensor::Null();
+    _dataset->prob_prefix_table = Tensor::FromMmap(
+        _dataset_path + Constant::kProbPrefixTableFile, DataType::kI32, 
+        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbPrefixTableFile], 
+        "dataset.prob_prefix_table");
   } else {
     _dataset->prob_table = Tensor::Null();
     _dataset->alias_table = Tensor::Null();
+    _dataset->prob_prefix_table = Tensor::Null();
   }
 
   if (RunConfig::option_log_node_access) {

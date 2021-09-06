@@ -32,7 +32,8 @@ enum SampleType {
   kKHop0 = 0,  // vertex-parallel
   kKHop1,      // sample-parallel
   kWeightedKHop,
-  kRandomWalk
+  kRandomWalk,
+  kWeightedKHopPrefix,
 };
 
 // arch0: vanilla mode(CPU sampling + GPU training)
@@ -115,6 +116,8 @@ struct Dataset {
 
   TensorPtr prob_table;
   TensorPtr alias_table;
+
+  TensorPtr prob_prefix_table;
 
   TensorPtr in_degrees;
   TensorPtr out_degrees;

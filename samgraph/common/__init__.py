@@ -46,6 +46,7 @@ kKHop0 = 0
 kKHop1 = 1
 kWeightedKHop = 2
 kRandomWalk = 3
+kWeightedKHopPrefix = 4
 
 kArch0 = 0
 kArch1 = 1

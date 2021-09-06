@@ -40,6 +40,14 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
                          Context ctx, StreamHandle stream,
                          GPURandomStates *random_states, uint64_t task_key);
 
+void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
+                           const uint32_t *prob_prefix_table,
+                           const IdType *input, const size_t num_input,
+                           const size_t fanout, IdType *out_src,
+                           IdType *out_dst, size_t *num_out, Context ctx,
+                           StreamHandle stream, GPURandomStates *random_states,
+                           uint64_t task_key);
+
 void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
                  const IdType *const global_dst, IdType *const new_global_dst,
                  const size_t num_edges, DeviceOrderedHashTable mapping,
