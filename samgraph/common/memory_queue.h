@@ -23,18 +23,25 @@
 namespace samgraph {
 namespace common {
 
+template <typename T, T N>
+struct MQ_MetaData;
+
+constexpr size_t mq_size = 200;
+
+using QueueMetaData = MQ_MetaData<size_t, mq_size>;
+
+
 class SharedData {
  private:
   void* _data;
-  size_t _size;
-  std::string _shared_name;
+  size_t _key;
+  QueueMetaData *_meta;
  public:
-  SharedData(void* data, size_t size, std::string name) : _data(data), _size(size), _shared_name(name) {};
+  ~SharedData();
+  SharedData() { CHECK(0); };
+  SharedData(void* data, size_t key, QueueMetaData *meta) :
+    _data(data), _key(key), _meta(meta) {};
   const void* Data() { return _data; }
-  size_t Size() { return _size; }
-  ~SharedData() {
-    shm_unlink(_shared_name.c_str());
-  };
 };
 
 template <typename T, T N>
@@ -44,12 +51,16 @@ struct MQ_MetaData {
   T max_size;
   T mq_nbytes;
   sem_t sem_list[N];
+  sem_t release_list[N];
   char data[0];
   void Init(T mq_nbytes_t) {
     send_cnt = 0; recv_cnt = 0; max_size = N;
     mq_nbytes = mq_nbytes_t;
     for (T i = 0; i < max_size; ++i) {
       sem_init(sem_list + i, 1, 0);
+    }
+    for (T i = 0; i < max_size; ++i) {
+      sem_init(release_list + i, 1, 1);
     }
   }
   T Put() {
@@ -68,15 +79,21 @@ struct MQ_MetaData {
     CHECK_NE(err, -1);
     return err;
   }
+  int ReleaseWait(T key) {
+    int err = sem_wait(release_list + (key % max_size));
+    CHECK_NE(err, -1);
+    return err;
+  }
+  int ReleasePost(T key) {
+    int err = sem_post(release_list + (key % max_size));
+    CHECK_NE(err, -1);
+    return err;
+  }
   void* GetData(T key) {
     T pos = (key % max_size);
     return static_cast<void *>(data + (pos * mq_nbytes));
   }
 };
-
-constexpr size_t mq_size = 200;
-
-using QueueMetaData = MQ_MetaData<size_t, mq_size>;
 
 class MemoryQueue {
  public:
@@ -86,8 +103,8 @@ class MemoryQueue {
   static void Create();
   static void Destory();
   int Send(void* data, size_t size);
-  void* Recv();
-  void* GetPos(size_t &key);
+  std::shared_ptr<SharedData>  Recv();
+  void* GetPtr(size_t &key);
   void  SimpleSend(size_t key);
  private:
   static MemoryQueue *_mq;

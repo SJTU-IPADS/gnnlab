@@ -3,6 +3,11 @@
 namespace samgraph {
 namespace common {
 
+SharedData::~SharedData() {
+  // send the release semaphore
+  _meta->ReleasePost(_key);
+};
+
 MemoryQueue* MemoryQueue::_mq = nullptr;
 
 MemoryQueue::MemoryQueue(std::string meta_memory_name, size_t mq_nbytes) {
@@ -50,11 +55,12 @@ void MemoryQueue::Destory() {
   _mq = nullptr;
 }
 
-void* MemoryQueue::GetPos(size_t &key) {
+void* MemoryQueue::GetPtr(size_t &key) {
   key = _meta_data->Put();
   while (key >= _meta_data->recv_cnt + _meta_data->max_size) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
+  _meta_data->ReleaseWait(key);
   void* shared_memory = _meta_data->GetData(key);
   return shared_memory;
 }
@@ -69,6 +75,7 @@ int MemoryQueue::Send(void* data, size_t size) {
   while (key >= _meta_data->recv_cnt + _meta_data->max_size) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }
+  _meta_data->ReleaseWait(key);
   /*
   std::string shared_memory_name = Key2String(key);
 
@@ -90,7 +97,7 @@ int MemoryQueue::Send(void* data, size_t size) {
   return size;
 }
 
-void* MemoryQueue::Recv() {
+std::shared_ptr<SharedData> MemoryQueue::Recv() {
   LOG(DEBUG) << "MemoryQueue Recv:"
              << " recv_cnt in meta_data is " << _meta_data->recv_cnt
              << ", send_cnt in meta_data is " << _meta_data->send_cnt;
@@ -122,8 +129,8 @@ void* MemoryQueue::Recv() {
 
   return ret;
   */
-
-  return _meta_data->GetData(key);
+  auto ptr = _meta_data->GetData(key);
+  return std::make_shared<SharedData>(ptr, key, _meta_data);
 }
 
 }  // namespace common
