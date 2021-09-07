@@ -159,6 +159,8 @@ def run_sample(worker_id, run_config, epoch_barrier):
     num_step = int(int(num_step / num_train_worker) * num_train_worker)
 
     sample_epoch_t_l = []
+    epoch_sample_times = []
+
     print(f"sample num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
         epoch_barrier.wait()
@@ -166,9 +168,13 @@ def run_sample(worker_id, run_config, epoch_barrier):
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
-        epoch_barrier.wait()
+            sam.report_step(epoch, step)
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
+        epoch_sample_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
+        epoch_barrier.wait()
     print("average sample epoch time: {:.4f}".format(np.mean(sample_epoch_t_l[1:])))
+    print("average sample epoch time by profiler: {:.4f}".format(np.mean(epoch_sample_times[1:])))
     sam.shutdown()
 
 def run_train(worker_id, run_config, epoch_barrier):
@@ -293,15 +299,15 @@ def run_train(worker_id, run_config, epoch_barrier):
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
 
-            sam.report_step_average(epoch, step)
+            sam.report_step(epoch, step)
             '''
 
         # sync the train workers
         if num_worker > 1:
             torch.distributed.barrier()
+        epoch_t_l.append(time.time() - epoch_t)
         # sync with sample process each epoch
         epoch_barrier.wait()
-        epoch_t_l.append(time.time() - epoch_t)
 
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))

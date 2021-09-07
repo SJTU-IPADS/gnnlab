@@ -90,7 +90,7 @@ def get_run_config():
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     default_run_config['cache_policy'] = sam.kCacheByHeuristic
-    default_run_config['cache_percentage'] = 0.3
+    default_run_config['cache_percentage'] = 0.0
 
     default_run_config['max_sampling_jobs'] = 10
     # default max_copying_jobs should be 10, but when training on com-friendster,
@@ -169,8 +169,10 @@ def run():
     total_times = []
     num_nodes = []
     num_samples = []
+    epoch_t_l = []
 
     for epoch in range(num_epoch):
+        epoch_t = time.time()
         for step in range(num_step):
             t0 = time.time()
             if not run_config['pipeline']:
@@ -214,13 +216,16 @@ def run():
             num_samples.append(num_sample)
             num_nodes.append(blocks[0].num_src_nodes())
 
+            '''
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
 
-            sam.report_step_average(epoch, step)
+            '''
+            sam.report_step(epoch, step)
 
+        epoch_t_l.append(time.time() - epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
         epoch_copy_times.append(
@@ -231,9 +236,13 @@ def run():
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
         epoch_total_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
+        print('Epoch {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
+            epoch, epoch_total_times[-1],  epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1]))
+        print('Epoch {:05d} | Time {:.4f}'.format(epoch, epoch_t_l[-1]))
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
+    print('Avg Epoch Time {:.4f}'.format(np.mean(epoch_t_l[1:])))
 
     sam.report_node_access()
     sam.shutdown()
