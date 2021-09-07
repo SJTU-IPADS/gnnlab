@@ -23,12 +23,15 @@ class Constant {
 
   static const std::string kProbTableFile;
   static const std::string kAliasTableFile;
+  static const std::string kProbPrefixTableFile;
 
   static const std::string kInDegreeFile;
   static const std::string kOutDegreeFile;
 
   static const std::string kCacheByDegreeFile;
   static const std::string kCacheByHeuristicFile;
+  static const std::string kCacheByDegreeHopFile;
+  static const std::string kCacheByFakeOptimalFile;
 
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;
@@ -60,11 +63,18 @@ class Constant {
   static const std::string kEnvProfileLevel;
   static const std::string kEnvProfileCuda;
   static const std::string kEnvLogNodeAccess;
+  static const std::string kEnvLogNodeAccessSimple;
   static const std::string kEnvSanityCheck;
+  static const std::string kBarrierEpoch;
+  static const std::string kPresampleEpoch;
+  static const std::string kEnvDumpTrace;
 
   static const std::string kNodeAccessLogFile;
   static const std::string kNodeAccessFrequencyFile;
+  static const std::string kNodeAccessOptimalCacheHitFile;
+  static const std::string kNodeAccessOptimalCacheBinFile;
   static const std::string kNodeAccessSimilarityFile;
+  static const std::string kNodeAccessPreSampleSimFile;
   static const std::string kNodeAccessFileSuffix;
 };
 

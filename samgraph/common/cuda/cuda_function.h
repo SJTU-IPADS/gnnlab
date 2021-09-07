@@ -40,6 +40,14 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
                          Context ctx, StreamHandle stream,
                          GPURandomStates *random_states, uint64_t task_key);
 
+void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
+                           const uint32_t *prob_prefix_table,
+                           const IdType *input, const size_t num_input,
+                           const size_t fanout, IdType *out_src,
+                           IdType *out_dst, size_t *num_out, Context ctx,
+                           StreamHandle stream, GPURandomStates *random_states,
+                           uint64_t task_key);
+
 void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
                  const IdType *const global_dst, IdType *const new_global_dst,
                  const size_t num_edges, DeviceOrderedHashTable mapping,
@@ -48,6 +56,12 @@ void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
 void GPUExtract(void *dst, const void *src, const IdType *index,
                 size_t num_index, size_t dim, DataType dtype, Context ctx,
                 StreamHandle stream, uint64_t task_key);
+
+void GPUExtractNeighbour(const IdType *indptr, const IdType *indices,
+                    const IdType *input, const size_t num_input,
+                    IdType *&output,
+                    size_t *num_out, Context ctx, StreamHandle stream,
+                    const uint64_t task_key);
 
 void GPUBatchSanityCheck(IdType *map, const IdType *input,
                          const size_t num_input, Context ctx,

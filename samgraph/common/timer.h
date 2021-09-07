@@ -36,6 +36,11 @@ class Timer {
     return elapsed.count();
   }
 
+  uint64_t TimePointMicro() const {
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+                   _start_time.time_since_epoch()).count();
+  }
+
   void Reset() { _start_time = std::chrono::steady_clock::now(); }
 
  private:

@@ -3,6 +3,7 @@
 #include <cuda_profiler_api.h>
 #include <cuda_runtime.h>
 
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -14,6 +15,7 @@
 #include "profiler.h"
 #include "run_config.h"
 #include "./dist/dist_engine.h"
+#include "timer.h"
 
 namespace samgraph {
 namespace common {
@@ -47,6 +49,7 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
       {kKHop1, "KHop1"},
       {kWeightedKHop, "WeightedKHop"},
       {kRandomWalk, "RandomWalk"},
+      {kWeightedKHopPrefix, "WeightedKHopPrefix"},
   };
 
   LOG(INFO) << "Use " << sample2str[RunConfig::sample_type]
@@ -206,6 +209,9 @@ void samgraph_report_epoch_average(uint64_t epoch) {
 }
 
 void samgraph_report_node_access() {
+  if (RunConfig::option_log_node_access_simple) {
+    Profiler::Get().ReportNodeAccessSimple();
+  }
   if (RunConfig::option_log_node_access) {
     Profiler::Get().ReportNodeAccess();
   }
@@ -237,6 +243,29 @@ void samgraph_extract_start(int count) {
   dist::DistEngine::Get()->StartExtract(count);
   LOG(INFO) << "SamGraph extract background thread start successfully";
 }
+
+void samgraph_trace_step_begin(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), us);
 }
+void samgraph_trace_step_end(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), us);
+}
+void samgraph_trace_step_begin_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), t.TimePointMicro());
+}
+void samgraph_trace_step_end_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), t.TimePointMicro());
+}
+void samgraph_dump_trace() {
+  Profiler::Get().DumpTrace(std::cerr);
+}
+void samgraph_forward_barrier() {
+  Engine::Get()->ForwardBarrier();
+}
+
+} // extern "c"
+
 }  // namespace common
 }  // namespace samgraph

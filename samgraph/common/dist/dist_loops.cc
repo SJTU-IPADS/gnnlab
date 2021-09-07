@@ -140,7 +140,7 @@ void DoGPUSample(TaskPtr task) {
     // Populate the hash table with newly sampled nodes
     IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
-    size_t num_unique;
+    IdType num_unique;
 
     LOG(DEBUG) << "GPUSample: cuda unique malloc "
                << ToReadableSize((num_samples + +hash_table->NumItems()) *

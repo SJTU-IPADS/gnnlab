@@ -76,6 +76,17 @@ void samgraph_extract();
 void samgraph_extract_start(int count);
 
 
+void samgraph_trace_step_begin(uint64_t key, int item, uint64_t ts);
+
+void samgraph_trace_step_end(uint64_t key, int item, uint64_t ts);
+
+void samgraph_trace_step_begin_now(uint64_t key, int item);
+
+void samgraph_trace_step_end_now(uint64_t key, int item);
+
+void samgraph_dump_trace();
+
+void samgraph_forward_barrier();
 }
 
 }  // namespace common

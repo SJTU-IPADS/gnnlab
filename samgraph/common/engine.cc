@@ -35,6 +35,7 @@ void Engine::Create() {
     case kArch1:
     case kArch2:
     case kArch3:
+    case kArch4:
       LOG(INFO) << "Use GPU Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new cuda::GPUEngine();
       break;
@@ -95,6 +96,8 @@ void Engine::LoadGraphDataset() {
   CHECK(ctx_map.count(Constant::kOutDegreeFile) > 0);
   CHECK(ctx_map.count(Constant::kCacheByDegreeFile) > 0);
   CHECK(ctx_map.count(Constant::kCacheByHeuristicFile) > 0);
+  CHECK(ctx_map.count(Constant::kCacheByDegreeHopFile) > 0);
+  CHECK(ctx_map.count(Constant::kCacheByFakeOptimalFile) > 0);
 
   _dataset->num_node = meta[Constant::kMetaNumNode];
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
@@ -155,9 +158,18 @@ void Engine::LoadGraphDataset() {
         _dataset_path + Constant::kAliasTableFile, DataType::kI32,
         {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kAliasTableFile],
         "dataset.alias_table");
+    _dataset->prob_prefix_table = Tensor::Null();
+  } else if (RunConfig::sample_type == kWeightedKHopPrefix){
+    _dataset->prob_table = Tensor::Null();
+    _dataset->alias_table = Tensor::Null();
+    _dataset->prob_prefix_table = Tensor::FromMmap(
+        _dataset_path + Constant::kProbPrefixTableFile, DataType::kI32, 
+        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbPrefixTableFile], 
+        "dataset.prob_prefix_table");
   } else {
     _dataset->prob_table = Tensor::Null();
     _dataset->alias_table = Tensor::Null();
+    _dataset->prob_prefix_table = Tensor::Null();
   }
 
   if (RunConfig::option_log_node_access) {
@@ -185,6 +197,23 @@ void Engine::LoadGraphDataset() {
             {meta[Constant::kMetaNumNode]},
             ctx_map[Constant::kCacheByHeuristicFile], "dataset.ranking_nodes");
         break;
+      case kCacheByPreSample:
+      case kCacheByPreSampleStatic:
+        break;
+      case kCacheByDegreeHop:
+        _dataset->ranking_nodes = Tensor::FromMmap(
+            _dataset_path + Constant::kCacheByDegreeHopFile, DataType::kI32,
+            {meta[Constant::kMetaNumNode]},
+            ctx_map[Constant::kCacheByDegreeHopFile], "dataset.ranking_nodes");
+        break;
+      case kCacheByFakeOptimal:
+        _dataset->ranking_nodes = Tensor::FromMmap(
+            _dataset_path + Constant::kCacheByFakeOptimalFile, DataType::kI32,
+            {meta[Constant::kMetaNumNode]},
+            ctx_map[Constant::kCacheByFakeOptimalFile], "dataset.ranking_nodes");
+        break;
+      case kDynamicCache:
+        break;
       default:
         CHECK(0);
     }
@@ -193,12 +222,22 @@ void Engine::LoadGraphDataset() {
   double loading_time = t.Passed();
   LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path << ") successfully ("
             << loading_time << " secs)";
+  LOG(DEBUG) << "dataset(" << _dataset_path << ") has "
+             << _dataset->num_node << " nodes, "
+             << _dataset->num_edge << " edges ";
 }
 
 bool Engine::IsAllThreadFinish(int total_thread_num) {
   int k = _joined_thread_cnt.fetch_add(0);
   return (k == total_thread_num);
 };
+
+void Engine::ForwardBarrier() {
+  outer_counter++;
+}
+void Engine::ForwardInnerBarrier() {
+  inner_counter++;
+}
 
 }  // namespace common
 }  // namespace samgraph

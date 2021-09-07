@@ -55,15 +55,15 @@ Graph::Graph()
       valid_set64(nullptr) {}
 
 Graph::~Graph() {
-  if (indptr) {
-    int ret = munmap(indptr, sizeof(uint32_t) * (num_nodes + 1));
-    Check(ret == 0, "munmap indptr error");
-  }
+  // if (indptr) {
+  //   int ret = munmap(indptr, sizeof(uint32_t) * (num_nodes + 1));
+  //   Check(ret == 0, "munmap indptr error");
+  // }
 
-  if (indices) {
-    int ret = munmap(indices, sizeof(uint32_t) * num_edges);
-    Check(ret == 0, "munmap indices error");
-  }
+  // if (indices) {
+  //   int ret = munmap(indices, sizeof(uint32_t) * num_edges);
+  //   Check(ret == 0, "munmap indices error");
+  // }
 }
 
 void *Graph::LoadDataFromFile(std::string file, const size_t expected_nbytes) {

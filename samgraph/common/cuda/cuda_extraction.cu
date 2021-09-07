@@ -1,5 +1,6 @@
 #include "../common.h"
 #include "../device.h"
+#include "../logging.h"
 #include "cuda_function.h"
 
 namespace samgraph {

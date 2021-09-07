@@ -35,7 +35,7 @@ __global__ void sample_random_walk(
 
   size_t node_idx = blockIdx.x * blockDim.y + threadIdx.y;
   const size_t stride = blockDim.y * gridDim.x;
-
+  /** SXN: this loop is also useless*/
   while (node_idx < num_input) {
     IdType start_node = input[node_idx];
     size_t random_walk_idx = threadIdx.x;

@@ -22,6 +22,8 @@ class GPUShuffler : public Shuffler {
   size_t NumEpoch() { return _num_epoch; }
   size_t NumStep() { return _num_step; }
 
+  void Reset() { _cur_step = _num_step; _cur_epoch = 0; _initialized = false; }
+
  private:
   bool _drop_last;
   bool _initialized;

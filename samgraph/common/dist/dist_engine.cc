@@ -156,8 +156,13 @@ void DistEngine::SampleInit(int device_type, int device_id) {
 
   // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
+#ifndef SXN_NAIVE_HASHMAP
   _hashtable = new cuda::OrderedHashTable(
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
+#else
+  _hashtable = new cuda::OrderedHashTable(
+      _dataset->num_node, _sampler_ctx, 1);
+#endif
 
   // Create CUDA random states for sampling
   _random_states = new cuda::GPURandomStates(RunConfig::sample_type, _fanout,
@@ -367,6 +372,8 @@ std::unordered_map<std::string, Context> DistEngine::GetGraphFileCtx() {
   ret[Constant::kOutDegreeFile] = MMAP();
   ret[Constant::kCacheByDegreeFile] = MMAP();
   ret[Constant::kCacheByHeuristicFile] = MMAP();
+  ret[Constant::kCacheByDegreeHopFile] = MMAP();
+  ret[Constant::kCacheByFakeOptimalFile] = MMAP();
 
   return ret;
 }

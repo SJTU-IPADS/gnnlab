@@ -5,6 +5,7 @@
 #include "../device.h"
 #include "../common.h"
 #include "../constant.h"
+#include "../logging.h"
 
 namespace samgraph {
 namespace common {

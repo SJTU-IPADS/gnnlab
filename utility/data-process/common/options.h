@@ -14,6 +14,10 @@ namespace utility {
 class Options {
  public:
   static void InitOptions(std::string app_name);
+  template<typename T>
+  static void CustomOption(std::string key, T& val) {
+    _app.add_option(key, val);
+  }
   static void Parse(int argc, char *argv[]);
   static int Exit(const CLI::ParseError &e);
   static void EnableOptions();
