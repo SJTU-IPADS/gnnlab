@@ -124,7 +124,7 @@ void IsCSRIndicesSorted(utility::GraphPtr dataset) {
     uint32_t len = indptr[i + 1] - indptr[i];
     uint32_t last_idx = 0;
     for (uint32_t k = 0; k < len; k++) {
-      if (indices[off+ k] < last_idx) {
+      if (indices[off + k] < last_idx) {
         std::cout << "The graph's indices are not sorted" << std::endl;
         return;
       }
