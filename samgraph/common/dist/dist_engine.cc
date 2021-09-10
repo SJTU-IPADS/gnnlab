@@ -182,7 +182,12 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   // Create queues
   for (int i = 0; i < cuda::QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
-    _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+    if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
+      _queues.push_back(new MessageTaskQueue(RunConfig::max_copying_jobs));
+    }
+    else {
+      _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+    }
   }
   // batch results set
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
@@ -232,7 +237,12 @@ void DistEngine::TrainInit(int device_type, int device_id) {
   // Create queues
   for (int i = 0; i < cuda::QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
-    _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+    if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
+      _queues.push_back(new MessageTaskQueue(RunConfig::max_copying_jobs));
+    }
+    else {
+      _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+    }
   }
   // results pool
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);

@@ -14,19 +14,27 @@ namespace common {
 class TaskQueue {
  public:
   TaskQueue(size_t max_len);
+  virtual ~TaskQueue() {};
 
   void AddTask(std::shared_ptr<Task>);
   std::shared_ptr<Task> GetTask();
   bool Full();
   size_t PendingLength();
-  bool Send(std::shared_ptr<Task>);
+
+ private:
+  std::vector<std::shared_ptr<Task>> _q;
+  std::mutex _mutex;
+  size_t _max_len;
+};
+
+class MessageTaskQueue : public TaskQueue {
+ public:
+  MessageTaskQueue(size_t max_len);
+  void Send(std::shared_ptr<Task>);
   std::shared_ptr<Task> Recv();
 
  private:
   std::shared_ptr<MemoryQueue> _mq;
-  std::vector<std::shared_ptr<Task>> _q;
-  std::mutex _mutex;
-  size_t _max_len;
 };
 
 }  // namespace common

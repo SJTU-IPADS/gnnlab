@@ -46,7 +46,7 @@ bool RunSampleSubLoopOnce() {
   }
 
   auto next_op = cuda::kDataCopy;
-  auto next_q = DistEngine::Get()->GetTaskQueue(next_op);
+  auto next_q = dynamic_cast<MessageTaskQueue*>(DistEngine::Get()->GetTaskQueue(next_op));
   if (next_q->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
@@ -88,7 +88,7 @@ bool RunDataCopySubLoopOnce() {
   }
 
   auto this_op = cuda::kDataCopy;
-  auto q = DistEngine::Get()->GetTaskQueue(this_op);
+  auto q = dynamic_cast<MessageTaskQueue*>(DistEngine::Get()->GetTaskQueue(this_op));
   Timer t4;
   auto task = q->Recv();
   double recv_time = t4.Passed();
@@ -139,7 +139,7 @@ bool RunCacheDataCopySubLoopOnce() {
   }
 
   auto this_op = cuda::kDataCopy;
-  auto q = DistEngine::Get()->GetTaskQueue(this_op);
+  auto q = dynamic_cast<MessageTaskQueue*>(DistEngine::Get()->GetTaskQueue(this_op));
   // receive the task data from sample process
   auto task = q->Recv();
 

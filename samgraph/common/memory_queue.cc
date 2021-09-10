@@ -18,12 +18,14 @@ MemoryQueue::MemoryQueue(std::string meta_memory_name, size_t mq_nbytes) {
     int ret = ftruncate(fd, meta_nbytes);
     CHECK_NE(ret, -1);
     _meta_data = reinterpret_cast<QueueMetaData*> (mmap(NULL, meta_nbytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+    mlock(_meta_data, meta_nbytes);
     CHECK_NE(_meta_data, MAP_FAILED);
     _meta_data->Init(mq_nbytes);
   } else { // second open
     fd = shm_open(_meta_memory_name.c_str(), O_RDWR, 0);
     CHECK_NE(fd, -1);
     _meta_data = reinterpret_cast<QueueMetaData*> (mmap(NULL, meta_nbytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+    mlock(_meta_data, meta_nbytes);
     CHECK_NE(_meta_data, MAP_FAILED);
   }
   _prefix = meta_memory_name;
