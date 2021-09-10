@@ -4,6 +4,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <queue>
 
 #include "common.h"
 
@@ -15,7 +16,7 @@ class GraphPool {
   GraphPool(size_t max_size) : _stop(false), _max_size(max_size) {}
   ~GraphPool();
 
-  std::shared_ptr<GraphBatch> GetGraphBatch(uint64_t key);
+  std::shared_ptr<GraphBatch> GetGraphBatch();
   void Submit(uint64_t key, std::shared_ptr<GraphBatch> batch);
   bool Full();
 
@@ -23,7 +24,8 @@ class GraphPool {
   bool _stop;
   std::mutex _mutex;
   const size_t _max_size;
-  std::unordered_map<uint64_t, std::shared_ptr<GraphBatch>> _pool;
+  // std::unordered_map<uint64_t, std::shared_ptr<GraphBatch>> _pool;
+  std::queue<std::shared_ptr<GraphBatch>> _pool;
 };
 
 }  // namespace common

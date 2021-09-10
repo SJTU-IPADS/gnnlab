@@ -37,7 +37,7 @@ size_t samgraph_num_class();
 
 size_t samgraph_feat_dim();
 
-uint64_t samgraph_get_next_batch(uint64_t epoch, uint64_t step);
+uint64_t samgraph_get_next_batch();
 
 void samgraph_sample_once();
 

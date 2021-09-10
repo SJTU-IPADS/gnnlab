@@ -174,7 +174,7 @@ def run():
                 sam.sample_once()
             elif epoch + step == 0:
                 sam.start()
-            batch_key = sam.get_next_batch(epoch, step)
+            batch_key = sam.get_next_batch()
             t1 = time.time()
             sam.trace_step_begin_now(batch_key, sam.kL1Event_Convert)
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
@@ -216,7 +216,7 @@ def run():
             # num_samples   [cur_step_key] = num_sample
 
             # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
-            #     epoch, step, num_node, num_sample, total_time, 
+            #     epoch, step, num_node, num_sample, total_time,
             #         sample_time, copy_time, train_time, convert_time, loss
             # ))
 

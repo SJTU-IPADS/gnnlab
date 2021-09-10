@@ -198,9 +198,6 @@ class SamGraphBasics(object):
         full_path = get_extension_full_path(pkg_path, *args)
         self.C_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
 
-        self.C_LIB_CTYPES.samgraph_get_next_batch.argtypes = (
-            ctypes.c_uint64,
-            ctypes.c_uint64)
         self.C_LIB_CTYPES.samgraph_get_graph_num_src.argtypes = (
             ctypes.c_uint64,)
         self.C_LIB_CTYPES.samgraph_get_graph_num_dst.argtypes = (
@@ -375,8 +372,8 @@ class SamGraphBasics(object):
     def steps_per_epoch(self):
         return self.C_LIB_CTYPES.samgraph_steps_per_epoch()
 
-    def get_next_batch(self, epoch, step):
-        batch_key = self.C_LIB_CTYPES.samgraph_get_next_batch(epoch, step)
+    def get_next_batch(self):
+        batch_key = self.C_LIB_CTYPES.samgraph_get_next_batch()
         return batch_key
 
     def get_graph_num_src(self, key, graph_id):

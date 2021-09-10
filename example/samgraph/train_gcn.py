@@ -89,7 +89,7 @@ def get_run_config():
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
-    default_run_config['cache_policy'] = sam.kCacheByHeuristic
+    default_run_config['cache_policy'] = sam.kCacheByPreSample
     default_run_config['cache_percentage'] = 0.0
 
     default_run_config['max_sampling_jobs'] = 10
@@ -181,7 +181,7 @@ def run():
                 sam.sample_once()
             elif epoch + step == 0:
                 sam.start()
-            batch_key = sam.get_next_batch(epoch, step)
+            batch_key = sam.get_next_batch()
             t1 = time.time()
             sam.trace_step_begin_now (batch_key, sam.kL1Event_Convert)
             blocks, batch_input, batch_label = sam.get_dgl_blocks(

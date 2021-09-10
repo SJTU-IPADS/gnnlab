@@ -98,6 +98,7 @@ def get_run_config():
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
     default_run_config['cache_policy'] = sam.kCacheByHeuristic
+    # default_run_config['cache_policy'] = sam.kCacheByPreSample
     default_run_config['cache_percentage'] = 0.0
 
     default_run_config['max_sampling_jobs'] = 10
@@ -248,7 +249,7 @@ def run_train(worker_id, run_config, epoch_barrier):
             # print('train: sample_once')
             # sam.sample_once()
             # print('train: sample_once finished')
-            batch_key = sam.get_next_batch(epoch, step)
+            batch_key = sam.get_next_batch()
             # print('batch_key: ', batch_key)
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)

@@ -121,16 +121,14 @@ size_t samgraph_feat_dim() {
   return Engine::Get()->GetGraphDataset()->feat->Shape().at(1);
 }
 
-uint64_t samgraph_get_next_batch(uint64_t epoch, uint64_t step) {
+uint64_t samgraph_get_next_batch() {
   CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
 
-  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
-  LOG(DEBUG) << "samgraph_get_next_batch encodeKey with epoch " << epoch
-             << " step " << step << " and key " << key;
-  auto graph = Engine::Get()->GetGraphPool()->GetGraphBatch(key);
-  key = graph->key;
+  // uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  auto graph = Engine::Get()->GetGraphPool()->GetGraphBatch();
+  uint64_t key = graph->key;
 
-  LOG(DEBUG) << "Get next batch with key " << key;
+  LOG(DEBUG) << "samgraph_get_next_batch encodeKey with key " << key;
   Engine::Get()->SetGraphBatch(graph);
 
   return key;
