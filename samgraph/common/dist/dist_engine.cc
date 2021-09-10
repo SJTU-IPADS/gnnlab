@@ -10,6 +10,7 @@
 #include "../run_config.h"
 #include "../timer.h"
 #include "../cuda/cuda_common.h"
+#include "../cuda/pre_sampler.h"
 #include "../cpu/cpu_engine.h"
 #include "dist_loops.h"
 
@@ -55,6 +56,18 @@ void DistEngine::Init() {
 
   // Load the target graph data
   LoadGraphDataset();
+
+  if (RunConfig::UseGPUCache()) {
+    switch (RunConfig::cache_policy) {
+      case kCacheByPreSampleStatic:
+      case kCacheByPreSample: {
+        cuda::PreSampler::SetSingleton(new cuda::PreSampler(_dataset->num_node, NumStep()));
+        _dataset->ranking_nodes = cuda::PreSampler::Get()->DoPreSample();
+        break;
+      }
+      default: ;
+    }
+  }
 
   LOG(DEBUG) << "Finished pre-initialization";
 }
