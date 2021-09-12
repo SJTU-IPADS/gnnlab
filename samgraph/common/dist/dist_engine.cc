@@ -1,5 +1,7 @@
 #include "dist_engine.h"
 
+#include <semaphore.h>
+#include <stddef.h>
 #include <chrono>
 #include <cstdlib>
 #include <numeric>
@@ -10,9 +12,9 @@
 #include "../run_config.h"
 #include "../timer.h"
 #include "../cuda/cuda_common.h"
-#include "../cuda/pre_sampler.h"
 #include "../cpu/cpu_engine.h"
 #include "dist_loops.h"
+#include "pre_sampler.h"
 
 // XXX: decide CPU or GPU to shuffling, sampling and id remapping
 /*
@@ -61,8 +63,10 @@ void DistEngine::Init() {
     switch (RunConfig::cache_policy) {
       case kCacheByPreSampleStatic:
       case kCacheByPreSample: {
-        cuda::PreSampler::SetSingleton(new cuda::PreSampler(_dataset->num_node, NumStep()));
-        _dataset->ranking_nodes = cuda::PreSampler::Get()->DoPreSample();
+        size_t nbytes = sizeof(IdType) * _dataset->num_node;
+        void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+        _dataset->ranking_nodes = Tensor::FromBlob(
+            shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
         break;
       }
       default: ;
@@ -122,7 +126,13 @@ void DistEngine::SampleCacheTableInit() {
   cpu_device->FreeDataSpace(CPU(), tmp_cpu_hashtable);
 
   std::unordered_map<CachePolicy, std::string> policy2str = {
-      {kCacheByDegree, "degree"}, {kCacheByHeuristic, "heuristic"}};
+      {kCacheByDegree, "degree"},
+      {kCacheByHeuristic, "heuristic"},
+      {kCacheByPreSample, "preSample"},
+      {kCacheByPreSampleStatic, "preSampleStatic"},
+      {kCacheByDegreeHop, "degree_hop"},
+      {kCacheByFakeOptimal, "fake_optimal"},
+  };
 
   LOG(INFO) << "GPU cache (policy: " << policy2str.at(RunConfig::cache_policy)
             << ") " << num_cached_nodes << " / " << num_nodes;
@@ -163,9 +173,6 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   }
   _num_step = _shuffler->NumStep();
 
-  if (RunConfig::UseGPUCache()) {
-    SampleCacheTableInit();
-  }
 
   // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
@@ -205,6 +212,25 @@ void DistEngine::SampleInit(int device_type, int device_id) {
   // batch results set
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
+  if (RunConfig::UseGPUCache()) {
+    switch (RunConfig::cache_policy) {
+      case kCacheByPreSampleStatic:
+      case kCacheByPreSample: {
+        PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
+        auto rank_results = static_cast<const IdType*>(PreSampler::Get()->DoPreSample()->Data());
+        auto rank_node = static_cast<IdType*>(_dataset->ranking_nodes->MutableData());
+        size_t num_node = _dataset->num_node;
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+        for (size_t i = 0; i < num_node; ++i) {
+          rank_node[i] = rank_results[i];
+        }
+        break;
+      }
+      default: ;
+    }
+    SampleCacheTableInit();
+  }
+
   _initialize = true;
 }
 
@@ -238,6 +264,17 @@ void DistEngine::TrainInit(int device_type, int device_id) {
 
   if (RunConfig::UseGPUCache()) {
     TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
+    // wait the presample
+    // XXX: let the app ensure sampler initialization before trainer
+    /*
+    switch (RunConfig::cache_policy) {
+      case kCacheByPreSampleStatic:
+      case kCacheByPreSample: {
+        break;
+      }
+      default: ;
+    }
+    */
     _cache_manager = new DistCacheManager(
         _trainer_ctx, _dataset->feat->Data(),
         _dataset->feat->Type(), _dataset->feat->Shape()[1],

@@ -127,6 +127,7 @@ setup(
                 'samgraph/common/dist/dist_loops_arch5.cc',
                 'samgraph/common/dist/dist_cache_manager_device.cu',
                 'samgraph/common/dist/dist_cache_manager_host.cc',
+                'samgraph/common/dist/pre_sampler.cc',
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(
