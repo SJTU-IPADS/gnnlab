@@ -169,7 +169,7 @@ def run_sample(worker_id, run_config, epoch_barrier):
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
@@ -186,8 +186,11 @@ def run_train(worker_id, run_config, epoch_barrier):
     train_device = torch.device('cuda:%d' % ctx.device_id)
     print(f"train_device: {train_device}, num_worker: {num_worker}, worker_id: {worker_id}, ", 'pid: ', os.getpid())
     torch.cuda.set_device(train_device)
-    sam.train_init(ctx.device_type, ctx.device_id)
+
+    # let the trainer initialization after sampler
+    #   sampler should presample before trainer initialization
     epoch_barrier.wait()
+    sam.train_init(ctx.device_type, ctx.device_id)
 
     if num_worker > 1:
         dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
