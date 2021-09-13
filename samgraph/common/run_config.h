@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "cpu/cpu_common.h"
-#include "logging.h"
+// #include "logging.h"
 
 namespace samgraph {
 namespace common {
@@ -42,14 +42,23 @@ struct RunConfig {
   // Environment variables
   static bool option_profile_cuda;
   static bool option_log_node_access;
+  static bool option_log_node_access_simple;
   static bool option_sanity_check;
+  static int barriered_epoch;
+  static int presample_epoch;
+  static bool option_dump_trace;
 
   static int kOMPThreadNum;
 
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;
   }
+  static inline bool UseDynamicGPUCache() {
+    return cache_policy == kDynamicCache;
+  }
   static void LoadConfigFromEnv();
+  // shared memory meta_data path
+  static std::string shared_meta_path;
 };
 
 }  // namespace common

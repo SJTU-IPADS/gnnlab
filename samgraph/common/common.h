@@ -1,6 +1,7 @@
 #ifndef SAMGRAPH_COMMON_H
 #define SAMGRAPH_COMMON_H
 
+#include <atomic>
 #include <cstdint>
 #include <fstream>
 #include <functional>
@@ -31,19 +32,31 @@ enum SampleType {
   kKHop0 = 0,  // vertex-parallel
   kKHop1,      // sample-parallel
   kWeightedKHop,
-  kRandomWalk
+  kRandomWalk,
+  kWeightedKHopPrefix,
 };
 
 // arch0: vanilla mode(CPU sampling + GPU training)
 // arch1: standalone mode (single GPU for both sampling and training)
 // arch2: offload mode (offload the feature extraction to CPU)
 // arch3: dedicated mode (dedicated GPU for sampling and training)
-enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3 };
+// TODO:  is it a prefetch mode ?
+// arch4: prefetch mode
+// arch5: distributed mode (CPU/GPU sampling + multi-GPUs traning)
+enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3, kArch4, kArch5 = 5 };
 
 // cache by degree: cache the nodes with large degree
 // cache by heuristic: cache the training set and the first hop neighbors first,
 // then the nodes with large degree
-enum CachePolicy { kCacheByDegree = 0, kCacheByHeuristic };
+enum CachePolicy {
+  kCacheByDegree = 0,
+  kCacheByHeuristic,
+  kCacheByPreSample,
+  kCacheByDegreeHop,
+  kCacheByPreSampleStatic,
+  kCacheByFakeOptimal,
+  kDynamicCache,
+};
 
 struct Context {
   DeviceType device_type;
@@ -65,6 +78,7 @@ class Tensor {
   const std::vector<size_t>& Shape() const { return _shape; }
   const void* Data() const { return _data; }
   void* MutableData() { return _data; }
+  void ReplaceData(void* data);
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
 
@@ -80,6 +94,10 @@ class Tensor {
   static TensorPtr FromBlob(void* data, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name);
+  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream);
+  static TensorPtr CopyBlob(const void * data, DataType dtype,
+                            std::vector<size_t> shape, Context from_ctx,
+                            Context to_ctx, std::string name, StreamHandle stream = nullptr);
 
  private:
   void* _data;
@@ -102,6 +120,8 @@ struct Dataset {
 
   TensorPtr prob_table;
   TensorPtr alias_table;
+
+  TensorPtr prob_prefix_table;
 
   TensorPtr in_degrees;
   TensorPtr out_degrees;
@@ -137,12 +157,18 @@ struct Task {
   std::vector<std::shared_ptr<TrainGraph>> graphs;
   // node ids of the last train graph
   TensorPtr input_nodes;
+  // new ids of the miss and cache data
+  TensorPtr input_dst_index;
+  // total number of miss data ids
+  size_t num_miss;
   // node ids of the first train graph
   TensorPtr output_nodes;
   // Input feature tensor
   TensorPtr input_feat;
   // Output label tensor
   TensorPtr output_label;
+  std::atomic_bool graph_remapped;
+  Task() : graph_remapped(false) {}
 };
 
 using GraphBatch = Task;
@@ -196,6 +222,18 @@ template <typename T>
 inline T Min(T a, T b) {
   return a < b ? a : b;
 }
+
+// shuffler virtual class
+class Shuffler {
+ public:
+  virtual ~Shuffler() {};
+  virtual TensorPtr GetBatch(StreamHandle stream = nullptr) = 0;
+  virtual uint64_t Epoch() = 0;
+  virtual uint64_t Step() = 0;
+  virtual size_t NumEpoch() = 0;
+  virtual size_t NumStep() = 0;
+};
+
 
 }  // namespace common
 }  // namespace samgraph

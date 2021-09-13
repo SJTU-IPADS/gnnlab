@@ -131,6 +131,7 @@ def run(worker_id, run_config):
                                              world_size=world_size,
                                              rank=worker_id)
     torch.cuda.set_device(dev_id)
+    dgl_ctx = dgl.ndarray.gpu(dev_id)
 
     dataset = run_config['dataset']
     g = run_config['g']
@@ -176,19 +177,25 @@ def run(worker_id, run_config):
     total_times = []
     num_nodes = []
     num_samples = []
+    all_nodes = 0
+    all_samples = 0
 
     for epoch in range(num_epoch):
         epoch_sample_time = 0.0
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
         epoch_total_time = 0.0
+        if (num_worker > 1):
+            dataloader.set_epoch(epoch)
 
         t0 = time.time()
         for step, (_, _, blocks) in enumerate(dataloader):
+            for block in blocks:
+                block._graph=block._graph.copy_to(dgl_ctx)
             t1 = time.time()
-            blocks = [block.int().to(dev_id) for block in blocks]
-            batch_inputs = blocks[0].srcdata['feat']
-            batch_labels = blocks[-1].dstdata['label']
+            # blocks = [block.int().to(dev_id) for block in blocks]
+            batch_inputs = blocks[0].srcdata['feat'].to(dev_id)
+            batch_labels = blocks[-1].dstdata['label'].to(dev_id)
             t2 = time.time()
 
             # Compute loss and prediction
@@ -214,6 +221,8 @@ def run(worker_id, run_config):
                 num_sample += block.num_edges()
             num_samples.append(num_sample)
             num_nodes.append(blocks[0].num_src_nodes())
+            all_nodes += blocks[0].num_src_nodes()
+            all_samples += num_sample
 
             if worker_id == 0:
                 print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
@@ -234,6 +243,8 @@ def run(worker_id, run_config):
     if worker_id == 0:
         print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
             np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+    print("Avg nodes: {:.4f}".format(all_nodes / num_epoch))
+    print("Avg samples: {:.4f}".format(all_samples / num_epoch))
 
 
 if __name__ == '__main__':

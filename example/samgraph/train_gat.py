@@ -126,7 +126,7 @@ def run():
             t0 = time.time()
             if not run_config['pipeline']:
                 sam.sample_once()
-            batch_key = sam.get_next_batch(epoch, step)
+            batch_key = sam.get_next_batch()
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
                 batch_key, num_layers)

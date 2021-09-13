@@ -133,16 +133,37 @@ std::unordered_map<std::string, Context> CPUEngine::GetGraphFileCtx() {
   ret[Constant::kTrainSetFile] = CPU();
   ret[Constant::kTestSetFile] = CPU();
   ret[Constant::kValidSetFile] = CPU();
-  ret[Constant::kLabelFile] = MMAP();
-  ret[Constant::kLabelFile] = MMAP();
   ret[Constant::kProbTableFile] = MMAP();
   ret[Constant::kAliasTableFile] = MMAP();
   ret[Constant::kInDegreeFile] = MMAP();
   ret[Constant::kOutDegreeFile] = MMAP();
   ret[Constant::kCacheByDegreeFile] = MMAP();
   ret[Constant::kCacheByHeuristicFile] = MMAP();
+  ret[Constant::kCacheByDegreeHopFile] = MMAP();
+  ret[Constant::kCacheByFakeOptimalFile] = MMAP();
 
   return ret;
+}
+
+void CPUEngine::ExamineDataset() {
+  IdType max_degree = 0;
+  auto ds = GetGraphDataset();
+  const IdType *indptr = static_cast<const IdType *>(ds->indptr->Data());
+  // const IdType *indices = static_cast<const IdType *>(ds->indices->Data());
+  // const IdType *in_degrees = static_cast<const IdType *>(ds->in_degrees->Data());
+  // for (IdType i = 0; i < ds->num_node - 1; i++) {
+  //   assert(indptr[i + 1] - indptr[i] == in_degrees[i]);
+  // }
+  for (IdType i = 0; i < ds->num_node-1; i++) {
+    if (indptr[i + 1] - indptr[i] > max_degree) {
+      max_degree = indptr[i + 1] - indptr[i];
+    }
+  }
+  if (ds->num_edge - indptr[ds->num_node-1] > max_degree) {
+    max_degree = ds->num_edge - indptr[ds->num_node-1];
+  }
+  LOG(ERROR) << "total nodes is " << ds->num_node;
+  LOG(ERROR) << "max degree is " << max_degree;
 }
 
 }  // namespace cpu

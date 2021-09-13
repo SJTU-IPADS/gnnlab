@@ -35,13 +35,22 @@ cpu::CPUHashType RunConfig::cpu_hash_type = cpu::kCPUHash2;
 
 bool RunConfig::option_profile_cuda = false;
 bool RunConfig::option_log_node_access = false;
+bool RunConfig::option_log_node_access_simple = false;
 bool RunConfig::option_sanity_check = false;
+// env key: on -1, all epochs; on 0: no barrier; on other: which epoch to barrier
+int RunConfig::barriered_epoch;
+int RunConfig::presample_epoch;
+bool RunConfig::option_dump_trace = false;
 
 int RunConfig::kOMPThreadNum = 40;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {
     RunConfig::option_profile_cuda = true;
+  }
+
+  if (IsEnvSet(Constant::kEnvLogNodeAccessSimple)) {
+    RunConfig::option_log_node_access_simple = true;
   }
 
   if (IsEnvSet(Constant::kEnvLogNodeAccess)) {
@@ -51,7 +60,26 @@ void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSanityCheck)) {
     RunConfig::option_sanity_check = true;
   }
+  // num_epoch is set before here
+  {
+    std::string barrier_epoch = GetEnv(Constant::kBarrierEpoch);
+    if (barrier_epoch == "") barrier_epoch = "0";
+    RunConfig::barriered_epoch = std::stoi(barrier_epoch);
+    LOG(DEBUG) << "barriered_epoch=" << RunConfig::barriered_epoch;
+  }
+  {
+    std::string presample_epoch = GetEnv(Constant::kPresampleEpoch);
+    if (presample_epoch == "") presample_epoch = "0";
+    RunConfig::presample_epoch = std::stoi(presample_epoch);
+    LOG(DEBUG) << "presample_epoch=" << RunConfig::presample_epoch;
+  }
+
+  if (IsEnvSet(Constant::kEnvDumpTrace)) {
+    RunConfig::option_dump_trace = true;
+  }
 }
+
+std::string RunConfig::shared_meta_path = "/shared_meta_data";
 
 }  // namespace common
 }  // namespace samgraph

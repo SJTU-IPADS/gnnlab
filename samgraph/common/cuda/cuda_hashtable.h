@@ -7,7 +7,7 @@
 
 #include "../common.h"
 #include "../constant.h"
-#include "../logging.h"
+// #include "../logging.h"
 
 namespace samgraph {
 namespace common {
@@ -50,6 +50,7 @@ class DeviceOrderedHashTable {
                                   const size_t o2n_size, const size_t n2o_size);
 
   inline __device__ IdType SearchForPositionO2N(const IdType id) const {
+#ifndef SXN_NAIVE_HASHMAP
     IdType pos = HashO2N(id);
 
     // linearly scan for matching entry
@@ -62,10 +63,17 @@ class DeviceOrderedHashTable {
     assert(pos < _o2n_size);
 
     return pos;
+#else
+    return id;
+#endif
   }
 
   inline __device__ IdType HashO2N(const IdType id) const {
+#ifndef SXN_NAIVE_HASHMAP
     return id % _o2n_size;
+#else
+    return id;
+#endif
   }
 
   friend class OrderedHashTable;
@@ -90,8 +98,19 @@ class OrderedHashTable {
   void Reset(StreamHandle stream);
 
   void FillWithDuplicates(const IdType *const input, const size_t num_input,
-                          IdType *const unique, size_t *const num_unique,
+                          IdType *const unique, IdType *const num_unique,
                           StreamHandle stream);
+
+  void FillWithDupRevised(const IdType *const input, const size_t num_input,
+                          // IdType *const unique, IdType *const num_unique,
+                          StreamHandle stream);
+  void FillWithDupMutable(IdType *const input, const size_t num_input,
+                          StreamHandle stream);
+  void CopyUnique(IdType * const unique, StreamHandle stream);
+  void RefUnique(const IdType * &unique, IdType * const num_unique);
+  /** add all neighbours of nodes in hashtable to hashtable */
+  void FillNeighbours(const IdType *const indptr, const IdType *const indices,
+                      StreamHandle stream);
 
   void FillWithUnique(const IdType *const input, const size_t num_input,
                       StreamHandle stream);

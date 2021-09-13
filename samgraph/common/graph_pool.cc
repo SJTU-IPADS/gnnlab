@@ -11,15 +11,15 @@ namespace common {
 
 GraphPool::~GraphPool() { _stop = true; }
 
-std::shared_ptr<GraphBatch> GraphPool::GetGraphBatch(uint64_t key) {
+std::shared_ptr<GraphBatch> GraphPool::GetGraphBatch() {
   while (true) {
     {
       std::lock_guard<std::mutex> lock(_mutex);
-      auto it = _pool.find(key);
-      if (this->_pool.find(key) != _pool.end()) {
+      if (!_pool.empty()) {
+        auto batch = _pool.front();
+        _pool.pop();
+        auto key = batch->key;
         LOG(DEBUG) << "GraphPool: Get batch with key " << key;
-        auto batch = it->second;
-        _pool.erase(it);
         return batch;
       } else if (_stop) {
         return nullptr;
@@ -34,8 +34,7 @@ std::shared_ptr<GraphBatch> GraphPool::GetGraphBatch(uint64_t key) {
 void GraphPool::Submit(uint64_t key, std::shared_ptr<GraphBatch> batch) {
   std::lock_guard<std::mutex> lock(_mutex);
   CHECK(!_stop);
-  CHECK_EQ(_pool.count(key), 0);
-  _pool[key] = batch;
+  _pool.push(batch);
 
   LOG(DEBUG) << "GraphPool: Add batch with key " << key;
 }

@@ -76,7 +76,7 @@ void CPUShuffler::ReShuffle() {
   }
 }
 
-TensorPtr CPUShuffler::GetBatch() {
+TensorPtr CPUShuffler::GetBatch(StreamHandle stream) {
   _cur_step++;
 
   if (_cur_step >= _num_step) {
@@ -89,6 +89,8 @@ TensorPtr CPUShuffler::GetBatch() {
 
   size_t offset = _cur_step * _batch_size;
   size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
+
+  LOG(DEBUG) << "Copy shuffled dataset with offset=" << offset << ", size=" << size;
 
   return Tensor::Copy1D(_data, offset, {size}, "cpu_shuffler_batch");
 }

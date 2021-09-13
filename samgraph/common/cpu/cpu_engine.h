@@ -22,6 +22,7 @@ class CPUEngine : public Engine {
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
+  void ExamineDataset() override;
 
   CPUShuffler* GetShuffler() { return _shuffler; }
   cudaStream_t GetWorkStream() { return _work_stream; }

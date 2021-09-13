@@ -10,7 +10,7 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
-class GPUShuffler {
+class GPUShuffler : public Shuffler {
  public:
   GPUShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
               bool drop_last);
@@ -21,6 +21,8 @@ class GPUShuffler {
 
   size_t NumEpoch() { return _num_epoch; }
   size_t NumStep() { return _num_step; }
+
+  void Reset() { _cur_step = _num_step; _cur_epoch = 0; _initialized = false; }
 
  private:
   bool _drop_last;

@@ -11,6 +11,8 @@
 #include "../run_config.h"
 #include "cuda_common.h"
 #include "cuda_loops.h"
+#include "pre_sampler.h"
+#include "../profiler.h"
 
 namespace samgraph {
 namespace common {
@@ -53,18 +55,13 @@ void GPUEngine::Init() {
       new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _shuffler->NumStep();
 
+#ifndef SXN_NAIVE_HASHMAP
   _hashtable = new OrderedHashTable(
       PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
-
-  if (RunConfig::UseGPUCache()) {
-    _cache_manager = new GPUCacheManager(
-        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
-        _dataset->feat->Type(), _dataset->feat->Shape()[1],
-        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
-        _dataset->num_node, RunConfig::cache_percentage);
-  } else {
-    _cache_manager = nullptr;
-  }
+#else
+  _hashtable = new OrderedHashTable(
+      _dataset->num_node, _sampler_ctx, 1);
+#endif
 
   // Create CUDA random states for sampling
   _random_states = new GPURandomStates(RunConfig::sample_type, _fanout,
@@ -88,6 +85,33 @@ void GPUEngine::Init() {
   }
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
+  if (RunConfig::UseGPUCache()) {
+    switch (RunConfig::cache_policy) {
+      case kCacheByPreSampleStatic: 
+      case kCacheByPreSample: {
+        PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
+        _dataset->ranking_nodes = PreSampler::Get()->DoPreSample();
+        break;
+      }
+      default: ;
+    }
+    _cache_manager = new GPUCacheManager(
+        _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+        _dataset->feat->Type(), _dataset->feat->Shape()[1],
+        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
+        _dataset->num_node, RunConfig::cache_percentage);
+    _dynamic_cache_manager = nullptr;
+  } else if (RunConfig::UseDynamicGPUCache()) {
+    _dynamic_cache_manager = new GPUDynamicCacheManager(
+      _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+      _dataset->feat->Type(), _dataset->feat->Shape()[1],
+      _dataset->num_node);
+    _cache_manager = nullptr;
+  } else {
+    _cache_manager = nullptr;
+    _dynamic_cache_manager = nullptr;
+  }
+
   _initialize = true;
 }
 
@@ -102,6 +126,9 @@ void GPUEngine::Start() {
       break;
     case kArch3:
       func = GetArch3Loops();
+      break;
+    case kArch4:
+      func = GetArch4Loops();
       break;
     default:
       // Not supported arch 0
@@ -187,6 +214,9 @@ void GPUEngine::RunSampleOnce() {
     case kArch3:
       RunArch3LoopsOnce();
       break;
+    case kArch4:
+      RunArch4LoopsOnce();
+      break;
     default:
       // Not supported arch 0
       CHECK(0);
@@ -208,6 +238,9 @@ void GPUEngine::ArchCheck() {
       CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
       CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
       break;
+    case kArch4:
+      CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
+      break;
     default:
       CHECK(0);
   }
@@ -227,6 +260,8 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
   ret[Constant::kOutDegreeFile] = MMAP();
   ret[Constant::kCacheByDegreeFile] = MMAP();
   ret[Constant::kCacheByHeuristicFile] = MMAP();
+  ret[Constant::kCacheByDegreeHopFile] = MMAP();
+  ret[Constant::kCacheByFakeOptimalFile] = MMAP();
 
   switch (RunConfig::run_arch) {
     case kArch1:
@@ -238,6 +273,11 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       ret[Constant::kFeatFile] = MMAP();
       ret[Constant::kLabelFile] =
           RunConfig::UseGPUCache() ? _trainer_ctx : MMAP();
+      break;
+    case kArch4:
+      ret[Constant::kFeatFile] = MMAP();
+      ret[Constant::kLabelFile] = 
+          RunConfig::UseDynamicGPUCache() ? _trainer_ctx : MMAP();
       break;
     default:
       CHECK(0);

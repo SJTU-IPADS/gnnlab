@@ -1,5 +1,6 @@
 #include <thread>
 
+#include "../logging.h"
 #include "../profiler.h"
 #include "../timer.h"
 #include "cuda_engine.h"

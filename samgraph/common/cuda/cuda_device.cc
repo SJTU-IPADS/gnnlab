@@ -31,6 +31,7 @@ void GPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
                                size_t to_offset, size_t nbytes,
                                Context ctx_from, Context ctx_to,
                                StreamHandle stream) {
+  if (nbytes == 0) return;
   cudaStream_t cu_stream = static_cast<cudaStream_t>(stream);
   from = static_cast<const char *>(from) + from_offset;
   to = static_cast<char *>(to) + to_offset;
@@ -46,6 +47,9 @@ void GPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
     CUDA_CALL(cudaSetDevice(ctx_from.device_id));
     GPUCopy(from, to, nbytes, cudaMemcpyDeviceToHost, cu_stream);
   } else if (ctx_from.device_type == kCPU && ctx_to.device_type == kGPU) {
+    CUDA_CALL(cudaSetDevice(ctx_to.device_id));
+    GPUCopy(from, to, nbytes, cudaMemcpyHostToDevice, cu_stream);
+  } else if (ctx_from.device_type == kMMAP && ctx_to.device_type == kGPU) {
     CUDA_CALL(cudaSetDevice(ctx_to.device_id));
     GPUCopy(from, to, nbytes, cudaMemcpyHostToDevice, cu_stream);
   } else {

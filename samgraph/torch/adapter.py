@@ -34,7 +34,18 @@ report_step_average = _basics.report_step_average
 report_epoch = _basics.report_epoch
 report_epoch_average = _basics.report_epoch_average
 report_node_access = _basics.report_node_access
+trace_step_begin = _basics.trace_step_begin
+trace_step_end = _basics.trace_step_end
+trace_step_begin_now = _basics.trace_step_begin_now
+trace_step_end_now = _basics.trace_step_end_now
+dump_trace = _basics.dump_trace
+forward_barrier = _basics.forward_barrier
 
+# mult-GPUs training APIs
+data_init = _basics.data_init
+sample_init = _basics.sample_init
+train_init = _basics.train_init
+extract_start = _basics.extract_start
 
 def get_graph_feat(batch_key):
     return c_lib.samgraph_torch_get_graph_feat(batch_key)

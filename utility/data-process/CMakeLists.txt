@@ -36,6 +36,17 @@ add_executable(
 )
 
 add_executable(
+    cache-by-degree-hop
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_degree_hop.cc
+    ${COMMON_SOURCE}
+)
+add_executable(
+    cache-by-fake-optimal
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_fake_optimal.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
     degree-info
     ${CMAKE_SOURCE_DIR}/toolkit/degree/degree_info.cc
     ${COMMON_SOURCE}
@@ -76,4 +87,15 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/toolkit/weight/create_alias_table.cc
     ${COMMON_SOURCE}
 )
+add_executable(
+    create-prob-prefix-table
+    ${CMAKE_SOURCE_DIR}/toolkit/weight/create_prob_prefix_table.cc
+    ${COMMON_SOURCE}
+)
 
+
+add_executable(
+    train-graph-szie
+    ${CMAKE_SOURCE_DIR}/toolkit/train_graph_size/train_graph_size.cc
+    ${COMMON_SOURCE}
+)

@@ -37,7 +37,7 @@ size_t samgraph_num_class();
 
 size_t samgraph_feat_dim();
 
-uint64_t samgraph_get_next_batch(uint64_t epoch, uint64_t step);
+uint64_t samgraph_get_next_batch();
 
 void samgraph_sample_once();
 
@@ -66,6 +66,27 @@ void samgraph_report_epoch(uint64_t epoch);
 void samgraph_report_epoch_average(uint64_t epoch);
 
 void samgraph_report_node_access();
+
+// for multi-GPUs train, call data_init before fork
+void samgraph_data_init();
+void samgraph_sample_init(int device_type, int device_id);
+void samgraph_train_init(int device_type, int device_id);
+void samgraph_sample();
+void samgraph_extract();
+void samgraph_extract_start(int count);
+
+
+void samgraph_trace_step_begin(uint64_t key, int item, uint64_t ts);
+
+void samgraph_trace_step_end(uint64_t key, int item, uint64_t ts);
+
+void samgraph_trace_step_begin_now(uint64_t key, int item);
+
+void samgraph_trace_step_end_now(uint64_t key, int item);
+
+void samgraph_dump_trace();
+
+void samgraph_forward_barrier();
 }
 
 }  // namespace common

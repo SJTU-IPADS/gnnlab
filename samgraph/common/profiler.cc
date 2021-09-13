@@ -17,6 +17,7 @@
 #include "engine.h"
 #include "logging.h"
 #include "run_config.h"
+#include "cuda/pre_sampler.h"
 
 namespace samgraph {
 namespace common {
@@ -26,6 +27,15 @@ LogData::LogData(size_t num_logs) {
   bitmap.resize(num_logs, false);
   sum = 0;
   cnt = 0;
+}
+
+TraceEvent::TraceEvent() {
+  begin = 0;
+  end = 0;
+}
+
+TraceData::TraceData(size_t num_traces) {
+  events.resize(num_traces, TraceEvent());
 }
 
 Profiler::Profiler() {
@@ -39,8 +49,37 @@ Profiler::Profiler() {
   _epoch_data.resize(num_epoch_items, LogData(num_epoch_logs));
   _epoch_buf.resize(num_epoch_items);
 
+  _step_trace.resize(kNumTraceItems, TraceData(num_step_logs));
+  _num_step = Engine::Get()->NumStep();
+
   _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _similarity.resize(num_step_logs);
+}
+
+void Profiler::Reset() {
+  size_t num_step_items = static_cast<size_t>(kNumLogStepItems);
+  size_t num_step_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
+  size_t num_epoch_items = static_cast<size_t>(kNumLogEpochItems);
+  size_t num_epoch_logs = Engine::Get()->NumEpoch();
+  _step_data.clear();
+  _step_data.resize(num_step_items, LogData(num_step_logs));
+  _step_buf.clear();
+  _step_buf.resize(num_step_items);
+  _epoch_data.clear();
+  _epoch_data.resize(num_epoch_items, LogData(num_epoch_logs));
+  _epoch_buf.clear();
+  _epoch_buf.resize(num_epoch_items);
+
+  _step_trace.clear();
+  _step_trace.resize(kNumTraceItems, TraceData(num_step_logs));
+  _num_step = Engine::Get()->NumStep();
+
+  _node_access.clear();
+  _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _last_visit.clear();
+  _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _similarity.clear();
   _similarity.resize(num_step_logs);
 }
 
@@ -127,6 +166,89 @@ void Profiler::ReportEpochAverage(uint64_t epoch) {
   OutputEpoch(epoch, "Epoch(average)");
 }
 
+namespace {
+
+#define F(name) #name ,
+const char* trace_item_names[] = { TRACE_TYPES( F ) nullptr };
+#undef F
+
+std::string trace_item_to_string(TraceItem item) {
+  return trace_item_names[(int)item];
+}
+
+struct TraceJsonHelper {
+  std::string name;
+  std::string ph;
+  uint64_t pid, tid;
+  uint64_t ts;
+  std::string cat = "";
+  uint64_t id = 0;
+  TraceJsonHelper& set_name  (std::string n   ) {this->name = n    ; return *this;}
+  TraceJsonHelper& set_begin (                ) {this->ph   = "B"  ; return *this;}
+  TraceJsonHelper& set_end   (                ) {this->ph   = "E"  ; return *this;}
+  TraceJsonHelper& set_pid   (uint64_t    pid ) {this->pid  = pid  ; return *this;}
+  TraceJsonHelper& set_tid   (uint64_t    tid ) {this->tid  = tid  ; return *this;}
+  TraceJsonHelper& set_ts    (uint64_t    ts  ) {this->ts   = ts   ; return *this;}
+  TraceJsonHelper& set_cat   (std::string cat ) {this->cat  = cat  ; return *this;}
+  TraceJsonHelper& set_id    (uint64_t    id  ) {this->id   = id   ; return *this;}
+  std::string to_json(bool & first) {
+    std::stringstream ss;
+    if (! first) {
+      ss << ",";
+    } else {
+      first = false;
+    }
+    ss  << "{"
+        << "\"name\":" << "\"" << name << "\"" << ","
+        << "\"ph\":"   << "\"" << ph << "\"" << ","
+        << "\"pid\":"  << pid << ","
+        << "\"tid\":"  << tid << ","
+        << "\"ts\":"   << ts  << ","
+        << "\"cat\":"  << "\"" << cat << "\"" << ","
+        << "\"id\":"   << id
+        << "}\n";
+    
+    return ss.str();
+  }
+};
+
+}
+
+void Profiler::DumpTrace(std::ostream &of) {
+  if (RunConfig::option_dump_trace == false) return;
+  bool first = true;
+  of << "[\n";
+  for (size_t item = 0; item < kNumTraceItems; item++) {
+    uint64_t tid = 0;
+    if (item < kL1Event_Sample) {
+      tid = 0;
+    } else if (item < kL1Event_Copy) {
+      tid = 1;
+    } else if (item < kL1Event_Convert) {
+      tid = 2;
+    } else {
+      tid = 3;
+    }
+    for (size_t key = 0; key < _step_trace[item].events.size(); key++) {
+      if (_step_trace[item].events[key].begin == 0) continue;
+      auto & event = _step_trace[item].events[key];
+      if (event.end == 0) {
+        LOG(WARNING) << "An event without end";
+        continue;
+      }
+      TraceJsonHelper tjs;
+      tjs.set_name(trace_item_to_string((TraceItem)item) + "-" + std::to_string(key))
+         .set_pid(0)
+         .set_tid(tid);
+      tjs.set_begin().set_ts(event.begin);
+      of << tjs.to_json(first);
+      tjs.set_end().set_ts(event.end);
+      of << tjs.to_json(first);
+    }
+  }
+  of << "]\n";
+}
+
 Profiler &Profiler::Get() {
   static Profiler inst;
   return inst;
@@ -147,28 +269,14 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
     level = 3;
   }
 
-  if (level >= 1 && !RunConfig::UseGPUCache()) {
-    printf(
-        "    [%s Profiler Level 1 E%u S%u]\n"
-        "        L1  sample         %10.4lf | copy         %10.4lf | "
-        "convert time %.4lf | train  %.4lf\n"
-        "        L1  feature nbytes %10s | label nbytes %10s\n"
-        "        L1  id nbytes      %10s | graph nbytes %10s\n",
-        type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
-        _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
-        _step_buf[kLogL1TrainTime],
-        ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
-        ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
-        ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
-        ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str());
-  } else {
+  if (level >= 1 && !RunConfig::UseGPUCache() && !RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
         "        L1  sample         %10.4lf | copy         %10.4lf | "
         "convert time %.4lf | train  %.4lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
-        "        L1  miss nbytes    %10s\n",
+        "        L1  num nodes      %10lf | num samples  %10lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
         _step_buf[kLogL1TrainTime],
@@ -176,7 +284,51 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
-        ToReadableSize(_step_buf[kLogL1MissBytes]).c_str());
+        _step_buf[kLogL1NumNode],_step_buf[kLogL1NumSample]);
+  } else if (level >= 1 && RunConfig::UseDynamicGPUCache()) {
+    printf(
+        "    [%s Profiler Level 1 E%u S%u]\n"
+        "        L1  sample         %10.4lf | send         %10.4lf\n"
+        "        L1  recv           %10.4lf | copy         %10.4lf | "
+        "convert time %.4lf | train  %.4lf\n"
+        "        L1  feature nbytes %10s | label nbytes %10s\n"
+        "        L1  id nbytes      %10s | graph nbytes %10s\n"
+        "        L1  miss nbytes    %10s | hit rate %10s \n"
+        "        L1  nodes          %10.1lf | cache rate %10s \n"
+        "        L1  prefetch adv   %10.4lf | get nbr time %10.4lf\n",
+        type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
+        _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
+        _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
+        _step_buf[kLogL1TrainTime],
+        ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1MissBytes]).c_str(),
+        ToPercentage(1 - _step_buf[kLogL1MissBytes] / _step_buf[kLogL1FeatureBytes]).c_str(),
+        _step_buf[kLogL1NumNode],
+        ToPercentage(_step_buf[kLogL1NumNode] / Engine::Get()->GetGraphDataset()->num_node).c_str(),
+        _step_buf[kLogL1PrefetchAdvanced], _step_buf[kLogL1GetNeighbourTime]);
+  } else if (level >= 1) {
+    printf(
+        "    [%s Profiler Level 1 E%u S%u]\n"
+        "        L1  sample         %10.4lf | send         %10.4lf\n"
+        "        L1  recv           %10.4lf | copy         %10.4lf | "
+        "convert time %.4lf | train  %.4lf\n"
+        "        L1  feature nbytes %10s | label nbytes %10s\n"
+        "        L1  id nbytes      %10s | graph nbytes %10s\n"
+        "        L1  miss nbytes    %10s\n"
+        "        L1  num nodes      %10lf | num samples  %10lf\n",
+        type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
+        _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
+        _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
+        _step_buf[kLogL1TrainTime],
+        ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1LabelBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1MissBytes]).c_str(),
+        _step_buf[kLogL1NumNode],_step_buf[kLogL1NumSample]);
   }
 
   if (level >= 2 && !RunConfig::UseGPUCache()) {
@@ -184,22 +336,26 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "    [%s Profiler Level 2 E%u S%u]\n"
         "        L2  shuffle     %.4lf | core sample  %.4lf | id remap  %.4lf\n"
         "        L2  graph copy  %.4lf | id copy      %.4lf | extract   %.4lf |"
-        " feat copy %.4lf\n",
+        " feat copy %.4lf\n"
+        "        L2  last layer sample time %.4lf | size %.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL2ShuffleTime],
         _step_buf[kLogL2CoreSampleTime], _step_buf[kLogL2IdRemapTime],
         _step_buf[kLogL2GraphCopyTime], _step_buf[kLogL2IdCopyTime],
-        _step_buf[kLogL2ExtractTime], _step_buf[kLogL2FeatCopyTime]);
+        _step_buf[kLogL2ExtractTime], _step_buf[kLogL2FeatCopyTime],
+        _step_buf[kLogL2LastLayerTime], _step_buf[kLogL2LastLayerSize]);
   } else if (level >= 2) {
     printf(
         "    [%s Profiler Level 2 E%u S%u]\n"
         "        L2  shuffle     %.4lf | core sample  %.4lf | "
         "id remap        %.4lf\n"
         "        L2  graph copy  %.4lf | id copy      %.4lf | "
-        "cache feat copy %.4lf\n",
+        "cache feat copy %.4lf\n"
+        "        L2  last layer sample time %.4lf | size %.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL2ShuffleTime],
         _step_buf[kLogL2CoreSampleTime], _step_buf[kLogL2IdRemapTime],
         _step_buf[kLogL2GraphCopyTime], _step_buf[kLogL2IdCopyTime],
-        _step_buf[kLogL2CacheCopyTime]);
+        _step_buf[kLogL2CacheCopyTime],
+        _step_buf[kLogL2LastLayerTime], _step_buf[kLogL2LastLayerSize]);
   }
 
   if (level >= 3 && !RunConfig::UseGPUCache()) {
@@ -455,6 +611,79 @@ void Profiler::ReportNodeAccess() {
   ofs0.close();
   ofs1.close();
   ofs2.close();
+}
+
+void Profiler::ReportNodeAccessSimple() {
+  LOG(INFO) << "Writing the node access data to file...";
+
+  // std::ofstream ofs0(Constant::kNodeAccessLogFile + GetTimeString() +
+  //                        Constant::kNodeAccessFileSuffix,
+  //                    std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs1(Constant::kNodeAccessOptimalCacheBinFile + GetTimeString() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
+  std::ofstream ofs2(Constant::kNodeAccessOptimalCacheHitFile + GetTimeString() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc);
+  size_t num_nodes = _node_access.size();
+  // (frequency, nodeid)
+  std::vector<std::pair<size_t, IdType>> records(num_nodes, {0, 0});
+  // how many times are nodes accessed
+  size_t frequency_sum = 0;
+
+#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+  for (IdType nodeid = 0; nodeid < _node_access.size(); nodeid++) {
+    size_t frequency = _node_access[nodeid];
+    records[nodeid] = {frequency, nodeid};
+  }
+
+  // Sorted by frequency
+#ifdef __linux__
+  __gnu_parallel::sort(records.begin(), records.end(),
+                       std::greater<std::pair<size_t, IdType>>());
+#else
+  std::sort(records.begin(), records.end(),
+            std::greater<std::pair<size_t, IdType>>());
+#endif
+
+  for (auto & p : records) {
+    size_t frequency = p.first;
+    IdType nodeid = p.second;
+    ofs1.write(reinterpret_cast<char*>(&nodeid), sizeof(IdType));
+    frequency_sum += frequency;
+    p.first = frequency_sum;
+  }
+
+  for (int cache_rate = 0; cache_rate <= 100; cache_rate++) {
+    double hit_rate = records[static_cast<int>((static_cast<double>(cache_rate) / 100) * num_nodes)].first / static_cast<double>(frequency_sum);
+    ofs2 << cache_rate << "\t" << hit_rate << "\n";
+  }
+
+  for (auto &p : records) {
+    IdType nodeid = p.second;
+    size_t prefix = p.first;
+    // ofs0 << nodeid << " " << _node_access[nodeid] << " " << prefix << " "
+    //      << static_cast<double>(prefix) / frequency_sum << "\n";
+  }
+
+  // ofs0.close();
+  ofs1.close();
+  ofs2.close();
+}
+
+
+void Profiler::ReportPreSampleSimilarity() {
+  auto cache_node_tensor = cuda::PreSampler::Get()->GetRankNode();
+  auto pre_sample_freq_tensor = cuda::PreSampler::Get()->GetFreq();
+  const IdType* cache_nodes = static_cast<const IdType*>(cache_node_tensor->Data());
+  const IdType* pre_sample_freq = static_cast<const IdType*>(pre_sample_freq_tensor->Data());
+  std::ofstream ofs0(Constant::kNodeAccessPreSampleSimFile + GetTimeString() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc);
+  for (IdType rank = 0; rank < Engine::Get()->GetGraphDataset()->num_node; rank++) {
+    ofs0 << cache_nodes[rank] << " " << pre_sample_freq[rank] << " " << _node_access[cache_nodes[rank]] << "\n";
+  }
+  ofs0.close();
 }
 
 }  // namespace common

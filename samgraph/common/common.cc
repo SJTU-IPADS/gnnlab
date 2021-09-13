@@ -34,6 +34,11 @@ Tensor::~Tensor() {
   LOG(DEBUG) << "Tensor " << _name << " has been freed";
 }
 
+void Tensor::ReplaceData(void *data) {
+  Device::Get(_ctx)->FreeWorkspace(_ctx, _data);
+  _data = data;
+}
+
 TensorPtr Tensor::Null() { return std::make_shared<Tensor>(); }
 
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
@@ -156,6 +161,49 @@ TensorPtr Tensor::FromBlob(void *data, DataType dtype,
   tensor->_data = data;
   tensor->_ctx = ctx;
   tensor->_name = name;
+
+  return tensor;
+}
+TensorPtr Tensor::CopyBlob(const void *data, DataType dtype,
+                           std::vector<size_t> shape,
+                           Context from_ctx, Context to_ctx,
+                           std::string name, StreamHandle stream) {
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+  tensor->_data =
+      Device::Get(to_ctx)->AllocWorkspace(to_ctx, nbytes);
+
+  Device::Get(from_ctx)
+      ->CopyDataFromTo(data, 0, tensor->_data, 0,
+                       nbytes, from_ctx, to_ctx, stream);
+  tensor->_dtype = dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = nbytes;
+  tensor->_ctx = to_ctx;
+  tensor->_name = name;
+
+  return tensor;
+}
+
+TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
+  CHECK(source && source->Defined());
+  std::vector<size_t> shape = source->Shape();
+  auto dtype = source->_dtype;
+  CHECK_GT(shape.size(), 0);
+
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+
+  tensor->_dtype = source->_dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = source->_nbytes;
+  tensor->_ctx = ctx;
+  tensor->_data =
+      Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+  tensor->_name = source->_name;
+  Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
+                                   nbytes, source->_ctx, tensor->_ctx, stream);
+  Device::Get(tensor->_ctx)->StreamSync(tensor->_ctx, stream);
 
   return tensor;
 }

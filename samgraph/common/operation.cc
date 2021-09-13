@@ -3,6 +3,7 @@
 #include <cuda_profiler_api.h>
 #include <cuda_runtime.h>
 
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -13,6 +14,8 @@
 #include "logging.h"
 #include "profiler.h"
 #include "run_config.h"
+#include "./dist/dist_engine.h"
+#include "timer.h"
 
 namespace samgraph {
 namespace common {
@@ -46,6 +49,7 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
       {kKHop1, "KHop1"},
       {kWeightedKHop, "WeightedKHop"},
       {kRandomWalk, "RandomWalk"},
+      {kWeightedKHopPrefix, "WeightedKHopPrefix"},
   };
 
   LOG(INFO) << "Use " << sample2str[RunConfig::sample_type]
@@ -117,15 +121,14 @@ size_t samgraph_feat_dim() {
   return Engine::Get()->GetGraphDataset()->feat->Shape().at(1);
 }
 
-uint64_t samgraph_get_next_batch(uint64_t epoch, uint64_t step) {
+uint64_t samgraph_get_next_batch() {
   CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
 
-  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
-  LOG(DEBUG) << "samgraph_get_next_batch encodeKey with epoch " << epoch
-             << " step " << step << " and key " << key;
-  auto graph = Engine::Get()->GetGraphPool()->GetGraphBatch(key);
+  // uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  auto graph = Engine::Get()->GetGraphPool()->GetGraphBatch();
+  uint64_t key = graph->key;
 
-  LOG(DEBUG) << "Get next batch with key " << key;
+  LOG(DEBUG) << "samgraph_get_next_batch encodeKey with key " << key;
   Engine::Get()->SetGraphBatch(graph);
 
   return key;
@@ -204,10 +207,63 @@ void samgraph_report_epoch_average(uint64_t epoch) {
 }
 
 void samgraph_report_node_access() {
+  if (RunConfig::option_log_node_access_simple) {
+    Profiler::Get().ReportNodeAccessSimple();
+  }
   if (RunConfig::option_log_node_access) {
     Profiler::Get().ReportNodeAccess();
   }
 }
+
+void samgraph_data_init() {
+  CHECK(RunConfig::is_configured);
+  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
+  Engine::Create();
+  Engine::Get()->Init();
+
+  LOG(INFO) << "SamGraph data has been initialized successfully";
 }
+void samgraph_sample_init(int device_type, int device_id) {
+  CHECK(RunConfig::is_configured);
+  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
+  dist::DistEngine::Get()->SampleInit(device_type, device_id);
+
+  LOG(INFO) << "SamGraph sample has been initialized successfully";
+}
+void samgraph_train_init(int device_type, int device_id) {
+  CHECK(RunConfig::is_configured);
+  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
+  dist::DistEngine::Get()->TrainInit(device_type, device_id);
+
+  LOG(INFO) << "SamGraph train has been initialized successfully";
+}
+void samgraph_extract_start(int count) {
+  dist::DistEngine::Get()->StartExtract(count);
+  LOG(INFO) << "SamGraph extract background thread start successfully";
+}
+
+void samgraph_trace_step_begin(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), us);
+}
+void samgraph_trace_step_end(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), us);
+}
+void samgraph_trace_step_begin_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), t.TimePointMicro());
+}
+void samgraph_trace_step_end_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), t.TimePointMicro());
+}
+void samgraph_dump_trace() {
+  Profiler::Get().DumpTrace(std::cerr);
+}
+void samgraph_forward_barrier() {
+  Engine::Get()->ForwardBarrier();
+}
+
+} // extern "c"
+
 }  // namespace common
 }  // namespace samgraph
