@@ -134,6 +134,8 @@ def run():
     sam.config_khop(run_config)
     sam.init()
 
+    sam.report_init()
+
     sample_device = th.device('cuda:%d' % run_config['sampler_ctx'].device_id)
     train_device  = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
     print("('sampler_gpu', '{}')".format(th.cuda.get_device_name(sample_device)))

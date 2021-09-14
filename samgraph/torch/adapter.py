@@ -29,6 +29,7 @@ log_step_add = _basics.log_step_add
 log_epoch_add = _basics.log_epoch_add
 get_log_step_value = _basics.get_log_step_value
 get_log_epoch_value = _basics.get_log_epoch_value
+report_init = _basics.report_init
 report_step = _basics.report_step
 report_step_average = _basics.report_step_average
 report_epoch = _basics.report_epoch

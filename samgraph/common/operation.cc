@@ -191,6 +191,10 @@ double samgraph_get_log_epoch_value(uint64_t epoch, int item) {
                                           static_cast<LogEpochItem>(item));
 }
 
+void samgraph_report_init() {
+  Profiler::Get().ReportInit();
+}
+
 void samgraph_report_step(uint64_t epoch, uint64_t step) {
   Profiler::Get().ReportStep(epoch, step);
 }

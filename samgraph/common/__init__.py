@@ -401,6 +401,9 @@ class SamGraphBasics(object):
     def get_log_epoch_value(self, epoch, item):
         return self.C_LIB_CTYPES.samgraph_get_log_epoch_value(epoch, item)
 
+    def report_init(self):
+        return self.C_LIB_CTYPES.samgraph_report_init()
+
     def report_step(self, epoch, step):
         return self.C_LIB_CTYPES.samgraph_report_step(epoch, step)
 
