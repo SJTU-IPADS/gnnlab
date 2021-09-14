@@ -51,22 +51,17 @@ class GAT(nn.Module):
 
 def get_run_config():
     run_config = {}
-    run_config['pipeline'] = False
     run_config['device'] = 'cuda:0'
-    run_config['dataset'] = 'Papers100M'
-    # run_config['dataset'] = 'Com-Friendster'
-
-    if run_config['dataset'] == 'Papers100M':
-        run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
-    elif run_config['dataset'] == 'Com-Friendster':
-        run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
-    else:
-        assert(False)
+    # run_config['dataset'] = 'reddit'
+    # run_config['dataset'] = 'products'
+    run_config['dataset'] = 'papers100M'
+    # run_config['dataset'] = 'com-friendster'
+    run_config['root_path'] = '/graph-learning/samgraph/'
 
     run_config['fanout'] = [10, 5]
     run_config['num_fanout'] = run_config['num_layers'] = len(
         run_config['fanout'])
-    run_config['num_epoch'] = 20
+    run_config['num_epoch'] = 2
     run_config['num_heads'] = 8
     run_config['num_out_heads'] = 1
     run_config['num_hidden'] = 32
@@ -76,8 +71,7 @@ def get_run_config():
     run_config['lr'] = 0.005
     run_config['weight_decay'] = 5e-4
     run_config['negative_slope'] = 0.2
-    run_config['batch_size'] = 8192
-    run_config['report_per_count'] = 1
+    run_config['batch_size'] = 8000
 
     return run_config
 
@@ -87,7 +81,7 @@ def run():
     device = torch.device(run_config['device'])
 
     dataset = fastgraph.dataset(
-        run_config['dataset'], run_config['dataset_path'])
+        run_config['dataset'], run_config['root_path'])
     g = dataset.to_dgl_graph()
     train_nids = dataset.train_set
     in_feats = dataset.feat_dim
