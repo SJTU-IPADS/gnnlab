@@ -65,6 +65,12 @@ add_executable(
 )
 
 add_executable(
+    coo-to-dataset
+    ${CMAKE_SOURCE_DIR}/toolkit/generator/coo_to_dataset.cc
+    ${COMMON_SOURCE}
+)
+
+add_executable(
     load-mem
     ${CMAKE_SOURCE_DIR}/toolkit/load/load_mem.cc
     ${COMMON_SOURCE}
