@@ -54,6 +54,7 @@ class SampleType(Enum):
   kWeightedKHop = 2
   kRandomWalk = 3
   kWeightedKHopPrefix = 4
+  kKHop2 = 5
 
   kDefaultForApp = 10
 
@@ -63,9 +64,16 @@ class Dataset(Enum):
   papers100M = 2
   friendster = 3
   papers100M_300 = 4
+  uk_2006_05 = 5
+  twitter = 6
+  sk_2005 = 7
   def __str__(self):
     if self is Dataset.friendster:
       return 'com-friendster'
+    elif self is Dataset.uk_2006_05:
+      return 'uk-2006-05'
+    elif self is Dataset.sk_2005:
+      return 'sk-2005'
     return self.name
 
 class RunConfig:
@@ -110,6 +118,7 @@ class RunConfig:
       return
 
   def form_cmd(self, durable_log=True):
+    self.preprocess_sample_type()
     cmd_line = ''
     cmd_line += f'export SAMGRAPH_PRESAMPLE_EPOCH={self.cache_policy.get_presample_epoch()}; '
     cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '

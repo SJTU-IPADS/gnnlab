@@ -116,6 +116,7 @@ setup(
                 'samgraph/common/cuda/cuda_random_states.cu',
                 'samgraph/common/cuda/cuda_sampling_khop0.cu',
                 'samgraph/common/cuda/cuda_sampling_khop1.cu',
+                'samgraph/common/cuda/cuda_sampling_khop2.cu',
                 'samgraph/common/cuda/cuda_sampling_random_walk.cu',
                 'samgraph/common/cuda/cuda_sampling_weighted_khop.cu',
                 'samgraph/common/cuda/cuda_sampling_weighted_khop_prefix.cu',

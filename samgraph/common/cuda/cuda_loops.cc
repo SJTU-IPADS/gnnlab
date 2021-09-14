@@ -129,6 +129,11 @@ void DoGPUSample(TaskPtr task) {
                               sampler_ctx, sample_stream, random_states,
                               task->key);
         break;
+      case kKHop2:
+        GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
+        break;
       default:
         CHECK(0);
     }

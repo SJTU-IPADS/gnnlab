@@ -64,6 +64,9 @@ GPURandomStates::GPURandomStates(SampleType sample_type,
           PredictNumNodes(batch_size, fanout, fanout.size() - 1),
           RunConfig::num_random_walk);
       break;
+    case kKHop2:
+      _num_states = PredictNumNodes(batch_size, fanout, fanout.size() - 1);
+      break;
     default:
       CHECK(0);
   }
