@@ -225,7 +225,8 @@ namespace {
     const auto &fanout = RunConfig::fanout;
     size_t layer_cnt = RunConfig::batch_size;
     size_t ret = 0;
-    for (auto i : fanout) {
+    for (auto it = fanout.rbegin(); it != fanout.rend(); ++it) {
+      size_t i = *it;
       ret += sizeof(GraphData);
       ret += (layer_cnt * i * 3 * sizeof(IdType));
       layer_cnt = layer_cnt + layer_cnt * i;
