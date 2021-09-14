@@ -148,7 +148,7 @@ void Engine::LoadGraphDataset() {
                        {meta[Constant::kMetaNumValidSet]},
                        ctx_map[Constant::kValidSetFile], "dataset.valid_set");
 
-  if (RunConfig::sample_type == kWeightedKHop) {
+  if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
     _dataset->prob_table = Tensor::FromMmap(
         _dataset_path + Constant::kProbTableFile, DataType::kF32,
         {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbTableFile],

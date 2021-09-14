@@ -120,6 +120,7 @@ setup(
                 'samgraph/common/cuda/cuda_sampling_random_walk.cu',
                 'samgraph/common/cuda/cuda_sampling_weighted_khop.cu',
                 'samgraph/common/cuda/cuda_sampling_weighted_khop_prefix.cu',
+                'samgraph/common/cuda/cuda_sampling_weighted_khop_hash_dedup.cu',
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
                 'samgraph/common/cuda/pre_sampler.cc',

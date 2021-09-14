@@ -55,6 +55,7 @@ class SampleType(Enum):
   kRandomWalk = 3
   kWeightedKHopPrefix = 4
   kKHop2 = 5
+  kWeightedKHopHashDedup = 6
 
   kDefaultForApp = 10
 

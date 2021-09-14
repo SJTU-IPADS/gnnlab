@@ -67,6 +67,9 @@ GPURandomStates::GPURandomStates(SampleType sample_type,
     case kKHop2:
       _num_states = PredictNumNodes(batch_size, fanout, fanout.size() - 1);
       break;
+    case kWeightedKHopHashDedup:
+      _num_states = PredictNumNodes(batch_size, fanout, fanout.size() - 1);
+      break;
     default:
       CHECK(0);
   }
