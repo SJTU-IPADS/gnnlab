@@ -83,6 +83,8 @@ def parse_args(default_run_config):
                            default=default_run_config['weight_decay'])
     argparser.add_argument('--num-train-worker', type=int,
                            default=default_run_config['num_train_worker'])
+    argparser.add_argument('--num-sample-worker', type=int,
+                           default=default_run_config['num_sample_worker'])
 
     return vars(argparser.parse_args())
 
@@ -97,8 +99,8 @@ def get_run_config():
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
-    default_run_config['cache_policy'] = sam.kCacheByHeuristic
-    # default_run_config['cache_policy'] = sam.kCacheByPreSample
+    # default_run_config['cache_policy'] = sam.kCacheByHeuristic
+    default_run_config['cache_policy'] = sam.kCacheByPreSample
     default_run_config['cache_percentage'] = 0.0
 
     default_run_config['max_sampling_jobs'] = 10
@@ -116,6 +118,7 @@ def get_run_config():
     default_run_config['weight_decay'] = 0.0005
 
     default_run_config['num_train_worker'] = 1
+    default_run_config['num_sample_worker'] = 1
 
     run_config = parse_args(default_run_config)
 
@@ -128,7 +131,6 @@ def get_run_config():
     # sampler_ctx and trainer_ctx is not useful
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
-    run_config['num_sample_worker'] = 1
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -147,24 +149,23 @@ def run_init(run_config):
 
 def run_sample(worker_id, run_config, epoch_barrier):
     # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    num_worker = run_config['num_train_worker']
-    ctx = sam.gpu(num_worker)
+    num_train_worker = run_config['num_train_worker']
+    num_sample_worker = run_config['num_sample_worker']
+    ctx = sam.gpu(num_train_worker + worker_id)
     print('pid of run_sample is: ', os.getpid())
-    sam.sample_init(ctx.device_type, ctx.device_id)
+    sam.sample_init(ctx.device_type, ctx.device_id, worker_id, num_sample_worker, num_train_worker)
     epoch_barrier.wait()
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
     # align the train_workers
-    num_train_worker = run_config['num_train_worker']
-    num_step = int(int(num_step / num_train_worker) * num_train_worker)
+    # num_step = int(int(num_step / num_train_worker) * num_train_worker)
 
     sample_epoch_t_l = []
     epoch_sample_times = []
 
     print(f"sample num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
-        epoch_barrier.wait()
         sample_epoch_t = time.time()
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
@@ -173,6 +174,7 @@ def run_sample(worker_id, run_config, epoch_barrier):
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
+        epoch_barrier.wait()
         epoch_barrier.wait()
     print("average sample epoch time: {:.4f}".format(np.mean(sample_epoch_t_l[1:])))
     print("average sample epoch time by profiler: {:.4f}".format(np.mean(epoch_sample_times[1:])))
@@ -243,14 +245,14 @@ def run_train(worker_id, run_config, epoch_barrier):
     for epoch in range(num_epoch):
         epoch_barrier.wait()
         epoch_t = time.time()
-        sam.extract_start(int(num_step / num_worker))
+        # sam.extract_start(int(num_step / num_worker))
         # sam.extract_start(int(-1))
         for step in range(worker_id, num_step, num_worker):
             t0 = time.time()
             # do extracting process
             # print(f'train epoch: {epoch}, step: {step}')
             # print('train: sample_once')
-            # sam.sample_once()
+            sam.sample_once()
             # print('train: sample_once finished')
             batch_key = sam.get_next_batch()
             # print('batch_key: ', batch_key)

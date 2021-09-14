@@ -16,7 +16,7 @@
 #include "../cuda/cuda_frequency_hashmap.h"
 #include "../cuda/cuda_hashtable.h"
 #include "../cuda/cuda_random_states.h"
-#include "../cuda/cuda_shuffler.h"
+#include "dist_shuffler.h"
 #include "dist_cache_manager.h"
 
 namespace samgraph {
@@ -33,7 +33,7 @@ class DistEngine : public Engine {
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
-  void SampleInit(int device_type, int device_id);
+  void SampleInit(int device_type, int device_id, int sampler_id, int num_sampler, int num_trainer);
   void TrainInit(int device_type, int device_id);
   /**
    * @param count: the total times to loop extract
@@ -41,7 +41,7 @@ class DistEngine : public Engine {
   void StartExtract(int count);
 
   // XXX: decide CPU or GPU to shuffling, sampling and id remapping
-  cuda::GPUShuffler* GetShuffler() { return static_cast<cuda::GPUShuffler*>(_shuffler); }
+  DistShuffler* GetShuffler() { return static_cast<DistShuffler*>(_shuffler); }
   TaskQueue* GetTaskQueue(cuda::QueueType qt) { return _queues[qt]; }
   cuda::OrderedHashTable* GetHashtable() { return _hashtable; }
   cuda::GPURandomStates* GetRandomStates() { return _random_states; }

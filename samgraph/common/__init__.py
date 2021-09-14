@@ -339,10 +339,13 @@ class SamGraphBasics(object):
     def data_init(self):
         return self.C_LIB_CTYPES.samgraph_data_init()
     # for multi-GPUs train
-    def sample_init(self, device_type, device_id):
+    def sample_init(self, device_type, device_id, sampler_id, num_sampler, num_trainer):
         return self.C_LIB_CTYPES.samgraph_sample_init(
                     ctypes.c_int(device_type),
-                    ctypes.c_int(device_id)
+                    ctypes.c_int(device_id),
+                    ctypes.c_int(sampler_id),
+                    ctypes.c_int(num_sampler),
+                    ctypes.c_int(num_trainer)
                 )
     # for multi-GPUs train
     def train_init(self, device_type, device_id):
