@@ -121,7 +121,7 @@ def get_run_config():
         # assumed that drop last = False
 
         num_samples_per_epoch = math.ceil(
-            num_train_set / run_config['num_sampling_worker'])
+            num_train_set / run_config['num_worker'])
         num_batch_per_epoch = math.ceil(
             num_samples_per_epoch / run_config['batch_size'])
         num_batch = run_config['num_epoch'] * num_batch_per_epoch

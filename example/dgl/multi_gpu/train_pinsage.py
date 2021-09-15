@@ -166,6 +166,7 @@ def get_run_config():
     # default should be false, enable it using command line argument
     default_run_config['pipelining'] = False
     default_run_config['num_sampling_worker'] = 16
+    # default_run_config['num_sampling_worker'] = 16
 
     default_run_config['random_walk_length'] = 4
     default_run_config['random_walk_restart_prob'] = 0.5
@@ -197,8 +198,10 @@ def get_run_config():
     if run_config['pipelining'] == False and run_config['num_sampling_worker'] > 0:
         # make it sequential. sample all the batch before training.
         # assumed that drop last = False
+        num_samples_per_epoch = math.ceil(
+            num_train_set / run_config['num_worker'])
         num_batch_per_epoch = math.ceil(
-            num_train_set / run_config['batch_size'])
+            num_samples_per_epoch / run_config['batch_size'])
         num_batch = run_config['num_epoch'] * num_batch_per_epoch
         run_config['num_prefetch_batch'] = num_batch
         run_config['prefetch_factor'] = math.ceil(
