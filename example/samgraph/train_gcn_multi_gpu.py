@@ -222,7 +222,7 @@ def run_train(worker_id, run_config, epoch_barrier):
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
     # align the train_workers
-    num_step = int(int(num_step / num_worker) * num_worker)
+    # num_step = int(int(num_step / num_worker) * num_worker)
 
     model.train()
 
@@ -241,25 +241,28 @@ def run_train(worker_id, run_config, epoch_barrier):
     num_samples = []
     epoch_t_l = []
 
+    align_up_step = int(int((num_step + num_worker - 1) / num_worker) * num_worker)
+
     print(f"train num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
         epoch_barrier.wait()
         epoch_t = time.time()
         # sam.extract_start(int(num_step / num_worker))
         # sam.extract_start(int(-1))
-        for step in range(worker_id, num_step, num_worker):
-            t0 = time.time()
-            # do extracting process
-            # print(f'train epoch: {epoch}, step: {step}')
-            # print('train: sample_once')
-            sam.sample_once()
-            # print('train: sample_once finished')
-            batch_key = sam.get_next_batch()
-            # print('batch_key: ', batch_key)
-            t1 = time.time()
-            blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
-            # print('blocks device: ', blocks[0].device)
-            t2 = time.time()
+        for step in range(worker_id, align_up_step, num_worker):
+            if (step < num_step):
+                t0 = time.time()
+                # do extracting process
+                # print(f'train epoch: {epoch}, step: {step}')
+                # print('train: sample_once')
+                sam.sample_once()
+                # print('train: sample_once finished')
+                batch_key = sam.get_next_batch()
+                # print('batch_key: ', batch_key)
+                t1 = time.time()
+                blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
+                # print('blocks device: ', blocks[0].device)
+                t2 = time.time()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_input)
