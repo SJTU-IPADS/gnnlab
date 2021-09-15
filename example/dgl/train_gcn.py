@@ -15,6 +15,7 @@ from dgl.nn.pytorch import GraphConv
 import fastgraph
 import time
 import numpy as np
+import math
 
 
 class GCN(nn.Module):
@@ -55,7 +56,7 @@ def parse_args(default_run_config):
         3. Pipeline multiple sampling worker run: python xxx.py --num-samping-worker 16 --pipelining
     """
     argparser = argparse.ArgumentParser("GCN Training")
-    argparser.add_argument('--use-gpu-sampling', type=str,
+    argparser.add_argument('--use-gpu-sampling', action='store_true',
                            default=default_run_config['use_gpu_sampling'])
     argparser.add_argument('--device', type=str,
                            default=default_run_config['device'])
@@ -128,12 +129,12 @@ def get_run_config():
     if run_config['pipelining'] == False and run_config['num_sampling_worker'] > 0:
         # make it sequential. sample all the batch before training.
         # assumed that drop last = False
-        num_batch_per_epoch = (
-            num_train_set + run_config['batch_size'] - 1) // run_config['batch_size']
+        num_batch_per_epoch = math.ceil(
+            num_train_set / run_config['batch_size'])
         num_batch = run_config['num_epoch'] * num_batch_per_epoch
         run_config['num_prefetch_batch'] = num_batch
-        run_config['prefetch_factor'] = (
-            num_batch + run_config['num_sampling_worker'] - 1) // run_config['num_sampling_worker']
+        run_config['prefetch_factor'] = math.ceil(
+            num_batch / run_config['num_sampling_worker'])
     else:
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
@@ -248,6 +249,9 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            # free input and label data
+            batch_inputs = None
+            batch_labels = None
             t4 = time.time()
 
             sample_times.append(t1 - t0)
