@@ -89,20 +89,21 @@ def parse_args(default_run_config):
 
 def get_run_config():
     default_run_config = {}
-    default_run_config['use_gpu_sampling'] = True
-    # default_run_config['use_gpu_sampling'] = False
+    # default should be false, enable it using command line argument
+    default_run_config['use_gpu_sampling'] = False
     default_run_config['device'] = 'cuda:0'
     default_run_config['dataset'] = 'reddit'
     # default_run_config['dataset'] = 'products'
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
+    # default should be false, enable it using command line argument
     default_run_config['pipelining'] = False
     default_run_config['num_sampling_worker'] = 0
     # default_run_config['num_sampling_worker'] = 16
 
     # DGL fanouts from front to back are from leaf to root
-    default_run_config['fanout'] = [10, 25]
+    default_run_config['fanout'] = [25, 10]
     default_run_config['num_epoch'] = 2
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
