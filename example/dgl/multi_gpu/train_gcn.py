@@ -134,10 +134,9 @@ def get_run_config():
             num_train_set / run_config['num_worker'])
         num_batch_per_epoch = math.ceil(
             num_samples_per_epoch / run_config['batch_size'])
-        num_batch = run_config['num_epoch'] * num_batch_per_epoch
-        run_config['num_prefetch_batch'] = num_batch
+        run_config['num_prefetch_batch'] = num_batch_per_epoch
         run_config['prefetch_factor'] = math.ceil(
-            num_batch / run_config['num_sampling_worker'])
+            num_batch_per_epoch / run_config['num_sampling_worker'])
     else:
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
@@ -305,7 +304,6 @@ def run(worker_id, run_config):
 
         toc = time.time()
 
-        toc = time.time()
         epoch_sample_times.append(epoch_sample_time)
         epoch_graph_copy_times.append(epoch_graph_copy_time)
         epoch_copy_times.append(epoch_copy_time)

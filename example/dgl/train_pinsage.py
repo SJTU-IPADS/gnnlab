@@ -190,10 +190,9 @@ def get_run_config():
         # assumed that drop last = False
         num_batch_per_epoch = math.ceil(
             num_train_set / run_config['batch_size'])
-        num_batch = run_config['num_epoch'] * num_batch_per_epoch
-        run_config['num_prefetch_batch'] = num_batch
+        run_config['num_prefetch_batch'] = num_batch_per_epoch
         run_config['prefetch_factor'] = math.ceil(
-            num_batch / run_config['num_sampling_worker'])
+            num_batch_per_epoch / run_config['num_sampling_worker'])
     else:
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
