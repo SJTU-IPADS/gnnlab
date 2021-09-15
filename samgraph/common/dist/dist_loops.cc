@@ -21,7 +21,8 @@ TaskPtr DoShuffle() {
 
   if (batch) {
     auto task = std::make_shared<Task>();
-    task->key = DistEngine::Get()->GetBatchKey(s->Epoch(), s->Step());
+    // global key
+    task->key = s->GetBatchKey();
     task->output_nodes = batch;
     LOG(DEBUG) << "DoShuffle: process task with key " << task->key;
     return task;

@@ -21,9 +21,15 @@ class DistShuffler : public Shuffler {
   uint64_t Step() override { return _cur_step; }
 
   size_t NumEpoch() override { return _num_epoch; }
-  size_t NumStep() override { return _num_step; }
+  // return the total steps for each epoch
+  // reasons: profiler needs this to create total space
+  size_t NumStep() override { return _epoch_step; }
 
   void Reset() { _cur_step = _num_step; _cur_epoch = 0; _initialized = false; }
+  // global key
+  uint64_t GetBatchKey() {
+    return _cur_epoch * _epoch_step +
+           (_dataset_offset / _batch_size) + _cur_step; }
 
  private:
   bool _drop_last;
@@ -33,7 +39,11 @@ class DistShuffler : public Shuffler {
   uint64_t _cur_step;
 
   size_t _num_epoch;
+  // number of steps for this sampler
   size_t _num_step;
+  // total steps each epoch
+  size_t _epoch_step;
+  // the offset of train set for this sampler
   size_t _dataset_offset;
 
   TensorPtr _data;

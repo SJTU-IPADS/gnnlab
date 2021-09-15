@@ -158,6 +158,10 @@ def run_sample(worker_id, run_config, epoch_barrier):
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
+    if (worker_id == (num_sample_worker - 1)):
+        num_step = int(num_step - int(num_step / num_sample_worker * worker_id))
+    else:
+        num_step = int(num_step / num_sample_worker)
     # align the train_workers
     # num_step = int(int(num_step / num_train_worker) * num_train_worker)
 

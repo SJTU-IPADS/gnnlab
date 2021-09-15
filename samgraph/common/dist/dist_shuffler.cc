@@ -31,7 +31,6 @@ DistShuffler::DistShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
 
   _drop_last = drop_last;
   _batch_size = batch_size;
-  // FIXME: _num_step can not align with num_trainer
   if (drop_last) {
     _num_step = _num_data / batch_size;
     _last_batch_size = batch_size;
@@ -43,6 +42,7 @@ DistShuffler::DistShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
   if (sampler_id < (num_sampler - 1)) {
     _last_batch_size = batch_size;
   }
+  _epoch_step = _num_step;
   // the train_set offset of each sampler
   _dataset_offset = (_num_step / num_sampler * sampler_id) * batch_size;
   // the train_set size of each sampler
