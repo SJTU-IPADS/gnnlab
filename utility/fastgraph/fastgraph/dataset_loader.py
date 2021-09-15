@@ -107,8 +107,6 @@ class DatasetLoader:
             assert(False)
 
         g = dgl.DGLGraph(g_idx)
-        g.ndata['feat'] = self.feat
-        g.ndata['label'] = self.label
 
         return g
 
