@@ -34,15 +34,15 @@ void to64(utility::GraphPtr graph) {
   std::vector<uint64_t> test_set64(num_test_set);
   std::vector<uint64_t> valid_set64(num_valid_set);
 
-  // #pragma omp parallel for
-  //   for (size_t i = 0; i < (num_nodes + 1); i++) {
-  //     indptr64[i] = indptr[i];
-  //   }
+#pragma omp parallel for
+  for (size_t i = 0; i < (num_nodes + 1); i++) {
+    indptr64[i] = indptr[i];
+  }
 
-  // #pragma omp parallel for
-  //   for (size_t i = 0; i < num_edges; i++) {
-  //     indices64[i] = indices[i];
-  //   }
+#pragma omp parallel for
+  for (size_t i = 0; i < num_edges; i++) {
+    indices64[i] = indices[i];
+  }
 
 #pragma omp parallel for
   for (size_t i = 0; i < num_train_set; i++) {
@@ -59,8 +59,8 @@ void to64(utility::GraphPtr graph) {
     valid_set64[i] = valid_set[i];
   }
 
-  //   toFile(indptr64, folder + "indptr64.bin");
-  //   toFile(indices64, folder + "indices64.bin");
+  toFile(indptr64, folder + "indptr64.bin");
+  toFile(indices64, folder + "indices64.bin");
   toFile(train_set64, folder + "train_set64.bin");
   toFile(test_set64, folder + "test_set64.bin");
   toFile(valid_set64, folder + "valid_set64.bin");

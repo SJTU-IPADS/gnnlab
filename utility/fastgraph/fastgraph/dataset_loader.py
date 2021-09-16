@@ -9,7 +9,7 @@ INT_MAX = 2**31
 
 
 class DatasetLoader:
-    def __init__(self, dataset_path):
+    def __init__(self, dataset_path, force_load64=False):
         tic = time.time()
 
         meta_reader = MetaReader()
@@ -23,7 +23,7 @@ class DatasetLoader:
         self.num_valid_set = meta['NUM_VALID_SET']
         self.num_test_set = meta['NUM_TEST_SET']
 
-        if self.num_edge < INT_MAX:
+        if self.num_edge < INT_MAX and not force_load64:
             self.load32(dataset_path)
         else:
             self.load64(dataset_path)
@@ -107,7 +107,12 @@ class DatasetLoader:
             assert(False)
 
         g = dgl.DGLGraph(g_idx)
-        g.ndata['feat'] = self.feat
-        g.ndata['label'] = self.label
 
         return g
+
+    def to_pyg_graph(self):
+        from torch_sparse import SparseTensor
+
+        # Sparse require the dtype to be torch.long
+        # We has already sorted the indices tensor in the preprocessing step
+        return SparseTensor(rowptr=self.indptr, col=self.indices, sparse_sizes=(self.num_node, self.num_node), is_sorted=True)

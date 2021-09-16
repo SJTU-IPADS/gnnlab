@@ -13,6 +13,7 @@
 #include "cuda_loops.h"
 #include "pre_sampler.h"
 #include "../profiler.h"
+#include "../timer.h"
 
 namespace samgraph {
 namespace common {
@@ -40,7 +41,9 @@ void GPUEngine::Init() {
   ArchCheck();
 
   // Load the target graph data
+  Timer tl;
   LoadGraphDataset();
+  double time_load_graph_dataset = tl.Passed();
 
   // Create CUDA streams
   _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
@@ -85,32 +88,43 @@ void GPUEngine::Init() {
   }
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
+  double presample_time = 0;
+  double build_cache_time = 0;
   if (RunConfig::UseGPUCache()) {
     switch (RunConfig::cache_policy) {
       case kCacheByPreSampleStatic: 
       case kCacheByPreSample: {
+        Timer tp;
         PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
         _dataset->ranking_nodes = PreSampler::Get()->DoPreSample();
+        presample_time = tp.Passed();
         break;
       }
       default: ;
     }
+    Timer tc;
     _cache_manager = new GPUCacheManager(
         _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
         _dataset->feat->Type(), _dataset->feat->Shape()[1],
         static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
         _dataset->num_node, RunConfig::cache_percentage);
+    build_cache_time = tc.Passed();
     _dynamic_cache_manager = nullptr;
   } else if (RunConfig::UseDynamicGPUCache()) {
+    Timer tc;
     _dynamic_cache_manager = new GPUDynamicCacheManager(
       _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
       _dataset->feat->Type(), _dataset->feat->Shape()[1],
       _dataset->num_node);
+    build_cache_time = tc.Passed();
     _cache_manager = nullptr;
   } else {
     _cache_manager = nullptr;
     _dynamic_cache_manager = nullptr;
   }
+  Profiler::Get().LogInit(kLogInitL1Presample, presample_time);
+  Profiler::Get().LogInit(kLogInitL1BuildCache, build_cache_time);
+  Profiler::Get().LogInit(kLogInitL1LoadDataset, time_load_graph_dataset);
 
   _initialize = true;
 }

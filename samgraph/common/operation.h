@@ -57,6 +57,8 @@ double samgraph_get_log_step_value(uint64_t epoch, uint64_t step, int item);
 
 double samgraph_get_log_epoch_value(uint64_t epoch, int item);
 
+void samgraph_report_init();
+
 void samgraph_report_step(uint64_t epoch, uint64_t step);
 
 void samgraph_report_step_average(uint64_t epoch, uint64_t step);

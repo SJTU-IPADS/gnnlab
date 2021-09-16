@@ -10,6 +10,22 @@
 namespace samgraph {
 namespace common {
 
+enum LogInitItem {
+  // L1
+  kLogInitL1LoadDataset = 0,
+  kLogInitL1Presample,
+  kLogInitL1BuildCache,
+  // L2
+  kLogInitL2PresampleInit,
+  kLogInitL2PresampleSample,
+  kLogInitL2PresampleCopy,
+  kLogInitL2PresampleCount,
+  kLogInitL2PresampleSort,
+  kLogInitL2PresampleReset,
+  kLogInitL2PresampleGetRank,
+  kNumLogInitItems,
+};
+
 enum LogStepItem {
   // L1
   kLogL1NumSample = 0,
@@ -127,7 +143,9 @@ struct TraceData {
 class Profiler {
  public:
   Profiler();
-  void Reset();
+  void ResetStepEpoch();
+  void LogInit(LogInitItem item, double val);
+  void LogInitAdd(LogInitItem item, double val);
   void LogStep(uint64_t key, LogStepItem item, double val);
   void LogStepAdd(uint64_t key, LogStepItem item, double val);
   void LogEpochAdd(uint64_t key, LogEpochItem item, double val);
@@ -135,9 +153,11 @@ class Profiler {
   inline void TraceStepBegin(uint64_t key, TraceItem item, uint64_t us) { _step_trace[item].events[key].begin = us; }
   inline void TraceStepEnd(uint64_t key, TraceItem item, uint64_t us) { _step_trace[item].events[key].end = us; }
 
+  double GetLogInitValue(LogStepItem item);
   double GetLogStepValue(uint64_t key, LogStepItem item);
   double GetLogEpochValue(uint64_t epoch, LogEpochItem item);
 
+  void ReportInit();
   void ReportStep(uint64_t epoch, uint64_t step);
   void ReportStepAverage(uint64_t epoch, uint64_t step);
   void ReportEpoch(uint64_t epoch);
@@ -157,6 +177,7 @@ class Profiler {
   void OutputStep(uint64_t key, std::string type);
   void OutputEpoch(uint64_t epoch, std::string type);
 
+  std::vector<LogData> _init_data;
   std::vector<LogData> _step_data;
   std::vector<double> _step_buf;
   std::vector<LogData> _epoch_data;

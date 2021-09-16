@@ -20,6 +20,9 @@ void Options::InitOptions(std::string app_name) {
           "products",
           "papers100M",
           "com-friendster",
+          "uk-2006-05",
+          "twitter",
+          "sk-2005",
       }));
   _app.add_option("-t,--threads", num_threads);
   _app.add_flag("--64", is64type);

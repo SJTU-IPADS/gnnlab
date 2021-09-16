@@ -1,44 +1,69 @@
 import argparse
-import dgl
 import torch
-import dgl.nn.pytorch as dglnn
-import torch.optim as optim
+from torch.functional import norm
 import torch.nn as nn
 import torch.nn.functional as F
 import fastgraph
 import time
 import numpy as np
-from gsampler.UserSampler import UserSampler
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from torch_geometric.nn import GCNConv
+from torch_geometric.data import NeighborSampler
+from torch_sparse import SparseTensor, sum as sparsesum, mul
 
 
-class SAGE(nn.Module):
-    def __init__(self,
-                 in_feats,
-                 n_hidden,
-                 n_classes,
-                 n_layers,
-                 activation,
-                 dropout):
-        super().__init__()
-        self.n_layers = n_layers
-        self.n_hidden = n_hidden
-        self.n_classes = n_classes
+class GCN(nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers, activation, dropout, norm=True):
+        super(GCN, self).__init__()
         self.layers = nn.ModuleList()
-        self.layers.append(dglnn.SAGEConv(in_feats, n_hidden, 'mean'))
-        for _ in range(1, n_layers - 1):
-            self.layers.append(dglnn.SAGEConv(n_hidden, n_hidden, 'mean'))
-        self.layers.append(dglnn.SAGEConv(n_hidden, n_classes, 'mean'))
-        self.dropout = nn.Dropout(dropout)
+        # input layer
+        self.layers.append(
+            GCNConv(in_channels, hidden_channels, add_self_loops=False, normalize=False))
+        # hidden layers
+        for _ in range(1, num_layers - 1):
+            self.layers.append(
+                GCNConv(hidden_channels, hidden_channels, add_self_loops=False, normalize=False))
+        # output layer
+        self.layers.append(
+            GCNConv(hidden_channels, out_channels, add_self_loops=False, normalize=False))
         self.activation = activation
+        self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, blocks, x):
-        h = x
-        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
-            h = layer(block, h)
-            if l != len(self.layers) - 1:
-                h = self.activation(h)
-                h = self.dropout(h)
-        return h
+    def forward(self, x, adjs):
+        for i, (edge_index, _, _) in enumerate(adjs):
+            if i != 0:
+                x = self.dropout(x)
+            if norm:
+                edge_index = self.gcn_norm(edge_index)
+            x = self.layers[i](x, edge_index)
+            x = self.activation(x)
+        return x
+
+    def gcn_norm(self, edge_index):
+        assert(isinstance(edge_index, SparseTensor))
+        adj_t = edge_index
+        if not adj_t.has_value():
+            adj_t = adj_t.fill_value(1.)
+        deg = sparsesum(adj_t, dim=1)
+        deg_inv_sqrt = deg.pow_(-0.5)
+        deg_inv_sqrt.masked_fill_(deg_inv_sqrt == float('inf'), 0.)
+        adj_t = mul(adj_t, deg_inv_sqrt.view(-1, 1))
+
+        rowptr, col, value = adj_t.csc()
+        transpose_adj_t = SparseTensor(
+            rowptr=rowptr, col=col, value=value, is_sorted=True)
+        tranpose_deg = sparsesum(transpose_adj_t, dim=1)
+        tranpose_deg_inv_sqrt = tranpose_deg.pow_(-0.5)
+        tranpose_deg_inv_sqrt.masked_fill_(
+            tranpose_deg_inv_sqrt == float('inf'), 0.)
+
+        adj_t = mul(adj_t, tranpose_deg_inv_sqrt.view(1, -1))
+
+        return adj_t
 
 
 def parse_args(default_run_config):
@@ -49,8 +74,6 @@ def parse_args(default_run_config):
                            default=default_run_config['dataset'])
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
-    argparser.add_argument('--pipelining', action='store_true',
-                           default=default_run_config['pipelining'])
     argparser.add_argument('--num-sampling-worker', type=int,
                            default=default_run_config['num_sampling_worker'])
 
@@ -78,10 +101,10 @@ def get_run_config():
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
-    default_run_config['pipelining'] = False  # default value must be false
     default_run_config['num_sampling_worker'] = 16
 
-    default_run_config['fanout'] = [5, 10, 15]
+    # In PyG, the order from root to leaf is from front to end
+    default_run_config['fanout'] = [25, 10]
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
@@ -95,9 +118,6 @@ def get_run_config():
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
 
-    if run_config['pipelining'] == False:
-        run_config['num_sampling_worker'] = 0
-
     print('Evaluation time: ', time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime()))
     print(*run_config.items(), sep='\n')
@@ -108,46 +128,32 @@ def get_run_config():
 def run():
     run_config = get_run_config()
     device = torch.device(run_config['device'])
-    dgl_ctx = None
-    if (device.type == 'cuda'):
-        dgl_ctx = dgl.ndarray.gpu(device.index)
-    else:
-        print("Device is illegal.", file=sys.stderr)
-        exit(-1)
 
     dataset = fastgraph.dataset(
-        run_config['dataset'], run_config['root_path'])
-    g = dataset.to_dgl_graph()
+        run_config['dataset'], run_config['root_path'], force_load64=True)
+    g = dataset.to_pyg_graph()
+    feat = dataset.feat
+    label = dataset.label
     train_nids = dataset.train_set
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
-    ctx = dgl_ctx
-    g = g.to(device)
-    topo_g = g._graph
-    # topo_g = topo_g.copy_to(ctx)
-    print("topo_g.ctx: ", topo_g.ctx)
+    dataloader = NeighborSampler(g,
+                                 sizes=run_config['fanout'],
+                                 batch_size=run_config['batch_size'],
+                                 node_idx=train_nids,
+                                 shuffle=True,
+                                 num_workers=run_config['num_sampling_worker'],
+                                 return_e_id=False,
+                                 #  prefetch_factor=run_config['num_epoch']
+                                 )
 
-    # sampler = UserSampler(run_config['fanout'], topo_g)
-    train_nids = train_nids.to(device)
-    sampler = dgl.dataloading.MultiLayerNeighborSampler(run_config['fanout'])
-    dataloader = dgl.dataloading.NodeDataLoader(
-        g,
-        train_nids,
-        sampler,
-        device=device,
-        batch_size=run_config['batch_size'],
-        shuffle=True,
-        drop_last=False
-        # ,num_workers=run_config['num_sampling_worker']
-        )
-
-    model = SAGE(in_feats, run_config['num_hidden'], n_classes,
-                 run_config['num_layer'], F.relu, run_config['dropout'])
+    model = GCN(in_feats, run_config['num_hidden'], n_classes,
+                run_config['num_layer'], F.relu, run_config['dropout'])
     model = model.to(device)
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=run_config['lr'])
     num_epoch = run_config['num_epoch']
 
     model.train()
@@ -171,22 +177,21 @@ def run():
         epoch_total_time = 0.0
 
         t0 = time.time()
-        for step, (_, _, blocks) in enumerate(dataloader):
+        for step, (batch_size, n_id, adjs) in enumerate(dataloader):
             t1 = time.time()
-            batch_inputs = blocks[0].srcdata['feat'].to(device)
-            batch_labels = blocks[-1].dstdata['label'].to(device)
+            adjs = [adj.to(device) for adj in adjs]
+            batch_inputs = feat[n_id].to(device)
+            batch_labels = label[n_id[:batch_size]].to(device)
             t2 = time.time()
 
             # Compute loss and prediction
-            batch_pred = model(blocks, batch_inputs)
+            batch_pred = model(batch_inputs, adjs)
             loss = loss_fcn(batch_pred, batch_labels)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             t3 = time.time()
-            batch_inputs = None
-            batch_labels = None
 
             sample_times.append(t1 - t0)
             copy_times.append(t2 - t1)
@@ -199,10 +204,10 @@ def run():
             epoch_total_time += (t3 - t0)
 
             num_sample = 0
-            for block in blocks:
-                num_sample += block.num_edges()
+            for adj in adjs:
+                num_sample += adj.adj_t.nnz()
             num_samples.append(num_sample)
-            num_nodes.append(blocks[0].num_src_nodes())
+            num_nodes.append(batch_inputs.shape[0])
 
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))

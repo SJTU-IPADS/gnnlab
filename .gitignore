@@ -121,6 +121,8 @@ exps/
 # language server
 .ccls-cache/
 .ccls
+.clangd
+compile_commands.json
 
 # tests
 tests/*.o

@@ -44,6 +44,7 @@ Profiler::Profiler() {
   size_t num_epoch_items = static_cast<size_t>(kNumLogEpochItems);
   size_t num_epoch_logs = Engine::Get()->NumEpoch();
 
+  _init_data.resize(kNumLogInitItems, LogData(1));
   _step_data.resize(num_step_items, LogData(num_step_logs));
   _step_buf.resize(num_step_items);
   _epoch_data.resize(num_epoch_items, LogData(num_epoch_logs));
@@ -57,7 +58,7 @@ Profiler::Profiler() {
   _similarity.resize(num_step_logs);
 }
 
-void Profiler::Reset() {
+void Profiler::ResetStepEpoch() {
   size_t num_step_items = static_cast<size_t>(kNumLogStepItems);
   size_t num_step_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
   size_t num_epoch_items = static_cast<size_t>(kNumLogEpochItems);
@@ -81,6 +82,25 @@ void Profiler::Reset() {
   _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _similarity.clear();
   _similarity.resize(num_step_logs);
+}
+
+void Profiler::LogInit(LogInitItem item, double val) {
+  uint64_t key = 0;
+  _init_data[item].vals[key] = val;
+  _init_data[item].sum += val;
+  _init_data[item].cnt = _init_data[item].bitmap[key]
+                         ? _init_data[item].cnt
+                         : _init_data[item].cnt + 1;
+  _init_data[item].bitmap[key] = true;
+}
+void Profiler::LogInitAdd(LogInitItem item, double val) {
+  uint64_t key = 0;
+  _init_data[item].vals[key] += val;
+  _init_data[item].sum += val;
+  _init_data[item].cnt = _init_data[item].bitmap[key]
+                         ? _init_data[item].cnt
+                         : _init_data[item].cnt + 1;
+  _init_data[item].bitmap[key] = true;
 }
 
 void Profiler::LogStep(uint64_t key, LogStepItem item, double val) {
@@ -114,6 +134,10 @@ void Profiler::LogEpochAdd(uint64_t key, LogEpochItem item, double val) {
   _epoch_data[item_idx].bitmap[epoch] = true;
 }
 
+double Profiler::GetLogInitValue(LogStepItem item) {
+  return _init_data[item].vals[0];
+}
+
 double Profiler::GetLogStepValue(uint64_t key, LogStepItem item) {
   size_t item_idx = static_cast<size_t>(item);
   return _step_data[item_idx].vals[key];
@@ -122,6 +146,43 @@ double Profiler::GetLogStepValue(uint64_t key, LogStepItem item) {
 double Profiler::GetLogEpochValue(uint64_t epoch, LogEpochItem item) {
   size_t item_idx = static_cast<size_t>(item);
   return _epoch_data[item_idx].vals[epoch];
+}
+
+void Profiler::ReportInit() {
+  std::string env_level = GetEnv(Constant::kEnvProfileLevel);
+
+  int level = 0;
+  if (env_level == "1") {
+    level = 1;
+  } else if (env_level == "2") {
+    level = 2;
+  } else if (env_level == "3") {
+    level = 3;
+  }
+  if (level >= 1) {
+    printf(
+        "    [Init Profiler Level 1]\n"
+        "        L1  load dataset %10.4lf | presample   %10.4lf | "
+        "build cache %.4lf\n",
+        _init_data[kLogInitL1LoadDataset].vals[0],
+        _init_data[kLogInitL1Presample].vals[0],
+        _init_data[kLogInitL1BuildCache].vals[0]);
+  }
+  if (level >= 2) {
+    printf(
+        "    [Init Profiler Level 2]\n"
+        "        L2  presample: init   %10.4lf\n"
+        "        L2  presample: sample %10.4lf | copy     %10.4lf\n"
+        "        L2  presample: count  %10.4lf | sort     %10.4lf\n"
+        "        L2  presample: reset  %10.4lf | get rank %10.4lf\n",
+        _init_data[kLogInitL2PresampleInit].vals[0],
+        _init_data[kLogInitL2PresampleSample].vals[0],
+        _init_data[kLogInitL2PresampleCopy].vals[0],
+        _init_data[kLogInitL2PresampleCount].vals[0],
+        _init_data[kLogInitL2PresampleSort].vals[0],
+        _init_data[kLogInitL2PresampleReset].vals[0],
+        _init_data[kLogInitL2PresampleGetRank].vals[0]);
+  }
 }
 
 void Profiler::ReportStep(uint64_t epoch, uint64_t step) {

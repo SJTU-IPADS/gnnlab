@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import fastgraph
 import time
 import numpy as np
-import sys
+import math
 
 
 class SAGE(nn.Module):
@@ -42,7 +42,14 @@ class SAGE(nn.Module):
 
 
 def parse_args(default_run_config):
+    """
+        1. Sequential single sampling worker run: python xxx.py --num-sampling-worker 1
+        2. Sequential multiple sampling worker run: python xxx.py --num-sampling-worker 16
+        3. Pipeline multiple sampling worker run: python xxx.py --num-samping-worker 16 --pipelining
+    """
     argparser = argparse.ArgumentParser("GraphSage Training")
+    argparser.add_argument('--use-gpu-sampling', action='store_true',
+                           default=default_run_config['use_gpu_sampling'])
     argparser.add_argument('--device', type=str,
                            default=default_run_config['device'])
     argparser.add_argument('--dataset', type=str,
@@ -72,17 +79,22 @@ def parse_args(default_run_config):
 
 def get_run_config():
     default_run_config = {}
+    # default should be false, enable it using command line argument
+    default_run_config['use_gpu_sampling'] = False
     default_run_config['device'] = 'cuda:0'
     default_run_config['dataset'] = 'reddit'
     # default_run_config['dataset'] = 'products'
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
-    default_run_config['pipelining'] = False  # default value must be false
-    default_run_config['num_sampling_worker'] = 16
+    # default should be false, enable it using command line argument
+    default_run_config['pipelining'] = False
+    default_run_config['num_sampling_worker'] = 0
+    # default_run_config['num_sampling_worker'] = 16
 
-    default_run_config['fanout'] = [5, 10, 15]
-    default_run_config['num_epoch'] = 10
+    # DGL fanouts from front to back are from leaf to root
+    default_run_config['fanout'] = [25, 10]
+    default_run_config['num_epoch'] = 2
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
     default_run_config['lr'] = 0.003
@@ -90,35 +102,77 @@ def get_run_config():
 
     run_config = parse_args(default_run_config)
 
+    assert(run_config['num_sampling_worker'] >= 0)
+
     # the first epoch is used to warm up the system
     run_config['num_epoch'] += 1
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
 
-    if run_config['pipelining'] == False:
+    dataset = fastgraph.dataset(
+        run_config['dataset'], run_config['root_path'])
+    num_train_set = dataset.train_set.shape[0]
+
+    # [prefetch_factor]: number of samples loaded in advance by each worker.
+    # 2 means there will be a total of 2 * num_workers samples prefetched across all workers. (default: 2)
+    # DGL uses a custom dataset, it makes PyTorch thinks a batch is a sample.
+    if run_config['pipelining'] == False and run_config['num_sampling_worker'] > 0:
+        # make it sequential. sample all the batch before training.
+        # assumed that drop last = False
+        num_batch_per_epoch = math.ceil(
+            num_train_set / run_config['batch_size'])
+        num_batch = run_config['num_epoch'] * num_batch_per_epoch
+        run_config['num_prefetch_batch'] = num_batch
+        run_config['prefetch_factor'] = math.ceil(
+            num_batch / run_config['num_sampling_worker'])
+    else:
+        # default prefetch factor is 2
+        run_config['prefetch_factor'] = 2
+
+    if run_config['use_gpu_sampling']:
+        run_config['sample_device'] = run_config['device']
+        run_config['train_device'] = run_config['device']
+        #  GPU sampling requires sample_device to be 0
         run_config['num_sampling_worker'] = 0
+        # default prefetch factor is 2
+        run_config['prefetch_factor'] = 2
+    else:
+        run_config['sample_device'] = 'cpu'
+        run_config['train_device'] = run_config['device']
 
     print('Evaluation time: ', time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime()))
     print(*run_config.items(), sep='\n')
 
+    run_config['dataset'] = dataset
+
     return run_config
+
+
+def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
+    # feat/label is on CPU while input_nodes/output_nodes is on GPU or CPU
+    input_nodes = input_nodes.to(feat.device)
+    output_nodes = output_nodes.to(label.device)
+
+    batch_inputs = torch.index_select(
+        feat, 0, input_nodes.long()).to(train_device)
+    batch_labels = torch.index_select(
+        label, 0, output_nodes.long()).to(train_device)
+
+    return batch_inputs, batch_labels
 
 
 def run():
     run_config = get_run_config()
-    device = torch.device(run_config['device'])
-    dgl_ctx = None
-    if (device.type == 'cuda'):
-        dgl_ctx = dgl.ndarray.gpu(device.index)
-    else:
-        print("Device is illegal.", file=sys.stderr)
-        exit(-1)
 
-    dataset = fastgraph.dataset(
-        run_config['dataset'], run_config['root_path'])
-    g = dataset.to_dgl_graph()
-    train_nids = dataset.train_set
+    sample_device = torch.device(run_config['sample_device'])
+    train_device = torch.device(run_config['train_device'])
+
+    dataset = run_config['dataset']
+    g = dataset.to_dgl_graph().to(sample_device)
+    feat = dataset.feat
+    label = dataset.label
+    train_nids = dataset.train_set.to(sample_device)
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
@@ -130,27 +184,29 @@ def run():
         batch_size=run_config['batch_size'],
         shuffle=True,
         drop_last=False,
-        # prefetch_factor=200,
+        prefetch_factor=run_config['prefetch_factor'],
         num_workers=run_config['num_sampling_worker'])
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
                  run_config['num_layer'], F.relu, run_config['dropout'])
-    model = model.to(device)
+    model = model.to(train_device)
     loss_fcn = nn.CrossEntropyLoss()
-    loss_fcn = loss_fcn.to(device)
+    loss_fcn = loss_fcn.to(train_device)
     optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
     num_epoch = run_config['num_epoch']
 
     model.train()
 
     epoch_sample_times = []
+    epoch_graph_copy_times = []
     epoch_copy_times = []
     epoch_train_times = []
     epoch_total_times = []
-    epoch_nodes_transform_times = []
+    epoch_num_nodes = []
+    epoch_num_samples = []
 
-    nodes_transform_times = []
     sample_times = []
+    graph_copy_times = []
     copy_times = []
     train_times = []
     total_times = []
@@ -159,63 +215,64 @@ def run():
 
     for epoch in range(num_epoch):
         epoch_sample_time = 0.0
+        epoch_graph_copy_time = 0.0
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
-        epoch_total_time = 0.0
-        epoch_nodes_transform_time = 0.0
+        epoch_num_node = 0
+        epoch_num_sample = 0
 
+        tic = time.time()
         t0 = time.time()
-        for step, (_, _, blocks) in enumerate(dataloader):
-            tt = time.time()
-            for block in blocks:
-                block._graph=block._graph.copy_to(dgl_ctx)
+        for step, (input_nodes, output_nodes, blocks) in enumerate(dataloader):
             t1 = time.time()
-            # blocks = [block.int().to(device) for block in blocks]
-            # batch_inputs = blocks[0].srcdata['feat']
-            # batch_labels = blocks[-1].dstdata['label']
-            batch_inputs = blocks[0].srcdata['feat'].to(device)
-            batch_labels = blocks[-1].dstdata['label'].to(device)
+            # graph are copied to GPU implicitly here
+            blocks = [block.int().to(train_device) for block in blocks]
             t2 = time.time()
-
+            batch_inputs, batch_labels = load_subtensor(
+                feat, label, input_nodes, output_nodes, train_device)
+            t3 = time.time()
             # Compute loss and prediction
             batch_pred = model(blocks, batch_inputs)
             loss = loss_fcn(batch_pred, batch_labels)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            # free input and label data
+            batch_inputs = None
+            batch_labels = None
+            t4 = time.time()
 
-            t3 = time.time()
+            sample_times.append(t1 - t0)
+            graph_copy_times.append(t2 - t1)
+            copy_times.append(t3 - t2)
+            train_times.append(t4 - t3)
+            total_times.append(t4 - t0)
 
-            sample_times.append(tt - t0)
-            nodes_transform_times.append(t1 - tt)
-            copy_times.append(t2 - t1)
-            train_times.append(t3 - t2)
-            total_times.append(t3 - t0)
-
-            epoch_sample_time += (tt - t0)
-            epoch_nodes_transform_time += (t1 - tt)
-            epoch_copy_time += (t2 - t1)
-            epoch_train_time += (t3 - t2)
-            epoch_total_time += (t3 - t0)
-
-            num_sample = 0
-            for block in blocks:
-                num_sample += block.num_edges()
-            num_samples.append(num_sample)
+            num_samples.append(sum([block.num_edges() for block in blocks]))
             num_nodes.append(blocks[0].num_src_nodes())
 
-            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Nodes copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(nodes_transform_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
+            epoch_sample_time += sample_times[-1]
+            epoch_graph_copy_time += graph_copy_times[-1]
+            epoch_copy_time += copy_times[-1]
+            epoch_train_time += train_times[-1]
+            epoch_num_node += num_nodes[-1]
+            epoch_num_sample += num_samples[-1]
+
+            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(graph_copy_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
-        epoch_nodes_transform_times.append(epoch_nodes_transform_time)
+        toc = time.time()
         epoch_sample_times.append(epoch_sample_time)
+        epoch_graph_copy_times.append(epoch_graph_copy_time)
         epoch_copy_times.append(epoch_copy_time)
         epoch_train_times.append(epoch_train_time)
-        epoch_total_times.append(epoch_total_time)
+        epoch_total_times.append(toc - tic)
+        epoch_num_samples.append(epoch_num_sample)
+        epoch_num_nodes.append(epoch_num_node)
 
-    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Nodes copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-        np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_nodes_transform_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+    print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
+        np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
 
 if __name__ == '__main__':

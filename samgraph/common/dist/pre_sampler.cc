@@ -67,7 +67,7 @@ TensorPtr PreSampler::DoPreSample(){
             std::greater<Id64Type>());
 #endif
   DistEngine::Get()->GetShuffler()->Reset();
-  Profiler::Get().Reset();
+  Profiler::Get().ResetStepEpoch();
   return GetRankNode();
 }
 

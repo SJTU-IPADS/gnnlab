@@ -50,6 +50,8 @@ void samgraph_config(const char *path, int run_arch, int sample_type,
       {kWeightedKHop, "WeightedKHop"},
       {kRandomWalk, "RandomWalk"},
       {kWeightedKHopPrefix, "WeightedKHopPrefix"},
+      {kKHop2, "KHop2"},
+      {kWeightedKHopHashDedup, "WeightedKHopHashDedup"},
   };
 
   LOG(INFO) << "Use " << sample2str[RunConfig::sample_type]
@@ -188,6 +190,10 @@ double samgraph_get_log_epoch_value(uint64_t epoch, int item) {
   CHECK_LT(item, kNumLogEpochItems);
   return Profiler::Get().GetLogEpochValue(epoch,
                                           static_cast<LogEpochItem>(item));
+}
+
+void samgraph_report_init() {
+  Profiler::Get().ReportInit();
 }
 
 void samgraph_report_step(uint64_t epoch, uint64_t step) {

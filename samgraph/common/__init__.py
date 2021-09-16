@@ -47,6 +47,8 @@ kKHop1 = 1
 kWeightedKHop = 2
 kRandomWalk = 3
 kWeightedKHopPrefix = 4
+kKHop2 = 5
+kWeightedKHopHashDedup = 6
 
 kArch0 = 0
 kArch1 = 1
@@ -402,6 +404,9 @@ class SamGraphBasics(object):
 
     def get_log_epoch_value(self, epoch, item):
         return self.C_LIB_CTYPES.samgraph_get_log_epoch_value(epoch, item)
+
+    def report_init(self):
+        return self.C_LIB_CTYPES.samgraph_report_init()
 
     def report_step(self, epoch, step):
         return self.C_LIB_CTYPES.samgraph_report_step(epoch, step)
