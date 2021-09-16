@@ -11,7 +11,7 @@ from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 NAME = 'samgraph'
 DESCRIPTION = 'A high-performance GPU-based graph sampler for deep graph learning application'
 REQUIRES_PYTHON = '>=3.6.0'
-VERSION = '2.0.0'
+VERSION = '3.0.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
@@ -148,13 +148,13 @@ setup(
                         '-Wall', '-fopenmp', '-march=native'],
                 'nvcc': ['-std=c++14',
                          '-g',
-                        # '-G',
-                        #  '--ptxas-options=-v',
+                         # '-G',
+                         #  '--ptxas-options=-v',
                          '-DSXN_REVISED',
                          '-DSXN_NAIVE_HASHMAP',
                          '--compiler-options', "'-fPIC'",
-                         '-gencode=arch=compute_35,code=sm_35', # K40m
-                         '-gencode=arch=compute_70,code=sm_70', # V100
+                         '-gencode=arch=compute_35,code=sm_35',  # K40m
+                         '-gencode=arch=compute_70,code=sm_70',  # V100
                          ]
             })
     ],

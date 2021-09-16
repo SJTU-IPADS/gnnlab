@@ -9,6 +9,7 @@ import fastgraph
 import time
 import numpy as np
 import math
+import sys
 
 """
   We have made the following modification(or say, simplification) on PinSAGE,
@@ -118,6 +119,8 @@ def parse_args(default_run_config):
                            default=default_run_config['root_path'])
     argparser.add_argument('--pipelining', action='store_true',
                            default=default_run_config['pipelining'])
+    argparser.add_argument(
+        '--no-pipelining', dest='pipelining', action='store_false',)
     argparser.add_argument('--num-sampling-worker', type=int,
                            default=default_run_config['num_sampling_worker'])
 
@@ -142,6 +145,9 @@ def parse_args(default_run_config):
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
 
+    argparser.add_argument('--validate-configs',
+                           action='store_true', default=False)
+
     return vars(argparser.parse_args())
 
 
@@ -153,7 +159,6 @@ def get_run_config():
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
-    # default should be false, enable it using command line argument
     default_run_config['pipelining'] = False
     default_run_config['num_sampling_worker'] = 0
     # default_run_config['num_sampling_worker'] = 16
@@ -197,11 +202,15 @@ def get_run_config():
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
 
-    print('Evaluation time: ', time.strftime(
-        "%Y-%m-%d %H:%M:%S", time.localtime()))
-    print(*run_config.items(), sep='\n')
+    print('config:eval_tsp="{:}"'.format(time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.localtime())))
+    for k, v in run_config.items():
+        print('config:{:}={:},'.format(k, v))
 
     run_config['dataset'] = dataset
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
 
