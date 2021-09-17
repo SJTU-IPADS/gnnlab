@@ -48,6 +48,7 @@ class WorkspacePool::Pool {
         }
         e = *(it + 1);
         _free_list.erase(it + 1);
+        _free_list_total_size -= e.size;
       } else {
         nbytes *= scale;
         e.data = device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment);
@@ -55,6 +56,7 @@ class WorkspacePool::Pool {
       }
     }
     _allocated.push_back(e);
+    _allocated_total_size += e.size;
     return e.data;
   }
 
@@ -74,6 +76,7 @@ class WorkspacePool::Pool {
       e = _allocated[index];
       _allocated.erase(_allocated.begin() + index);
     }
+    _allocated_total_size -= e.size;
 
     if (_free_list.back().size < e.size) {
       _free_list.push_back(e);
@@ -85,6 +88,7 @@ class WorkspacePool::Pool {
       }
       _free_list[i + 1] = e;
     }
+    _free_list_total_size += e.size;
   }
 
   // Release all resources
@@ -94,6 +98,14 @@ class WorkspacePool::Pool {
       device->FreeDataSpace(ctx, _free_list[i].data);
     }
     _free_list.clear();
+  }
+  size_t TotalSize() {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _free_list_total_size + _allocated_total_size;
+  }
+  size_t FreeSize() {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return _free_list_total_size;
   }
 
  private:
@@ -105,6 +117,7 @@ class WorkspacePool::Pool {
 
   std::vector<Entry> _free_list;
   std::vector<Entry> _allocated;
+  size_t _free_list_total_size = 0, _allocated_total_size = 0;
   std::mutex _mutex;
 
   constexpr static size_t kListSize = 100;
@@ -145,6 +158,15 @@ void WorkspacePool::FreeWorkspace(Context ctx, void *ptr) {
   CHECK(static_cast<size_t>(ctx.device_id) < _array.size() &&
         _array[ctx.device_id] != nullptr);
   _array[ctx.device_id]->Free(ptr);
+}
+
+size_t WorkspacePool::TotalSize(Context ctx) {
+  CHECK(_array[ctx.device_id] != nullptr);
+  return _array[ctx.device_id]->TotalSize();
+}
+size_t WorkspacePool::FreeSize(Context ctx) {
+  CHECK(_array[ctx.device_id] != nullptr);
+  return _array[ctx.device_id]->FreeSize();
 }
 
 }  // namespace common
