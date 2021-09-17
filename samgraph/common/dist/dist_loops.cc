@@ -274,6 +274,8 @@ void DoGPUSample(TaskPtr task) {
                                    num_output_cache * sizeof(IdType),
                                    sampler_ctx, CPU(), sample_stream);
 
+    sampler_device->StreamSync(sampler_ctx, sample_stream);
+
     sampler_device->FreeWorkspace(sampler_ctx, sampler_output_miss_src_index);
     sampler_device->FreeWorkspace(sampler_ctx, sampler_output_miss_dst_index);
     sampler_device->FreeWorkspace(sampler_ctx, sampler_output_cache_src_index);
@@ -290,7 +292,7 @@ void DoGPUSample(TaskPtr task) {
       CHECK(cpu_output_dst_index[i] < num_input);
       if (i < num_output_miss) {
         if (cpu_output_src_index[i] >= feat_num) {
-          std::cout << cpu_output_dst_index[i] << " vs " << feat_num << std::endl;
+          std::cout << cpu_output_src_index[i] << " vs " << feat_num << std::endl;
         }
         CHECK(cpu_output_src_index[i] < feat_num);
       }
