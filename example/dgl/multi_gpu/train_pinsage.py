@@ -217,7 +217,7 @@ def get_run_config():
     print('config:eval_tsp="{:}"'.format(time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime())))
     for k, v in run_config.items():
-        print('config:{:}={:},'.format(k, v))
+        print('config:{:}={:}'.format(k, v))
 
     run_config['dataset'] = dataset
     run_config['g'] = dataset.to_dgl_graph(g_format='csr')
@@ -341,7 +341,7 @@ def run(worker_id, run_config):
 
             if worker_id == 0:
                 print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                    epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(graph_copy_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
+                    epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
         if num_worker > 1:
@@ -363,7 +363,7 @@ def run(worker_id, run_config):
 
     if worker_id == 0:
         print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-            np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+            np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
 
 if __name__ == '__main__':
