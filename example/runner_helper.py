@@ -8,6 +8,14 @@ TMP_LOG_DIR='run-logs/tmp_log_dir'
 
 root_path="/graph-learning/samgraph/"
 
+def percent_gen(lb, ub, gap=1):
+  ret = []
+  i = lb
+  while i <= ub:
+    ret.append(i/100)
+    i += gap
+  return ret
+
 class CachePolicy(Enum):
   cache_by_degree = 0
   cache_by_heuristic = 1

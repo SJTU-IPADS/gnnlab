@@ -1,4 +1,4 @@
-from runner_helper import RunConfig, ConfigList, App, Dataset, CachePolicy, TMP_LOG_DIR, run_in_list, SampleType
+from runner_helper import Arch, RunConfig, ConfigList, App, Dataset, CachePolicy, TMP_LOG_DIR, run_in_list, SampleType, percent_gen
 import os
 
 def tmp_call_back(cfg: RunConfig):
