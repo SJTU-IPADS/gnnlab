@@ -99,14 +99,14 @@ def get_run_config():
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
 
-    # default_run_config['cache_policy'] = sam.kCacheByHeuristic
-    default_run_config['cache_policy'] = sam.kCacheByPreSample
+    default_run_config['cache_policy'] = sam.kCacheByHeuristic
+    # default_run_config['cache_policy'] = sam.kCacheByPreSample
     default_run_config['cache_percentage'] = 0.0
 
     default_run_config['max_sampling_jobs'] = 10
     # default max_copying_jobs should be 10, but when training on com-friendster,
     # we have to set this to 1 to prevent GPU out-of-memory
-    default_run_config['max_copying_jobs'] = 1
+    default_run_config['max_copying_jobs'] = 2
 
     # default_run_config['fanout'] = [5, 10, 15]
     default_run_config['fanout'] = [25, 10]
@@ -170,6 +170,8 @@ def run_sample(worker_id, run_config, epoch_barrier):
 
     print(f"sample num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
+        if (run_config['pipeline']):
+            epoch_barrier.wait()
         sample_epoch_t = time.time()
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
@@ -178,7 +180,8 @@ def run_sample(worker_id, run_config, epoch_barrier):
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
-        epoch_barrier.wait()
+        if (not run_config['pipeline']):
+            epoch_barrier.wait()
         epoch_barrier.wait()
     print("average sample epoch time: {:.4f}".format(np.mean(sample_epoch_t_l[1:])))
     print("average sample epoch time by profiler: {:.4f}".format(np.mean(epoch_sample_times[1:])))
@@ -225,8 +228,6 @@ def run_train(worker_id, run_config, epoch_barrier):
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
-    # align the train_workers
-    # num_step = int(int(num_step / num_worker) * num_worker)
 
     model.train()
 
@@ -251,26 +252,23 @@ def run_train(worker_id, run_config, epoch_barrier):
     for epoch in range(num_epoch):
         epoch_barrier.wait()
         epoch_t = time.time()
-        # sam.extract_start(int(num_step / num_worker))
-        # sam.extract_start(int(-1))
+        if (run_config['pipeline']):
+            need_steps = int(num_step / num_worker)
+            if (worker_id < num_step % num_worker):
+                need_steps += 1
+            sam.extract_start(need_steps)
         for step in range(worker_id, align_up_step, num_worker):
             if (step < num_step):
                 t0 = time.time()
-                # do extracting process
-                # print(f'train epoch: {epoch}, step: {step}')
-                # print('train: sample_once')
-                sam.sample_once()
-                # print('train: sample_once finished')
+                if (not run_config['pipeline']):
+                    sam.sample_once()
                 batch_key = sam.get_next_batch()
-                # print('batch_key: ', batch_key)
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
-                # print('blocks device: ', blocks[0].device)
                 t2 = time.time()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_input)
-            # print('batch_pred device: ', batch_pred.device)
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
