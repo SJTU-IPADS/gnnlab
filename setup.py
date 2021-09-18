@@ -130,6 +130,7 @@ setup(
                 'samgraph/common/dist/dist_cache_manager_device.cu',
                 'samgraph/common/dist/dist_cache_manager_host.cc',
                 'samgraph/common/dist/pre_sampler.cc',
+                'samgraph/common/dist/dist_shuffler.cc',
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[os.path.join(
@@ -151,7 +152,7 @@ setup(
                         # '-G',
                         #  '--ptxas-options=-v',
                          '-DSXN_REVISED',
-                        #  '-DSXN_NAIVE_HASHMAP',
+                        # '-DSXN_NAIVE_HASHMAP',
                          '--compiler-options', "'-fPIC'",
                          '-gencode=arch=compute_35,code=sm_35', # K40m
                          '-gencode=arch=compute_70,code=sm_70', # V100

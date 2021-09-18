@@ -138,7 +138,8 @@ void DistEngine::SampleCacheTableInit() {
             << ") " << num_cached_nodes << " / " << num_nodes;
 }
 
-void DistEngine::SampleInit(int device_type, int device_id) {
+void DistEngine::SampleInit(int device_type, int device_id,
+    int sampler_id, int num_sampler, int num_trainer) {
   if (_initialize) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
@@ -164,8 +165,8 @@ void DistEngine::SampleInit(int device_type, int device_id) {
           _num_epoch, _batch_size, false);
       break;
     case kGPU:
-      _shuffler = new cuda::GPUShuffler(_dataset->train_set,
-          _num_epoch, _batch_size, false);
+      _shuffler = new DistShuffler(_dataset->train_set,
+          _num_epoch, _batch_size, sampler_id, num_sampler, num_trainer, false);
       break;
     default:
         LOG(FATAL) << "shuffler does not support device_type: "
