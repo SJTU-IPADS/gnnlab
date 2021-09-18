@@ -5,6 +5,15 @@
 #include <torch/extension.h>
 #include <torch/torch.h>
 
+#undef LOG
+#undef CHECK_NOTNULL
+#undef CHECK_NE
+#undef CHECK_LE
+#undef CHECK_GE
+#undef CHECK_LT
+#undef CHECK_GT
+#undef CHECK_EQ
+#undef CHECK
 #include "../common/common.h"
 #include "../common/cuda/cuda_engine.h"
 #include "../common/dist/dist_engine.h"
