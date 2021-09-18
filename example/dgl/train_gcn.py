@@ -295,6 +295,14 @@ def run():
     print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
+    test_result = {}
+    test_result['epoch_time'] = np.mean(epoch_total_times[1:])
+    test_result['sample_time'] = np.mean(epoch_sample_times[1:])
+    test_result['copy_time'] = np.mean(epoch_copy_times[1:])
+    test_result['train_time'] = np.mean(epoch_train_times[1:])
+    for k, v in test_result.items():
+        print('test_result:{:}={:.2f}'.format(k, v))
+
 
 if __name__ == '__main__':
     run()

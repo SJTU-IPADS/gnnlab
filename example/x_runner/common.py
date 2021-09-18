@@ -1,6 +1,8 @@
 from enum import Enum
 import copy
 import os
+import re
+from typing import Tuple
 
 
 class App(Enum):
@@ -23,6 +25,7 @@ class Dataset(Enum):
     sk_2005 = 7
 
     def __str__(self):
+        return 'reddit'
         if self is Dataset.friendster:
             return 'com-friendster'
         elif self is Dataset.uk_2006_05:
@@ -32,11 +35,67 @@ class Dataset(Enum):
         return self.name
 
 
+class LogTable:
+    def __init__(self, num_row, num_col, **kwargs):
+        '''
+            kwargs here are overall performance
+            row definition is a dict of params that indicate a cfg {'app': App.gcn, 'batch_size' : 8000 }
+            col definition is a metric, like sampling_time, copy_time in logfile
+        '''
+        tmp_col_0 = [{} for _ in range(num_col)]
+        tmp_col_1 = [None for _ in range(num_col)]
+
+        self.num_row = num_row
+        self.num_col = num_col
+        self.default_param_definition = kwargs
+
+        self.row_definitions = [copy.deepcopy(
+            tmp_col_0) for _ in range(num_row)]
+        self.col_definitions = [None for _ in range(num_col)]
+        self.data = [copy.deepcopy(tmp_col_1) for _ in range(num_row)]
+
+        self.is_finalized = False
+
+    def update_row_definition(self, row_id, col_range: Tuple[int, int], **kwargs):
+        assert(row_id < self.num_row)
+        for j in range(col_range[0], col_range[1] + 1):
+            assert(j < self.num_col)
+            self.row_definitions[row_id][j].update(
+                self.default_param_definition)
+            self.row_definitions[row_id][j].update(kwargs)
+
+        return self
+
+    def update_col_definition(self, col_id, definition):
+        assert(col_id < self.num_col)
+        self.col_definitions[col_id] = definition
+        return self
+
+    def create(self):
+        for i in range(self.num_col):
+            assert(self.col_definitions[i] != None)
+
+        for i in range(self.num_row):
+            for j in range(self.num_col):
+                assert(self.row_definitions[i][j] != None)
+
+        self.is_finalized = True
+        return self
+
+
 class RunConfig:
     def __init__(self, app: App, **kwargs):
         self.configs = {}
         self.configs['app'] = app
         self.configs.update(kwargs)
+
+        self.std_out_log = None
+        self.std_err_log = None
+        self.run_idx = -1
+
+        self.is_log_parsed = False
+        self.full_configs = {}
+        self.test_results = {}
 
     def form_cmd(self, idx, appdir, logdir, durable_log=True):
         cmd_line = ''
@@ -47,7 +106,7 @@ class RunConfig:
             if k == 'app':
                 continue
 
-            if k.startswith('bool:'):
+            if k.startswith('BOOL_'):
                 param_val = v.replace('_', '-')
                 cmd_line += f' --{param_val}'
             else:
@@ -58,8 +117,13 @@ class RunConfig:
         if durable_log:
             std_out_log = os.path.join(logdir, f'test{idx}.log')
             std_err_log = os.path.join(logdir, f'test{idx}.err.log')
+
             cmd_line += f' > \"{std_out_log}\"'
             cmd_line += f' 2> \"{std_err_log}\"'
+
+            self.std_out_log = std_out_log
+            self.std_err_log = std_err_log
+
         return cmd_line
 
     def run(self, idx, appdir, logdir, mock=False, durable_log=True, callback=None):
@@ -73,26 +137,57 @@ class RunConfig:
             if callback != None:
                 callback(self)
 
+        self.run_idx = idx
+
         return ret
+
+    def match(self, params):
+        for k, v in params.items():
+            if k not in self.configs.keys() or v != self.configs[k]:
+                return False
+
+        return True
+
+    def parse_log(self, config_pattern=r'config:(.+)=(.+)\n', result_pattern=r'test_result:(.+)=(.+)\n'):
+
+        if not self.is_log_parsed:
+
+            with open(self.std_out_log, 'r', encoding='utf8') as f:
+                for line in f:
+                    m1 = re.match(config_pattern, line)
+                    m2 = re.match(result_pattern, line)
+
+                    if m1:
+                        key = m1.group(1)
+                        value = m1.group(2)
+                        self.full_configs[key] = value
+
+                    if m2:
+                        key = m2.group(1)
+                        value = m2.group(2)
+                        self.test_results[key] = value
+
+            self.is_log_parsed = True
 
 
 class ConfigList:
     def __init__(self):
         self.conf_list = [
-            RunConfig(app=App.gcn,       dataset=Dataset.reddit),
             RunConfig(app=App.gcn,       dataset=Dataset.products),
             RunConfig(app=App.gcn,       dataset=Dataset.papers100M),
-            RunConfig(app=App.gcn,       dataset=Dataset.friendster),
+            RunConfig(app=App.gcn,       dataset=Dataset.uk_2006_05),
+            RunConfig(app=App.gcn,       dataset=Dataset.twitter),
 
-            RunConfig(app=App.graphsage, dataset=Dataset.reddit),
             RunConfig(app=App.graphsage, dataset=Dataset.products),
             RunConfig(app=App.graphsage, dataset=Dataset.papers100M),
-            RunConfig(app=App.graphsage, dataset=Dataset.friendster),
+            RunConfig(app=App.graphsage, dataset=Dataset.uk_2006_05),
+            RunConfig(app=App.graphsage, dataset=Dataset.twitter),
 
             RunConfig(app=App.pinsage,   dataset=Dataset.reddit),
             RunConfig(app=App.pinsage,   dataset=Dataset.products),
             RunConfig(app=App.pinsage,   dataset=Dataset.papers100M),
-            RunConfig(app=App.pinsage,   dataset=Dataset.friendster)
+            RunConfig(app=App.pinsage,   dataset=Dataset.uk_2006_05),
+            RunConfig(app=App.pinsage,   dataset=Dataset.twitter)
         ]
 
     def select(self, key, val_indicator):
@@ -153,6 +248,42 @@ class ConfigList:
             self.conf_list += newnew_list
         return self
 
+    def _list_select(self, cfg, select_op, select_key_val_dict):
+        if select_op == 'and':
+            for key, vals in select_key_val_dict.items():
+                if not key in cfg.configs.key() or not cfg.configs[key] in vals:
+                    return False
+            return True
+        else:
+            for key, vals in select_key_val_dict.items():
+                if key in cfg.configs.key() and cfg.configs[key] in vals:
+                    return True
+            return False
+
+    def multi_combo(self, select_op, select_key_val_dict, override_key, override_val_list):
+        assert(select_op == 'and' or select_op == 'or')
+
+        if len(override_val_list) == 0:
+            return self
+
+        # tmp select
+        orig_list = self.conf_list
+        newlist = []
+        self.conf_list = []
+        for cfg in orig_list:
+            if self._list_select(self, cfg, select_op, select_key_val_dict):
+                newlist.append(cfg)
+            else:
+                self.conf_list.append(cfg)
+
+        # apply override
+        for val in override_val_list:
+            newnew_list = copy.deepcopy(newlist)
+            for cfg in newnew_list:
+                cfg.configs[override_key] = val
+            self.conf_list += newnew_list
+        return self
+
     def write_configs_book(self, logdir, mock=False):
         os.system('mkdir -p {}'.format(logdir))
         if mock:
@@ -167,6 +298,15 @@ class ConfigList:
                     for k, v in conf.configs.items():
                         f.write(f'  {k}: {v}' + '\n')
 
+    def match(self, params):
+        ret = []
+
+        for conf in self.conf_list:
+            if conf.match(params):
+                ret.append(conf)
+
+        return ret
+
     def run(self, appdir, logdir, mock=False, durable_log=True, callback=None):
         self.write_configs_book(logdir, mock)
 
@@ -178,3 +318,38 @@ class ConfigList:
             ret = conf.run(i, appdir, logdir,
                            mock, durable_log, callback)
             error_count += (ret > 0)
+
+        return self
+
+    def parse_logs(self, logtable, logdir, left_wrap='{', right_wrap='}', sep=' & '):
+        assert(logtable.is_finalized)
+        with open(os.path.join(logdir, 'test_result.txt'), 'w', encoding='utf8') as f:
+            for i in range(logtable.num_row):
+                logfile_set = set()
+                for j in range(logtable.num_col):
+                    print(
+                        f'Parsing log [{i * logtable.num_col + j}/{logtable.num_col * logtable.num_row}]')
+                    row_def = logtable.row_definitions[i][j]
+                    col_def = logtable.col_definitions[j]
+
+                    configs = self.match(row_def)
+                    assert(len(configs) == 1)
+
+                    conf = configs[0]
+                    conf.parse_log()
+
+                    assert(col_def in conf.test_results.keys())
+                    logtable.data[i][j] = conf.test_results[col_def]
+
+                    f.write('{:}{:}{:}{:}'.format('' if j == 0 else sep,
+                                                  left_wrap, logtable.data[i][j], right_wrap))
+
+                    logfile_set.add(conf.std_out_log)
+
+                f.write(' // ')
+                for logfile in logfile_set:
+                    f.write('  {:}'.format(os.sep.join(
+                        os.path.normpath(logfile).split(os.sep)[-2:])))
+                f.write('\n')
+
+        return self
