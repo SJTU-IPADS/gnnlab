@@ -3,6 +3,7 @@ import copy
 import os
 import re
 from typing import Tuple
+from collections import defaultdict
 
 
 class App(Enum):
@@ -25,7 +26,6 @@ class Dataset(Enum):
     sk_2005 = 7
 
     def __str__(self):
-        return 'reddit'
         if self is Dataset.friendster:
             return 'com-friendster'
         elif self is Dataset.uk_2006_05:
@@ -94,8 +94,8 @@ class RunConfig:
         self.run_idx = -1
 
         self.is_log_parsed = False
-        self.full_configs = {}
-        self.test_results = {}
+        self.full_configs = defaultdict()
+        self.test_results = defaultdict()
 
     def form_cmd(self, idx, appdir, logdir, durable_log=True):
         cmd_line = ''
