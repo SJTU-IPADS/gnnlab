@@ -275,6 +275,10 @@ def run_train(worker_id, run_config, epoch_barrier):
             optimizer.step()
             t3 = time.time()
 
+            if (step + num_worker < num_step):
+                batch_input = None
+                batch_label = None
+
             # sync the train workers
             if (num_worker > 1) :
                 torch.distributed.barrier()

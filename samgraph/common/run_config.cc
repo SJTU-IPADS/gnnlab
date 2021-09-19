@@ -60,6 +60,12 @@ void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSanityCheck)) {
     RunConfig::option_sanity_check = true;
   }
+  // set omp threads for samgraph
+  if (IsEnvSet(Constant::kOMPNumThreads)) {
+    std::string omp_threads = GetEnv(Constant::kOMPNumThreads);
+    if (omp_threads == "") omp_threads = "40";
+    RunConfig::kOMPThreadNum = std::stoi(omp_threads);
+  }
   // num_epoch is set before here
   {
     std::string barrier_epoch = GetEnv(Constant::kBarrierEpoch);

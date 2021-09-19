@@ -159,6 +159,19 @@ namespace {
     }
   }
 
+  // cuda memory comsuption
+  size_t get_cuda_used(Context ctx) {
+    size_t free, used;
+    CUDA_CALL(cudaSetDevice(ctx.device_id));
+    CUDA_CALL(cudaMemGetInfo(&free, &used));
+    return used - free;
+  }
+  void log_mem_usage(std::string title) {
+    auto _sampler_ctx = RunConfig::sampler_ctx;
+    auto _trainer_ctx = RunConfig::trainer_ctx;
+    LOG(DEBUG) << title << "cuda usage: sampler " << ", trainer " << ToReadableSize(get_cuda_used(Engine::Get()->GetTrainerCtx())) << " with pid " << getpid();
+  }
+
   TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name) {
     LOG(DEBUG) << "TaskQueue ToTensor with name: " << name;
     void* data = Device::Get(data_ctx)->
@@ -169,6 +182,7 @@ namespace {
   }
 
   std::shared_ptr<Task> ParseData(std::shared_ptr<SharedData> shared_data) {
+    log_mem_usage("before paseData  in taskqueue");
     auto trans_data = static_cast<const TransData*>(shared_data->Data());
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
@@ -218,6 +232,7 @@ namespace {
       }
       task->graphs[layer] = graph;
     }
+    // log_mem_usage("after paseData  in taskqueue");
     return task;
   }
 
