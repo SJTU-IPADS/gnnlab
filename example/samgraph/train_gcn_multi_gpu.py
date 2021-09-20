@@ -85,6 +85,8 @@ def parse_args(default_run_config):
                            default=default_run_config['num_train_worker'])
     argparser.add_argument('--num-sample-worker', type=int,
                            default=default_run_config['num_sample_worker'])
+    argparser.add_argument('--log-file', type=str,
+                           default=default_run_config['log_file'])
 
     return vars(argparser.parse_args())
 
@@ -119,6 +121,7 @@ def get_run_config():
 
     default_run_config['num_train_worker'] = 1
     default_run_config['num_sample_worker'] = 1
+    default_run_config['log_file'] = '/tmp/samgraph_multi.log'
 
     run_config = parse_args(default_run_config)
 
@@ -139,6 +142,8 @@ def get_run_config():
     # arch1 doesn't support pipelining
     if run_config['arch_type'] == sam.kArch1:
         run_config['pipeline'] = False
+    # get omp threads
+    run_config['omp_num_threads'] = os.getenv('SAMGRAPH_OMP_NUM_THREADS')
 
     return run_config
 
@@ -185,6 +190,9 @@ def run_sample(worker_id, run_config, epoch_barrier):
         epoch_barrier.wait()
     print("average sample epoch time: {:.4f}".format(np.mean(sample_epoch_t_l[1:])))
     print("average sample epoch time by profiler: {:.4f}".format(np.mean(epoch_sample_times[1:])))
+    # print result
+    with open(run_config['log_file'], 'a+', encoding='utf8') as log_file:
+        print('test_result:sample_time={:.2f}'.format(np.mean(sample_epoch_t_l[1:])), file=log_file)
     sam.shutdown()
 
 def run_train(worker_id, run_config, epoch_barrier):
@@ -334,8 +342,8 @@ def run_train(worker_id, run_config, epoch_barrier):
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
         epoch_total_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
-        print('Epoch {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
-            epoch, epoch_total_times[-1],  epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1]))
+        print('Epoch {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f} | PID {:04d}'.format(
+            epoch, epoch_total_times[-1],  epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1], os.getpid()))
         print('Epoch {:05d} | Time {:.4f}'.format(epoch, epoch_t_l[-1]))
 
     # sync the train workers
@@ -346,6 +354,16 @@ def run_train(worker_id, run_config, epoch_barrier):
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
     print('Avg Epoch Time {:.4f}'.format(np.mean(epoch_t_l[1:])))
 
+    test_result = {}
+    test_result['epoch_time'] = np.mean(epoch_t_l[1:])
+    test_result['copy_time'] = np.mean(epoch_copy_times[1:])
+    test_result['convert_time'] = np.mean(epoch_convert_times[1:])
+    test_result['train_time'] = np.mean(epoch_train_times[1:])
+    # print the results to log file
+    with open(run_config['log_file'], 'a+', encoding='utf8') as log_file:
+        for k,v in test_result.items():
+            print('test_result:{:}={:.2f}'.format(k, v), file=log_file)
+
     sam.report_node_access()
     sam.shutdown()
 
@@ -354,6 +372,12 @@ if __name__ == '__main__':
     # clear the shared memory files of samgraph
     os.system('rm /dev/shm/shared_meta_data*')
     run_config = get_run_config()
+
+    # print the configuration to log file
+    with open(run_config['log_file'], 'a+', encoding='utf8') as log_file:
+        print('config:eval_tsp="{:}"'.format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())), file=log_file)
+        for k,v in run_config.items():
+            print('config:{:}={:}'.format(k, v), file=log_file)
 
     num_sample_worker = run_config['num_sample_worker']
     num_train_worker = run_config['num_train_worker']
