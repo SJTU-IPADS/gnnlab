@@ -94,8 +94,8 @@ class RunConfig:
         self.run_idx = -1
 
         self.is_log_parsed = False
-        self.full_configs = defaultdict()
-        self.test_results = defaultdict()
+        self.full_configs = defaultdict(lambda: None)
+        self.test_results = defaultdict(lambda: None)
 
     def form_cmd(self, idx, appdir, logdir, durable_log=True):
         cmd_line = ''
@@ -313,7 +313,7 @@ class ConfigList:
         error_count = 0
         for i, conf in enumerate(self.conf_list):
             print(
-                f'Running config [{i + 1}/{len(self.conf_list)}], run_fails={error_count}')
+                f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
             conf: RunConfig
             ret = conf.run(i, appdir, logdir,
                            mock, durable_log, callback)
@@ -328,7 +328,7 @@ class ConfigList:
                 logfile_set = set()
                 for j in range(logtable.num_col):
                     print(
-                        f'Parsing log [{i * logtable.num_col + j}/{logtable.num_col * logtable.num_row}]')
+                        f'Parsing log [{i * logtable.num_col + j + 1}/{logtable.num_col * logtable.num_row}]')
                     row_def = logtable.row_definitions[i][j]
                     col_def = logtable.col_definitions[j]
 
@@ -338,7 +338,6 @@ class ConfigList:
                     conf = configs[0]
                     conf.parse_log()
 
-                    assert(col_def in conf.test_results.keys())
                     logtable.data[i][j] = conf.test_results[col_def]
 
                     f.write('{:}{:}{:}{:}'.format('' if j == 0 else sep,
@@ -346,9 +345,9 @@ class ConfigList:
 
                     logfile_set.add(conf.std_out_log)
 
-                f.write(' // ')
+                f.write(' \\ %')
                 for logfile in logfile_set:
-                    f.write('  {:}'.format(os.sep.join(
+                    f.write(' {:}'.format(os.sep.join(
                         os.path.normpath(logfile).split(os.sep)[-2:])))
                 f.write('\n')
 

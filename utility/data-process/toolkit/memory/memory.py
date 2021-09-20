@@ -50,9 +50,11 @@ ComFriendster = Graph('com-friendster', 65608366, 3612134270, 140)
 AlipayGraph = Graph('AlipayGraph', 4 * BILLION, 26 * BILLION, 128 * 4)
 Amazon = Graph('Amazon', 65 * MILLION, 3.6 * MILLION, 300)
 Mag240M_lsc = Graph('Mag240M_lsc', 121 * MILLION, 1.2 * BILLION, 768)
+Twitter = Graph('Twitter', 41652230, 1468365182, 256)
+Uk = Graph('UK-2006-06', 77741046, 2965197340, 256)
 
 graph_list = [Reddit, Products, Papers100M, ComFriendster,
-              AlipayGraph, Amazon, Mag240M_lsc]
+              AlipayGraph, Amazon, Mag240M_lsc, Twitter, Uk]
 
 
 def run():
