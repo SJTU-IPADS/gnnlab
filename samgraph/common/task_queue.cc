@@ -273,7 +273,7 @@ void MessageTaskQueue::Send(std::shared_ptr<Task> task) {
 std::shared_ptr<Task> MessageTaskQueue::Recv() {
   auto shared_data = _mq->Recv();
   std::shared_ptr<Task> task = ParseData(shared_data);
-  LOG(INFO) << "TaskQueue Recv a task with key: " << task->key;
+  LOG(DEBUG) << "TaskQueue Recv a task with key: " << task->key;
   return task;
 }
 
