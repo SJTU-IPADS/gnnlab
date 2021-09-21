@@ -345,7 +345,7 @@ class ConfigList:
 
                     logfile_set.add(conf.std_out_log)
 
-                f.write(' \\ %')
+                f.write(' \\\\ %')
                 for logfile in logfile_set:
                     f.write(' {:}'.format(os.sep.join(
                         os.path.normpath(logfile).split(os.sep)[-2:])))

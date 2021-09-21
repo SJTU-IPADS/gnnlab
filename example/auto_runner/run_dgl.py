@@ -2,6 +2,7 @@ from torch.utils import data
 from common import *
 import datetime
 import argparse
+import time
 
 here = os.path.abspath(os.path.dirname(__file__))
 app_dir = os.path.join(here, '../dgl/multi_gpu')
@@ -12,6 +13,8 @@ app_dir = os.path.join(here, '../dgl/multi_gpu')
 
 
 def breakdown_test(log_folder=None):
+    tic = time.time()
+
     if log_folder:
         mock = True
         log_dir = os.path.join(os.path.join(here, f'run-logs/{log_folder}'))
@@ -135,8 +138,14 @@ def breakdown_test(log_folder=None):
         logdir=log_dir
     )
 
+    toc = time.time()
+
+    print('breakdown test uses {:.4f} secs'.format(toc - tic))
+
 
 def scalability_test(log_folder=None):
+    tic = time.time()
+
     if log_folder:
         mock = True
         log_dir = os.path.join(os.path.join(here, f'run-logs/{log_folder}'))
@@ -153,23 +162,23 @@ def scalability_test(log_folder=None):
         definition='epoch_time'
     ).update_row_definition(
         row_id=0,
-        col_range=[0],
+        col_range=[0, 0],
         devices='0'
     ).update_row_definition(
         row_id=1,
-        col_range=[0],
+        col_range=[0, 0],
         devices='0 1'
     ).update_row_definition(
         row_id=2,
-        col_range=[0],
+        col_range=[0, 0],
         devices='0 1 2 3'
     ).update_row_definition(
         row_id=3,
-        col_range=[0],
+        col_range=[0, 0],
         devices='0 1 2 3 4 5'
     ).update_row_definition(
         row_id=4,
-        col_range=[0],
+        col_range=[0, 0],
         devices='0 1 2 3 4 5 6 7'
     ).create()
 
@@ -201,11 +210,14 @@ def scalability_test(log_folder=None):
         logdir=log_dir
     )
 
+    toc = time.time()
+    print('scalability test uses {:.4f} secs'.format(toc - tic))
+
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("DGL runner")
     argparser.add_argument('-l', '--log-folder', default=None)
     args = argparser.parse_args()
 
-    # breakdown_test(args.log_folder)
+    breakdown_test(args.log_folder)
     scalability_test(args.log_folder)
