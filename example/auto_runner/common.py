@@ -171,7 +171,8 @@ class RunConfig:
 
 
 class ConfigList:
-    def __init__(self):
+    def __init__(self, test_group_name='Unamed test group'):
+        self.test_group_name = test_group_name
         self.conf_list = [
             RunConfig(app=App.gcn,       dataset=Dataset.products),
             RunConfig(app=App.gcn,       dataset=Dataset.papers100M),
@@ -183,7 +184,6 @@ class ConfigList:
             RunConfig(app=App.graphsage, dataset=Dataset.uk_2006_05),
             RunConfig(app=App.graphsage, dataset=Dataset.twitter),
 
-            RunConfig(app=App.pinsage,   dataset=Dataset.reddit),
             RunConfig(app=App.pinsage,   dataset=Dataset.products),
             RunConfig(app=App.pinsage,   dataset=Dataset.papers100M),
             RunConfig(app=App.pinsage,   dataset=Dataset.uk_2006_05),
@@ -287,12 +287,14 @@ class ConfigList:
     def write_configs_book(self, logdir, mock=False):
         os.system('mkdir -p {}'.format(logdir))
         if mock:
+            print(f'Test Group: {self.test_group_name}')
             for i, conf in enumerate(self.conf_list):
                 print(f'Config{i}:')
                 for k, v in conf.configs.items():
                     print(f'  {k}: {v}')
         else:
             with open(os.path.join(logdir, 'configs_book.txt'), 'w', encoding='utf8') as f:
+                f.write(f'Test Group: {self.test_group_name}' + '\n')
                 for i, conf in enumerate(self.conf_list):
                     f.write(f'Config{i}:' + '\n')
                     for k, v in conf.configs.items():
@@ -308,6 +310,7 @@ class ConfigList:
         return ret
 
     def run(self, appdir, logdir, mock=False, durable_log=True, callback=None):
+        print(f'Running test group [{self.test_group_name}]')
         self.write_configs_book(logdir, mock)
 
         error_count = 0
