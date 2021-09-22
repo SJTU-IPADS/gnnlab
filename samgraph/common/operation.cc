@@ -229,10 +229,10 @@ void samgraph_data_init() {
 
   LOG(INFO) << "SamGraph data has been initialized successfully";
 }
-void samgraph_sample_init(int device_type, int device_id) {
+void samgraph_sample_init(int device_type, int device_id, int sampler_id, int num_sampler, int num_trainer) {
   CHECK(RunConfig::is_configured);
   CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
-  dist::DistEngine::Get()->SampleInit(device_type, device_id);
+  dist::DistEngine::Get()->SampleInit(device_type, device_id, sampler_id, num_sampler, num_trainer);
 
   LOG(INFO) << "SamGraph sample has been initialized successfully";
 }

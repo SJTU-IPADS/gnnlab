@@ -9,6 +9,7 @@ import fastgraph
 import time
 import numpy as np
 import math
+import sys
 
 
 class SAGE(nn.Module):
@@ -50,6 +51,8 @@ def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GraphSage Training")
     argparser.add_argument('--use-gpu-sampling', action='store_true',
                            default=default_run_config['use_gpu_sampling'])
+    argparser.add_argument('--no-use-gpu-sampling',
+                           dest='use_gpu_sampling', action='store_false')
     argparser.add_argument('--device', type=str,
                            default=default_run_config['device'])
     argparser.add_argument('--dataset', type=str,
@@ -58,6 +61,8 @@ def parse_args(default_run_config):
                            default='/graph-learning/samgraph/')
     argparser.add_argument('--pipelining', action='store_true',
                            default=default_run_config['pipelining'])
+    argparser.add_argument(
+        '--no-pipelining', dest='pipelining', action='store_false',)
     argparser.add_argument('--num-sampling-worker', type=int,
                            default=default_run_config['num_sampling_worker'])
 
@@ -74,12 +79,14 @@ def parse_args(default_run_config):
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
 
+    argparser.add_argument('--validate-configs',
+                           action='store_true', default=False)
+
     return vars(argparser.parse_args())
 
 
 def get_run_config():
     default_run_config = {}
-    # default should be false, enable it using command line argument
     default_run_config['use_gpu_sampling'] = False
     default_run_config['device'] = 'cuda:0'
     default_run_config['dataset'] = 'reddit'
@@ -87,7 +94,6 @@ def get_run_config():
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
-    # default should be false, enable it using command line argument
     default_run_config['pipelining'] = False
     default_run_config['num_sampling_worker'] = 0
     # default_run_config['num_sampling_worker'] = 16
@@ -121,10 +127,9 @@ def get_run_config():
         # assumed that drop last = False
         num_batch_per_epoch = math.ceil(
             num_train_set / run_config['batch_size'])
-        num_batch = run_config['num_epoch'] * num_batch_per_epoch
-        run_config['num_prefetch_batch'] = num_batch
+        run_config['num_prefetch_batch'] = num_batch_per_epoch
         run_config['prefetch_factor'] = math.ceil(
-            num_batch / run_config['num_sampling_worker'])
+            num_batch_per_epoch / run_config['num_sampling_worker'])
     else:
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
@@ -140,11 +145,15 @@ def get_run_config():
         run_config['sample_device'] = 'cpu'
         run_config['train_device'] = run_config['device']
 
-    print('Evaluation time: ', time.strftime(
-        "%Y-%m-%d %H:%M:%S", time.localtime()))
-    print(*run_config.items(), sep='\n')
+    print('config:eval_tsp="{:}"'.format(time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.localtime())))
+    for k, v in run_config.items():
+        print('config:{:}={:}'.format(k, v))
 
     run_config['dataset'] = dataset
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
 
@@ -259,7 +268,7 @@ def run():
             epoch_num_sample += num_samples[-1]
 
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(graph_copy_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
+                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
         toc = time.time()
@@ -273,6 +282,14 @@ def run():
 
     print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+
+    test_result = {}
+    test_result['epoch_time'] = np.mean(epoch_total_times[1:])
+    test_result['sample_time'] = np.mean(epoch_sample_times[1:])
+    test_result['copy_time'] = np.mean(epoch_copy_times[1:])
+    test_result['train_time'] = np.mean(epoch_train_times[1:])
+    for k, v in test_result.items():
+        print('test_result:{:}={:.2f}'.format(k, v))
 
 
 if __name__ == '__main__':

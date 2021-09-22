@@ -71,7 +71,7 @@ void samgraph_report_node_access();
 
 // for multi-GPUs train, call data_init before fork
 void samgraph_data_init();
-void samgraph_sample_init(int device_type, int device_id);
+void samgraph_sample_init(int device_type, int device_id, int sampler_id, int num_sampler, int num_trainer);
 void samgraph_train_init(int device_type, int device_id);
 void samgraph_sample();
 void samgraph_extract();
