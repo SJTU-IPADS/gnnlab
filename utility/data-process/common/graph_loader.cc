@@ -162,19 +162,21 @@ GraphPtr GraphLoader::GetGraphDataset(std::string graph, bool is64type) {
     meta[kv[0]] = std::stoull(kv[1]);
   }
 
-  Check(meta.count(kMetaNumNode) > 0, kMetaNumNode + " not exit");
-  Check(meta.count(kMetaNumEdge) > 0, kMetaNumEdge + " not exit");
-  Check(meta.count(kMetaFeatDim) > 0, kMetaFeatDim + " not exit");
-  Check(meta.count(kMetaNumClass) > 0, kMetaNumClass + " not exit");
-  Check(meta.count(kMetaNumTrainSet) > 0, kMetaNumTrainSet + " not exit");
-  Check(meta.count(kMetaNumTestSet) > 0, kMetaNumTestSet + " not exit");
-  Check(meta.count(kMetaNumValidSet) > 0, kMetaNumValidSet + " not exit");
+  Check(meta.count(kMetaNumNode) > 0, kMetaNumNode + " not exist");
+  Check(meta.count(kMetaNumEdge) > 0, kMetaNumEdge + " not exist");
+  Check(meta.count(kMetaFeatDim) > 0, kMetaFeatDim + " not exist");
+  Check(meta.count(kMetaNumClass) > 0, kMetaNumClass + " not exist");
+  Check(meta.count(kMetaNumTrainSet) > 0, kMetaNumTrainSet + " not exist");
+  Check(meta.count(kMetaNumTestSet) > 0, kMetaNumTestSet + " not exist");
+  Check(meta.count(kMetaNumValidSet) > 0, kMetaNumValidSet + " not exist");
+  Check(meta.count(kMetaFeatDim) > 0, kMetaFeatDim + " not exist");
 
   dataset->num_nodes = meta[kMetaNumNode];
   dataset->num_edges = meta[kMetaNumEdge];
   dataset->num_train_set = meta[kMetaNumTrainSet];
   dataset->num_valid_set = meta[kMetaNumValidSet];
   dataset->num_test_set = meta[kMetaNumTestSet];
+  dataset->feat_dim = meta[kMetaFeatDim];
 
   if (!is64type) {
     dataset->indptr = static_cast<uint32_t *>(
@@ -208,6 +210,12 @@ GraphPtr GraphLoader::GetGraphDataset(std::string graph, bool is64type) {
         Graph::LoadDataFromFile(dataset->folder + kValidSet64File,
                                 (meta[kMetaNumValidSet]) * sizeof(uint64_t)));
   }
+
+  dataset->feature = static_cast<float *>(Graph::LoadDataFromFile(
+      dataset->folder + kFeatFile,
+      meta[kMetaNumNode] * meta[kMetaFeatDim] * sizeof(float)));
+  dataset->label = static_cast<uint64_t *>(Graph::LoadDataFromFile(
+      dataset->folder + kLabelFile, meta[kMetaNumNode] * sizeof(uint64_t)));
 
   std::cout << "Loading graph with " << dataset->num_nodes << " nodes and "
             << dataset->num_edges << " edges" << std::endl;
