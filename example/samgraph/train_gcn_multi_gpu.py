@@ -49,8 +49,6 @@ class GCN(nn.Module):
 
 def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GCN Training")
-    argparser.add_argument(
-        '--arch', type=str, default=default_run_config['arch'])
     argparser.add_argument('--sample-type', type=int,
                            default=default_run_config['sample_type'])
     argparser.add_argument('--pipeline', action='store_true',
@@ -93,7 +91,6 @@ def parse_args(default_run_config):
 
 def get_run_config():
     default_run_config = {}
-    default_run_config['arch'] = 'arch5'
     default_run_config['sample_type'] = sam.kKHop2
     default_run_config['pipeline'] = False  # default value must be false
     default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
@@ -124,6 +121,8 @@ def get_run_config():
     default_run_config['log_file'] = '/tmp/samgraph_multi.log'
 
     run_config = parse_args(default_run_config)
+
+    run_config['arch'] = 'arch5'
 
     print('Evaluation time: ', time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime()))
@@ -181,7 +180,7 @@ def run_sample(worker_id, run_config, epoch_barrier):
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
-            # sam.report_step(epoch, step)
+            sam.report_step(epoch, step)
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
@@ -319,8 +318,8 @@ def run_train(worker_id, run_config, epoch_barrier):
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
 
-            sam.report_step(epoch, step)
             '''
+            sam.report_step(epoch, step)
 
         # sync the train workers
         if num_worker > 1:
@@ -342,7 +341,7 @@ def run_train(worker_id, run_config, epoch_barrier):
         print('Epoch {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f} | PID {:04d}'.format(
             epoch, epoch_total_times[-1],  epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1], os.getpid()))
         print('Epoch {:05d} | Time {:.4f}'.format(epoch, epoch_t_l[-1]))
-        sam.report_epoch_average(epoch)
+        # sam.report_epoch_average(epoch)
 
     # sync the train workers
     if num_worker > 1:
