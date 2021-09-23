@@ -19,6 +19,25 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
+namespace {
+size_t get_cuda_used(Context ctx) {
+  size_t free, used;
+  cudaSetDevice(ctx.device_id);
+  cudaMemGetInfo(&free, &used);
+  return used - free;
+}
+#define LOG_MEM_USAGE(LEVEL, title) \
+  {\
+    auto _sampler_ctx = RunConfig::sampler_ctx;\
+    auto _trainer_ctx = RunConfig::trainer_ctx;\
+    auto _gpu_device = Device::Get(_sampler_ctx); \
+    LOG(LEVEL) << (title) << ", data alloc: sampler " << ToReadableSize(_gpu_device->DataSize(_sampler_ctx))      << ", trainer " << ToReadableSize(_gpu_device->DataSize(_trainer_ctx));\
+    LOG(LEVEL) << (title) << ", workspace : sampler " << ToReadableSize(_gpu_device->WorkspaceSize(_sampler_ctx)) << ", trainer " << ToReadableSize(_gpu_device->WorkspaceSize(_trainer_ctx));\
+    LOG(LEVEL) << (title) << ", total: sampler "      << ToReadableSize(_gpu_device->TotalSize(_sampler_ctx))     << ", trainer " << ToReadableSize(_gpu_device->TotalSize(_trainer_ctx));\
+    LOG(LEVEL) << "cuda usage: sampler " << ToReadableSize(get_cuda_used(_sampler_ctx)) << ", trainer " << ToReadableSize(get_cuda_used(_trainer_ctx));\
+  }
+}
+
 GPUEngine::GPUEngine() {
   _initialize = false;
   _should_shutdown = false;
@@ -41,9 +60,11 @@ void GPUEngine::Init() {
   ArchCheck();
 
   // Load the target graph data
+  LOG_MEM_USAGE(WARNING, "before load dataset");
   Timer tl;
   LoadGraphDataset();
   double time_load_graph_dataset = tl.Passed();
+  LOG_MEM_USAGE(INFO, "after load dataset");
 
   // Create CUDA streams
   _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
@@ -65,11 +86,13 @@ void GPUEngine::Init() {
   _hashtable = new OrderedHashTable(
       _dataset->num_node, _sampler_ctx, 1);
 #endif
+  LOG_MEM_USAGE(INFO, "after create hashtable");
 
   // Create CUDA random states for sampling
   _random_states = new GPURandomStates(RunConfig::sample_type, _fanout,
                                        _batch_size, _sampler_ctx);
 
+  LOG_MEM_USAGE(INFO, "after create states");
   if (RunConfig::sample_type == kRandomWalk) {
     size_t max_nodes =
         PredictNumNodes(_batch_size, _fanout, _fanout.size() - 1);
@@ -126,6 +149,8 @@ void GPUEngine::Init() {
   Profiler::Get().LogInit(kLogInitL1BuildCache, build_cache_time);
   Profiler::Get().LogInit(kLogInitL1LoadDataset, time_load_graph_dataset);
 
+  LOG_MEM_USAGE(WARNING, "after build cache states");
+
   _initialize = true;
 }
 
@@ -157,6 +182,7 @@ void GPUEngine::Start() {
 }
 
 void GPUEngine::Shutdown() {
+  LOG_MEM_USAGE(WARNING, "end of train");
   if (_should_shutdown) {
     return;
   }
@@ -235,6 +261,7 @@ void GPUEngine::RunSampleOnce() {
       // Not supported arch 0
       CHECK(0);
   }
+  LOG_MEM_USAGE(INFO, "after one batch");
 }
 
 void GPUEngine::ArchCheck() {

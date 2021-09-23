@@ -161,11 +161,11 @@ void WorkspacePool::FreeWorkspace(Context ctx, void *ptr) {
 }
 
 size_t WorkspacePool::TotalSize(Context ctx) {
-  CHECK(_array[ctx.device_id] != nullptr);
+  if (_array[ctx.device_id] == nullptr) return 0;
   return _array[ctx.device_id]->TotalSize();
 }
 size_t WorkspacePool::FreeSize(Context ctx) {
-  CHECK(_array[ctx.device_id] != nullptr);
+  if (_array[ctx.device_id] == nullptr) return 0;
   return _array[ctx.device_id]->FreeSize();
 }
 
