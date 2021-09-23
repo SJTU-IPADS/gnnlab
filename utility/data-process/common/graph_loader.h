@@ -23,6 +23,10 @@ class Graph {
   uint32_t *valid_set;
   uint32_t *test_set;
 
+  size_t feat_dim;
+  float *feature;
+  uint64_t *label;
+
   uint64_t *indptr64;
   uint64_t *indices64;
   uint64_t *train_set64;

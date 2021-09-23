@@ -94,8 +94,8 @@ class RunConfig:
         self.run_idx = -1
 
         self.is_log_parsed = False
-        self.full_configs = defaultdict()
-        self.test_results = defaultdict()
+        self.full_configs = defaultdict(lambda: None)
+        self.test_results = defaultdict(lambda: None)
 
     def form_cmd(self, idx, appdir, logdir, durable_log=True):
         cmd_line = ''
@@ -171,7 +171,8 @@ class RunConfig:
 
 
 class ConfigList:
-    def __init__(self):
+    def __init__(self, test_group_name='Unamed test group'):
+        self.test_group_name = test_group_name
         self.conf_list = [
             RunConfig(app=App.gcn,       dataset=Dataset.products),
             RunConfig(app=App.gcn,       dataset=Dataset.papers100M),
@@ -183,7 +184,6 @@ class ConfigList:
             RunConfig(app=App.graphsage, dataset=Dataset.uk_2006_05),
             RunConfig(app=App.graphsage, dataset=Dataset.twitter),
 
-            RunConfig(app=App.pinsage,   dataset=Dataset.reddit),
             RunConfig(app=App.pinsage,   dataset=Dataset.products),
             RunConfig(app=App.pinsage,   dataset=Dataset.papers100M),
             RunConfig(app=App.pinsage,   dataset=Dataset.uk_2006_05),
@@ -287,12 +287,14 @@ class ConfigList:
     def write_configs_book(self, logdir, mock=False):
         os.system('mkdir -p {}'.format(logdir))
         if mock:
+            print(f'Test Group: {self.test_group_name}')
             for i, conf in enumerate(self.conf_list):
                 print(f'Config{i}:')
                 for k, v in conf.configs.items():
                     print(f'  {k}: {v}')
         else:
             with open(os.path.join(logdir, 'configs_book.txt'), 'w', encoding='utf8') as f:
+                f.write(f'Test Group: {self.test_group_name}' + '\n')
                 for i, conf in enumerate(self.conf_list):
                     f.write(f'Config{i}:' + '\n')
                     for k, v in conf.configs.items():
@@ -308,12 +310,13 @@ class ConfigList:
         return ret
 
     def run(self, appdir, logdir, mock=False, durable_log=True, callback=None):
+        print(f'Running test group [{self.test_group_name}]')
         self.write_configs_book(logdir, mock)
 
         error_count = 0
         for i, conf in enumerate(self.conf_list):
             print(
-                f'Running config [{i + 1}/{len(self.conf_list)}], run_fails={error_count}')
+                f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
             conf: RunConfig
             ret = conf.run(i, appdir, logdir,
                            mock, durable_log, callback)
@@ -328,7 +331,7 @@ class ConfigList:
                 logfile_set = set()
                 for j in range(logtable.num_col):
                     print(
-                        f'Parsing log [{i * logtable.num_col + j}/{logtable.num_col * logtable.num_row}]')
+                        f'Parsing log [{i * logtable.num_col + j + 1}/{logtable.num_col * logtable.num_row}]')
                     row_def = logtable.row_definitions[i][j]
                     col_def = logtable.col_definitions[j]
 
@@ -338,7 +341,6 @@ class ConfigList:
                     conf = configs[0]
                     conf.parse_log()
 
-                    assert(col_def in conf.test_results.keys())
                     logtable.data[i][j] = conf.test_results[col_def]
 
                     f.write('{:}{:}{:}{:}'.format('' if j == 0 else sep,
@@ -346,9 +348,9 @@ class ConfigList:
 
                     logfile_set.add(conf.std_out_log)
 
-                f.write(' // ')
+                f.write(' \\\\ %')
                 for logfile in logfile_set:
-                    f.write('  {:}'.format(os.sep.join(
+                    f.write(' {:}'.format(os.sep.join(
                         os.path.normpath(logfile).split(os.sep)[-2:])))
                 f.write('\n')
 
