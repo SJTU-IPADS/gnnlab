@@ -2,6 +2,7 @@
 #define SAMGRAPH_DEVICE_H
 
 #include <cstdint>
+#include <array>
 
 #include "common.h"
 #include "constant.h"
@@ -34,7 +35,10 @@ class Device {
   virtual void StreamSync(Context ctx, StreamHandle stream) = 0;
   virtual void SyncStreamFromTo(Context ctx, StreamHandle event_src,
                                 StreamHandle event_dst);
-
+  virtual size_t TotalSize(Context ctx) {return 0;};
+  virtual size_t DataSize(Context ctx) {return 0;};
+  virtual size_t WorkspaceSize(Context ctx) {return 0;};
+  virtual size_t FreeWorkspaceSize(Context ctx) {return 0;};
   static Device *Get(Context ctx);
 };
 }  // namespace common
