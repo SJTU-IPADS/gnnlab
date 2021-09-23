@@ -1,4 +1,3 @@
-from torch.utils import data
 from common import *
 import datetime
 import argparse
