@@ -51,7 +51,7 @@ def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GCN Training")
     argparser.add_argument(
         '--arch', type=str, default=default_run_config['arch'])
-    argparser.add_argument('--sample_type', type=int,
+    argparser.add_argument('--sample-type', type=int,
                            default=default_run_config['sample_type'])
     argparser.add_argument('--pipeline', action='store_true',
                            default=default_run_config['pipeline'])
@@ -94,7 +94,7 @@ def parse_args(default_run_config):
 def get_run_config():
     default_run_config = {}
     default_run_config['arch'] = 'arch5'
-    default_run_config['sample_type'] = sam.kKHop0
+    default_run_config['sample_type'] = sam.kKHop2
     default_run_config['pipeline'] = False  # default value must be false
     default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
     # default_run_config['dataset_path'] = '/graph-learning/samgraph/products'
@@ -270,6 +270,7 @@ def run_train(worker_id, run_config, epoch_barrier):
                 t0 = time.time()
                 if (not run_config['pipeline']):
                     sam.sample_once()
+                # sam.sample_once()
                 batch_key = sam.get_next_batch()
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
@@ -286,10 +287,6 @@ def run_train(worker_id, run_config, epoch_barrier):
             if (step + num_worker < num_step):
                 batch_input = None
                 batch_label = None
-
-            # sync the train workers
-            if (num_worker > 1) :
-                torch.distributed.barrier()
 
             sample_time = sam.get_log_step_value(
                 epoch, step, sam.kLogL1SampleTime)
@@ -345,6 +342,7 @@ def run_train(worker_id, run_config, epoch_barrier):
         print('Epoch {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f} | PID {:04d}'.format(
             epoch, epoch_total_times[-1],  epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1], os.getpid()))
         print('Epoch {:05d} | Time {:.4f}'.format(epoch, epoch_t_l[-1]))
+        sam.report_epoch_average(epoch)
 
     # sync the train workers
     if num_worker > 1:

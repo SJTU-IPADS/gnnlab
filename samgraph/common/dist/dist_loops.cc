@@ -62,6 +62,8 @@ void DoGPUSample(TaskPtr task) {
       static_cast<const float *>(dataset->prob_table->Data());
   const IdType *alias_table =
       static_cast<const IdType *>(dataset->alias_table->Data());
+  const uint32_t *prob_prefix_table =
+      static_cast<const uint32_t *>(dataset->prob_prefix_table->Data());
 
   auto cur_input = task->output_nodes;
 
@@ -120,6 +122,21 @@ void DoGPUSample(TaskPtr task) {
             RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
             frequency_hashmap, sampler_ctx, sample_stream, random_states,
             task->key);
+        break;
+      case kWeightedKHopPrefix:
+        cuda::GPUSampleWeightedKHopPrefix(indptr, indices, prob_prefix_table, input,
+                              num_input, fanout, out_src, out_dst, num_out,
+                              sampler_ctx, sample_stream, random_states,
+                              task->key);
+        break;
+      case kKHop2:
+        cuda::GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
+        break;
+      case kWeightedKHopHashDedup:
+        cuda::GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
+            num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
         break;
       default:
         CHECK(0);
