@@ -38,6 +38,8 @@ namespace dist {
 
 namespace {
 
+static TaskPtr old_task = nullptr;
+
 bool RunSampleSubLoopOnce() {
   auto graph_pool = DistEngine::Get()->GetGraphPool();
   if (graph_pool->Full()) {
@@ -51,31 +53,59 @@ bool RunSampleSubLoopOnce() {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
   }
+  double shuffle_time, sample_time, send_time;
+
+  Timer t_total;
 
   Timer t0;
   auto task = DoShuffle();
-  if (task) {
-    double shuffle_time = t0.Passed();
-
-    Timer t1;
-    DoGPUSample(task);
-    double sample_time = t1.Passed();
-
-    LOG(DEBUG) << "RunSampleOnce next_q Send task";
-    Timer t2;
-    next_q->Send(task);
-    double send_time = t2.Passed();
-
-    Profiler::Get().LogStep(task->key, kLogL1SampleTime,
-                            shuffle_time + sample_time + send_time);
-    Profiler::Get().LogStep(task->key, kLogL1SendTime,
-                            send_time);
-    Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
-    Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
-                                shuffle_time + sample_time + send_time);
-  } else {
-    std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+  if (task == nullptr) {
+    LOG(FATAL) << "null task from DoShuffle!";
   }
+  shuffle_time = t0.Passed();
+
+#pragma omp parallel num_threads(2)
+  {
+#pragma omp single
+  {
+#pragma omp task
+    {
+      LOG(DEBUG) << "RunSampleOnce next_q Send task";
+      Timer t2;
+      if(old_task != nullptr) {
+        next_q->Send(old_task);
+      }
+      send_time = t2.Passed();
+    }
+#pragma omp task
+    {
+
+      Timer t1;
+      DoGPUSample(task);
+      sample_time = t1.Passed();
+
+      old_task = task;
+      // if the last one
+      auto shuffler = DistEngine::Get()->GetShuffler();
+      if (shuffler->Step() == shuffler->NumStep() - 1) {
+        Timer t2;
+        next_q->Send(task);
+        send_time = t2.Passed();
+        old_task = nullptr;
+      }
+    }
+#pragma omp taskwait
+  }
+  }
+
+  double total_time = t_total.Passed();
+  Profiler::Get().LogStep(task->key, kLogL1SampleTime,
+                          shuffle_time + sample_time);
+  Profiler::Get().LogStep(task->key, kLogL1SendTime,
+                          send_time);
+  Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
+                              total_time);
 
   return true;
 }
