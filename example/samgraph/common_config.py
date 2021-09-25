@@ -12,7 +12,7 @@ def get_default_common_config(run_multi_gpu=False, **kwargs):
 
     default_common_config['_run_multi_gpu'] = run_multi_gpu
 
-    if run_multi_gpu or default_common_config['arch'] == 'arch5':
+    if run_multi_gpu:
         default_common_config['_run_multi_gpu'] = True
         default_common_config['arch'] = 'arch5'
         default_common_config['num_train_worker'] = 1
@@ -52,6 +52,8 @@ def add_common_arguments(argparser, run_config):
     run_multi_gpu = run_config['_run_multi_gpu']
 
     if run_multi_gpu or run_config['arch'] == 'arch5':
+        run_config['arch'] = 'arch5'
+        run_config['_run_multi_gpu'] = 'true'
         assert(run_config['arch'] == 'arch5')
         argparser.add_argument('--num-train-worker', type=int,
                                default=run_config['num_train_worker'])
@@ -60,6 +62,7 @@ def add_common_arguments(argparser, run_config):
     else:
         argparser.add_argument('--arch', type=str, choices=sam.builtin_archs.keys(),
                                default=run_config['arch'])
+        run_config['_run_multi_gpu'] = 'false'
 
     argparser.add_argument('--sample-type', type=str, choices=sam.sample_types.keys(),
                            default=run_config['sample_type'])
