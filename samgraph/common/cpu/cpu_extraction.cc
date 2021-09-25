@@ -17,7 +17,7 @@ void cpu_extract(void *dst, const void *src, const IdType *index,
   T *dst_data = reinterpret_cast<T *>(dst);
   const T *src_data = reinterpret_cast<const T *>(src);
 
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_index; ++i) {
     size_t src_index = index[i];
 #pragma omp simd

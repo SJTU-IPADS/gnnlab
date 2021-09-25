@@ -6,43 +6,51 @@
 namespace samgraph {
 namespace common {
 
-std::string RunConfig::dataset_path;
-RunArch RunConfig::run_arch;
-SampleType RunConfig::sample_type;
-size_t RunConfig::batch_size;
-size_t RunConfig::num_epoch;
-Context RunConfig::sampler_ctx;
-Context RunConfig::trainer_ctx;
-CachePolicy RunConfig::cache_policy;
-double RunConfig::cache_percentage = 0.0f;
+std::unordered_map<std::string, std::string> RunConfig::raw_configs;
 
-size_t RunConfig::max_sampling_jobs = 10;
-size_t RunConfig::max_copying_jobs = 10;
+// clang-format off
+std::string          RunConfig::dataset_path;
+RunArch              RunConfig::run_arch;
+SampleType           RunConfig::sample_type;
+size_t               RunConfig::batch_size;
+size_t               RunConfig::num_epoch;
+Context              RunConfig::sampler_ctx;
+Context              RunConfig::trainer_ctx;
+CachePolicy          RunConfig::cache_policy;
+double               RunConfig::cache_percentage               = 0.0f;
 
-std::vector<size_t> RunConfig::fanout;
-size_t RunConfig::random_walk_length;
-double RunConfig::random_walk_restart_prob;
-size_t RunConfig::num_random_walk;
-size_t RunConfig::num_neighbor;
-size_t RunConfig::num_layer;
+size_t               RunConfig::max_sampling_jobs              = 10;
+size_t               RunConfig::max_copying_jobs               = 10;
 
-bool RunConfig::is_configured = false;
-bool RunConfig::is_khop_configured = false;
-bool RunConfig::is_random_walk_configured = false;
+std::vector<size_t>  RunConfig::fanout;
+size_t               RunConfig::random_walk_length;
+double               RunConfig::random_walk_restart_prob;
+size_t               RunConfig::num_random_walk;
+size_t               RunConfig::num_neighbor;
+size_t               RunConfig::num_layer;
+
+bool                 RunConfig::is_configured                  = false;
 
 // CPUHash2 now is the best parallel hash remapping
-cpu::CPUHashType RunConfig::cpu_hash_type = cpu::kCPUHash2;
+cpu::CPUHashType     RunConfig::cpu_hash_type                  = cpu::kCPUHash2;
 
-bool RunConfig::option_profile_cuda = false;
-bool RunConfig::option_log_node_access = false;
-bool RunConfig::option_log_node_access_simple = false;
-bool RunConfig::option_sanity_check = false;
+size_t               RunConfig::num_sample_worker;
+size_t               RunConfig::num_train_worker;
+
+bool                 RunConfig::option_profile_cuda            = false;
+bool                 RunConfig::option_log_node_access         = false;
+bool                 RunConfig::option_log_node_access_simple  = false;
+bool                 RunConfig::option_sanity_check            = false;
+
 // env key: on -1, all epochs; on 0: no barrier; on other: which epoch to barrier
-int RunConfig::barriered_epoch;
-int RunConfig::presample_epoch;
-bool RunConfig::option_dump_trace = false;
+int                  RunConfig::barriered_epoch;
+int                  RunConfig::presample_epoch;
+bool                 RunConfig::option_dump_trace              = false;
 
-int RunConfig::kOMPThreadNum = 40;
+int                  RunConfig::omp_thread_num                 = 40;
+
+std::string          RunConfig::shared_meta_path               = "/shared_meta_data";
+// clang-format on
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {
@@ -60,33 +68,12 @@ void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSanityCheck)) {
     RunConfig::option_sanity_check = true;
   }
-  // set omp threads for samgraph
-  {
-    std::string omp_threads = GetEnv(Constant::kOMPNumThreads);
-    if (omp_threads == "") omp_threads = "40";
-    RunConfig::kOMPThreadNum = std::stoi(omp_threads);
-    LOG(INFO) << "omp threads is: " << RunConfig::kOMPThreadNum;
-  }
-  // num_epoch is set before here
-  {
-    std::string barrier_epoch = GetEnv(Constant::kBarrierEpoch);
-    if (barrier_epoch == "") barrier_epoch = "0";
-    RunConfig::barriered_epoch = std::stoi(barrier_epoch);
-    LOG(DEBUG) << "barriered_epoch=" << RunConfig::barriered_epoch;
-  }
-  {
-    std::string presample_epoch = GetEnv(Constant::kPresampleEpoch);
-    if (presample_epoch == "") presample_epoch = "0";
-    RunConfig::presample_epoch = std::stoi(presample_epoch);
-    LOG(DEBUG) << "presample_epoch=" << RunConfig::presample_epoch;
-  }
 
   if (IsEnvSet(Constant::kEnvDumpTrace)) {
     RunConfig::option_dump_trace = true;
   }
 }
 
-std::string RunConfig::shared_meta_path = "/shared_meta_data";
 
 }  // namespace common
 }  // namespace samgraph

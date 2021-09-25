@@ -43,7 +43,7 @@ void CPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
   else {
     char* to_t = (static_cast<char *>(to) + to_offset);
     const char* from_t = (static_cast<const char *>(from) + from_offset);
-    #pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for (size_t i = 0; i < nbytes; i += 64) {
       size_t len = std::min(i + 64, nbytes);
       #pragma omp simd

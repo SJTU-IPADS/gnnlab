@@ -9,19 +9,8 @@ namespace common {
 
 extern "C" {
 
-void samgraph_config(const char *path, int run_arch, int sample_type,
-                     int sampler_device_type, int sampler_device_id,
-                     int trainer_device_type, int trainer_device_id,
-                     size_t batch_size, size_t num_epoch, int cache_policy,
-                     double cache_percentage, size_t max_sampling_jobs,
-                     size_t max_copying_jobs);
-
-void samgraph_config_khop(size_t *fanout, size_t num_fanout);
-
-void samgraph_config_random_walk(size_t random_walk_length,
-                                 double random_walk_restart_prob,
-                                 size_t num_random_walk, size_t num_neighbor,
-                                 size_t num_layer);
+void samgraph_config(const char **config_keys, const char **config_values,
+                     const size_t num_config_items);
 
 void samgraph_init();
 
@@ -69,15 +58,6 @@ void samgraph_report_epoch_average(uint64_t epoch);
 
 void samgraph_report_node_access();
 
-// for multi-GPUs train, call data_init before fork
-void samgraph_data_init();
-void samgraph_sample_init(int device_type, int device_id, int sampler_id, int num_sampler, int num_trainer);
-void samgraph_train_init(int device_type, int device_id);
-void samgraph_sample();
-void samgraph_extract();
-void samgraph_extract_start(int count);
-
-
 void samgraph_trace_step_begin(uint64_t key, int item, uint64_t ts);
 
 void samgraph_trace_step_end(uint64_t key, int item, uint64_t ts);
@@ -89,6 +69,19 @@ void samgraph_trace_step_end_now(uint64_t key, int item);
 void samgraph_dump_trace();
 
 void samgraph_forward_barrier();
+
+// for multi-GPUs train, call data_init before fork
+void samgraph_data_init();
+
+void samgraph_sample_init(int worker_id, const char*ctx);
+
+void samgraph_train_init(int worker_id, const char*ctx);
+
+void samgraph_sample();
+
+void samgraph_extract();
+
+void samgraph_extract_start(int count);
 }
 
 }  // namespace common

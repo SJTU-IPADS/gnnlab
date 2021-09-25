@@ -4,17 +4,18 @@
 #include <cuda_runtime.h>
 
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "./dist/dist_engine.h"
 #include "common.h"
 #include "constant.h"
 #include "engine.h"
 #include "logging.h"
 #include "profiler.h"
 #include "run_config.h"
-#include "./dist/dist_engine.h"
 #include "timer.h"
 
 namespace samgraph {
@@ -22,71 +23,106 @@ namespace common {
 
 extern "C" {
 
-void samgraph_config(const char *path, int run_arch, int sample_type,
-                     int sampler_device_type, int sampler_device_id,
-                     int trainer_device_type, int trainer_device_id,
-                     size_t batch_size, size_t num_epoch, int cache_policy,
-                     double cache_percentage, size_t max_sampling_jobs,
-                     size_t max_copying_jobs) {
-  CHECK(!RunConfig::is_configured);
-  RunConfig::dataset_path = path;
-  RunConfig::run_arch = static_cast<RunArch>(run_arch);
-  RunConfig::sample_type = static_cast<SampleType>(sample_type);
-  RunConfig::batch_size = batch_size;
-  RunConfig::num_epoch = num_epoch;
-  RunConfig::sampler_ctx =
-      Context{static_cast<DeviceType>(sampler_device_type), sampler_device_id};
-  RunConfig::trainer_ctx =
-      Context{static_cast<DeviceType>(trainer_device_type), trainer_device_id};
-  RunConfig::cache_policy = static_cast<CachePolicy>(cache_policy);
-  RunConfig::cache_percentage = cache_percentage;
+void samgraph_config(const char **config_keys, const char **config_values,
+                     const size_t num_config_items) {
+  using RC = RunConfig;
+  CHECK(!RC::is_configured);
 
-  RunConfig::max_sampling_jobs = max_sampling_jobs;
-  RunConfig::max_copying_jobs = max_copying_jobs;
+  std::unordered_map<std::string, std::string> configs;
 
-  std::unordered_map<SampleType, std::string> sample2str = {
-      {kKHop0, "KHop0"},
-      {kKHop1, "KHop1"},
-      {kWeightedKHop, "WeightedKHop"},
-      {kRandomWalk, "RandomWalk"},
-      {kWeightedKHopPrefix, "WeightedKHopPrefix"},
-      {kKHop2, "KHop2"},
-      {kWeightedKHopHashDedup, "WeightedKHopHashDedup"},
-  };
+  for (size_t i = 0; i < num_config_items; i++) {
+    std::string k(config_keys[i]);
+    std::string v(config_values[i]);
+    configs[k] = v;
+  }
 
-  LOG(INFO) << "Use " << sample2str[RunConfig::sample_type]
-            << " sampling algorithm";
+  CHECK(configs.count("dataset_path"));
+  CHECK(configs.count("_arch"));
+  CHECK(configs.count("_sample_type"));
+  CHECK(configs.count("batch_size"));
+  CHECK(configs.count("num_epoch"));
+  CHECK(configs.count("_cache_policy"));
+  CHECK(configs.count("cache_percentage"));
+  CHECK(configs.count("max_sampling_jobs"));
+  CHECK(configs.count("max_copying_jobs"));
+  CHECK(configs.count("omp_thread_num"));
 
-  RunConfig::LoadConfigFromEnv();
+  RC::raw_configs = configs;
+  RC::dataset_path = configs["dataset_path"];
+  RC::run_arch = static_cast<RunArch>(std::stoi(configs["_arch"]));
+  RC::sample_type = static_cast<SampleType>(std::stoi(configs["_sample_type"]));
+  RC::batch_size = std::stoull(configs["batch_size"]);
+  RC::num_epoch = std::stoull(configs["num_epoch"]);
+  RC::cache_policy =
+      static_cast<CachePolicy>(std::stoi(configs["_cache_policy"]));
+  RC::cache_percentage = std::stod(configs["cache_percentage"]);
 
-  RunConfig::is_configured = true;
-}
+  RC::max_sampling_jobs = std::stoull(configs["max_sampling_jobs"]);
+  RC::max_copying_jobs = std::stoull(configs["max_copying_jobs"]);
+  RC::omp_thread_num = std::stoi(configs["omp_thread_num"]);
 
-void samgraph_config_khop(size_t *fanout, size_t num_fanout) {
-  CHECK(!RunConfig::is_khop_configured &&
-        !RunConfig::is_random_walk_configured);
-  RunConfig::fanout = std::vector<size_t>(fanout, fanout + num_fanout);
-  RunConfig::is_khop_configured = true;
-}
+  if (RC::run_arch != kArch5) {
+    CHECK(configs.count("sampler_ctx"));
+    CHECK(configs.count("trainer_ctx"));
+    RC::sampler_ctx = Context(configs["sampler_ctx"]);
+    RC::trainer_ctx = Context(configs["trainer_ctx"]);
+  } else {
+    CHECK(configs.count("num_sample_worker"));
+    CHECK(configs.count("num_train_worker"));
+    RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
+    RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+  }
 
-void samgraph_config_random_walk(size_t random_walk_length,
-                                 double random_walk_restart_prob,
-                                 size_t num_random_walk, size_t num_neighbor,
-                                 size_t num_layer) {
-  CHECK(!RunConfig::is_random_walk_configured &&
-        !RunConfig::is_khop_configured);
-  RunConfig::random_walk_length = random_walk_length;
-  RunConfig::random_walk_restart_prob = random_walk_restart_prob;
-  RunConfig::num_random_walk = num_random_walk;
-  RunConfig::num_neighbor = num_neighbor;
-  RunConfig::num_layer = num_layer;
-  RunConfig::fanout = std::vector<size_t>(num_layer, num_neighbor);
-  RunConfig::is_random_walk_configured = true;
+  if (RC::sample_type != kRandomWalk) {
+    // configure khop
+    CHECK(configs.count("num_fanout"));
+    CHECK(configs.count("fanout"));
+
+    size_t num_fanout = std::stoull(configs["num_fanout"]);
+    std::stringstream ss(configs["fanout"]);
+    for (size_t i = 0; i < num_fanout; i++) {
+      size_t fanout;
+      ss >> fanout;
+      RC::fanout.push_back(fanout);
+    }
+  } else {
+    // configure random walk
+    CHECK(configs.count("random_walk_length"));
+    CHECK(configs.count("random_walk_restart_prob"));
+    CHECK(configs.count("num_random_walk"));
+    CHECK(configs.count("num_neighbor"));
+    CHECK(configs.count("num_layer"));
+
+    RC::random_walk_length = std::stoull(configs["random_walk_length"]);
+    RC::random_walk_restart_prob =
+        std::stod(configs["random_walk_restart_prob"]);
+    RC::num_random_walk = std::stoull(configs["num_random_walk"]);
+    RC::num_neighbor = std::stoull(configs["num_neighbor"]);
+    RC::num_layer = std::stoull(configs["num_layer"]);
+    RC::fanout = std::vector<size_t>(RC::num_layer, RC::num_neighbor);
+  }
+
+  if (configs.count("barriered_epoch") > 0) {
+    RunConfig::barriered_epoch = std::stoi(configs["barriered_epoch"]);
+    LOG(DEBUG) << "barriered_epoch=" << RunConfig::barriered_epoch;
+  } else {
+    RunConfig::barriered_epoch = 0;
+  }
+
+  if (configs.count("presample_epoch") > 0) {
+    RunConfig::presample_epoch = std::stoi(configs["presample_epoch"]);
+    LOG(DEBUG) << "presample_epoch=" << RunConfig::presample_epoch;
+  } else {
+    RunConfig::presample_epoch = 0;
+  }
+
+  RC::LoadConfigFromEnv();
+  LOG(INFO) << "Use " << RunConfig::sample_type << " sampling algorithm";
+  RC::is_configured = true;
 }
 
 void samgraph_init() {
   CHECK(RunConfig::is_configured);
-  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
   Engine::Create();
   Engine::Get()->Init();
 
@@ -192,9 +228,7 @@ double samgraph_get_log_epoch_value(uint64_t epoch, int item) {
                                           static_cast<LogEpochItem>(item));
 }
 
-void samgraph_report_init() {
-  Profiler::Get().ReportInit();
-}
+void samgraph_report_init() { Profiler::Get().ReportInit(); }
 
 void samgraph_report_step(uint64_t epoch, uint64_t step) {
   Profiler::Get().ReportStep(epoch, step);
@@ -221,55 +255,58 @@ void samgraph_report_node_access() {
   }
 }
 
+void samgraph_trace_step_begin(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), us);
+}
+
+void samgraph_trace_step_end(uint64_t key, int item, uint64_t us) {
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), us);
+}
+
+void samgraph_trace_step_begin_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item),
+                                 t.TimePointMicro());
+}
+
+void samgraph_trace_step_end_now(uint64_t key, int item) {
+  Timer t;
+  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item),
+                               t.TimePointMicro());
+}
+
+void samgraph_dump_trace() { Profiler::Get().DumpTrace(std::cerr); }
+
+void samgraph_forward_barrier() { Engine::Get()->ForwardBarrier(); }
+
 void samgraph_data_init() {
   CHECK(RunConfig::is_configured);
-  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
   Engine::Create();
   Engine::Get()->Init();
 
   LOG(INFO) << "SamGraph data has been initialized successfully";
 }
-void samgraph_sample_init(int device_type, int device_id, int sampler_id, int num_sampler, int num_trainer) {
+
+void samgraph_sample_init(int worker_id, const char*ctx) {
   CHECK(RunConfig::is_configured);
-  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
-  dist::DistEngine::Get()->SampleInit(device_type, device_id, sampler_id, num_sampler, num_trainer);
+  dist::DistEngine::Get()->SampleInit(worker_id, Context(std::string(ctx)));
 
   LOG(INFO) << "SamGraph sample has been initialized successfully";
 }
-void samgraph_train_init(int device_type, int device_id) {
+
+void samgraph_train_init(int worker_id, const char*ctx) {
   CHECK(RunConfig::is_configured);
-  CHECK(RunConfig::is_khop_configured || RunConfig::is_random_walk_configured);
-  dist::DistEngine::Get()->TrainInit(device_type, device_id);
+  dist::DistEngine::Get()->TrainInit(worker_id, Context(std::string(ctx)));
 
   LOG(INFO) << "SamGraph train has been initialized successfully";
 }
+
 void samgraph_extract_start(int count) {
   dist::DistEngine::Get()->StartExtract(count);
   LOG(INFO) << "SamGraph extract background thread start successfully";
 }
 
-void samgraph_trace_step_begin(uint64_t key, int item, uint64_t us) {
-  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), us);
-}
-void samgraph_trace_step_end(uint64_t key, int item, uint64_t us) {
-  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), us);
-}
-void samgraph_trace_step_begin_now(uint64_t key, int item) {
-  Timer t;
-  Profiler::Get().TraceStepBegin(key, static_cast<TraceItem>(item), t.TimePointMicro());
-}
-void samgraph_trace_step_end_now(uint64_t key, int item) {
-  Timer t;
-  Profiler::Get().TraceStepEnd(key, static_cast<TraceItem>(item), t.TimePointMicro());
-}
-void samgraph_dump_trace() {
-  Profiler::Get().DumpTrace(std::cerr);
-}
-void samgraph_forward_barrier() {
-  Engine::Get()->ForwardBarrier();
-}
-
-} // extern "c"
+}  // extern "c"
 
 }  // namespace common
 }  // namespace samgraph

@@ -23,7 +23,7 @@ void extract_miss_data(void *output_miss, const IdType *miss_src_index,
   T *output_miss_data = reinterpret_cast<T *>(output_miss);
   const T *cpu_src_data = reinterpret_cast<const T *>(src);
 
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_miss; i++) {
     size_t src_idx = miss_src_index[i];
 #pragma omp simd
@@ -62,13 +62,13 @@ DistCacheManager::DistCacheManager(Context trainer_ctx,
       trainer_gpu_device->AllocDataSpace(_trainer_ctx, _cache_nbytes);
 
   // 1. Initialize the cpu hashtable
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_nodes; i++) {
     _cpu_hashtable[i] = Constant::kEmptyKey;
   }
 
   // 2. Populate the cpu hashtable
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_cached_nodes; i++) {
     _cpu_hashtable[nodes[i]] = i;
   }
@@ -84,16 +84,7 @@ DistCacheManager::DistCacheManager(Context trainer_ctx,
   // 5. Free the cpu tmp cache data
   cpu_device->FreeDataSpace(CPU(), tmp_cpu_data);
 
-  std::unordered_map<CachePolicy, std::string> policy2str = {
-      {kCacheByDegree, "degree"},
-      {kCacheByHeuristic, "heuristic"},
-      {kCacheByPreSample, "preSample"},
-      {kCacheByPreSampleStatic, "preSampleStatic"},
-      {kCacheByDegreeHop, "degree_hop"},
-      {kCacheByFakeOptimal, "fake_optimal"},
-  };
-
-  LOG(INFO) << "GPU cache (policy: " << policy2str.at(RunConfig::cache_policy)
+  LOG(INFO) << "GPU cache (policy: " << RunConfig::cache_policy
             << ") " << _num_cached_nodes << " / " << _num_nodes << " nodes ( "
             << ToPercentage(_cache_percentage) << " | "
             << ToReadableSize(_cache_nbytes) << " | " << t.Passed()
@@ -118,7 +109,7 @@ void DistCacheManager::GetMissCacheIndex(
   auto hashtable = _cpu_hashtable;
   size_t miss_count = 0;
   size_t cache_count = 0;
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_nodes; ++i) {
     if (hashtable[nodes[i]] == Constant::kEmptyKey) {
       size_t p = __sync_fetch_and_add(&miss_count, 1);
