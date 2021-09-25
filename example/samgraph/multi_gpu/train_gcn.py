@@ -128,6 +128,7 @@ def run_sample(worker_id, run_config):
 
     for epoch in range(num_epoch):
         if run_config['pipeline']:
+            # epoch start barrier
             global_barrier.wait()
 
         tic = time.time()
@@ -141,7 +142,11 @@ def run_sample(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
 
         if not run_config['pipeline']:
+            # epoch start barrier
             global_barrier.wait()
+
+        # epoch end barrier
+        global_barrier.wait()
 
     print('[Sample Worker {:d}] Avg Sample Time Per Epoch {:.4f} | Sample Time(Profiler) {:.4f}'.format(
         worker_id, np.mean(epoch_sample_times_0[1:]), np.mean(epoch_sample_times_1[1:])))
@@ -217,6 +222,7 @@ def run_train(worker_id, run_config):
         worker_id, num_epoch, num_step))
 
     for epoch in range(num_epoch):
+        # epoch start barrier
         global_barrier.wait()
 
         tic = time.time()
@@ -292,7 +298,8 @@ def run_train(worker_id, run_config):
         toc = time.time()
         
         epoch_total_times_0.append(toc - tic)
-        # sync with sample process each epoch
+        
+        # epoch end barrier
         global_barrier.wait()
 
         epoch_sample_times.append(
