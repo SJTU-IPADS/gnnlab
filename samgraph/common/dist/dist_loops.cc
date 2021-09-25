@@ -711,11 +711,9 @@ void DoCacheFeatureCopy(TaskPtr task) {
       GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
   Profiler::Get().LogStep(task->key, kLogL3CacheGetIndexTime, get_index_time);
   Profiler::Get().LogStep(task->key, KLogL3CacheCopyIndexTime, copy_idx_time);
-  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
+  Profiler::Get().LogStep(task->key, kLogL3CacheExtractMissTime,
                           extract_miss_time);
   Profiler::Get().LogStep(task->key, kLogL3CacheCopyMissTime, copy_miss_time);
-  Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
-                          extract_miss_time);
   Profiler::Get().LogStep(task->key, kLogL3CacheCombineMissTime,
                           combine_miss_time);
   Profiler::Get().LogStep(task->key, kLogL3CacheCombineCacheTime,

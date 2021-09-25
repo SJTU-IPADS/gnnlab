@@ -177,10 +177,12 @@ def run_sample(worker_id, run_config, epoch_barrier):
         if (run_config['pipeline']):
             epoch_barrier.wait()
         sample_epoch_t = time.time()
+
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
             sam.report_step(epoch, step)
+
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
@@ -193,6 +195,7 @@ def run_sample(worker_id, run_config, epoch_barrier):
     with open(run_config['log_file'], 'a+', encoding='utf8') as log_file:
         print('test_result:sample_time={:.2f}'.format(np.mean(sample_epoch_t_l[1:])), file=log_file)
     sam.shutdown()
+    sam.report_step_average(epoch - 1, step - 1)
 
 def run_train(worker_id, run_config, epoch_barrier):
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
@@ -350,6 +353,7 @@ def run_train(worker_id, run_config, epoch_barrier):
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
     print('Avg Epoch Time {:.4f}'.format(np.mean(epoch_t_l[1:])))
+    sam.report_step_average(epoch - 1, step - 1)
 
     test_result = {}
     test_result['epoch_time'] = np.mean(epoch_t_l[1:])
