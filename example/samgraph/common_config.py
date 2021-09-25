@@ -121,10 +121,11 @@ def process_common_config(run_config):
             'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
         assert(
             'num_train_worker' in run_config and run_config['num_train_worker'] > 0)
-        run_config['sample_workers'] = [
-            sam.gpu(i) for i in range(run_config['num_sample_worker'])]
-        run_config['train_workers'] = [sam.gpu(
-            run_config['num_sample_worker'] + i) for i in range(run_config['num_train_worker'])]
+        # trainer gpu id should start from 0 under heterogeneous environment or NCCL will throw an error
+        run_config['train_workers'] = [
+            sam.gpu(i) for i in range(run_config['num_train_worker'])]
+        run_config['sample_workers'] = [sam.gpu(
+            run_config['num_train_worker'] + i) for i in range(run_config['num_sample_worker'])]
 
     run_config['_sample_type'] = sam.sample_types[run_config['sample_type']]
     run_config['_cache_policy'] = sam.cache_policies[run_config['cache_policy']]
