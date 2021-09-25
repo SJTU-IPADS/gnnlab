@@ -139,6 +139,7 @@ void DistCacheManager::GetMissCacheIndex(
 void DistCacheManager::ExtractMissData(void *output_miss,
                                       const IdType *miss_src_index,
                                       const size_t num_miss) {
+  if (num_miss == 0) return;
   switch (_dtype) {
     case kF32:
       extract_miss_data<float>(output_miss, miss_src_index, num_miss,

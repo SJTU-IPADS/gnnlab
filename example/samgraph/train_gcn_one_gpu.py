@@ -9,10 +9,6 @@ from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 import os
-'''
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
-os.environ["NCCL_DEBUG"] = "INFO"
-'''
 import samgraph.torch as sam
 
 
@@ -79,10 +75,6 @@ def parse_args(default_run_config):
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
-    argparser.add_argument('--num-train-worker', type=int,
-                           default=default_run_config['num_train_worker'])
-    argparser.add_argument('--num-sample-worker', type=int,
-                           default=default_run_config['num_sample_worker'])
     argparser.add_argument('--log-file', type=str,
                            default=default_run_config['log_file'])
 
@@ -108,7 +100,7 @@ def get_run_config():
     default_run_config['max_copying_jobs'] = 2
 
     # default_run_config['fanout'] = [5, 10, 15]
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [10, 25]
     default_run_config['num_epoch'] = 10
     default_run_config['batch_size'] = 8000
     default_run_config['num_hidden'] = 256
@@ -116,17 +108,18 @@ def get_run_config():
     default_run_config['dropout'] = 0.5
     default_run_config['weight_decay'] = 0.0005
 
-    default_run_config['num_train_worker'] = 1
-    default_run_config['num_sample_worker'] = 1
     default_run_config['log_file'] = '/tmp/samgraph_multi.log'
 
     run_config = parse_args(default_run_config)
 
-    run_config['arch'] = 'arch5'
+    run_config['num_train_worker'] = 1
+    run_config['num_sample_worker'] = 1
 
     print('Evaluation time: ', time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime()))
     print(*run_config.items(), sep='\n')
+
+    run_config['arch'] = 'arch5'
 
     run_config['arch'] = sam.meepo_archs[run_config['arch']]
     run_config['arch_type'] = run_config['arch']['arch_type']
@@ -155,7 +148,7 @@ def run_sample(worker_id, run_config, epoch_barrier):
     # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     num_train_worker = run_config['num_train_worker']
     num_sample_worker = run_config['num_sample_worker']
-    ctx = sam.gpu(num_train_worker + worker_id)
+    ctx = sam.gpu(worker_id)
     print('pid of run_sample is: ', os.getpid())
     sam.sample_init(ctx.device_type, ctx.device_id, worker_id, num_sample_worker, num_train_worker)
     epoch_barrier.wait()
@@ -174,20 +167,15 @@ def run_sample(worker_id, run_config, epoch_barrier):
 
     print(f"sample num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
-        if (run_config['pipeline']):
-            epoch_barrier.wait()
         sample_epoch_t = time.time()
-
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
-            sam.report_step(epoch, step)
-
+            # sam.report_step(epoch, step)
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
-        if (not run_config['pipeline']):
-            epoch_barrier.wait()
+        epoch_barrier.wait()
         epoch_barrier.wait()
     print("average sample epoch time: {:.4f}".format(np.mean(sample_epoch_t_l[1:])))
     print("average sample epoch time by profiler: {:.4f}".format(np.mean(epoch_sample_times[1:])))
@@ -195,7 +183,6 @@ def run_sample(worker_id, run_config, epoch_barrier):
     with open(run_config['log_file'], 'a+', encoding='utf8') as log_file:
         print('test_result:sample_time={:.2f}'.format(np.mean(sample_epoch_t_l[1:])), file=log_file)
     sam.shutdown()
-    sam.report_step_average(epoch - 1, step - 1)
 
 def run_train(worker_id, run_config, epoch_barrier):
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
@@ -262,17 +249,11 @@ def run_train(worker_id, run_config, epoch_barrier):
     for epoch in range(num_epoch):
         epoch_barrier.wait()
         epoch_t = time.time()
-        if (run_config['pipeline']):
-            need_steps = int(num_step / num_worker)
-            if (worker_id < num_step % num_worker):
-                need_steps += 1
-            sam.extract_start(need_steps)
         for step in range(worker_id, align_up_step, num_worker):
             if (step < num_step):
                 t0 = time.time()
-                if (not run_config['pipeline']):
-                    sam.sample_once()
-                # sam.sample_once()
+
+                sam.sample_once()
                 batch_key = sam.get_next_batch()
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
@@ -321,8 +302,8 @@ def run_train(worker_id, run_config, epoch_barrier):
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
 
-            '''
             sam.report_step(epoch, step)
+            '''
 
         # sync the train workers
         if num_worker > 1:
@@ -353,7 +334,6 @@ def run_train(worker_id, run_config, epoch_barrier):
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
     print('Avg Epoch Time {:.4f}'.format(np.mean(epoch_t_l[1:])))
-    sam.report_step_average(epoch - 1, step - 1)
 
     test_result = {}
     test_result['epoch_time'] = np.mean(epoch_t_l[1:])
@@ -380,8 +360,8 @@ if __name__ == '__main__':
         for k,v in run_config.items():
             print('config:{:}={:}'.format(k, v), file=log_file)
 
-    num_sample_worker = run_config['num_sample_worker']
-    num_train_worker = run_config['num_train_worker']
+    num_sample_worker = 1
+    num_train_worker = 1
     epoch_barrier = mp.Barrier(num_sample_worker + num_train_worker)
 
     run_init(run_config)
