@@ -7,7 +7,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cctype>
 #include <chrono>  // chrono::system_clock
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>    // localtime
@@ -22,6 +24,27 @@
 
 namespace samgraph {
 namespace common {
+
+Context::Context(std::string name) {
+  size_t delim_pos = name.find(':');
+  CHECK_NE(delim_pos, std::string::npos);
+
+  std::string device_str = name.substr(0, delim_pos);
+  std::string id_str = name.substr(delim_pos + 1, std::string::npos);
+  CHECK(device_str == "cpu" || device_str == "cuda" || device_str == "mmap");
+
+  if (device_str == "cpu") {
+    device_type = kCPU;
+  } else if (device_str == "cuda") {
+    device_type = kGPU;
+  } else if (device_str == "mmap") {
+    device_type = kMMAP;
+  } else {
+    CHECK(false);
+  }
+
+  device_id = std::stoi(id_str);
+}
 
 Tensor::Tensor() : _data(nullptr) {}
 
@@ -319,6 +342,64 @@ std::string GetTimeString() {
 bool FileExist(const std::string &filepath) {
   std::ifstream f(filepath);
   return f.good();
+}
+
+std::ostream &operator<<(std::ostream &os, const SampleType type) {
+  switch (type) {
+    case kKHop0:
+      os << "KHop0";
+      break;
+    case kKHop1:
+      os << "KHop1";
+      break;
+    case kWeightedKHop:
+      os << "WeightedKHop";
+      break;
+    case kRandomWalk:
+      os << "RandomWalk";
+      break;
+    case kWeightedKHopPrefix:
+      os << "WeightedKHopPrefix";
+      break;
+    case kKHop2:
+      os << "KHop2";
+      break;
+    case kWeightedKHopHashDedup:
+      os << "WeightedKHopHashDedup";
+      break;
+    default:
+      CHECK(false);
+  }
+
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
+  std::string str;
+  switch (policy) {
+    case kCacheByDegree:
+      os << "degree";
+      break;
+    case kCacheByHeuristic:
+      os << "heuristic";
+      break;
+    case kCacheByPreSample:
+      os << "preSample";
+      break;
+    case kCacheByPreSampleStatic:
+      os << "preSampleStatic";
+      break;
+    case kCacheByDegreeHop:
+      os << "degree_hop";
+      break;
+    case kCacheByFakeOptimal:
+      os << "fake_optimal";
+      break;
+    default:
+      CHECK(false);
+  }
+
+  return os;
 }
 
 }  // namespace common

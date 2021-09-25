@@ -33,8 +33,8 @@ class DistEngine : public Engine {
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
-  void SampleInit(int device_type, int device_id, int sampler_id, int num_sampler, int num_trainer);
-  void TrainInit(int device_type, int device_id);
+  void SampleInit(int worker_id, Context ctx);
+  void TrainInit(int worker_id, Context ctx);
   /**
    * @param count: the total times to loop extract
    */

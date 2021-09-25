@@ -3,7 +3,7 @@ import os
 import sysconfig
 
 
-def get_ext_suffix():
+def _get_ext_suffix():
     """Determine library extension for various versions of Python."""
     ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')
     if ext_suffix:
@@ -16,38 +16,28 @@ def get_ext_suffix():
     return '.so'
 
 
-def get_extension_full_path(pkg_path, *args):
+def _get_extension_full_path(pkg_path, *args):
     assert len(args) >= 1
     dir_path = os.path.join(os.path.dirname(pkg_path), *args[:-1])
-    full_path = os.path.join(dir_path, args[-1] + get_ext_suffix())
+    full_path = os.path.join(dir_path, args[-1] + _get_ext_suffix())
     return full_path
 
 
-class Context(object):
-    def __init__(self, device_type, device_id):
-        self.device_type = device_type
-        self.device_id = device_id
+def _get_next_enum_val(next_val):
+    res = next_val[0]
+    next_val[0] += 1
+    return res
 
-
-kCPU = 0
+kCPU  = 0
 kMMAP = 1
-kGPU = 2
+kGPU  = 2
 
-
-def cpu(device_id=0):
-    return Context(kCPU, device_id)
-
-
-def gpu(device_id=0):
-    return Context(kGPU, device_id)
-
-
-kKHop0 = 0
-kKHop1 = 1
-kWeightedKHop = 2
-kRandomWalk = 3
-kWeightedKHopPrefix = 4
-kKHop2 = 5
+kKHop0                 = 0
+kKHop1                 = 1
+kWeightedKHop          = 2
+kRandomWalk            = 3
+kWeightedKHopPrefix    = 4
+kKHop2                 = 5
 kWeightedKHopHashDedup = 6
 
 kArch0 = 0
@@ -57,147 +47,170 @@ kArch3 = 3
 kArch4 = 4
 kArch5 = 5
 
-kCacheByDegree = 0
-kCacheByHeuristic = 1
-kCacheByPreSample = 2
-kCacheByDegreeHop = 3
+kCacheByDegree          = 0
+kCacheByHeuristic       = 1
+kCacheByPreSample       = 2
+kCacheByDegreeHop       = 3
 kCacheByPreSampleStatic = 4
-kCacheByFakeOptimal = 5
-kDynamicCache = 6
+kCacheByFakeOptimal     = 5
+kDynamicCache           = 6
 
-meepo_archs = {
+
+def cpu(device_id=0): 
+    return 'cpu:{:}'.format(device_id)
+
+
+def gpu(device_id=0): 
+    return 'cuda:{:}'.format(device_id)
+
+
+sample_types = {
+    'khop0'                   : kKHop0,
+    'khop1'                   : kKHop1,
+    'khop2'                   : kKHop2,
+    'random_walk'             : kRandomWalk,
+    'weighted_khop'           : kWeightedKHop,
+    'weighted_khop_hash_dedup': kWeightedKHopHashDedup
+}
+
+
+builtin_archs = {
     'arch0': {
-        'arch_type': kArch0,
+        'arch'       : kArch0,
         'sampler_ctx': cpu(),
         'trainer_ctx': gpu(0)
     },
     'arch1': {
-        'arch_type': kArch1,
+        'arch'       : kArch1,
         'sampler_ctx': gpu(0),
         'trainer_ctx': gpu(0)
     },
     'arch2': {
-        'arch_type': kArch2,
+        'arch'       : kArch2,
         'sampler_ctx': gpu(0),
         'trainer_ctx': gpu(0)
     },
     'arch3': {
-        'arch_type': kArch3,
+        'arch'       : kArch3,
         'sampler_ctx': gpu(0),
         'trainer_ctx': gpu(1)
     },
     'arch4': {
-        'arch_type': kArch4,
+        'arch'       : kArch4,
         'sampler_ctx': gpu(1),
         'trainer_ctx': gpu(0)
     },
     'arch5': {
-        'arch_type': kArch5,
-        'sampler_ctx': gpu(0),
-        'trainer_ctx': gpu(1)
-        }
+        'arch': kArch5
+    }
 }
 
 
-step_log_val = [0]
+cache_policies = {
+    'degree'       : kCacheByDegree,
+    'heuristic'    : kCacheByHeuristic,
+    'pre_sample'   : kCacheByPreSample,
+    'degree_hop'   : kCacheByDegreeHop,
+    'weighted_khop': kCacheByPreSampleStatic,
+    'fake_optimal' : kCacheByFakeOptimal,
+    'dynamic_cache': kDynamicCache
+}
 
 
-def get_next_enum_val(next_val):
-    res = next_val[0]
-    next_val[0] += 1
-    return res
-
+_step_log_val = [0]
 
 # Step L1 Log
-kLogL1NumSample = get_next_enum_val(step_log_val)
-kLogL1NumNode = get_next_enum_val(step_log_val)
-kLogL1SampleTime = get_next_enum_val(step_log_val)
-kLogL1SendTime = get_next_enum_val(step_log_val)
-kLogL1RecvTime = get_next_enum_val(step_log_val)
-kLogL1CopyTime = get_next_enum_val(step_log_val)
-kLogL1ConvertTime = get_next_enum_val(step_log_val)
-kLogL1TrainTime = get_next_enum_val(step_log_val)
-kLogL1FeatureBytes = get_next_enum_val(step_log_val)
-kLogL1LabelBytes = get_next_enum_val(step_log_val)
-kLogL1IdBytes = get_next_enum_val(step_log_val)
-kLogL1GraphBytes = get_next_enum_val(step_log_val)
-kLogL1MissBytes = get_next_enum_val(step_log_val)
-kLogL1PrefetchAdvanced = get_next_enum_val(step_log_val)
-kLogL1GetNeighbourTime = get_next_enum_val(step_log_val)
+kLogL1NumSample        = _get_next_enum_val(_step_log_val)
+kLogL1NumNode          = _get_next_enum_val(_step_log_val)
+kLogL1SampleTime       = _get_next_enum_val(_step_log_val)
+kLogL1SendTime         = _get_next_enum_val(_step_log_val)
+kLogL1RecvTime         = _get_next_enum_val(_step_log_val)
+kLogL1CopyTime         = _get_next_enum_val(_step_log_val)
+kLogL1ConvertTime      = _get_next_enum_val(_step_log_val)
+kLogL1TrainTime        = _get_next_enum_val(_step_log_val)
+kLogL1FeatureBytes     = _get_next_enum_val(_step_log_val)
+kLogL1LabelBytes       = _get_next_enum_val(_step_log_val)
+kLogL1IdBytes          = _get_next_enum_val(_step_log_val)
+kLogL1GraphBytes       = _get_next_enum_val(_step_log_val)
+kLogL1MissBytes        = _get_next_enum_val(_step_log_val)
+kLogL1PrefetchAdvanced = _get_next_enum_val(_step_log_val)
+kLogL1GetNeighbourTime = _get_next_enum_val(_step_log_val)
 # Step L2 Log
-kLogL2ShuffleTime = get_next_enum_val(step_log_val)
-kLogL2LastLayerTime = get_next_enum_val(step_log_val)
-kLogL2LastLayerSize = get_next_enum_val(step_log_val)
-kLogL2CoreSampleTime = get_next_enum_val(step_log_val)
-kLogL2IdRemapTime = get_next_enum_val(step_log_val)
-kLogL2GraphCopyTime = get_next_enum_val(step_log_val)
-kLogL2IdCopyTime = get_next_enum_val(step_log_val)
-kLogL2ExtractTime = get_next_enum_val(step_log_val)
-kLogL2FeatCopyTime = get_next_enum_val(step_log_val)
-kLogL2CacheCopyTime = get_next_enum_val(step_log_val)
+kLogL2ShuffleTime    = _get_next_enum_val(_step_log_val)
+kLogL2LastLayerTime  = _get_next_enum_val(_step_log_val)
+kLogL2LastLayerSize  = _get_next_enum_val(_step_log_val)
+kLogL2CoreSampleTime = _get_next_enum_val(_step_log_val)
+kLogL2IdRemapTime    = _get_next_enum_val(_step_log_val)
+kLogL2GraphCopyTime  = _get_next_enum_val(_step_log_val)
+kLogL2IdCopyTime     = _get_next_enum_val(_step_log_val)
+kLogL2ExtractTime    = _get_next_enum_val(_step_log_val)
+kLogL2FeatCopyTime   = _get_next_enum_val(_step_log_val)
+kLogL2CacheCopyTime  = _get_next_enum_val(_step_log_val)
 # Step L3 Log
-kLogL3KHopSampleCooTime = get_next_enum_val(step_log_val)
-kLogL3KHopSampleSortCooTime = get_next_enum_val(step_log_val)
-kLogL3KHopSampleCountEdgeTime = get_next_enum_val(step_log_val)
-kLogL3KHopSampleCompactEdgesTime = get_next_enum_val(step_log_val)
-kLogL3RandomWalkSampleCooTime = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKTime = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep1Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep2Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep3Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep4Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep5Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep6Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep7Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep8Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep9Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep10Time = get_next_enum_val(step_log_val)
-kLogL3RandomWalkTopKStep11Time = get_next_enum_val(step_log_val)
-kLogL3RemapFillUniqueTime = get_next_enum_val(step_log_val)
-kLogL3RemapPopulateTime = get_next_enum_val(step_log_val)
-kLogL3RemapMapNodeTime = get_next_enum_val(step_log_val)
-kLogL3RemapMapEdgeTime = get_next_enum_val(step_log_val)
-kLogL3CacheGetIndexTime = get_next_enum_val(step_log_val)
-KLogL3CacheCopyIndexTime = get_next_enum_val(step_log_val)
-kLogL3CacheExtractMissTime = get_next_enum_val(step_log_val)
-kLogL3CacheCopyMissTime = get_next_enum_val(step_log_val)
-kLogL3CacheCombineMissTime = get_next_enum_val(step_log_val)
-kLogL3CacheCombineCacheTime = get_next_enum_val(step_log_val)
+kLogL3KHopSampleCooTime          = _get_next_enum_val(_step_log_val)
+kLogL3KHopSampleSortCooTime      = _get_next_enum_val(_step_log_val)
+kLogL3KHopSampleCountEdgeTime    = _get_next_enum_val(_step_log_val)
+kLogL3KHopSampleCompactEdgesTime = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkSampleCooTime    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKTime         = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep1Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep2Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep3Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep4Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep5Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep6Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep7Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep8Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep9Time    = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep10Time   = _get_next_enum_val(_step_log_val)
+kLogL3RandomWalkTopKStep11Time   = _get_next_enum_val(_step_log_val)
+kLogL3RemapFillUniqueTime        = _get_next_enum_val(_step_log_val)
+kLogL3RemapPopulateTime          = _get_next_enum_val(_step_log_val)
+kLogL3RemapMapNodeTime           = _get_next_enum_val(_step_log_val)
+kLogL3RemapMapEdgeTime           = _get_next_enum_val(_step_log_val)
+kLogL3CacheGetIndexTime          = _get_next_enum_val(_step_log_val)
+KLogL3CacheCopyIndexTime         = _get_next_enum_val(_step_log_val)
+kLogL3CacheExtractMissTime       = _get_next_enum_val(_step_log_val)
+kLogL3CacheCopyMissTime          = _get_next_enum_val(_step_log_val)
+kLogL3CacheCombineMissTime       = _get_next_enum_val(_step_log_val)
+kLogL3CacheCombineCacheTime      = _get_next_enum_val(_step_log_val)
 
 # Epoch Log
-kLogEpochSampleTime = 0
-kLogEpochCopyTime = 1
-kLogEpochConvertTime = 2
-kLogEpochTrainTime = 3
-kLogEpochTotalTime = 4
+_epoch_log_val = [0]
+
+kLogEpochSampleTime  = _get_next_enum_val(_epoch_log_val)
+kLogEpochCopyTime    = _get_next_enum_val(_epoch_log_val)
+kLogEpochConvertTime = _get_next_enum_val(_epoch_log_val)
+kLogEpochTrainTime   = _get_next_enum_val(_epoch_log_val)
+kLogEpochTotalTime   = _get_next_enum_val(_epoch_log_val)
 
 
-step_event_val = [0]
+_step_event_val = [0]
 
-kL0Event_Train_Step                  = get_next_enum_val(step_event_val)
-kL1Event_Sample                      = get_next_enum_val(step_event_val)
-kL2Event_Sample_Shuffle              = get_next_enum_val(step_event_val)
-kL2Event_Sample_Core                 = get_next_enum_val(step_event_val)
-kL2Event_Sample_IdRemap              = get_next_enum_val(step_event_val)
-kL1Event_Copy                        = get_next_enum_val(step_event_val)
-kL2Event_Copy_Id                     = get_next_enum_val(step_event_val)
-kL2Event_Copy_Graph                  = get_next_enum_val(step_event_val)
-kL2Event_Copy_Extract                = get_next_enum_val(step_event_val)
-kL2Event_Copy_FeatCopy               = get_next_enum_val(step_event_val)
-kL2Event_Copy_CacheCopy              = get_next_enum_val(step_event_val)
-kL3Event_Copy_CacheCopy_GetIndex     = get_next_enum_val(step_event_val)
-kL3Event_Copy_CacheCopy_CopyIndex    = get_next_enum_val(step_event_val)
-kL3Event_Copy_CacheCopy_ExtractMiss  = get_next_enum_val(step_event_val)
-kL3Event_Copy_CacheCopy_CopyMiss     = get_next_enum_val(step_event_val)
-kL3Event_Copy_CacheCopy_CombineMiss  = get_next_enum_val(step_event_val)
-kL3Event_Copy_CacheCopy_CombineCache = get_next_enum_val(step_event_val)
-kL1Event_Convert                     = get_next_enum_val(step_event_val)
-kL1Event_Train                       = get_next_enum_val(step_event_val)
+kL0Event_Train_Step                  = _get_next_enum_val(_step_event_val)
+kL1Event_Sample                      = _get_next_enum_val(_step_event_val)
+kL2Event_Sample_Shuffle              = _get_next_enum_val(_step_event_val)
+kL2Event_Sample_Core                 = _get_next_enum_val(_step_event_val)
+kL2Event_Sample_IdRemap              = _get_next_enum_val(_step_event_val)
+kL1Event_Copy                        = _get_next_enum_val(_step_event_val)
+kL2Event_Copy_Id                     = _get_next_enum_val(_step_event_val)
+kL2Event_Copy_Graph                  = _get_next_enum_val(_step_event_val)
+kL2Event_Copy_Extract                = _get_next_enum_val(_step_event_val)
+kL2Event_Copy_FeatCopy               = _get_next_enum_val(_step_event_val)
+kL2Event_Copy_CacheCopy              = _get_next_enum_val(_step_event_val)
+kL3Event_Copy_CacheCopy_GetIndex     = _get_next_enum_val(_step_event_val)
+kL3Event_Copy_CacheCopy_CopyIndex    = _get_next_enum_val(_step_event_val)
+kL3Event_Copy_CacheCopy_ExtractMiss  = _get_next_enum_val(_step_event_val)
+kL3Event_Copy_CacheCopy_CopyMiss     = _get_next_enum_val(_step_event_val)
+kL3Event_Copy_CacheCopy_CombineMiss  = _get_next_enum_val(_step_event_val)
+kL3Event_Copy_CacheCopy_CombineCache = _get_next_enum_val(_step_event_val)
+kL1Event_Convert                     = _get_next_enum_val(_step_event_val)
+kL1Event_Train                       = _get_next_enum_val(_step_event_val)
 
 
 class SamGraphBasics(object):
     def __init__(self, pkg_path, *args):
-        full_path = get_extension_full_path(pkg_path, *args)
+        full_path = _get_extension_full_path(pkg_path, *args)
         self.C_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
 
         self.C_LIB_CTYPES.samgraph_get_graph_num_src.argtypes = (
@@ -264,98 +277,50 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_double
 
-    def config(self, run_config):
+    def config(self, run_config : dict):
+        num_configs_items = len(run_config)
+        config_keys = [str.encode(str(key)) for key in run_config.keys()]
+        config_values = [str.encode(str(value)) for value in run_config.values()]
+
         return self.C_LIB_CTYPES.samgraph_config(
-            ctypes.c_char_p(
-                str.encode(run_config['dataset_path'])
+            (ctypes.c_char_p * num_configs_items)(
+                *config_keys
             ),
-            ctypes.c_int(
-                run_config['arch_type']
+            (ctypes.c_char_p * num_configs_items) (
+                *config_values
             ),
-            ctypes.c_int(
-                run_config['sample_type']
-            ),
-            ctypes.c_int(
-                run_config['sampler_ctx'].device_type
-            ),
-            ctypes.c_int(
-                run_config['sampler_ctx'].device_id
-            ),
-            ctypes.c_int(
-                run_config['trainer_ctx'].device_type
-            ),
-            ctypes.c_int(
-                run_config['trainer_ctx'].device_id
-            ),
-            ctypes.c_size_t(
-                run_config['batch_size']
-            ),
-            ctypes.c_size_t(
-                run_config['num_epoch']
-            ),
-            ctypes.c_int(
-                run_config['cache_policy']
-            ),
-            ctypes.c_double(
-                run_config['cache_percentage']
-            ),
-            ctypes.c_size_t(
-                run_config['max_sampling_jobs']
-            ),
-            ctypes.c_size_t(
-                run_config['max_copying_jobs']
-            )
+            ctypes.c_size_t(num_configs_items)
         )
-
-    def config_khop(self, run_config):
-        return self.C_LIB_CTYPES.samgraph_config_khop(
-            (ctypes.c_size_t * run_config['num_fanout'])(
-                *run_config['fanout']
-            ),
-            ctypes.c_size_t(
-                run_config['num_fanout']
-            ))
-
-    def config_random_walk(self, run_config):
-        return self.C_LIB_CTYPES.samgraph_config_random_walk(
-            ctypes.c_size_t(
-                run_config['random_walk_length']
-            ),
-            ctypes.c_double(
-                run_config['random_walk_restart_prob']
-            ),
-            ctypes.c_size_t(
-                run_config['num_random_walk']
-            ),
-            ctypes.c_size_t(
-                run_config['num_neighbor']
-            ),
-            ctypes.c_size_t(
-                run_config['num_layer']
-            ))
 
     def init(self):
         return self.C_LIB_CTYPES.samgraph_init()
 
-    # for multi-GPUs train
+    '''
+     for multi-GPUs train
+    '''
     def data_init(self):
+        # clear the shared memory files of samgraph
+        os.system('rm -rf /dev/shm/shared_meta_data*')
         return self.C_LIB_CTYPES.samgraph_data_init()
-    # for multi-GPUs train
-    def sample_init(self, device_type, device_id, sampler_id, num_sampler, num_trainer):
+
+    '''
+     for multi-GPUs train
+    '''
+    def sample_init(self, worker_id, ctx):
         return self.C_LIB_CTYPES.samgraph_sample_init(
-                    ctypes.c_int(device_type),
-                    ctypes.c_int(device_id),
-                    ctypes.c_int(sampler_id),
-                    ctypes.c_int(num_sampler),
-                    ctypes.c_int(num_trainer)
-                )
-    # for multi-GPUs train
-    def train_init(self, device_type, device_id):
+            ctypes.c_int(worker_id),
+            ctypes.c_char_p(str.encode(ctx))
+        )
+
+    '''
+     for multi-GPUs train
+    '''
+    def train_init(self, worker_id, ctx):
         return self.C_LIB_CTYPES.samgraph_train_init(
-                    ctypes.c_int(device_type),
-                    ctypes.c_int(device_id)
-                )
-    # for multi-GPUs train
+            ctypes.c_int(worker_id),
+            ctypes.c_char_p(str.encode(ctx))
+        )
+
     def extract_start(self, count):
         return self.C_LIB_CTYPES.samgraph_extract_start(ctypes.c_int(count))
 
@@ -425,13 +390,18 @@ class SamGraphBasics(object):
 
     def trace_step_begin(self, key, item, us):
         return self.C_LIB_CTYPES.samgraph_trace_step_begin(key, item, us)
+
     def trace_step_end(self, key, item, us):
         return self.C_LIB_CTYPES.samgraph_trace_step_end(key, item, us)
+
     def trace_step_begin_now(self, key, item):
         return self.C_LIB_CTYPES.samgraph_trace_step_begin_now(key, item)
+
     def trace_step_end_now(self, key, item):
         return self.C_LIB_CTYPES.samgraph_trace_step_end_now(key, item)
+
     def dump_trace(self):
         return self.C_LIB_CTYPES.samgraph_dump_trace()
+
     def forward_barrier(self):
         return self.C_LIB_CTYPES.samgraph_forward_barrier()

@@ -36,16 +36,13 @@ const std::string Constant::kEnvProfileCuda = "SAMGRAPH_PROFILE_CUDA";
 const std::string Constant::kEnvLogNodeAccess = "SAMGRAPH_LOG_NODE_ACCESS";
 const std::string Constant::kEnvLogNodeAccessSimple = "SAMGRAPH_LOG_NODE_ACCESS_SIMPLE";
 const std::string Constant::kEnvSanityCheck = "SAMGRAPH_SANITY_CHECK";
-const std::string Constant::kBarrierEpoch = "SAMGRAPH_BARRIER_EPOCH";
-const std::string Constant::kPresampleEpoch = "SAMGRAPH_PRESAMPLE_EPOCH";
 const std::string Constant::kEnvDumpTrace = "SAMGRAPH_DUMP_TRACE";
 
 const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";
 const std::string Constant::kNodeAccessOptimalCacheHitFile = "node_access_optimal_cache_hit";
 const std::string Constant::kNodeAccessOptimalCacheBinFile = "node_access_optimal_cache_bin";
-const std::string Constant::kNodeAccessSimilarityFile =
-    "node_access_similarity";
+const std::string Constant::kNodeAccessSimilarityFile = "node_access_similarity";
 const std::string Constant::kNodeAccessPreSampleSimFile = "node_access_presample";
 const std::string Constant::kNodeAccessFileSuffix = ".txt";
 

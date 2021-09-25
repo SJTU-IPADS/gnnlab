@@ -512,25 +512,25 @@ void Profiler::OutputEpoch(uint64_t epoch, std::string type) {
 
 void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
                              size_t num_input) {
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_input; ++i) {
     _node_access[input[i]]++;
   }
 
   size_t similarity_count = 0;
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum) reduction(+ : similarity_count)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : similarity_count)
   for (size_t i = 0; i < num_input; ++i) {
     if (_last_visit[input[i]]) {
       similarity_count++;
     }
   }
 
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _last_visit.size(); ++i) {
     _last_visit[i] = 0;
   }
 
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_input; ++i) {
     _last_visit[input[i]] = 1;
   }
@@ -692,7 +692,7 @@ void Profiler::ReportNodeAccessSimple() {
   // how many times are nodes accessed
   size_t frequency_sum = 0;
 
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (IdType nodeid = 0; nodeid < _node_access.size(); nodeid++) {
     size_t frequency = _node_access[nodeid];
     records[nodeid] = {frequency, nodeid};

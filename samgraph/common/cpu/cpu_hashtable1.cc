@@ -31,7 +31,7 @@ CPUHashTable1::~CPUHashTable1() {
 }
 
 void CPUHashTable1::Populate(const IdType *input, const size_t num_input) {
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_input; i++) {
     IdType id = input[i];
     const IdType key = __sync_val_compare_and_swap(&_o2n_table[id].id,
@@ -45,7 +45,7 @@ void CPUHashTable1::Populate(const IdType *input, const size_t num_input) {
 }
 
 void CPUHashTable1::MapNodes(IdType *output, size_t num_ouput) {
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_ouput; i++) {
     output[i] = _n2o_table[i].global;
   }
@@ -54,7 +54,7 @@ void CPUHashTable1::MapNodes(IdType *output, size_t num_ouput) {
 void CPUHashTable1::MapEdges(const IdType *src, const IdType *dst,
                              const size_t len, IdType *new_src,
                              IdType *new_dst) {
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < len; i++) {
     BucketO2N &bucket0 = _o2n_table[src[i]];
     BucketO2N &bucket1 = _o2n_table[dst[i]];
@@ -65,7 +65,7 @@ void CPUHashTable1::MapEdges(const IdType *src, const IdType *dst,
 }
 
 void CPUHashTable1::Reset() {
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_items; i++) {
     IdType key = _n2o_table[i].global;
     _o2n_table[key].id = Constant::kEmptyKey;
@@ -75,7 +75,7 @@ void CPUHashTable1::Reset() {
 
 void CPUHashTable1::InitTable() {
   _num_items = 0;
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _capacity; i++) {
     _o2n_table[i].id = Constant::kEmptyKey;
   }
