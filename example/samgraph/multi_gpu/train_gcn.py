@@ -96,25 +96,24 @@ def run_init(run_config):
 
 
 def run_sample(worker_id, run_config):
-    num_train_worker = run_config['num_train_worker']
-    num_sample_worker = run_config['num_sample_worker']
+    num_worker = run_config['num_sample_worker']
     global_barrier = run_config['global_barrier']
 
-    ctx = sam.gpu(num_train_worker + worker_id)
+    ctx = run_config['sample_workers'][worker_id]
 
     print('[Sample Worker {:d}/{:d}] Started with PID {:d}'.format(
-        worker_id, num_sample_worker, os.getpid()))
+        worker_id, num_worker, os.getpid()))
     sam.sample_init(worker_id, ctx)
     sam.notify_sampler_ready(global_barrier)
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
 
-    if (worker_id == (num_sample_worker - 1)):
+    if (worker_id == (num_worker - 1)):
         num_step = int(num_step - int(num_step /
-                       num_sample_worker * worker_id))
+                       num_worker * worker_id))
     else:
-        num_step = int(num_step / num_sample_worker)
+        num_step = int(num_step / num_worker)
 
     epoch_sample_times_0 = []
     epoch_sample_times_1 = []
@@ -127,11 +126,11 @@ def run_sample(worker_id, run_config):
 
     for epoch in range(num_epoch):
         if run_config['pipeline']:
-            # epoch start barrier
+            # epoch start barrier 1
             global_barrier.wait()
 
         tic = time.time()
-        for _ in range(num_step):
+        for step in range(num_step):
             sam.sample_once()
             # sam.report_step(epoch, step)
         toc = time.time()
@@ -141,7 +140,7 @@ def run_sample(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
 
         if not run_config['pipeline']:
-            # epoch start barrier
+            # epoch start barrier 2
             global_barrier.wait()
 
         # epoch end barrier
@@ -153,16 +152,19 @@ def run_sample(worker_id, run_config):
     # run end barrier
     global_barrier.wait()
 
-    test_result = {}
-    test_result['sample_time'] = np.mean(epoch_sample_times_0[1:])
-    for k, v in test_result.items():
-        print('test_result:{:}={:.2f}'.format(k, v))
+    if worker_id == 0:
+        test_result = {}
+        test_result['sample_time'] = np.mean(epoch_sample_times_0[1:])
+        for k, v in test_result.items():
+            print('test_result:{:}={:.2f}'.format(k, v))
+        
+        sam.report_step_average(epoch - 1, step - 1)
 
     sam.shutdown()
 
 
 def run_train(worker_id, run_config):
-    ctx = sam.gpu(worker_id)
+    ctx = run_config['train_workers'][worker_id]
     num_worker = run_config['num_train_worker']
     global_barrier = run_config['global_barrier']
 
@@ -234,14 +236,14 @@ def run_train(worker_id, run_config):
         global_barrier.wait()
 
         tic = time.time()
-        if (run_config['pipeline']):
+        if run_config['pipeline']:
             need_steps = int(num_step / num_worker)
-            if (worker_id < num_step % num_worker):
+            if worker_id < num_step % num_worker:
                 need_steps += 1
             sam.extract_start(need_steps)
 
         for step in range(worker_id, align_up_step, num_worker):
-            if (step < num_step):
+            if step < num_step:
                 t0 = time.time()
                 if (not run_config['pipeline']):
                     sam.sample_once()
@@ -260,9 +262,10 @@ def run_train(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
-            # sync the train workers
-            if (num_worker > 1):
-                torch.distributed.barrier()
+            if (step + num_worker < num_step):
+                batch_input = None
+                batch_label = None
+
             t3 = time.time()
 
             sample_time = sam.get_log_step_value(
@@ -295,7 +298,6 @@ def run_train(worker_id, run_config):
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
-
             sam.report_step(epoch, step)
             '''
 
@@ -339,11 +341,12 @@ def run_train(worker_id, run_config):
         test_result = {}
         test_result['epoch_time'] = np.mean(epoch_total_times_1[1:])
         test_result['copy_time'] = np.mean(epoch_copy_times[1:])
+        test_result['convert_time'] = np.mean(epoch_convert_times[1:])
         test_result['train_time'] = np.mean(epoch_train_times[1:])
         for k, v in test_result.items():
             print('test_result:{:}={:.2f}'.format(k, v))
 
-    sam.report_node_access()
+        sam.report_node_access()
     sam.shutdown()
 
 

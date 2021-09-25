@@ -1,16 +1,19 @@
 import samgraph.torch as sam
 import time
 
+
 def get_dataset_list():
     return ['papers100M', 'com-friendster',
-           'reddit', 'products', 'twitter', 'uk-2006-05']
+            'reddit', 'products', 'twitter', 'uk-2006-05']
+
 
 def get_default_common_config(run_multi_gpu=False, **kwargs):
     default_common_config = {}
 
     default_common_config['_run_multi_gpu'] = run_multi_gpu
 
-    if run_multi_gpu:
+    if run_multi_gpu or default_common_config['arch'] == 'arch5':
+        default_common_config['_run_multi_gpu'] = True
         default_common_config['arch'] = 'arch5'
         default_common_config['num_train_worker'] = 1
         default_common_config['num_sample_worker'] = 1
@@ -48,7 +51,7 @@ def get_default_common_config(run_multi_gpu=False, **kwargs):
 def add_common_arguments(argparser, run_config):
     run_multi_gpu = run_config['_run_multi_gpu']
 
-    if run_multi_gpu:
+    if run_multi_gpu or run_config['arch'] == 'arch5':
         assert(run_config['arch'] == 'arch5')
         argparser.add_argument('--num-train-worker', type=int,
                                default=run_config['num_train_worker'])
@@ -63,7 +66,7 @@ def add_common_arguments(argparser, run_config):
 
     argparser.add_argument('--pipeline', action='store_true',
                            default=run_config['pipeline'])
-    argparser.add_argument('--no-pipeline', action='store_false',
+    argparser.add_argument('--no-pipeline', action='store_false', dest='pipelining',
                            default=run_config['pipeline'])
 
     argparser.add_argument('--root-path', type=str,
@@ -93,13 +96,14 @@ def add_common_arguments(argparser, run_config):
                            default=run_config['presample_epoch'])
     argparser.add_argument('--omp-thread-num', type=int,
                            default=run_config['omp_thread_num'])
-    
+
     argparser.add_argument('--validate-configs',
                            action='store_true', default=False)
 
 
 def process_common_config(run_config):
-    run_config['dataset_path'] = run_config['root_path'] + run_config['dataset']
+    run_config['dataset_path'] = run_config['root_path'] + \
+        run_config['dataset']
 
     # the first epoch is used to warm up the system
     run_config['num_epoch'] += 1
@@ -109,6 +113,15 @@ def process_common_config(run_config):
     if run_config['arch'] != 'arch5':
         run_config['sampler_ctx'] = sam.builtin_archs[arch]['sampler_ctx']
         run_config['trainer_ctx'] = sam.builtin_archs[arch]['trainer_ctx']
+    else:
+        assert(
+            'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
+        assert(
+            'num_train_worker' in run_config and run_config['num_train_worker'] > 0)
+        run_config['sample_workers'] = [
+            sam.gpu(i) for i in range(run_config['num_sample_worker'])]
+        run_config['train_workers'] = [sam.gpu(
+            run_config['num_sample_worker'] + i) for i in range(run_config['num_train_worker'])]
 
     run_config['_sample_type'] = sam.sample_types[run_config['sample_type']]
     run_config['_cache_policy'] = sam.cache_policies[run_config['cache_policy']]
@@ -117,11 +130,6 @@ def process_common_config(run_config):
 
     assert(run_config['max_sampling_jobs'] > 0)
     assert(run_config['max_copying_jobs'] > 0)
-
-    if 'num_sample_worker' in run_config:
-        assert(run_config['num_sample_worker'] > 0)
-    if 'num_train_worker' in run_config:
-        assert(run_config['num_train_worker'] > 0)
 
     # arch1 doesn't support pipelining
     if run_config['arch'] == 'arch1':
