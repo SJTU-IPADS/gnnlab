@@ -10,6 +10,13 @@ namespace samgraph {
 namespace common {
 namespace cuda {
 
+GPUDevice::GPUDevice() {
+  _allocated_size_list = new size_t[32]();
+  for (int i = 0; i < 32; i++) {
+    _allocated_size_list[i] = 0;
+  }
+}
+
 void GPUDevice::SetDevice(Context ctx) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
 }
@@ -19,12 +26,16 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   CHECK_EQ(256 % alignment, 0U);
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   CUDA_CALL(cudaMalloc(&ret, nbytes));
+  // data space is only allocated during init phase, thread-safe
+  _allocated_size_list[ctx.device_id] += nbytes; 
   return ret;
 }
 
 void GPUDevice::FreeDataSpace(Context ctx, void *ptr) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   CUDA_CALL(cudaFree(ptr));
+  /** data space is only allocated during init phase
+    * freed workspace does not return here */
 }
 
 void GPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
@@ -126,6 +137,18 @@ void *GPUDevice::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
 void GPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   GPUWorkspacePool()->FreeWorkspace(ctx, data);
+}
+size_t GPUDevice::TotalSize(Context ctx) {
+  return _allocated_size_list[ctx.device_id];
+}
+size_t GPUDevice::WorkspaceSize(Context ctx) {
+  return GPUWorkspacePool()->TotalSize(ctx);
+}
+size_t GPUDevice::DataSize(Context ctx) {
+  return TotalSize(ctx) - WorkspaceSize(ctx);
+}
+size_t GPUDevice::FreeWorkspaceSize(Context ctx) {
+  return GPUWorkspacePool()->FreeSize(ctx);
 }
 
 }  // namespace cuda

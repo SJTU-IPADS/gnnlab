@@ -97,8 +97,8 @@ def get_run_config():
     # we have to set this to 1 to prevent GPU out-of-memory
     default_run_config['max_copying_jobs'] = 1
 
-    # default_run_config['fanout'] = [5, 10, 15]
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [5, 10, 15]
+    # default_run_config['fanout'] = [25, 10]
     default_run_config['num_epoch'] = 10
     default_run_config['batch_size'] = 8000
     default_run_config['num_hidden'] = 256
@@ -134,7 +134,7 @@ def run():
     sam.config_khop(run_config)
     sam.init()
 
-    sam.report_init()
+    # sam.report_init()
 
     sample_device = th.device('cuda:%d' % run_config['sampler_ctx'].device_id)
     train_device  = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
@@ -171,7 +171,7 @@ def run():
     # train_times   = [0 for i in range(num_epoch * num_step)]
     # total_times   = [0 for i in range(num_epoch * num_step)]
     # num_nodes     = [0 for i in range(num_epoch * num_step)]
-    # num_samples   = [0 for i in range(num_epoch * num_step)]
+    num_samples   = [0 for i in range(num_epoch * num_step)]
 
     cur_step_key = 0
     for epoch in range(num_epoch):
@@ -223,8 +223,12 @@ def run():
             # train_times   [cur_step_key] = train_time
             # total_times   [cur_step_key] = total_time
 
+            num_sample = 0
+            for block in blocks:
+                num_sample += block.num_edges()
+            # num_samples.append(num_sample)
             # num_nodes     [cur_step_key] = num_node
-            # num_samples   [cur_step_key] = num_sample
+            num_samples   [cur_step_key] = num_sample
 
             # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
             #     epoch, step, num_node, num_sample, total_time,
@@ -248,6 +252,7 @@ def run():
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
     print('Avg Epoch Time {:.4f}'.format(np.mean(epoch_t_l[1:])))
+    sam.report_init()
 
     sam.report_node_access()
     sam.dump_trace()
