@@ -60,6 +60,7 @@ class Constant {
   static constexpr double kAllocScale = 1.25f;
   static constexpr double kAllocNoScale = 1.0f;
 
+  static const std::string kOMPNumThreads;
   static const std::string kEnvProfileLevel;
   static const std::string kEnvProfileCuda;
   static const std::string kEnvLogNodeAccess;

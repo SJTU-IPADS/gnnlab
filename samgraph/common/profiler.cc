@@ -268,7 +268,7 @@ struct TraceJsonHelper {
         << "\"cat\":"  << "\"" << cat << "\"" << ","
         << "\"id\":"   << id
         << "}\n";
-    
+
     return ss.str();
   }
 };
@@ -333,12 +333,14 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
   if (level >= 1 && !RunConfig::UseGPUCache() && !RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
-        "        L1  sample         %10.4lf | copy         %10.4lf | "
+        "        L1  sample         %10.4lf | send         %10.4lf\n"
+        "        L1  recv           %10.4lf | copy         %10.4lf | "
         "convert time %.4lf | train  %.4lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
         "        L1  num nodes      %10lf | num samples  %10lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
+        _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
         _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
         _step_buf[kLogL1TrainTime],
         ToReadableSize(_step_buf[kLogL1FeatureBytes]).c_str(),
