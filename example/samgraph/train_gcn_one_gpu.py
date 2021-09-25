@@ -9,10 +9,6 @@ from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 import os
-'''
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
-os.environ["NCCL_DEBUG"] = "INFO"
-'''
 import samgraph.torch as sam
 
 
@@ -49,8 +45,6 @@ class GCN(nn.Module):
 
 def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GCN Training")
-    argparser.add_argument(
-        '--arch', type=str, default=default_run_config['arch'])
     argparser.add_argument('--sample-type', type=int,
                            default=default_run_config['sample_type'])
     argparser.add_argument('--pipeline', action='store_true',
@@ -81,10 +75,6 @@ def parse_args(default_run_config):
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
-    argparser.add_argument('--num-train-worker', type=int,
-                           default=default_run_config['num_train_worker'])
-    argparser.add_argument('--num-sample-worker', type=int,
-                           default=default_run_config['num_sample_worker'])
     argparser.add_argument('--log-file', type=str,
                            default=default_run_config['log_file'])
 
@@ -93,7 +83,6 @@ def parse_args(default_run_config):
 
 def get_run_config():
     default_run_config = {}
-    default_run_config['arch'] = 'arch5'
     default_run_config['sample_type'] = sam.kKHop2
     default_run_config['pipeline'] = False  # default value must be false
     default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
@@ -119,15 +108,18 @@ def get_run_config():
     default_run_config['dropout'] = 0.5
     default_run_config['weight_decay'] = 0.0005
 
-    default_run_config['num_train_worker'] = 1
-    default_run_config['num_sample_worker'] = 1
     default_run_config['log_file'] = '/tmp/samgraph_multi.log'
 
     run_config = parse_args(default_run_config)
 
+    run_config['num_train_worker'] = 1
+    run_config['num_sample_worker'] = 1
+
     print('Evaluation time: ', time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime()))
     print(*run_config.items(), sep='\n')
+
+    run_config['arch'] = 'arch5'
 
     run_config['arch'] = sam.meepo_archs[run_config['arch']]
     run_config['arch_type'] = run_config['arch']['arch_type']
@@ -175,8 +167,6 @@ def run_sample(worker_id, run_config, epoch_barrier):
 
     print(f"sample num_epoch: {num_epoch}, num_step: {num_step}")
     for epoch in range(num_epoch):
-        if (run_config['pipeline']):
-            epoch_barrier.wait()
         sample_epoch_t = time.time()
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
@@ -185,8 +175,7 @@ def run_sample(worker_id, run_config, epoch_barrier):
         sample_epoch_t_l.append(time.time() - sample_epoch_t)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
-        if (not run_config['pipeline']):
-            epoch_barrier.wait()
+        epoch_barrier.wait()
         epoch_barrier.wait()
     print("average sample epoch time: {:.4f}".format(np.mean(sample_epoch_t_l[1:])))
     print("average sample epoch time by profiler: {:.4f}".format(np.mean(epoch_sample_times[1:])))
@@ -260,17 +249,11 @@ def run_train(worker_id, run_config, epoch_barrier):
     for epoch in range(num_epoch):
         epoch_barrier.wait()
         epoch_t = time.time()
-        if (run_config['pipeline']):
-            need_steps = int(num_step / num_worker)
-            if (worker_id < num_step % num_worker):
-                need_steps += 1
-            sam.extract_start(need_steps)
         for step in range(worker_id, align_up_step, num_worker):
             if (step < num_step):
                 t0 = time.time()
-                if (not run_config['pipeline']):
-                    sam.sample_once()
-                # sam.sample_once()
+
+                sam.sample_once()
                 batch_key = sam.get_next_batch()
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
@@ -342,7 +325,7 @@ def run_train(worker_id, run_config, epoch_barrier):
         print('Epoch {:05d} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f} | PID {:04d}'.format(
             epoch, epoch_total_times[-1],  epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1], os.getpid()))
         print('Epoch {:05d} | Time {:.4f}'.format(epoch, epoch_t_l[-1]))
-        sam.report_epoch_average(epoch)
+        # sam.report_epoch_average(epoch)
 
     # sync the train workers
     if num_worker > 1:
