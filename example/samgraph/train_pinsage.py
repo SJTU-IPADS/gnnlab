@@ -169,7 +169,6 @@ def get_run_config():
 
     run_config['arch'] = sam.meepo_archs[run_config['arch']]
     run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['arch_type'] = run_config['arch']['arch_type']
     run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
     run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
     run_config['sample_type'] = sam.kRandomWalk
