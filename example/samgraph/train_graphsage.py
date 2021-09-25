@@ -1,5 +1,6 @@
 import argparse
 import time
+import sys
 import dgl.nn.pytorch as dglnn
 import torch as th
 import torch.nn as nn
@@ -8,7 +9,7 @@ import torch.optim as optim
 import numpy as np
 
 import samgraph.torch as sam
-
+from common_config import *
 
 class SAGE(nn.Module):
     def __init__(self,
@@ -42,34 +43,12 @@ class SAGE(nn.Module):
 
 def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GraphSage Training")
-    argparser.add_argument(
-        '--arch', type=str, default=default_run_config['arch'])
-    argparser.add_argument('--sample-type', type=int,
-                           default=default_run_config['sample_type'])
-    argparser.add_argument('--pipeline', action='store_true',
-                           default=default_run_config['pipeline'])
 
-    argparser.add_argument('--dataset-path', type=str,
-                           default=default_run_config['dataset_path'])
-    argparser.add_argument('--cache-policy', type=int,
-                           default=default_run_config['cache_policy'])
-    argparser.add_argument('--cache-percentage', type=float,
-                           default=default_run_config['cache_percentage'])
-    argparser.add_argument('--max-sampling-jobs', type=int,
-                           default=default_run_config['max_sampling_jobs'])
-    argparser.add_argument('--max-copying-jobs', type=int,
-                           default=default_run_config['max_copying_jobs'])
+    add_common_arguments(argparser, default_run_config)
 
-    argparser.add_argument('--num-epoch', type=int,
-                           default=default_run_config['num_epoch'])
     argparser.add_argument('--fanout', nargs='+',
                            type=int, default=default_run_config['fanout'])
-    argparser.add_argument('--batch-size', type=int,
-                           default=default_run_config['batch_size'])
-    argparser.add_argument('--num-hidden', type=int,
-                           default=default_run_config['num_hidden'])
-    argparser.add_argument(
-        '--lr', type=float, default=default_run_config['lr'])
+    argparser.add_argument('--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
 
@@ -77,48 +56,28 @@ def parse_args(default_run_config):
 
 
 def get_run_config():
-    default_run_config = {}
-    default_run_config['arch'] = 'arch1'
-    default_run_config['sample_type'] = sam.kKHop0
-    default_run_config['pipeline'] = False  # default value must be false
-    default_run_config['cache_policy'] = sam.kCacheByHeuristic
-    default_run_config['cache_percentage'] = 0.25
+    run_config = {}
 
-    default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
-    # default_run_config['dataset_path'] = '/graph-learning/samgraph/products'
-    # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
-    # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+    run_config.update(get_default_common_config())
+    run_config['arch'] = 'arch3'
+    run_config['sample_type'] = 'khop2'
 
-    default_run_config['max_sampling_jobs'] = 10
-    # default max_copying_jobs should be 10, but when training on com-friendster,
-    # we have to set this to 1 to prevent GPU out-of-memory
-    default_run_config['max_copying_jobs'] = 2
+    run_config['fanout'] = [25, 10]
+    run_config['lr'] = 0.003
+    run_config['dropout'] = 0.5
 
-    # default_run_config['fanout'] = [5, 10, 15]
-    default_run_config['fanout'] = [25, 10]
-    default_run_config['num_epoch'] = 10
-    default_run_config['num_hidden'] = 256
-    default_run_config['batch_size'] = 8000
-    default_run_config['lr'] = 0.003
-    default_run_config['dropout'] = 0.5
+    run_config.update(parse_args(run_config))
 
-    run_config = parse_args(default_run_config)
+    process_common_config(run_config)
+    assert(run_config['sample_type'] != 'random_walk')
 
-    print('Evaluation time: ', time.strftime(
-        "%Y-%m-%d %H:%M:%S", time.localtime()))
-    print(*run_config.items(), sep='\n')
-
-    run_config['arch'] = sam.meepo_archs[run_config['arch']]
-    run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
-    run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    # the first epoch is used to warm up the system
-    run_config['num_epoch'] += 1
-    # arch1 doesn't support pipelining
-    if run_config['arch_type'] == sam.kArch1:
-        run_config['pipeline'] = False
+
+    print_run_config(run_config)
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
 
@@ -127,13 +86,10 @@ def run():
     run_config = get_run_config()
 
     sam.config(run_config)
-    sam.config_khop(run_config)
     sam.init()
 
-    sample_device = th.device('cuda:%d' % run_config['sampler_ctx'].device_id)
-    train_device  = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
-    print("('sampler_gpu', '{}')".format(th.cuda.get_device_name(sample_device)))
-    print("('trainer_gpu', '{}')".format(th.cuda.get_device_name(train_device)))
+    train_device = th.device(run_config['trainer_ctx'])
+
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
     num_layer = run_config['num_layer']

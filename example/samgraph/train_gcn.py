@@ -4,11 +4,12 @@ import torch as th
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import sys
 import numpy as np
 from dgl.nn.pytorch import GraphConv
 
 import samgraph.torch as sam
-
+from common_config import *
 
 class GCN(nn.Module):
     def __init__(self,
@@ -43,34 +44,13 @@ class GCN(nn.Module):
 
 def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GCN Training")
-    argparser.add_argument(
-        '--arch', type=str, default=default_run_config['arch'])
-    argparser.add_argument('--sample-type', type=int,
-                           default=default_run_config['sample_type'])
-    argparser.add_argument('--pipeline', action='store_true',
-                           default=default_run_config['pipeline'])
 
-    argparser.add_argument('--dataset-path', type=str,
-                           default=default_run_config['dataset_path'])
-    argparser.add_argument('--cache-policy', type=int,
-                           default=default_run_config['cache_policy'])
-    argparser.add_argument('--cache-percentage', type=float,
-                           default=default_run_config['cache_percentage'])
-    argparser.add_argument('--max-sampling-jobs', type=int,
-                           default=default_run_config['max_sampling_jobs'])
-    argparser.add_argument('--max-copying-jobs', type=int,
-                           default=default_run_config['max_copying_jobs'])
+    add_common_arguments(argparser, default_run_config)
 
-    argparser.add_argument('--num-epoch', type=int,
-                           default=default_run_config['num_epoch'])
     argparser.add_argument('--fanout', nargs='+',
                            type=int, default=default_run_config['fanout'])
-    argparser.add_argument('--batch-size', type=int,
-                           default=default_run_config['batch_size'])
-    argparser.add_argument('--num-hidden', type=int,
-                           default=default_run_config['num_hidden'])
-    argparser.add_argument(
-        '--lr', type=float, default=default_run_config['lr'])
+    argparser.add_argument('--lr', type=float,
+                           default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
@@ -80,49 +60,29 @@ def parse_args(default_run_config):
 
 
 def get_run_config():
-    default_run_config = {}
-    default_run_config['arch'] = 'arch3'
-    default_run_config['sample_type'] = sam.kKHop2
-    default_run_config['pipeline'] = False  # default value must be false
-    default_run_config['dataset_path'] = '/graph-learning/samgraph/reddit'
-    # default_run_config['dataset_path'] = '/graph-learning/samgraph/products'
-    # default_run_config['dataset_path'] = '/graph-learning/samgraph/papers100M'
-    # default_run_config['dataset_path'] = '/graph-learning/samgraph/com-friendster'
+    run_config = {}
 
-    default_run_config['cache_policy'] = sam.kCacheByPreSample
-    default_run_config['cache_percentage'] = 0.0
+    run_config.update(get_default_common_config())
+    run_config['arch'] = 'arch3'
+    run_config['sample_type'] = 'khop2'
 
-    default_run_config['max_sampling_jobs'] = 10
-    # default max_copying_jobs should be 10, but when training on com-friendster,
-    # we have to set this to 1 to prevent GPU out-of-memory
-    default_run_config['max_copying_jobs'] = 1
+    run_config['fanout'] = [5, 10, 15]
+    run_config['lr'] = 0.003
+    run_config['dropout'] = 0.5
+    run_config['weight_decay'] = 0.0005
 
-    default_run_config['fanout'] = [5, 10, 15]
-    # default_run_config['fanout'] = [25, 10]
-    default_run_config['num_epoch'] = 10
-    default_run_config['batch_size'] = 8000
-    default_run_config['num_hidden'] = 256
-    default_run_config['lr'] = 0.003
-    default_run_config['dropout'] = 0.5
-    default_run_config['weight_decay'] = 0.0005
+    run_config.update(parse_args(run_config))
 
-    run_config = parse_args(default_run_config)
+    process_common_config(run_config)
+    assert(run_config['sample_type'] != 'random_walk')
 
-    print('Evaluation time: ', time.strftime(
-        "%Y-%m-%d %H:%M:%S", time.localtime()))
-    print(*run_config.items(), sep='\n')
-
-    run_config['arch'] = sam.meepo_archs[run_config['arch']]
-    run_config['arch_type'] = run_config['arch']['arch_type']
-    run_config['sampler_ctx'] = run_config['arch']['sampler_ctx']
-    run_config['trainer_ctx'] = run_config['arch']['trainer_ctx']
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    # the first epoch is used to warm up the system
-    run_config['num_epoch'] += 1
-    # arch1 doesn't support pipelining
-    if run_config['arch_type'] == sam.kArch1:
-        run_config['pipeline'] = False
+
+    print_run_config(run_config)
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
 
@@ -131,15 +91,12 @@ def run():
     run_config = get_run_config()
 
     sam.config(run_config)
-    sam.config_khop(run_config)
     sam.init()
 
     # sam.report_init()
 
-    sample_device = th.device('cuda:%d' % run_config['sampler_ctx'].device_id)
-    train_device  = th.device('cuda:%d' % run_config['trainer_ctx'].device_id)
-    print("('sampler_gpu', '{}')".format(th.cuda.get_device_name(sample_device)))
-    print("('trainer_gpu', '{}')".format(th.cuda.get_device_name(train_device)))
+    train_device = th.device(run_config['trainer_ctx'])
+
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
@@ -162,8 +119,8 @@ def run():
     epoch_copy_times    = [0 for i in range(num_epoch)]
     epoch_convert_times = [0 for i in range(num_epoch)]
     epoch_train_times   = [0 for i in range(num_epoch)]
-    epoch_total_times   = [0 for i in range(num_epoch)]
-    epoch_t_l = []
+    epoch_total_times_0 = [0 for i in range(num_epoch)]
+    epoch_total_times_1 = []
 
     # sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
@@ -175,7 +132,7 @@ def run():
 
     cur_step_key = 0
     for epoch in range(num_epoch):
-        epoch_t = time.time()
+        tic = time.time()
         for step in range(num_step):
             t0 = time.time()
             sam.trace_step_begin_now (epoch * num_step + step, sam.kL0Event_Train_Step)
@@ -239,19 +196,21 @@ def run():
             sam.report_step(epoch, step)
             cur_step_key += 1
 
-        epoch_t_l.append(time.time() - epoch_t)
+        toc = time.time()
+        epoch_total_times_1.append(toc - tic)
         epoch_sample_times  [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
         epoch_copy_times    [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime)
         epoch_convert_times [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime)
         epoch_train_times   [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime)
-        epoch_total_times   [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime)
+        epoch_total_times_0[epoch] = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochTotalTime)
         sam.forward_barrier()
-        print('Epoch {:05d} | Time {:.4f}'.format(epoch, epoch_t_l[-1]))
+        print('Epoch {:05d} | Time {:.4f}'.format(
+            epoch, epoch_total_times_1[-1]))
 
     sam.report_step_average(num_epoch - 1, num_step - 1)
-    print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
-        np.mean(epoch_total_times[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
-    print('Avg Epoch Time {:.4f}'.format(np.mean(epoch_t_l[1:])))
+    print('[Avg] Epoch Time {:.4f} | Epoch Time(Profiler) {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
+        np.mean(epoch_total_times_1[1:]), np.mean(epoch_total_times_0[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
     sam.report_init()
 
     sam.report_node_access()

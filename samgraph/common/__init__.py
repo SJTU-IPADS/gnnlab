@@ -280,7 +280,14 @@ class SamGraphBasics(object):
     def config(self, run_config : dict):
         num_configs_items = len(run_config)
         config_keys = [str.encode(str(key)) for key in run_config.keys()]
-        config_values = [str.encode(str(value)) for value in run_config.values()]
+        config_values = []
+        for value in run_config.values():
+            if isinstance(value, list):
+                config_values.append(str.encode(
+                    ' '.join([str(v) for v in value])))
+            else:
+                config_values.append(str.encode(str(value)))
+
 
         return self.C_LIB_CTYPES.samgraph_config(
             (ctypes.c_char_p * num_configs_items)(

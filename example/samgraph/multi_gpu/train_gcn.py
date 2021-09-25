@@ -52,10 +52,6 @@ def parse_args(default_run_config):
 
     argparser.add_argument('--fanout', nargs='+',
                            type=int, default=default_run_config['fanout'])
-    argparser.add_argument('--batch-size', type=int,
-                           default=default_run_config['batch_size'])
-    argparser.add_argument('--num-hidden', type=int,
-                           default=default_run_config['num_hidden'])
     argparser.add_argument('--lr', type=float,
                            default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
@@ -70,10 +66,9 @@ def get_run_config():
     run_config = {}
 
     run_config.update(get_default_common_config(run_multi_gpu=True))
+    run_config['sample_type'] = 'khop2'
 
     run_config['fanout'] = [25, 10]
-    run_config['batch_size'] = 8000
-    run_config['num_hidden'] = 256
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['weight_decay'] = 0.0005
@@ -81,6 +76,8 @@ def get_run_config():
     run_config.update(parse_args(run_config))
 
     process_common_config(run_config)
+    assert(run_config['arch'] == 'arch5')
+    assert(run_config['sample_type'] != 'random_walk')
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -124,6 +121,8 @@ def run_sample(worker_id, run_config):
 
     print('[Sample Worker {:d}] run sample for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
+
+    # run start barrier
     global_barrier.wait()
 
     for epoch in range(num_epoch):
@@ -150,6 +149,14 @@ def run_sample(worker_id, run_config):
 
     print('[Sample Worker {:d}] Avg Sample Time Per Epoch {:.4f} | Sample Time(Profiler) {:.4f}'.format(
         worker_id, np.mean(epoch_sample_times_0[1:]), np.mean(epoch_sample_times_1[1:])))
+
+    # run end barrier
+    global_barrier.wait()
+
+    test_result = {}
+    test_result['sample_time'] = np.mean(epoch_sample_times_0[1:])
+    for k, v in test_result.items():
+        print('test_result:{:}={:.2f}'.format(k, v))
 
     sam.shutdown()
 
@@ -217,6 +224,7 @@ def run_train(worker_id, run_config):
     align_up_step = int(
         int((num_step + num_worker - 1) / num_worker) * num_worker)
     
+    # run start barrier
     global_barrier.wait()
     print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
@@ -312,15 +320,28 @@ def run_train(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
         epoch_total_times_1.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
-        print('Epoch {:05d} | Total Time {:.4f} | Total Time(Profiler) {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
-            epoch, epoch_total_times_0[-1], epoch_total_times_1[-1], epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1]))
+        if worker_id == 0:
+            print('Epoch {:05d} | Total Time {:.4f} | Total Time(Profiler) {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
+                epoch, epoch_total_times_0[-1], epoch_total_times_1[-1], epoch_sample_times[-1],  epoch_copy_times[-1], epoch_convert_times[-1], epoch_train_times[-1]))
 
     # sync the train workers
     if num_worker > 1:
         torch.distributed.barrier()
 
-    print('[Avg] Epoch Time {:.4f} | Epoch Time(Profiler) {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
-        np.mean(epoch_total_times_0[1:]), np.mean(epoch_total_times_1[1:]), np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
+    if worker_id == 0:
+        print('[Avg] Epoch Time {:.4f} | Epoch Time(Profiler) {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
+            np.mean(epoch_total_times_0[1:]), np.mean(epoch_total_times_1[1:]), np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
+
+    # run end barrier
+    global_barrier.wait()
+
+    if worker_id == 0:
+        test_result = {}
+        test_result['epoch_time'] = np.mean(epoch_total_times_1[1:])
+        test_result['copy_time'] = np.mean(epoch_copy_times[1:])
+        test_result['train_time'] = np.mean(epoch_train_times[1:])
+        for k, v in test_result.items():
+            print('test_result:{:}={:.2f}'.format(k, v))
 
     sam.report_node_access()
     sam.shutdown()

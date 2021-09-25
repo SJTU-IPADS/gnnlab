@@ -30,6 +30,8 @@ def get_default_common_config(run_multi_gpu=False, **kwargs):
     default_common_config['cache_percentage'] = 0.0
 
     default_common_config['num_epoch'] = 3
+    default_common_config['batch_size'] = 8000
+    default_common_config['num_hidden'] = 256
 
     default_common_config['max_sampling_jobs'] = 10
     default_common_config['max_copying_jobs'] = 1
@@ -80,6 +82,10 @@ def add_common_arguments(argparser, run_config):
 
     argparser.add_argument('--num-epoch', type=int,
                            default=run_config['num_epoch'])
+    argparser.add_argument('--batch-size', type=int,
+                           default=run_config['batch_size'])
+    argparser.add_argument('--num-hidden', type=int,
+                           default=run_config['num_hidden'])
 
     argparser.add_argument('--barriered-epoch', type=int,
                            default=run_config['barriered_epoch'])
