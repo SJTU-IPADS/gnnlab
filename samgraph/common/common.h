@@ -7,6 +7,8 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <ostream>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -63,6 +65,10 @@ enum CachePolicy {
 struct Context {
   DeviceType device_type;
   int device_id;
+
+  Context() {}
+  Context(DeviceType type, int id) : device_type(type), device_id(id) {}
+  Context(std::string name);
 };
 
 using StreamHandle = void*;
@@ -236,6 +242,8 @@ class Shuffler {
   virtual size_t NumStep() = 0;
 };
 
+std::ostream& operator<<(std::ostream&, const SampleType);
+std::ostream& operator<<(std::ostream&, const CachePolicy);
 
 }  // namespace common
 }  // namespace samgraph

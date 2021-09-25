@@ -66,7 +66,7 @@ def parse_args(default_run_config):
     argparser.add_argument('--dataset', type=str,
                            default=default_run_config['dataset'])
     argparser.add_argument('--root-path', type=str,
-                           default='/graph-learning/samgraph/')
+                           default=default_run_config['root_path'])
     argparser.add_argument('--pipelining', action='store_true',
                            default=default_run_config['pipelining'])
     argparser.add_argument(

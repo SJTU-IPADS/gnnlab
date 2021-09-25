@@ -106,13 +106,13 @@ void DistEngine::SampleCacheTableInit() {
           _sampler_ctx, sizeof(IdType) * num_nodes));
 
   // 1. Initialize the cpu hashtable
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_nodes; i++) {
     tmp_cpu_hashtable[i] = Constant::kEmptyKey;
   }
 
   // 2. Populate the cpu hashtable
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_cached_nodes; i++) {
     tmp_cpu_hashtable[nodes[i]] = i;
   }
@@ -125,27 +125,17 @@ void DistEngine::SampleCacheTableInit() {
   // 4. Free the cpu tmp cache data
   cpu_device->FreeDataSpace(CPU(), tmp_cpu_hashtable);
 
-  std::unordered_map<CachePolicy, std::string> policy2str = {
-      {kCacheByDegree, "degree"},
-      {kCacheByHeuristic, "heuristic"},
-      {kCacheByPreSample, "preSample"},
-      {kCacheByPreSampleStatic, "preSampleStatic"},
-      {kCacheByDegreeHop, "degree_hop"},
-      {kCacheByFakeOptimal, "fake_optimal"},
-  };
-
-  LOG(INFO) << "GPU cache (policy: " << policy2str.at(RunConfig::cache_policy)
+  LOG(INFO) << "GPU cache (policy: " << RunConfig::cache_policy
             << ") " << num_cached_nodes << " / " << num_nodes;
 }
 
-void DistEngine::SampleInit(int device_type, int device_id,
-    int sampler_id, int num_sampler, int num_trainer) {
+void DistEngine::SampleInit(int worker_id, Context ctx) {
   if (_initialize) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
   _dist_type = DistType::Sample;
-  RunConfig::sampler_ctx = Context{static_cast<DeviceType>(device_type), device_id};
+  RunConfig::sampler_ctx = ctx;
   _sampler_ctx = RunConfig::sampler_ctx;
   if (_sampler_ctx.device_type == kGPU) {
     _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
@@ -159,18 +149,18 @@ void DistEngine::SampleInit(int device_type, int device_id,
   SampleDataCopy(_sampler_ctx, _sample_stream);
 
   _shuffler = nullptr;
-  switch(device_type) {
+  switch(ctx.device_type) {
     case kCPU:
       _shuffler = new CPUShuffler(_dataset->train_set,
           _num_epoch, _batch_size, false);
       break;
     case kGPU:
       _shuffler = new DistShuffler(_dataset->train_set,
-          _num_epoch, _batch_size, sampler_id, num_sampler, num_trainer, false);
+          _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
       break;
     default:
         LOG(FATAL) << "shuffler does not support device_type: "
-                   << device_type;
+                   << ctx.device_type;
   }
   _num_step = _shuffler->NumStep();
 
@@ -221,7 +211,7 @@ void DistEngine::SampleInit(int device_type, int device_id,
         auto rank_results = static_cast<const IdType*>(PreSampler::Get()->DoPreSample()->Data());
         auto rank_node = static_cast<IdType*>(_dataset->ranking_nodes->MutableData());
         size_t num_node = _dataset->num_node;
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
         for (size_t i = 0; i < num_node; ++i) {
           rank_node[i] = rank_results[i];
         }
@@ -240,13 +230,13 @@ void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
   LOG(DEBUG) << "TrainDataCopy finished!";
 }
 
-void DistEngine::TrainInit(int device_type, int device_id) {
+void DistEngine::TrainInit(int worker_id, Context ctx) {
   if (_initialize) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
   _dist_type = DistType::Extract;
-  RunConfig::trainer_ctx = Context{static_cast<DeviceType>(device_type), device_id};
+  RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
 
   // Create CUDA streams

@@ -10,42 +10,40 @@ from samgraph.torch import c_lib
 from samgraph.common import *
 _basics = SamGraphBasics(__file__, 'c_lib')
 
-config = _basics.config
-config_khop = _basics.config_khop
-config_random_walk = _basics.config_random_walk
-init = _basics.init
-start = _basics.start
-num_class = _basics.num_class
-feat_dim = _basics.feat_dim
-num_epoch = _basics.num_epoch
-steps_per_epoch = _basics.steps_per_epoch
-get_next_batch = _basics.get_next_batch
-get_graph_num_src = _basics.get_graph_num_src
-get_graph_num_dst = _basics.get_graph_num_dst
-shutdown = _basics.shutdown
-sample_once = _basics.sample_once
-log_step = _basics.log_step
-log_step_add = _basics.log_step_add
-log_epoch_add = _basics.log_epoch_add
-get_log_step_value = _basics.get_log_step_value
-get_log_epoch_value = _basics.get_log_epoch_value
-report_init = _basics.report_init
-report_step = _basics.report_step
-report_step_average = _basics.report_step_average
-report_epoch = _basics.report_epoch
+config               = _basics.config
+init                 = _basics.init
+start                = _basics.start
+num_class            = _basics.num_class
+feat_dim             = _basics.feat_dim
+num_epoch            = _basics.num_epoch
+steps_per_epoch      = _basics.steps_per_epoch
+get_next_batch       = _basics.get_next_batch
+get_graph_num_src    = _basics.get_graph_num_src
+get_graph_num_dst    = _basics.get_graph_num_dst
+shutdown             = _basics.shutdown
+sample_once          = _basics.sample_once
+log_step             = _basics.log_step
+log_step_add         = _basics.log_step_add
+log_epoch_add        = _basics.log_epoch_add
+get_log_step_value   = _basics.get_log_step_value
+get_log_epoch_value  = _basics.get_log_epoch_value
+report_init          = _basics.report_init
+report_step          = _basics.report_step
+report_step_average  = _basics.report_step_average
+report_epoch         = _basics.report_epoch
 report_epoch_average = _basics.report_epoch_average
-report_node_access = _basics.report_node_access
-trace_step_begin = _basics.trace_step_begin
-trace_step_end = _basics.trace_step_end
+report_node_access   = _basics.report_node_access
+trace_step_begin     = _basics.trace_step_begin
+trace_step_end       = _basics.trace_step_end
 trace_step_begin_now = _basics.trace_step_begin_now
-trace_step_end_now = _basics.trace_step_end_now
-dump_trace = _basics.dump_trace
-forward_barrier = _basics.forward_barrier
+trace_step_end_now   = _basics.trace_step_end_now
+dump_trace           = _basics.dump_trace
+forward_barrier      = _basics.forward_barrier
 
-# mult-GPUs training APIs
-data_init = _basics.data_init
-sample_init = _basics.sample_init
-train_init = _basics.train_init
+# multi-GPUs training APIs
+data_init     = _basics.data_init
+sample_init   = _basics.sample_init
+train_init    = _basics.train_init
 extract_start = _basics.extract_start
 
 def get_graph_feat(batch_key):
@@ -114,3 +112,10 @@ def get_dgl_blocks_with_weights(batch_key, num_layers):
         # print("get_dgl_block {:.4f} {:.4f}".format(t1 - t0, t2 - t1))
 
     return blocks, feat, label
+
+
+def notify_sampler_ready(barrier):
+    barrier.wait()
+
+def wait_for_sampler_ready(barrier):
+    barrier.wait()

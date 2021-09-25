@@ -24,7 +24,7 @@ PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
     _num_step(num_step) {
   Timer t_init;
   freq_table = new Id64Type[num_nodes];
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_nodes; i++) {
     auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
     *nid_ptr = i;
@@ -60,7 +60,7 @@ TensorPtr PreSampler::DoPreSample(){
         num_inputs * sizeof(IdType), task->input_nodes->Ctx(), CPU());
       double copy_time = t1.Passed();
       Timer t2;
-#pragma omp parallel for num_threads(RunConfig::kOMPThreadNum)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
       for (size_t i = 0; i < num_inputs; i++) {
         auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes[i]]);
         *(freq_ptr+1) += 1;
