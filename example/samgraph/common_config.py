@@ -64,6 +64,9 @@ def add_common_arguments(argparser, run_config):
         argparser.add_argument('--arch', type=str, choices=sam.builtin_archs.keys(),
                                default=run_config['arch'])
         run_config['_run_multi_gpu'] = 'false'
+        argparser.add_argument('--override-device', action='store_true', default=False)
+        argparser.add_argument('--override-train-device', type=str, default='cuda:0')
+        argparser.add_argument('--override-sample-device', type=str, default='cuda:1')
 
     argparser.add_argument('--sample-type', type=str, choices=sam.sample_types.keys(),
                            default=run_config['sample_type'])
@@ -109,7 +112,6 @@ def add_common_arguments(argparser, run_config):
     argparser.add_argument('-pl', '--profile-level', choices=[
                            '0', '1', '2', '3'], type=str, dest='_profile_level', default='0')
 
-
 def process_common_config(run_config):
     run_config['dataset_path'] = run_config['root_path'] + \
         run_config['dataset']
@@ -122,6 +124,10 @@ def process_common_config(run_config):
     if run_config['arch'] != 'arch5':
         run_config['sampler_ctx'] = sam.builtin_archs[arch]['sampler_ctx']
         run_config['trainer_ctx'] = sam.builtin_archs[arch]['trainer_ctx']
+
+        if run_config['override_device']:
+            run_config['sampler_ctx'] = run_config['override_sample_device']
+            run_config['trainer_ctx'] = run_config['override_train_device']
     else:
         assert(
             'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
