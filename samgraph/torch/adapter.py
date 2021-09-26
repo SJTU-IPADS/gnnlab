@@ -4,7 +4,7 @@ from __future__ import print_function
 
 # Load all the necessary PyTorch C types.
 import dgl
-import time
+from dgl.heterograph import DGLBlock
 
 from samgraph.torch import c_lib
 from samgraph.common import *
@@ -66,25 +66,27 @@ def get_graph_data(batch_key, layer_idx):
     return c_lib.samgraph_torch_get_graph_data(batch_key, layer_idx)
 
 
+def _create_dgl_block(data, num_src_nodes, num_dst_nodes):
+    row, col = data
+    gidx = dgl.heterograph_index.create_unitgraph_from_coo(2, num_src_nodes, num_dst_nodes, row, col, 'coo')
+    g = DGLBlock(gidx, (['_N'], ['_N']), ['_E'])
+
+    return g
+
 def get_dgl_blocks(batch_key, num_layers):
     feat = get_graph_feat(batch_key)
     label = get_graph_label(batch_key)
     blocks = []
     for i in range(num_layers):
-        # t0 = time.time()
         row = get_graph_row(batch_key, i)
         col = get_graph_col(batch_key, i)
         num_src_nodes = get_graph_num_src(batch_key, i)
         num_dst_nodes = get_graph_num_dst(batch_key, i)
 
-        # t1 = time.time()
+        blocks.append(_create_dgl_block((row, col), num_src_nodes, num_dst_nodes))
 
-        blocks.append(dgl.create_block({('_U', '_V', '_U'): (
-            row, col)}, num_src_nodes={'_U': num_src_nodes}, num_dst_nodes={'_U': num_dst_nodes}))
-
-        # t2 = time.time()
-
-        # print("get_dgl_block {:.4f} {:.4f}".format(t1 - t0, t2 - t1))
+        # blocks.append(dgl.create_block({('_N', '_E', '_N'): (
+        #     row, col)}, num_src_nodes={'_N': num_src_nodes}, num_dst_nodes={'_N': num_dst_nodes}))
 
     return blocks, feat, label
 
@@ -94,22 +96,18 @@ def get_dgl_blocks_with_weights(batch_key, num_layers):
     label = get_graph_label(batch_key)
     blocks = []
     for i in range(num_layers):
-        # t0 = time.time()
         row = get_graph_row(batch_key, i)
         col = get_graph_col(batch_key, i)
         weights = get_graph_data(batch_key, i)
         num_src_nodes = get_graph_num_src(batch_key, i)
         num_dst_nodes = get_graph_num_dst(batch_key, i)
 
-        # t1 = time.time()
-        block = dgl.create_block({('_U', '_V', '_U'): (
-            row, col)}, num_src_nodes={'_U': num_src_nodes}, num_dst_nodes={'_U': num_dst_nodes})
+        # block = dgl.create_block({('_N', '_E', '_N'): (
+        #     row, col)}, num_src_nodes={'_N': num_src_nodes}, num_dst_nodes={'_N': num_dst_nodes})
+
+        block = _create_dgl_block((row, col), num_src_nodes, num_dst_nodes)
         block.edata['weights'] = weights
         blocks.append(block)
-
-        # t2 = time.time()
-
-        # print("get_dgl_block {:.4f} {:.4f}".format(t1 - t0, t2 - t1))
 
     return blocks, feat, label
 
