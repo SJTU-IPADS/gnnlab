@@ -81,7 +81,7 @@ class DeviceOrderedHashTable {
 
 class OrderedHashTable {
  public:
-  static constexpr size_t kDefaultScale = 3;
+  static constexpr size_t kDefaultScale = 2;
 
   using BucketO2N = typename DeviceOrderedHashTable::BucketO2N;
   using BucketN2O = typename DeviceOrderedHashTable::BucketN2O;
