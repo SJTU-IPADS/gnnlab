@@ -88,6 +88,9 @@ def run():
     sam.config(run_config)
     sam.init()
 
+    # sam.report_init()
+
+
     train_device = th.device(run_config['trainer_ctx'])
 
     in_feat = sam.feat_dim()
