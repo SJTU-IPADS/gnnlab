@@ -64,15 +64,15 @@ bool RunSampleSubLoopOnce() {
   }
   shuffle_time = t0.Passed();
 
-#ifdef PIPELINE
+#ifndef PIPELINE
   Timer t1;
   DoGPUSample(task);
-  double sample_time = t1.Passed();
+  sample_time = t1.Passed();
 
   LOG(DEBUG) << "RunSampleOnce next_q Send task";
   Timer t2;
   next_q->Send(task);
-  double send_time = t2.Passed();
+  send_time = t2.Passed();
 
   Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
                               shuffle_time + sample_time + send_time);
