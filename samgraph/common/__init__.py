@@ -305,9 +305,8 @@ class SamGraphBasics(object):
     '''
      for multi-GPUs train
     '''
+
     def data_init(self):
-        # clear the shared memory files of samgraph
-        os.system('rm -rf /dev/shm/shared_meta_data*')
         return self.C_LIB_CTYPES.samgraph_data_init()
 
     '''

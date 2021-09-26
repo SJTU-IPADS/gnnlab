@@ -77,6 +77,8 @@ void DistEngine::Init() {
     }
   }
 
+  _memory_queue = new MessageTaskQueue(RunConfig::max_copying_jobs);
+
   LOG(DEBUG) << "Finished pre-initialization";
 }
 
@@ -198,7 +200,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   for (int i = 0; i < cuda::QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
     if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
-      _queues.push_back(new MessageTaskQueue(RunConfig::max_copying_jobs));
+      _queues.push_back(_memory_queue);
     }
     else {
       _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
@@ -326,7 +328,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   for (int i = 0; i < cuda::QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
     if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
-      _queues.push_back(new MessageTaskQueue(RunConfig::max_copying_jobs));
+      _queues.push_back(_memory_queue);
     }
     else {
       _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));

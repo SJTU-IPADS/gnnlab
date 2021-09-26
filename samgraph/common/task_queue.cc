@@ -258,7 +258,7 @@ namespace {
 
 MessageTaskQueue::MessageTaskQueue(size_t max_len) : TaskQueue(max_len) {
   size_t mq_nbytes = GetMaxMQSize();
-  _mq = std::make_shared<MemoryQueue>(RunConfig::shared_meta_path, mq_nbytes);
+  _mq = std::make_shared<MemoryQueue>(mq_nbytes);
 }
 
 void MessageTaskQueue::Send(std::shared_ptr<Task> task) {
