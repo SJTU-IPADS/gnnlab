@@ -1,5 +1,6 @@
 import samgraph.torch as sam
 import time
+import os
 
 
 def get_dataset_list():
@@ -28,8 +29,8 @@ def get_default_common_config(run_multi_gpu=False, **kwargs):
     # default_common_config['dataset'] = 'com-friendster'
     default_common_config['pipeline'] = False
 
-    default_common_config['cache_policy'] = 'heuristic'
-    # default_common_config['cache_policy'] = 'pre_sample'
+    # default_common_config['cache_policy'] = 'heuristic'
+    default_common_config['cache_policy'] = 'pre_sample'
     default_common_config['cache_percentage'] = 0.0
 
     default_common_config['num_epoch'] = 3
@@ -40,7 +41,7 @@ def get_default_common_config(run_multi_gpu=False, **kwargs):
     default_common_config['max_copying_jobs'] = 1
 
     default_common_config['barriered_epoch'] = 0
-    default_common_config['presample_epoch'] = 0
+    default_common_config['presample_epoch'] = 1
     default_common_config['omp_thread_num'] = 40
 
     default_common_config.update(kwargs)
@@ -103,6 +104,11 @@ def add_common_arguments(argparser, run_config):
     argparser.add_argument('--validate-configs',
                            action='store_true', default=False)
 
+    argparser.add_argument('-ll', '--log-level', choices=[
+                           'info', 'debug', 'warn', 'error'], type=str, dest='_log_level', default='error')
+    argparser.add_argument('-pl', '--profile-level', choices=[
+                           '0', '1', '2', '3'], type=str, dest='_profile_level', default='0')
+
 
 def process_common_config(run_config):
     run_config['dataset_path'] = run_config['root_path'] + \
@@ -138,6 +144,9 @@ def process_common_config(run_config):
     # arch1 doesn't support pipelining
     if run_config['arch'] == 'arch1':
         run_config['pipeline'] = False
+
+    os.environ['SAMGRAPH_LOG_LEVEL'] = run_config['_log_level']
+    os.environ["SAMGRAPH_PROFILE_LEVEL"] = run_config['_profile_level']
 
 
 def print_run_config(run_config):

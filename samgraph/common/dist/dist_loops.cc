@@ -239,7 +239,7 @@ void DoGPUSample(TaskPtr task) {
 
   // Get index of miss data and cache data
   // Timer t4;
-  if (RunConfig::UseGPUCache()) {
+  if (RunConfig::UseGPUCache() && DistEngine::Get()->IsInitialized()) {
     auto input_nodes = reinterpret_cast<const IdType*>
                         (cur_input->Data());
     const size_t num_input = cur_input->Shape()[0];
@@ -329,8 +329,7 @@ void DoGPUSample(TaskPtr task) {
         (void *)cpu_output_dst_index, DataType::kI32, {num_input}, CPU(),
         "task_input_nodes_dst_index_" + std::to_string(task->key));
     task->num_miss = num_output_miss;
-  }
-  else {
+  } else {
     task->input_nodes = cur_input;
     task->input_dst_index = nullptr;
     task->num_miss = cur_input->Shape()[0];

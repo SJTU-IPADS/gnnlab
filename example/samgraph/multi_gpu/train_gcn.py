@@ -68,7 +68,7 @@ def get_run_config():
     run_config.update(get_default_common_config(run_multi_gpu=True))
     run_config['sample_type'] = 'khop2'
 
-    run_config['fanout'] = [25, 10]
+    run_config['fanout'] = [5, 10, 15]
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['weight_decay'] = 0.0005
@@ -298,8 +298,8 @@ def run_train(worker_id, run_config):
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
-            sam.report_step(epoch, step)
             '''
+            sam.report_step(epoch, step)
 
         # sync the train workers
         if num_worker > 1:
