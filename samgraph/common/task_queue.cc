@@ -86,9 +86,9 @@ namespace {
     auto source_ctx = tensor->Ctx();
     auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
     auto nbytes = tensor->NumBytes();
+    LOG(DEBUG) << "deviceType, id: " << source_ctx.device_type << ", " << source_ctx.device_id;
     Device::Get(source_ctx)->CopyDataFromTo(tensor->Data(), 0, to, 0,
                 nbytes, source_ctx, data_ctx, stream);
-    Device::Get(source_ctx)->StreamSync(source_ctx, stream);
   }
 
   // to print the information of a task
@@ -112,8 +112,10 @@ namespace {
       have_data = true;
     }
     size_t data_size = GetDataBytes(task);
-    LOG(DEBUG) << "ToData transform data size: " << data_size << " bytes";
-    TransData* ptr = static_cast<TransData*>(shared_ptr);
+    LOG(DEBUG) << "ToData transform data size: " << ToReadableSize(data_size);
+    void* tmp_cpu_data =  Device::Get(data_ctx)->AllocWorkspace(data_ctx, data_size);
+
+    TransData* ptr = static_cast<TransData*>(tmp_cpu_data);
     ptr->have_data = have_data;
     ptr->num_layer = (task->graphs.size());
     ptr->key = task->key;
@@ -157,6 +159,14 @@ namespace {
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 2 * graph->num_edge);
       }
     }
+
+    auto source_ctx = dist::DistEngine::Get()->GetSamplerCtx();
+    auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+    Device::Get(source_ctx)->StreamSync(source_ctx, stream);
+
+    Device::Get(data_ctx)->CopyDataFromTo(tmp_cpu_data, 0, shared_ptr, 0, data_size, data_ctx, data_ctx, stream);
+    Device::Get(source_ctx)->StreamSync(source_ctx, stream);
+    Device::Get(data_ctx)->FreeWorkspace(data_ctx, tmp_cpu_data, data_size);
   }
 
   // cuda memory comsuption
