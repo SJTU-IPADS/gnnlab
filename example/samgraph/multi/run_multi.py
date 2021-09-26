@@ -95,6 +95,6 @@ if __name__ == '__main__':
     pick_map = { "omp_num_threads" : "", "num_sample_worker" : "", "num_train_worker" : "",
         "sample_time" : [], "copy_time" : [],
         "convert_time" : [], "train_time" : [], "epoch_time" : []}
-    run_parse_log('/home/tangdahai.tdh/dahai-logs/2021-09-21_19-22-46/log/', pick_map)
+    run_parse_log('/home/tangdahai.tdh/dahai-logs/2021-09-22_10-30-17/log/', pick_map)
     '''
     '''

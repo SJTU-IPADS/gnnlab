@@ -5,6 +5,10 @@
 #include <chrono>
 #include <cstdlib>
 #include <numeric>
+#include <iterator>
+#include <sstream>
+#include <string>
+#include <unordered_map>
 
 #include "../constant.h"
 #include "../device.h"
@@ -225,6 +229,48 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _initialize = true;
 }
 
+void DistEngine::TrainDataLoad() {
+  if ((_dataset->feat != nullptr) && (_dataset->label != nullptr)) {
+    return;
+  }
+  std::unordered_map<std::string, size_t> meta;
+  std::unordered_map<std::string, Context> ctx_map = GetGraphFileCtx();
+
+  if (_dataset_path.back() != '/') {
+    _dataset_path.push_back('/');
+  }
+
+  // Parse the meta data
+  std::ifstream meta_file(_dataset_path + Constant::kMetaFile);
+  std::string line;
+  while (std::getline(meta_file, line)) {
+    std::istringstream iss(line);
+    std::vector<std::string> kv{std::istream_iterator<std::string>{iss},
+                                std::istream_iterator<std::string>{}};
+
+    if (kv.size() < 2) {
+      break;
+    }
+
+    meta[kv[0]] = std::stoull(kv[1]);
+  }
+
+  CHECK(meta.count(Constant::kMetaNumNode) > 0);
+  CHECK(meta.count(Constant::kMetaFeatDim) > 0);
+  if (_dataset->feat == nullptr) {
+    _dataset->feat = Tensor::Empty(
+        DataType::kF32,
+        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+        ctx_map[Constant::kFeatFile], "dataset.feat");
+  }
+  if (_dataset->label == nullptr) {
+    _dataset->label =
+        Tensor::Empty(DataType::kI64, {meta[Constant::kMetaNumNode]},
+                      ctx_map[Constant::kLabelFile], "dataset.label");
+  }
+
+}
+
 void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
   _dataset->label = Tensor::CopyTo(_dataset->label, trainer_ctx, stream);
   LOG(DEBUG) << "TrainDataCopy finished!";
@@ -235,6 +281,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
+  TrainDataLoad();
   _dist_type = DistType::Extract;
   RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;

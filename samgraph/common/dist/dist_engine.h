@@ -61,6 +61,8 @@ class DistEngine : public Engine {
   void SampleCacheTableInit();
   // Copy data training needed for subprocess
   void TrainDataCopy(Context trainer_ctx, StreamHandle stream);
+  // set the feat and label if null
+  void TrainDataLoad();
   // Task queue
   std::vector<TaskQueue*> _queues;
   std::vector<std::thread*> _threads;

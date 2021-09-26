@@ -64,6 +64,20 @@ bool RunSampleSubLoopOnce() {
   }
   shuffle_time = t0.Passed();
 
+#ifndef PIPELINE
+  Timer t1;
+  DoGPUSample(task);
+  sample_time = t1.Passed();
+
+  LOG(DEBUG) << "RunSampleOnce next_q Send task";
+  Timer t2;
+  next_q->Send(task);
+  send_time = t2.Passed();
+
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
+                              shuffle_time + sample_time + send_time);
+#else // PIPELINE
+
 #pragma omp parallel num_threads(2)
   {
 #pragma omp single
@@ -87,7 +101,7 @@ bool RunSampleSubLoopOnce() {
       old_task = task;
       // if the last one
       auto shuffler = DistEngine::Get()->GetShuffler();
-      if (shuffler->Step() == shuffler->NumStep() - 1) {
+      if (shuffler->IsLastBatch()) {
         Timer t2;
         next_q->Send(task);
         send_time = t2.Passed();
@@ -99,13 +113,16 @@ bool RunSampleSubLoopOnce() {
   }
 
   double total_time = t_total.Passed();
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
+                              total_time);
+
+#endif // PIPELINE
+
   Profiler::Get().LogStep(task->key, kLogL1SampleTime,
                           shuffle_time + sample_time);
   Profiler::Get().LogStep(task->key, kLogL1SendTime,
                           send_time);
   Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
-  Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
-                              total_time);
 
   return true;
 }

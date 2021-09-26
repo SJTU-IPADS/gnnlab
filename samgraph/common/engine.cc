@@ -117,11 +117,13 @@ void Engine::LoadGraphDataset() {
         _dataset_path + Constant::kFeatFile, DataType::kF32,
         {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
         ctx_map[Constant::kFeatFile], "dataset.feat");
-  } else {
+  } else if(dist::DistEngine::Get() == nullptr) { // not a DistEngine
     _dataset->feat = Tensor::Empty(
         DataType::kF32,
         {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
         ctx_map[Constant::kFeatFile], "dataset.feat");
+  } else { // if a DistEngine, load it in train_init
+    _dataset->feat = nullptr;
   }
 
   if (FileExist(_dataset_path + Constant::kLabelFile)) {
@@ -129,10 +131,12 @@ void Engine::LoadGraphDataset() {
         Tensor::FromMmap(_dataset_path + Constant::kLabelFile, DataType::kI64,
                          {meta[Constant::kMetaNumNode]},
                          ctx_map[Constant::kLabelFile], "dataset.label");
-  } else {
+  } else if(dist::DistEngine::Get() == nullptr) { // not a DistEngine
     _dataset->label =
         Tensor::Empty(DataType::kI64, {meta[Constant::kMetaNumNode]},
                       ctx_map[Constant::kLabelFile], "dataset.label");
+  } else { // if a DistEngine, load it in train_init
+    _dataset->feat = nullptr;
   }
 
   _dataset->train_set =
@@ -163,8 +167,8 @@ void Engine::LoadGraphDataset() {
     _dataset->prob_table = Tensor::Null();
     _dataset->alias_table = Tensor::Null();
     _dataset->prob_prefix_table = Tensor::FromMmap(
-        _dataset_path + Constant::kProbPrefixTableFile, DataType::kI32, 
-        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbPrefixTableFile], 
+        _dataset_path + Constant::kProbPrefixTableFile, DataType::kI32,
+        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbPrefixTableFile],
         "dataset.prob_prefix_table");
   } else {
     _dataset->prob_table = Tensor::Null();
