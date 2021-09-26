@@ -28,12 +28,24 @@ class CachePolicy(Enum):
   cache_by_presample_1 = 11
   cache_by_presample_2 = 12
   cache_by_presample_3 = 13
-  cache_by_presample_max = 14
+  cache_by_presample_4 = 14
+  cache_by_presample_5 = 15
+  cache_by_presample_6 = 16
+  cache_by_presample_max = 17
   no_cache = 20
-  def get_samgraph_policy_value(self):
+  def get_samgraph_policy_param_name(self):
     if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
-      return CachePolicy.cache_by_presample.value
-    return self.value
+      return "pre_sample"
+    name_list = [
+      'degree',
+      'heuristic',
+      'pre_sample',
+      'degree_hop',
+      'presample_static',
+      'fake_optimal',
+      'dynamic_cache'
+    ]
+    return name_list[self.value]
   def get_presample_epoch(self):
     if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
       return self.value - CachePolicy.cache_by_presample_1.value + 1
@@ -66,6 +78,17 @@ class SampleType(Enum):
   kWeightedKHopHashDedup = 6
 
   kDefaultForApp = 10
+  def __str__(self):
+    name_list = [
+      "khop0",
+      "khop1",
+      "weighted_khop",
+      "random_walk",
+      "weighted_khop_prefix",
+      "khop2",
+      "weighted_khop_hash_dedup",
+    ]
+    return name_list[self.value]
 
 class Dataset(Enum):
   reddit = 0
@@ -107,6 +130,7 @@ class RunConfig:
     self.batch_size    = batch_size
     self.logdir        = logdir
     self.sample_type   = SampleType.kDefaultForApp
+    self.report_optimal = 0
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -122,36 +146,40 @@ class RunConfig:
       if self.app is App.pinsage:
         self.sample_type = SampleType.kRandomWalk
       else:
-        self.sample_type = SampleType.kKHop0
+        self.sample_type = SampleType.kKHop2
     else:
       return
 
   def form_cmd(self, durable_log=True):
     self.preprocess_sample_type()
     cmd_line = ''
-    cmd_line += f'export SAMGRAPH_PRESAMPLE_EPOCH={self.cache_policy.get_presample_epoch()}; '
     cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '
-    cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE=0; '
-    cmd_line += 'export SAMGRAPH_PROFILE_LEVEL=1; '
-    cmd_line += 'export SAMGRAPH_BARRIER_EPOCH=1; '
-    cmd_line += 'export SAMGRAPH_LOG_LEVEL=warn; '
+    cmd_line += f'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal}; '
     cmd_line += 'export SAMGRAPH_DUMP_TRACE=0; '
-    cmd_line += f'python samgraph/train_{self.app.name}.py --arch {self.arch.name}'
-    cmd_line += f' --sample-type {self.sample_type.value}'
+    cmd_line += f'python samgraph/train_{self.app.name}.py'
+    cmd_line += f' --arch {self.arch.name}'
+    cmd_line += f' --sample-type {str(self.sample_type)}'
     cmd_line += f' --max-sampling-jobs {self.sample_job}'
     cmd_line += f' --max-copying-jobs {self.copy_job}'
     if self.pipeline:
       cmd_line += ' --pipeline'
+    else:
+      cmd_line += ' --no-pipeline'
 
     if self.cache_policy is not CachePolicy.no_cache:
-      cmd_line += f' --cache-policy {self.cache_policy.get_samgraph_policy_value()} --cache-percentage {self.cache_percent}'
+      cmd_line += f' --cache-policy {self.cache_policy.get_samgraph_policy_param_name()} --cache-percentage {self.cache_percent}'
     else:
       cmd_line += f' --cache-percentage 0.0'
-
     
-    cmd_line += f' --dataset-path {root_path}{str(self.dataset)}'
+    cmd_line += f' --presample-epoch {self.cache_policy.get_presample_epoch()}'
+    cmd_line += f' --barriered-epoch 1'
+
+    cmd_line += f' --root-path "{root_path}"'
+    cmd_line += f' --dataset {str(self.dataset)}'
     cmd_line += f' --num-epoch {self.epoch}'
     cmd_line += f' --batch-size {self.batch_size}'
+    cmd_line += f' --profile-level 1'
+    cmd_line += f' --log-level warn'
 
     if durable_log:
       std_out_log = self.get_log_fname() + '.log'
@@ -165,6 +193,8 @@ class RunConfig:
   def get_log_fname(self):
     self.preprocess_sample_type()
     std_out_log = f'{self.logdir}/'
+    if self.report_optimal == 1:
+      std_out_log += "report_optimal_"
     std_out_log += '_'.join(
       ['samgraph']+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 

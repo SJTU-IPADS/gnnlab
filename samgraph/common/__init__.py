@@ -107,13 +107,13 @@ builtin_archs = {
 
 
 cache_policies = {
-    'degree'       : kCacheByDegree,
-    'heuristic'    : kCacheByHeuristic,
-    'pre_sample'   : kCacheByPreSample,
-    'degree_hop'   : kCacheByDegreeHop,
-    'weighted_khop': kCacheByPreSampleStatic,
-    'fake_optimal' : kCacheByFakeOptimal,
-    'dynamic_cache': kDynamicCache
+    'degree'          : kCacheByDegree,
+    'heuristic'       : kCacheByHeuristic,
+    'pre_sample'      : kCacheByPreSample,
+    'degree_hop'      : kCacheByDegreeHop,
+    'presample_static': kCacheByPreSampleStatic,
+    'fake_optimal'    : kCacheByFakeOptimal,
+    'dynamic_cache'   : kDynamicCache
 }
 
 
