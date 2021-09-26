@@ -88,6 +88,8 @@ class DistEngine : public Engine {
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;
   // Dist type: Sample or Extract
   DistType _dist_type;
+
+  MessageTaskQueue *_memory_queue;
 };
 
 }  // namespace dist

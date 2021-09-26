@@ -97,7 +97,7 @@ struct MQ_MetaData {
 
 class MemoryQueue {
  public:
-  MemoryQueue(std::string meta_memory_name, size_t mq_nbytes);
+  MemoryQueue(size_t mq_nbytes);
   ~MemoryQueue();
   static MemoryQueue* Get() { return _mq; }
   static void Create();
@@ -109,9 +109,7 @@ class MemoryQueue {
  private:
   static MemoryQueue *_mq;
   QueueMetaData* _meta_data;
-  std::string _meta_memory_name;
-  std::string Key2String(size_t key);
-  std::string _prefix;
+  size_t _meta_size;
 };
 
 }  // namespace common
