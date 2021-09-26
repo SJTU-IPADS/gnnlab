@@ -101,7 +101,7 @@ bool RunSampleSubLoopOnce() {
       old_task = task;
       // if the last one
       auto shuffler = DistEngine::Get()->GetShuffler();
-      if (shuffler->Step() == shuffler->NumStep() - 1) {
+      if (shuffler->IsLastBatch()) {
         Timer t2;
         next_q->Send(task);
         send_time = t2.Passed();

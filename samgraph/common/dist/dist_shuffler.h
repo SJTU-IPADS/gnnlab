@@ -24,6 +24,7 @@ class DistShuffler : public Shuffler {
   // return the total steps for each epoch
   // reasons: profiler needs this to create total space
   size_t NumStep() override { return _epoch_step; }
+  bool IsLastBatch() { return _cur_step == (_num_step - 1); }
 
   void Reset() { _cur_step = _num_step; _cur_epoch = 0; _initialized = false; }
   // global key

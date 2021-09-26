@@ -144,7 +144,7 @@ setup(
                         '-fPIC',
                         '-Ofast',
                         '-DSXN_REVISED',
-                        # '-DPIPELINE',
+                        '-DPIPELINE',
                         # '-DSXN_NAIVE_HASHMAP',
                         # '-O0',
                         '-Wall', '-fopenmp', '-march=native'],
@@ -153,7 +153,7 @@ setup(
                          # '-G',
                          #  '--ptxas-options=-v',
                          '-DSXN_REVISED',
-                        # '-DPIPELINE',
+                         '-DPIPELINE',
                         # '-DSXN_NAIVE_HASHMAP',
                          '--compiler-options', "'-fPIC'",
                          '-gencode=arch=compute_35,code=sm_35',  # K40m
