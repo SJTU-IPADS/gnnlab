@@ -105,3 +105,9 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/toolkit/train_graph_size/train_graph_size.cc
     ${COMMON_SOURCE}
 )
+
+add_executable(
+    mem-bandwidth
+    ${CMAKE_SOURCE_DIR}/toolkit/bandwidth/mem_bandwidth.cc
+    ${COMMON_SOURCE}
+)

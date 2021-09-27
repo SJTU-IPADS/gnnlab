@@ -119,10 +119,10 @@ def get_run_config():
     run_config['arch'] = 'arch3'
     run_config['sample_type'] = 'random_walk'
 
-    run_config['random_walk_length'] = 3
+    run_config['random_walk_length'] = 4
     run_config['random_walk_restart_prob'] = 0.5
     run_config['num_random_walk'] = 4
-    run_config['num_neighbor'] = 5
+    run_config['num_neighbor'] = 8
     run_config['num_layer'] = 3
 
     run_config['lr'] = 0.003

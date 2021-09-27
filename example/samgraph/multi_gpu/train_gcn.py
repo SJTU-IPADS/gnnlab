@@ -7,6 +7,7 @@ import torch.optim as optim
 import numpy as np
 from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
+import datetime
 from torch.nn.parallel import DistributedDataParallel
 import os
 import sys
@@ -132,7 +133,7 @@ def run_sample(worker_id, run_config):
         tic = time.time()
         for step in range(num_step):
             sam.sample_once()
-            # sam.report_step(epoch, step)
+            sam.report_step(epoch, step)
         toc = time.time()
 
         epoch_sample_times_0.append(toc - tic)
@@ -183,7 +184,8 @@ def run_train(worker_id, run_config):
         torch.distributed.init_process_group(backend="nccl",
                                              init_method=dist_init_method,
                                              world_size=world_size,
-                                             rank=worker_id)
+                                             rank=worker_id,
+                                             timeout=get_default_timeout())
 
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
@@ -299,7 +301,7 @@ def run_train(worker_id, run_config):
                     sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), np.mean(convert_times[1:]), loss
             ))
             '''
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
 
         # sync the train workers
         if num_worker > 1:
@@ -359,7 +361,7 @@ if __name__ == '__main__':
 
     # global barrier is used to sync all the sample workers and train workers
     run_config['global_barrier'] = mp.Barrier(
-        num_sample_worker + num_train_worker)
+        num_sample_worker + num_train_worker, timeout=get_default_timeout())
 
     workers = []
     # sample processes
