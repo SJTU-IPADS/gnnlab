@@ -157,11 +157,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
-  _memory_queue->PinMemory();
   _dist_type = DistType::Sample;
   RunConfig::sampler_ctx = ctx;
   _sampler_ctx = RunConfig::sampler_ctx;
   LOG_MEM_USAGE(INFO, "before sample initialization", _sampler_ctx);
+  _memory_queue->PinMemory();
+  LOG_MEM_USAGE(INFO, "before sample pin memory", _sampler_ctx);
   if (_sampler_ctx.device_type == kGPU) {
     _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
     // use sampler_ctx in task sending
@@ -309,12 +310,14 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
-  _memory_queue->PinMemory();
-  TrainDataLoad();
   _dist_type = DistType::Extract;
   RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
   LOG_MEM_USAGE(INFO, "before train initialization", _trainer_ctx);
+
+  _memory_queue->PinMemory();
+  LOG_MEM_USAGE(INFO, "after pin memory", _trainer_ctx);
+
   TrainDataLoad();
   LOG_MEM_USAGE(INFO, "after train data load", _trainer_ctx);
 
