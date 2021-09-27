@@ -161,8 +161,8 @@ def run_sample(worker_id, run_config):
     if worker_id == 0:
         sam.report_step_average(epoch - 1, step - 1)
 
-    print('[Sample Worker {:d}] Avg Sample Time Per Epoch {:.4f} | Sample Time(Profiler) {:.4f}'.format(
-        worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_times[1:])))
+    print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
+        worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
 
     # run end barrier
     global_barrier.wait()
@@ -330,7 +330,7 @@ def run_train(worker_id, run_config):
     if num_worker > 1:
         torch.distributed.barrier()
 
-    print('[Train  Worker {:d}] Avg Epoch Trainer Time {:.4f} | Epoch Trainer Time(Profiler) {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
+    print('[Train  Worker {:d}] Avg Trainer Total Time {:.4f} | Trainer Total Time(Profiler) {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_total_times_profiler[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
 
     # run end barrier
