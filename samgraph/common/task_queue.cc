@@ -111,7 +111,7 @@ namespace {
     if (task->graphs[0]->data != nullptr) {
       have_data = true;
     }
-    size_t data_size = GetDataBytes(task);
+    size_t data_size = sizeof(TransData) + GetDataBytes(task);
     LOG(DEBUG) << "ToData transform data size: " << ToReadableSize(data_size);
     void* tmp_cpu_data =  Device::Get(data_ctx)->AllocWorkspace(data_ctx, data_size);
 
