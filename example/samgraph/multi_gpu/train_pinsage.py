@@ -124,10 +124,10 @@ def get_run_config():
     run_config.update(get_default_common_config(run_multi_gpu=True))
     run_config['sample_type'] = 'random_walk'
 
-    run_config['random_walk_length'] = 3
+    run_config['random_walk_length'] = 4
     run_config['random_walk_restart_prob'] = 0.5
     run_config['num_random_walk'] = 4
-    run_config['num_neighbor'] = 5
+    run_config['num_neighbor'] = 8
     run_config['num_layer'] = 3
 
     run_config['lr'] = 0.003
@@ -246,7 +246,8 @@ def run_train(worker_id, run_config):
         torch.distributed.init_process_group(backend="nccl",
                                              init_method=dist_init_method,
                                              world_size=world_size,
-                                             rank=worker_id)
+                                             rank=worker_id,
+                                             timeout=get_default_timeout())
 
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
@@ -421,7 +422,7 @@ if __name__ == '__main__':
 
     # global barrier is used to sync all the sample workers and train workers
     run_config['global_barrier'] = mp.Barrier(
-        num_sample_worker + num_train_worker)
+        num_sample_worker + num_train_worker, timeout=get_default_timeout())
 
     workers = []
     # sample processes

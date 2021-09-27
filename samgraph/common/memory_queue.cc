@@ -1,5 +1,8 @@
 #include "memory_queue.h"
 
+#include <cuda_runtime.h>
+#include <sys/mman.h>
+
 namespace samgraph {
 namespace common {
 
@@ -10,45 +13,28 @@ SharedData::~SharedData() {
 
 MemoryQueue* MemoryQueue::_mq = nullptr;
 
-MemoryQueue::MemoryQueue(std::string meta_memory_name, size_t mq_nbytes) {
-  _meta_memory_name = meta_memory_name;
-  size_t meta_nbytes = (sizeof(QueueMetaData) + mq_nbytes * mq_size);
-  int fd = shm_open(_meta_memory_name.c_str(), O_CREAT | O_EXCL | O_RDWR, S_IRUSR | S_IWUSR);
-  if (fd != -1) { // first open
-    int ret = ftruncate(fd, meta_nbytes);
-    CHECK_NE(ret, -1);
-    _meta_data = reinterpret_cast<QueueMetaData*> (mmap(NULL, meta_nbytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-    mlock(_meta_data, meta_nbytes);
-    CHECK_NE(_meta_data, MAP_FAILED);
-    _meta_data->Init(mq_nbytes);
-  } else { // second open
-    fd = shm_open(_meta_memory_name.c_str(), O_RDWR, 0);
-    CHECK_NE(fd, -1);
-    _meta_data = reinterpret_cast<QueueMetaData*> (mmap(NULL, meta_nbytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
-    mlock(_meta_data, meta_nbytes);
-    CHECK_NE(_meta_data, MAP_FAILED);
-  }
-  _prefix = meta_memory_name;
-  LOG(INFO) << "MemoryQueue initialized with prefix name: " << _prefix;
-}
-
-std::string MemoryQueue::Key2String(size_t key) {
-  // return "shared_memory_" + std::to_string(key);
-  return _prefix + std::to_string(key);
+MemoryQueue::MemoryQueue(size_t mq_nbytes) {
+  _meta_size = (sizeof(QueueMetaData) + mq_nbytes * mq_size);
+  _meta_data = reinterpret_cast<QueueMetaData*>(
+      mmap(NULL, _meta_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED,
+           -1, 0));
+  mlock(_meta_data, _meta_size);
+  CHECK_NE(_meta_data, MAP_FAILED);
+  _meta_data->Init(mq_nbytes);
+  LOG(INFO) << "MemoryQueue initialized";
 }
 
 MemoryQueue::~MemoryQueue() {
-  int len = _meta_data->send_cnt;
-  for (int i = 0; i < len; ++i) {
-    std::string shared_memory_name = Key2String(i);
-    shm_unlink(shared_memory_name.c_str());
-  }
-  shm_unlink(RunConfig::shared_meta_path.c_str());
+   munmap(_meta_data, _meta_size);
+}
+
+void MemoryQueue::PinMemory() {
+  CUDA_CALL(cudaHostRegister(_meta_data, _meta_size, cudaHostRegisterPortable));
 }
 
 void MemoryQueue::Create() {
   LOG(FATAL) << "Can not be used now!";
-  _mq = new MemoryQueue(RunConfig::shared_meta_path, 1024);
+  _mq = new MemoryQueue(1024);
 }
 
 void MemoryQueue::Destory() {

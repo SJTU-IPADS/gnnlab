@@ -1,8 +1,10 @@
 #include "task_queue.h"
-#include "memory_queue.h"
-#include "device.h"
-#include "run_config.h"
+
 #include "./dist/dist_engine.h"
+#include "common.h"
+#include "device.h"
+#include "memory_queue.h"
+#include "run_config.h"
 #include "timer.h"
 
 namespace samgraph {
@@ -176,9 +178,8 @@ namespace {
     CUDA_CALL(cudaMemGetInfo(&free, &used));
     return used - free;
   }
+
   void log_mem_usage(std::string title) {
-    auto _sampler_ctx = RunConfig::sampler_ctx;
-    auto _trainer_ctx = RunConfig::trainer_ctx;
     LOG(DEBUG) << title << "cuda usage: sampler " << ", trainer " << ToReadableSize(get_cuda_used(Engine::Get()->GetTrainerCtx())) << " with pid " << getpid();
   }
 
@@ -268,7 +269,7 @@ namespace {
 
 MessageTaskQueue::MessageTaskQueue(size_t max_len) : TaskQueue(max_len) {
   size_t mq_nbytes = GetMaxMQSize();
-  _mq = std::make_shared<MemoryQueue>(RunConfig::shared_meta_path, mq_nbytes);
+  _mq = std::make_shared<MemoryQueue>(mq_nbytes);
 }
 
 void MessageTaskQueue::Send(std::shared_ptr<Task> task) {
@@ -276,7 +277,8 @@ void MessageTaskQueue::Send(std::shared_ptr<Task> task) {
   auto shared_data = _mq->GetPtr(key);
   ToData(task, shared_data);
   size_t bytes = sizeof(TransData) + GetDataBytes(task);
-  LOG(DEBUG) << "TaskQueue Send data with " << bytes << " bytes";
+  LOG(DEBUG) << "TaskQueue Send data with " << ToReadableSize(bytes)
+             << " bytes";
   _mq->SimpleSend(key);
 }
 
