@@ -182,7 +182,7 @@ def run_sample(worker_id, run_config):
         test_result['buffer_graph_time'] = np.mean(
             epoch_buffer_graph_times[1:])
         test_result['epoch_time:sampler_total'] = np.mean(
-            epoch_sample_total_times_profiler[1:])
+            epoch_sample_total_times_python[1:])
         for k, v in test_result.items():
             print('test_result:{:}={:.2f}'.format(k, v))
 
@@ -356,7 +356,7 @@ def run_train(worker_id, run_config):
         test_result['convert_time'] = np.mean(epoch_convert_times[1:])
         test_result['train_time'] = np.mean(epoch_train_times[1:])
         test_result['epoch_time:trainer_total'] = np.mean(
-            epoch_total_times_profiler[1:])
+            epoch_total_times_python[1:])
         test_result['cache_percentage'] = run_config['cache_percentage']
         test_result['cache_hit_rate'] = np.mean(epoch_cache_hit_rates[1:])
         for k, v in test_result.items():
