@@ -228,8 +228,8 @@ def run_train(worker_id, run_config):
     epoch_copy_times = []
     epoch_convert_times = []
     epoch_train_times = []
-    epoch_train_total_times_python = []
-    epoch_train_total_times_python = []
+    epoch_total_times_python = []
+    epoch_train_total_times_profiler = []
     epoch_cache_hit_rates = []
 
     copy_times = []
@@ -280,6 +280,9 @@ def run_train(worker_id, run_config):
                 batch_input = None
                 batch_label = None
 
+            if num_worker > 1:
+                torch.distributed.barrier()
+
             t3 = time.time()
 
             copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
@@ -310,7 +313,7 @@ def run_train(worker_id, run_config):
         
         toc = time.time()
         
-        epoch_train_total_times_python.append(toc - tic)
+        epoch_total_times_python.append(toc - tic)
         
         # epoch end barrier
         global_barrier.wait()
@@ -321,18 +324,18 @@ def run_train(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime))
         epoch_train_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
-        epoch_train_total_times_python.append(
+        epoch_train_total_times_profiler.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
         if worker_id == 0:
-            print('Epoch {:05d} | Total Train Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-                epoch, epoch_train_total_times_python[-1], epoch_train_total_times_python[-1], epoch_copy_times[-1]))
+            print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
+                epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
 
     # sync the train workers
     if num_worker > 1:
         torch.distributed.barrier()
 
-    print('[Train  Worker {:d}] Avg Train Total Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-          worker_id, np.mean(epoch_train_total_times_python[1:]), np.mean(epoch_train_total_times_python[1:]), np.mean(epoch_copy_times[1:])))
+    print('[Train  Worker {:d}] Avg Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
+          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
     global_barrier.wait()
@@ -343,7 +346,7 @@ def run_train(worker_id, run_config):
         test_result['convert_time'] = np.mean(epoch_convert_times[1:])
         test_result['train_time'] = np.mean(epoch_train_times[1:])
         test_result['epoch_time:train_total'] = np.mean(
-            epoch_train_total_times_python[1:])
+            epoch_train_total_times_profiler[1:])
         test_result['cache_percentage'] = run_config['cache_percentage']
         test_result['cache_hit_rate'] = np.mean(epoch_cache_hit_rates[1:])
         for k, v in test_result.items():

@@ -275,6 +275,10 @@ def run(worker_id, run_config):
             # free input and label data
             batch_inputs = None
             batch_labels = None
+
+            if num_worker > 1:
+                torch.distributed.barrier()
+
             t4 = time.time()
 
             sample_times.append(t1 - t0)
