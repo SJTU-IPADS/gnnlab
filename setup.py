@@ -153,8 +153,8 @@ setup(
                          # '-G',
                          #  '--ptxas-options=-v',
                          '-DSXN_REVISED',
-                        # '-DPIPELINE',
-                        # '-DSXN_NAIVE_HASHMAP',
+                         #  '-DPIPELINE',
+                         # '-DSXN_NAIVE_HASHMAP',
                          '--compiler-options', "'-fPIC'",
                          '-gencode=arch=compute_35,code=sm_35',  # K40m
                          '-gencode=arch=compute_70,code=sm_70',  # V100

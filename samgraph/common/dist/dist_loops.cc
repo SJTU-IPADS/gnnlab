@@ -66,6 +66,7 @@ void DoGPUSample(TaskPtr task) {
       static_cast<const uint32_t *>(dataset->prob_prefix_table->Data());
 
   auto cur_input = task->output_nodes;
+  size_t total_num_samples = 0;
 
   for (int i = last_layer_idx; i >= 0; i--) {
     Timer tlayer;
@@ -211,6 +212,8 @@ void DoGPUSample(TaskPtr task) {
 
     task->graphs[i] = train_graph;
 
+    total_num_samples += num_samples;
+
     // Do some clean jobs
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
@@ -237,12 +240,27 @@ void DoGPUSample(TaskPtr task) {
     LOG(DEBUG) << "GPUSample: finish layer " << i;
   }
 
+  task->input_nodes = cur_input;
+
+  Profiler::Get().LogStep(task->key, kLogL1NumNode,
+                          static_cast<double>(task->input_nodes->Shape()[0]));
+  Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
+  Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
+                             fill_unique_time);
+
+  LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
+}
+
+void DoGetCacheMissIndex(TaskPtr task) {
   // Get index of miss data and cache data
   // Timer t4;
+  auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  auto sample_stream = DistEngine::Get()->GetSampleStream();
   if (RunConfig::UseGPUCache() && DistEngine::Get()->IsInitialized()) {
-    auto input_nodes = reinterpret_cast<const IdType*>
-                        (cur_input->Data());
-    const size_t num_input = cur_input->Shape()[0];
+    auto input_nodes =
+        reinterpret_cast<const IdType *>(task->input_nodes->Data());
+    const size_t num_input = task->input_nodes->Shape()[0];
 
     IdType *sampler_output_miss_src_index = static_cast<IdType *>(
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
@@ -330,19 +348,9 @@ void DoGPUSample(TaskPtr task) {
         "task_input_nodes_dst_index_" + std::to_string(task->key));
     task->num_miss = num_output_miss;
   } else {
-    task->input_nodes = cur_input;
     task->input_dst_index = nullptr;
-    task->num_miss = cur_input->Shape()[0];
+    task->num_miss = task->input_nodes->Shape()[0];
   }
-  // double get_index_time = t4.Passed();
-
-
-  Profiler::Get().LogStep(task->key, kLogL1NumNode,
-                          static_cast<double>(task->input_nodes->Shape()[0]));
-  Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
-                             fill_unique_time);
-
-  LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
 
 void DoGraphCopy(TaskPtr task) {
@@ -521,6 +529,11 @@ void DoFeatureCopy(TaskPtr task) {
   Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
                           train_feat->NumBytes());
   Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
+
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochFeatureBytes,
+                              train_feat->NumBytes());
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochMissBytes,
+                              train_feat->NumBytes());
 
   LOG(DEBUG) << "FeatureCopyHost2Device: process task with key " << task->key;
 }
@@ -717,6 +730,11 @@ void DoCacheFeatureCopy(TaskPtr task) {
                           combine_miss_time);
   Profiler::Get().LogStep(task->key, kLogL3CacheCombineCacheTime,
                           combine_cache_time);
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochFeatureBytes,
+                              train_feat->NumBytes());
+  Profiler::Get().LogEpochAdd(
+      task->key, kLogEpochMissBytes,
+      GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }

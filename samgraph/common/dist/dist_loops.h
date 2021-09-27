@@ -15,6 +15,7 @@ void RunArch5LoopsOnce(DistType dist_type);
 // common steps
 TaskPtr DoShuffle();
 void DoGPUSample(TaskPtr task);
+void DoGetCacheMissIndex(TaskPtr task);
 void DoGraphCopy(TaskPtr task);
 void DoIdCopy(TaskPtr task);
 void DoCPUFeatureExtract(TaskPtr task);
