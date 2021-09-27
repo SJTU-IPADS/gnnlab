@@ -222,7 +222,7 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   tensor->_nbytes = source->_nbytes;
   tensor->_ctx = ctx;
   tensor->_data =
-      Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+      Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
   tensor->_name = source->_name;
   Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
                                    nbytes, source->_ctx, tensor->_ctx, stream);

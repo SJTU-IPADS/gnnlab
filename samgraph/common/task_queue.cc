@@ -88,9 +88,9 @@ namespace {
     auto source_ctx = tensor->Ctx();
     auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
     auto nbytes = tensor->NumBytes();
+    LOG(DEBUG) << "deviceType, id: " << source_ctx.device_type << ", " << source_ctx.device_id;
     Device::Get(source_ctx)->CopyDataFromTo(tensor->Data(), 0, to, 0,
                 nbytes, source_ctx, data_ctx, stream);
-    Device::Get(source_ctx)->StreamSync(source_ctx, stream);
   }
 
   // to print the information of a task
@@ -113,8 +113,9 @@ namespace {
     if (task->graphs[0]->data != nullptr) {
       have_data = true;
     }
-    size_t data_size = GetDataBytes(task);
-    LOG(DEBUG) << "ToData transform data size: " << data_size << " bytes";
+    size_t data_size = sizeof(TransData) + GetDataBytes(task);
+    LOG(DEBUG) << "ToData transform data size: " << ToReadableSize(data_size);
+
     TransData* ptr = static_cast<TransData*>(shared_ptr);
     ptr->have_data = have_data;
     ptr->num_layer = (task->graphs.size());
@@ -159,6 +160,12 @@ namespace {
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 2 * graph->num_edge);
       }
     }
+
+    // sync data copy last step
+    auto source_ctx = dist::DistEngine::Get()->GetSamplerCtx();
+    auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+    Device::Get(source_ctx)->StreamSync(source_ctx, stream);
+
   }
 
   // cuda memory comsuption
