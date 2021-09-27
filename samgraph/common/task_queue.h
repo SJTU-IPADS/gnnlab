@@ -30,6 +30,7 @@ class TaskQueue {
 class MessageTaskQueue : public TaskQueue {
  public:
   MessageTaskQueue(size_t max_len);
+  void PinMemory() { _mq->PinMemory(); }
   void Send(std::shared_ptr<Task>);
   std::shared_ptr<Task> Recv();
 

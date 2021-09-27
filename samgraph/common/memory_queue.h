@@ -102,6 +102,7 @@ class MemoryQueue {
   static MemoryQueue* Get() { return _mq; }
   static void Create();
   static void Destory();
+  void PinMemory();
   int Send(void* data, size_t size);
   std::shared_ptr<SharedData>  Recv();
   void* GetPtr(size_t &key);

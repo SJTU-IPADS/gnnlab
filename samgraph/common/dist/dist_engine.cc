@@ -140,6 +140,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
+  _memory_queue->PinMemory();
   _dist_type = DistType::Sample;
   RunConfig::sampler_ctx = ctx;
   _sampler_ctx = RunConfig::sampler_ctx;
@@ -283,6 +284,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
+  _memory_queue->PinMemory();
   TrainDataLoad();
   _dist_type = DistType::Extract;
   RunConfig::trainer_ctx = ctx;

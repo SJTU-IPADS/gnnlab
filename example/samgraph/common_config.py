@@ -3,6 +3,11 @@ import time
 import os
 
 
+def get_default_timeout():
+    # 60 seconds
+    return 60.0
+
+
 def get_dataset_list():
     return ['papers100M', 'com-friendster',
             'reddit', 'products', 'twitter', 'uk-2006-05']
@@ -64,9 +69,12 @@ def add_common_arguments(argparser, run_config):
         argparser.add_argument('--arch', type=str, choices=sam.builtin_archs.keys(),
                                default=run_config['arch'])
         run_config['_run_multi_gpu'] = 'false'
-        argparser.add_argument('--override-device', action='store_true', default=False)
-        argparser.add_argument('--override-train-device', type=str, default='cuda:0')
-        argparser.add_argument('--override-sample-device', type=str, default='cuda:1')
+        argparser.add_argument('--override-device',
+                               action='store_true', default=False)
+        argparser.add_argument('--override-train-device',
+                               type=str, default='cuda:0')
+        argparser.add_argument('--override-sample-device',
+                               type=str, default='cuda:1')
 
     argparser.add_argument('--sample-type', type=str, choices=sam.sample_types.keys(),
                            default=run_config['sample_type'])
@@ -111,6 +119,7 @@ def add_common_arguments(argparser, run_config):
                            'info', 'debug', 'warn', 'error'], type=str, dest='_log_level', default='error')
     argparser.add_argument('-pl', '--profile-level', choices=[
                            '0', '1', '2', '3'], type=str, dest='_profile_level', default='0')
+
 
 def process_common_config(run_config):
     run_config['dataset_path'] = run_config['root_path'] + \

@@ -1,5 +1,8 @@
 #include "memory_queue.h"
 
+#include <cuda_runtime.h>
+#include <sys/mman.h>
+
 namespace samgraph {
 namespace common {
 
@@ -12,7 +15,9 @@ MemoryQueue* MemoryQueue::_mq = nullptr;
 
 MemoryQueue::MemoryQueue(size_t mq_nbytes) {
   _meta_size = (sizeof(QueueMetaData) + mq_nbytes * mq_size);
-  _meta_data = reinterpret_cast<QueueMetaData*> (mmap(NULL, _meta_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED | 0x40000 /*MAP_HUGETLB*/, -1, 0));
+  _meta_data = reinterpret_cast<QueueMetaData*>(
+      mmap(NULL, _meta_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED,
+           -1, 0));
   mlock(_meta_data, _meta_size);
   CHECK_NE(_meta_data, MAP_FAILED);
   _meta_data->Init(mq_nbytes);
@@ -21,6 +26,10 @@ MemoryQueue::MemoryQueue(size_t mq_nbytes) {
 
 MemoryQueue::~MemoryQueue() {
    munmap(_meta_data, _meta_size);
+}
+
+void MemoryQueue::PinMemory() {
+  CUDA_CALL(cudaHostRegister(_meta_data, _meta_size, cudaHostRegisterPortable));
 }
 
 void MemoryQueue::Create() {
