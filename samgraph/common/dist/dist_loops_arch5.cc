@@ -53,7 +53,7 @@ bool RunSampleSubLoopOnce() {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     return true;
   }
-  double shuffle_time, sample_time, send_time;
+  double shuffle_time, sample_time, get_miss_cache_index_time, send_time;
 
   Timer t_total;
 
@@ -69,13 +69,23 @@ bool RunSampleSubLoopOnce() {
   DoGPUSample(task);
   sample_time = t1.Passed();
 
-  LOG(DEBUG) << "RunSampleOnce next_q Send task";
   Timer t2;
+  DoGetCacheMissIndex(task);
+  get_miss_cache_index_time = t2.Passed();
+
+  LOG(DEBUG) << "RunSampleOnce next_q Send task";
+  Timer t3;
   next_q->Send(task);
-  send_time = t2.Passed();
+  send_time = t3.Passed();
 
   Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
-                              shuffle_time + sample_time + send_time);
+                              shuffle_time + sample_time);
+  Profiler::Get().LogEpochAdd(task->key, KLogEpochSampleGetCacheMissIndexTime,
+                              get_miss_cache_index_time);
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleSendTime, send_time);
+  Profiler::Get().LogEpochAdd(
+      task->key, kLogEpochSampleTotalTime,
+      shuffle_time + sample_time + get_miss_cache_index_time + send_time);
 #else // PIPELINE
 
 #pragma omp parallel num_threads(2)
@@ -96,6 +106,7 @@ bool RunSampleSubLoopOnce() {
 
       Timer t1;
       DoGPUSample(task);
+      DoGetCacheMissIndex(task);
       sample_time = t1.Passed();
 
       old_task = task;

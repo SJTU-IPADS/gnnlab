@@ -338,7 +338,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "convert time %.4lf | train  %.4lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
-        "        L1  num nodes      %10lf | num samples  %10lf\n",
+        "        L1  num nodes      %10.0lf | num samples  %10.0lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
         _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
@@ -357,7 +357,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
         "        L1  miss nbytes    %10s | hit rate %10s \n"
-        "        L1  nodes          %10.1lf | cache rate %10s \n"
+        "        L1  nodes          %10.0lf | cache rate %10s \n"
         "        L1  prefetch adv   %10.4lf | get nbr time %10.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
@@ -381,7 +381,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
         "        L1  miss nbytes    %10s\n"
-        "        L1  num nodes      %10lf | num samples  %10lf\n",
+        "        L1  num nodes      %10.0lf | num samples  %10.0lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
         _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],

@@ -106,12 +106,17 @@ def breakdown_test(log_folder=None):
         test_group_name='Samgraph breakdown test'
     ).select(
         'app',
-        [App.gcn]
+        [App.gcn, App.graphsage, App.pinsage]
     ).combo(
         'app',
-        [App.gcn],
+        [App.gcn, App.graphsage],
         'sample_type',
         ['khop2']
+    ).combo(
+        'app',
+        [App.pinsage],
+        'sample_type',
+        ['random_walk']
     ).override(
         'num_epoch',
         [3]
@@ -121,6 +126,11 @@ def breakdown_test(log_folder=None):
     ).override(
         'omp-thread-num',
         [40]
+    ).combo(
+        'app',
+        [App.gcn],
+        'fanout',
+        ['5 10 15']
     ).combo(
         'app',
         [App.gcn],

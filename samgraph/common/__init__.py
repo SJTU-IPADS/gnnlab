@@ -177,13 +177,16 @@ kLogL3CacheCombineCacheTime      = _get_next_enum_val(_step_log_val)
 
 # Epoch Log
 _epoch_log_val = [0]
-
-kLogEpochSampleTime  = _get_next_enum_val(_epoch_log_val)
-kLogEpochCopyTime    = _get_next_enum_val(_epoch_log_val)
-kLogEpochConvertTime = _get_next_enum_val(_epoch_log_val)
-kLogEpochTrainTime   = _get_next_enum_val(_epoch_log_val)
-kLogEpochTotalTime   = _get_next_enum_val(_epoch_log_val)
-
+kLogEpochSampleTime                  = _get_next_enum_val(_epoch_log_val)
+KLogEpochSampleGetCacheMissIndexTime = _get_next_enum_val(_epoch_log_val)
+kLogEpochSampleSendTime              = _get_next_enum_val(_epoch_log_val)
+kLogEpochSampleTotalTime             = _get_next_enum_val(_epoch_log_val)
+kLogEpochCopyTime                    = _get_next_enum_val(_epoch_log_val)
+kLogEpochConvertTime                 = _get_next_enum_val(_epoch_log_val)
+kLogEpochTrainTime                   = _get_next_enum_val(_epoch_log_val)
+kLogEpochTotalTime                   = _get_next_enum_val(_epoch_log_val)
+kLogEpochFeatureBytes                = _get_next_enum_val(_epoch_log_val)
+kLogEpochMissBytes                   = _get_next_enum_val(_epoch_log_val)
 
 _step_event_val = [0]
 

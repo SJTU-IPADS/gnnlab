@@ -88,10 +88,15 @@ enum LogStepItem {
 
 enum LogEpochItem {
   kLogEpochSampleTime = 0,
+  KLogEpochSampleGetCacheMissIndexTime,  // for arch5
+  kLogEpochSampleSendTime,               // for arch5
+  kLogEpochSampleTotalTime,              // for arch5
   kLogEpochCopyTime,
   kLogEpochConvertTime,
   kLogEpochTrainTime,
   kLogEpochTotalTime,
+  kLogEpochFeatureBytes,
+  kLogEpochMissBytes,
   kNumLogEpochItems
 };
 
