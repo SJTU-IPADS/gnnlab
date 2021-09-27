@@ -119,8 +119,8 @@ def run():
     epoch_copy_times    = [0 for i in range(num_epoch)]
     epoch_convert_times = [0 for i in range(num_epoch)]
     epoch_train_times   = [0 for i in range(num_epoch)]
-    epoch_total_times_python = [0 for i in range(num_epoch)]
-    epoch_total_times_profiler = []
+    epoch_total_times_profiler = [0 for i in range(num_epoch)]
+    epoch_total_times_python = []
 
     # sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
@@ -197,12 +197,12 @@ def run():
             cur_step_key += 1
 
         toc = time.time()
-        epoch_total_times_profiler.append(toc - tic)
+        epoch_total_times_python.append(toc - tic)
         epoch_sample_times  [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
         epoch_copy_times    [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime)
         epoch_convert_times [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime)
         epoch_train_times   [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime)
-        epoch_total_times_python[epoch] = sam.get_log_epoch_value(
+        epoch_total_times_profiler[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochTotalTime)
         sam.forward_barrier()
         print('Epoch {:05d} | Time {:.4f}'.format(
@@ -210,7 +210,7 @@ def run():
 
     sam.report_step_average(num_epoch - 1, num_step - 1)
     print('[Avg] Epoch Time {:.4f} | Epoch Time(Profiler) {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
-        np.mean(epoch_total_times_profiler[1:]), np.mean(epoch_total_times_python[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
+        np.mean(epoch_total_times_python[1:]), np.mean(epoch_total_times_profiler[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
     sam.report_init()
 
     sam.report_node_access()
