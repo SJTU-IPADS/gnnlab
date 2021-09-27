@@ -115,9 +115,8 @@ namespace {
     }
     size_t data_size = sizeof(TransData) + GetDataBytes(task);
     LOG(DEBUG) << "ToData transform data size: " << ToReadableSize(data_size);
-    void* tmp_cpu_data =  Device::Get(data_ctx)->AllocWorkspace(data_ctx, data_size);
 
-    TransData* ptr = static_cast<TransData*>(tmp_cpu_data);
+    TransData* ptr = static_cast<TransData*>(shared_ptr);
     ptr->have_data = have_data;
     ptr->num_layer = (task->graphs.size());
     ptr->key = task->key;
@@ -162,13 +161,11 @@ namespace {
       }
     }
 
+    // sync data copy last step
     auto source_ctx = dist::DistEngine::Get()->GetSamplerCtx();
     auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
     Device::Get(source_ctx)->StreamSync(source_ctx, stream);
 
-    Device::Get(data_ctx)->CopyDataFromTo(tmp_cpu_data, 0, shared_ptr, 0, data_size, data_ctx, data_ctx, stream);
-    Device::Get(source_ctx)->StreamSync(source_ctx, stream);
-    Device::Get(data_ctx)->FreeWorkspace(data_ctx, tmp_cpu_data, data_size);
   }
 
   // cuda memory comsuption
