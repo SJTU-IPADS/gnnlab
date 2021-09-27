@@ -32,6 +32,23 @@ namespace samgraph {
 namespace common {
 namespace dist {
 
+namespace {
+size_t get_cuda_used(Context ctx) {
+  size_t free, used;
+  cudaSetDevice(ctx.device_id);
+  cudaMemGetInfo(&free, &used);
+  return used - free;
+}
+#define LOG_MEM_USAGE(LEVEL, title, ctx) \
+  {\
+    auto _target_device = Device::Get(ctx); \
+    LOG(LEVEL) << (title) << ", data alloc: " << ToReadableSize(_target_device->DataSize(ctx));\
+    LOG(LEVEL) << (title) << ", workspace : " << ToReadableSize(_target_device->WorkspaceSize(ctx));\
+    LOG(LEVEL) << (title) << ", total     : " << ToReadableSize(_target_device->TotalSize(ctx));\
+    LOG(LEVEL) << "cuda usage: " << ToReadableSize(get_cuda_used(ctx));\
+  }
+} // namespace
+
 DistEngine::DistEngine() {
   _initialize = false;
   _should_shutdown = false;
@@ -140,10 +157,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
-  _memory_queue->PinMemory();
   _dist_type = DistType::Sample;
   RunConfig::sampler_ctx = ctx;
   _sampler_ctx = RunConfig::sampler_ctx;
+  LOG_MEM_USAGE(INFO, "before sample initialization", _sampler_ctx);
+  _memory_queue->PinMemory();
+  LOG_MEM_USAGE(INFO, "before sample pin memory", _sampler_ctx);
   if (_sampler_ctx.device_type == kGPU) {
     _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
     // use sampler_ctx in task sending
@@ -152,8 +171,10 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
   }
+  LOG_MEM_USAGE(INFO, "after create sampler stream", _sampler_ctx);
 
   SampleDataCopy(_sampler_ctx, _sample_stream);
+  LOG_MEM_USAGE(INFO, "after sample data copy", _sampler_ctx);
 
   _shuffler = nullptr;
   switch(ctx.device_type) {
@@ -170,6 +191,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
                    << ctx.device_type;
   }
   _num_step = _shuffler->NumStep();
+  LOG_MEM_USAGE(INFO, "after create shuffler", _sampler_ctx);
 
 
   // XXX: map the _hash_table to difference device
@@ -181,10 +203,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _hashtable = new cuda::OrderedHashTable(
       _dataset->num_node, _sampler_ctx, 1);
 #endif
+  LOG_MEM_USAGE(INFO, "after create hashtable", _sampler_ctx);
 
   // Create CUDA random states for sampling
   _random_states = new cuda::GPURandomStates(RunConfig::sample_type, _fanout,
                                        _batch_size, _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "after create random states", _sampler_ctx);
 
   if (RunConfig::sample_type == kRandomWalk) {
     size_t max_nodes =
@@ -226,9 +250,11 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       }
       default: ;
     }
+    LOG_MEM_USAGE(INFO, "after presample", _sampler_ctx);
     SampleCacheTableInit();
   }
 
+  LOG_MEM_USAGE(INFO, "after finish sample initialization", _sampler_ctx);
   _initialize = true;
 }
 
@@ -284,11 +310,16 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
     LOG(FATAL) << "DistEngine already initialized!";
     return;
   }
-  _memory_queue->PinMemory();
-  TrainDataLoad();
   _dist_type = DistType::Extract;
   RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
+  LOG_MEM_USAGE(INFO, "before train initialization", _trainer_ctx);
+
+  _memory_queue->PinMemory();
+  LOG_MEM_USAGE(INFO, "after pin memory", _trainer_ctx);
+
+  TrainDataLoad();
+  LOG_MEM_USAGE(INFO, "after train data load", _trainer_ctx);
 
   // Create CUDA streams
   // XXX: create cuda streams that training needs
@@ -303,6 +334,8 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   */
 
   _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) / _batch_size);
+
+  LOG_MEM_USAGE(INFO, "after train create stream", _trainer_ctx);
 
   if (RunConfig::UseGPUCache()) {
     TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
@@ -325,6 +358,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   } else {
     _cache_manager = nullptr;
   }
+  LOG_MEM_USAGE(INFO, "after train load cache", _trainer_ctx);
 
   // Create queues
   for (int i = 0; i < cuda::QueueNum; i++) {
@@ -340,6 +374,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   _initialize = true;
+  LOG_MEM_USAGE(INFO, "after train initialization", _trainer_ctx);
 }
 
 
