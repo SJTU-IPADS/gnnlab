@@ -106,7 +106,7 @@ def get_run_config():
     # default_run_config['num_sampling_worker'] = 16
 
     # DGL fanouts from front to back are from leaf to root
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [5, 10, 15]
     default_run_config['num_epoch'] = 2
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
@@ -189,6 +189,7 @@ def run(worker_id, run_config):
     sample_device = torch.device(run_config['sample_devices'][worker_id])
     train_device = torch.device(run_config['train_devices'][worker_id])
     num_worker = run_config['num_worker']
+    print('train device: ', torch.cuda.get_device_name(train_device))
 
     if num_worker > 1:
         dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
@@ -329,10 +330,10 @@ def run(worker_id, run_config):
     if num_worker > 1:
         torch.distributed.barrier()
 
-    if worker_id == 0:
-        print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-            np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+    print('[work_id {:4d}] Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
+        worker_id, np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
+    if worker_id == 0:
         test_result = {}
         test_result['epoch_time'] = np.mean(epoch_total_times[1:])
         test_result['sample_time'] = np.mean(epoch_sample_times[1:])

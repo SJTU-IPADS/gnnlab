@@ -100,6 +100,7 @@ def run_sample(worker_id, run_config):
     global_barrier = run_config['global_barrier']
 
     ctx = run_config['sample_workers'][worker_id]
+    print('sample device: ', torch.cuda.get_device_name(ctx))
 
     print('[Sample Worker {:d}/{:d}] Started with PID {:d}'.format(
         worker_id, num_worker, os.getpid()))
@@ -239,7 +240,7 @@ def run_train(worker_id, run_config):
 
     align_up_step = int(
         int((num_step + num_worker - 1) / num_worker) * num_worker)
-    
+
     # run start barrier
     global_barrier.wait()
     print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
@@ -305,16 +306,16 @@ def run_train(worker_id, run_config):
             train_times.append(train_time)
             total_times.append(total_time)
 
-            # sam.report_step(epoch, step)
+            sam.report_step_average(epoch, step)
 
         # sync the train workers
         if num_worker > 1:
             torch.distributed.barrier()
-        
+
         toc = time.time()
-        
+
         epoch_total_times_python.append(toc - tic)
-        
+
         # epoch end barrier
         global_barrier.wait()
 

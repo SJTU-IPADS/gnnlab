@@ -101,6 +101,7 @@ def run_sample(worker_id, run_config):
     global_barrier = run_config['global_barrier']
 
     ctx = run_config['sample_workers'][worker_id]
+    print('sample device: ', torch.cuda.get_device_name(ctx))
 
     print('[Sample Worker {:d}/{:d}] Started with PID {:d}'.format(
         worker_id, num_worker, os.getpid()))
