@@ -53,10 +53,12 @@ TensorPtr PreSampler::DoPreSample(){
       sampler_device->CopyDataFromTo(
         task->input_nodes->Data(), 0, input_nodes, 0,
         num_inputs * sizeof(IdType), task->input_nodes->Ctx(), CPU());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
       for (size_t i = 0; i < num_inputs; i++) {
         auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes[i]]);
         *(freq_ptr+1) += 1;
       }
+      delete[] input_nodes;
     }
   }
 #ifdef __linux__
