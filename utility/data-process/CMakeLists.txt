@@ -111,3 +111,9 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/toolkit/bandwidth/mem_bandwidth.cc
     ${COMMON_SOURCE}
 )
+
+add_executable(
+    memcpy-test
+    ${CMAKE_SOURCE_DIR}/toolkit/bandwidth/memcpy_test.cc
+    ${COMMON_SOURCE}
+)

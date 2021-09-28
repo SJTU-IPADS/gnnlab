@@ -5,7 +5,7 @@ import os
 
 def get_default_timeout():
     # 60 seconds
-    return 60.0
+    return 300.0
 
 
 def get_dataset_list():
@@ -81,7 +81,7 @@ def add_common_arguments(argparser, run_config):
 
     argparser.add_argument('--pipeline', action='store_true',
                            default=run_config['pipeline'])
-    argparser.add_argument('--no-pipeline', action='store_false', dest='pipelining',
+    argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
                            default=run_config['pipeline'])
 
     argparser.add_argument('--root-path', type=str,
