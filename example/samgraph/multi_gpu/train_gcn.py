@@ -11,6 +11,7 @@ from torch.nn.parallel import DistributedDataParallel
 import os
 import sys
 import samgraph.torch as sam
+import datetime
 from common_config import *
 
 
@@ -211,7 +212,7 @@ def run_train(worker_id, run_config):
                                              init_method=dist_init_method,
                                              world_size=world_size,
                                              rank=worker_id,
-                                             timeout=get_default_timeout())
+                                             timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     in_feat = sam.feat_dim()
     num_class = sam.num_class()

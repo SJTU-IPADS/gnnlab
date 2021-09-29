@@ -4,8 +4,8 @@ import os
 
 
 def get_default_timeout():
-    # 60 seconds
-    return 300.0
+    # in seconds
+    return 600.0
 
 
 def get_dataset_list():
@@ -138,6 +138,7 @@ def process_common_config(run_config):
             run_config['sampler_ctx'] = run_config['override_sample_device']
             run_config['trainer_ctx'] = run_config['override_train_device']
     else:
+        run_config['omp_thread_num'] //= run_config['num_train_worker']
         assert(
             'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
         assert(

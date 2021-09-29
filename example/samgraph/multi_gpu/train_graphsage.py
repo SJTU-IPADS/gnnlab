@@ -10,6 +10,7 @@ import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
+import datetime
 '''
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 os.environ["NCCL_DEBUG"] = "INFO"
@@ -216,7 +217,7 @@ def run_train(worker_id, run_config):
                                              init_method=dist_init_method,
                                              world_size=world_size,
                                              rank=worker_id,
-                                             timeout=get_default_timeout())
+                                             timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
