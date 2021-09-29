@@ -23,6 +23,17 @@ namespace samgraph {
 namespace common {
 namespace dist {
 
+class DistSharedBarrier {
+ public:
+  DistSharedBarrier(int count);
+  ~ DistSharedBarrier() {
+    munmap(_barrier_ptr, sizeof(pthread_barrier_t));
+  }
+  void Wait();
+ private:
+  pthread_barrier_t* _barrier_ptr;
+};
+
 enum class DistType {Sample = 0, Extract, Default};
 
 class DistEngine : public Engine {
@@ -90,6 +101,7 @@ class DistEngine : public Engine {
   DistType _dist_type;
 
   MessageTaskQueue *_memory_queue;
+  DistSharedBarrier *_sampler_barrier;
 };
 
 }  // namespace dist
