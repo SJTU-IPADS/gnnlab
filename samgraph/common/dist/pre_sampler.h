@@ -9,6 +9,7 @@ namespace dist {
 class PreSampler {
  public:
   PreSampler(size_t num_nodes, size_t num_step);
+  ~PreSampler();
   void DoPreSample();
   TensorPtr GetFreq();
   TensorPtr GetRankNode();
