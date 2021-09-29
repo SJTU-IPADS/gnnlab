@@ -119,7 +119,8 @@ void GPUEngine::Init() {
       case kCacheByPreSample: {
         Timer tp;
         PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
-        _dataset->ranking_nodes = PreSampler::Get()->DoPreSample();
+        PreSampler::Get()->DoPreSample();
+        _dataset->ranking_nodes = PreSampler::Get()->GetRankNode();
         presample_time = tp.Passed();
         break;
       }

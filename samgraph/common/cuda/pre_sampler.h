@@ -9,9 +9,11 @@ namespace cuda {
 class PreSampler {
  public:
   PreSampler(size_t num_nodes, size_t num_step);
-  TensorPtr DoPreSample();
+  ~PreSampler();
+  void DoPreSample();
   TensorPtr GetFreq();
   TensorPtr GetRankNode();
+  void GetRankNode(TensorPtr &);
   static inline void SetSingleton(PreSampler* p) { singleton = p; }
   static inline PreSampler* Get() { return singleton; }
  private:
