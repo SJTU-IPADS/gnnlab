@@ -19,11 +19,13 @@ namespace common {
 namespace dist {
 
 PreSampler* PreSampler::singleton = nullptr;
-PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
-    _num_nodes(num_nodes),
-    _num_step(num_step) {
+PreSampler::PreSampler(TensorPtr input, size_t batch_size) {
   Timer t_init;
-  freq_table = static_cast<Id64Type*>(Device::Get(CPU())->AllocDataSpace(CPU(), sizeof(Id64Type)*num_nodes));
+  _shuffler = new cuda::GPUShuffler(input, RunConfig::presample_epoch,
+                          batch_size, false);
+  _num_nodes = input->Shape()[0];
+  _num_step = _shuffler->NumStep();
+  freq_table = static_cast<Id64Type*>(Device::Get(CPU())->AllocDataSpace(CPU(), sizeof(Id64Type)*_num_nodes));
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_nodes; i++) {
     auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
@@ -35,6 +37,21 @@ PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
 
 PreSampler::~PreSampler() {
   Device::Get(CPU())->FreeDataSpace(CPU(), freq_table);
+  delete _shuffler;
+}
+
+TaskPtr PreSampler::DoPreSampleShuffle() {
+  auto s = _shuffler;
+  auto batch = s->GetBatch();
+
+  if (batch) {
+    auto task = std::make_shared<Task>();
+    task->output_nodes = batch;
+    LOG(DEBUG) << "DoShuffle: process task with key " << task->key;
+    return task;
+  } else {
+    return nullptr;
+  }
 }
 
 void PreSampler::DoPreSample(){
@@ -42,9 +59,10 @@ void PreSampler::DoPreSample(){
   auto sampler_device = Device::Get(sampler_ctx);
   auto cpu_device = Device::Get(CPU());
   for (int e = 0; e < RunConfig::presample_epoch; e++) {
+    std::cout << "num_step: " << _num_step << std::endl;
     for (size_t i = 0; i < _num_step; i++) {
       Timer t0;
-      auto task = DoShuffle();
+      auto task = DoPreSampleShuffle();
       switch (RunConfig::cache_policy) {
         case kCacheByPreSample:
           DoGPUSample(task);
@@ -59,7 +77,9 @@ void PreSampler::DoPreSample(){
           CHECK(0);
       }
       double sample_time = t0.Passed();
+      std::cout << "task get input_nodes" << std::endl;
       size_t num_inputs = task->input_nodes->Shape()[0];
+      std::cout << "num_inputs: " << num_inputs << std::endl;
       Timer t1;
       IdType* input_nodes = static_cast<IdType*>(cpu_device->AllocWorkspace(CPU(), sizeof(IdType)*num_inputs));
       sampler_device->CopyDataFromTo(
@@ -67,6 +87,7 @@ void PreSampler::DoPreSample(){
         num_inputs * sizeof(IdType), task->input_nodes->Ctx(), CPU());
       double copy_time = t1.Passed();
       Timer t2;
+      std::cout << "sort inputs nodes: " << num_inputs << std::endl;
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
       for (size_t i = 0; i < num_inputs; i++) {
         auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes[i]]);
@@ -77,7 +98,9 @@ void PreSampler::DoPreSample(){
       Profiler::Get().LogInitAdd(kLogInitL2PresampleSample, sample_time);
       Profiler::Get().LogInitAdd(kLogInitL2PresampleCopy, copy_time);
       Profiler::Get().LogInitAdd(kLogInitL2PresampleCount, count_time);
+      std::cout << "finish the step: " << i << std::endl;
     }
+    std::cout << "finish the presample" << std::endl;
   }
   Timer ts;
 #ifdef __linux__
@@ -90,7 +113,6 @@ void PreSampler::DoPreSample(){
   double sort_time = ts.Passed();
   Profiler::Get().LogInit(kLogInitL2PresampleSort, sort_time);
   Timer t_reset;
-  DistEngine::Get()->GetShuffler()->Reset();
   Profiler::Get().ResetStepEpoch();
   Profiler::Get().LogInit(kLogInitL2PresampleReset, t_reset.Passed());
 }

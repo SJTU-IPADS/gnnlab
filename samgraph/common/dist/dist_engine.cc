@@ -63,7 +63,7 @@ DistSharedBarrier::DistSharedBarrier(int count) {
 
 void DistSharedBarrier::Wait() {
   int err = pthread_barrier_wait(_barrier_ptr);
-  CHECK_NE(err, EINVAL);
+  CHECK(err == PTHREAD_BARRIER_SERIAL_THREAD || err == 0);
 }
 
 DistEngine::DistEngine() {
@@ -112,6 +112,7 @@ void DistEngine::Init() {
   }
 
   _memory_queue = new MessageTaskQueue(RunConfig::max_copying_jobs);
+  LOG(DEBUG) << "create sampler barrier with " << RunConfig::num_sample_worker << " samplers";
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
 
   LOG(DEBUG) << "Finished pre-initialization";
@@ -257,11 +258,13 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       case kCacheByPreSampleStatic:
       case kCacheByPreSample: {
         Timer tp;
+        std::cout << "before presample with worker " << worker_id << std::endl;
         if (worker_id == 0) {
-          PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
+          PreSampler::SetSingleton(new PreSampler(_dataset->train_set, RunConfig::batch_size));
           PreSampler::Get()->DoPreSample();
           PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
         }
+        std::cout << "before barrier with worker " << worker_id << std::endl;
         _sampler_barrier->Wait();
         presample_time = tp.Passed();
         break;
