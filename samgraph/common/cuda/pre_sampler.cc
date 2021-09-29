@@ -23,7 +23,7 @@ PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
     _num_nodes(num_nodes),
     _num_step(num_step) {
   Timer t_init;
-  freq_table = new Id64Type[num_nodes];
+  freq_table = static_cast<Id64Type*>(Device::Get(CPU())->AllocDataSpace(CPU(), sizeof(Id64Type)*num_nodes));
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_nodes; i++) {
     auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
@@ -33,9 +33,14 @@ PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
   Profiler::Get().LogInit(kLogInitL2PresampleInit, t_init.Passed());
 }
 
+PreSampler::~PreSampler() {
+  Device::Get(CPU())->FreeDataSpace(CPU(), freq_table);
+}
+
 void PreSampler::DoPreSample(){
   auto sampler_ctx = GPUEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
+  auto cpu_device = Device::Get(CPU());
   for (int e = 0; e < RunConfig::presample_epoch; e++) {
     for (size_t i = 0; i < _num_step; i++) {
       Timer t0;
@@ -53,7 +58,7 @@ void PreSampler::DoPreSample(){
       double sample_time = t0.Passed();
       size_t num_inputs = task->input_nodes->Shape()[0];
       Timer t1;
-      IdType* input_nodes = new IdType[num_inputs];
+      IdType* input_nodes = static_cast<IdType*>(cpu_device->AllocWorkspace(CPU(), sizeof(IdType)*num_inputs));
       sampler_device->CopyDataFromTo(
         task->input_nodes->Data(), 0, input_nodes, 0,
         num_inputs * sizeof(IdType), task->input_nodes->Ctx(), CPU());
@@ -64,6 +69,7 @@ void PreSampler::DoPreSample(){
         auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes[i]]);
         *(freq_ptr+1) += 1;
       }
+      cpu_device->FreeWorkspace(CPU(), input_nodes);
       double count_time = t2.Passed();
       Profiler::Get().LogInitAdd(kLogInitL2PresampleSample, sample_time);
       Profiler::Get().LogInitAdd(kLogInitL2PresampleCopy, copy_time);
