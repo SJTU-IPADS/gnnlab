@@ -102,6 +102,7 @@ def run_sample(worker_id, run_config):
     global_barrier = run_config['global_barrier']
 
     ctx = run_config['sample_workers'][worker_id]
+    print('sample device: ', torch.cuda.get_device_name(ctx))
 
     print('[Sample Worker {:d}/{:d}] Started with PID {:d}'.format(
         worker_id, num_worker, os.getpid()))
@@ -114,7 +115,7 @@ def run_sample(worker_id, run_config):
 
     if (worker_id == (num_worker - 1)):
         num_step = int(num_step - int(num_step /
-                       num_worker * worker_id))
+                       num_worker) * worker_id)
     else:
         num_step = int(num_step / num_worker)
     # align the train_workers
@@ -186,7 +187,7 @@ def run_sample(worker_id, run_config):
             epoch_sample_total_times_python[1:])))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
-    
+
     global_barrier.wait() # barrier for pretty print
     # trainer print result
 

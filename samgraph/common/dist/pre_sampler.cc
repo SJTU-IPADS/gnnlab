@@ -19,11 +19,13 @@ namespace common {
 namespace dist {
 
 PreSampler* PreSampler::singleton = nullptr;
-PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
-    _num_nodes(num_nodes),
-    _num_step(num_step) {
+PreSampler::PreSampler(TensorPtr input, size_t batch_size, size_t num_nodes) {
   Timer t_init;
-  freq_table = static_cast<Id64Type*>(Device::Get(CPU())->AllocDataSpace(CPU(), sizeof(Id64Type)*num_nodes));
+  _shuffler = new cuda::GPUShuffler(input, RunConfig::presample_epoch,
+                          batch_size, false);
+  _num_nodes = num_nodes;
+  _num_step = _shuffler->NumStep();
+  freq_table = static_cast<Id64Type*>(Device::Get(CPU())->AllocDataSpace(CPU(), sizeof(Id64Type)*_num_nodes));
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_nodes; i++) {
     auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
@@ -35,6 +37,22 @@ PreSampler::PreSampler(size_t num_nodes, size_t num_step) :
 
 PreSampler::~PreSampler() {
   Device::Get(CPU())->FreeDataSpace(CPU(), freq_table);
+  delete _shuffler;
+}
+
+TaskPtr PreSampler::DoPreSampleShuffle() {
+  auto s = _shuffler;
+  auto batch = s->GetBatch();
+
+  if (batch) {
+    auto task = std::make_shared<Task>();
+    task->output_nodes = batch;
+    task->key = DistEngine::Get()->GetBatchKey(s->Epoch(), s->Step());
+    LOG(DEBUG) << "DoShuffle: process task with key " << task->key;
+    return task;
+  } else {
+    return nullptr;
+  }
 }
 
 void PreSampler::DoPreSample(){
@@ -44,7 +62,7 @@ void PreSampler::DoPreSample(){
   for (int e = 0; e < RunConfig::presample_epoch; e++) {
     for (size_t i = 0; i < _num_step; i++) {
       Timer t0;
-      auto task = DoShuffle();
+      auto task = DoPreSampleShuffle();
       switch (RunConfig::cache_policy) {
         case kCacheByPreSample:
           DoGPUSample(task);
@@ -90,7 +108,6 @@ void PreSampler::DoPreSample(){
   double sort_time = ts.Passed();
   Profiler::Get().LogInit(kLogInitL2PresampleSort, sort_time);
   Timer t_reset;
-  DistEngine::Get()->GetShuffler()->Reset();
   Profiler::Get().ResetStepEpoch();
   Profiler::Get().LogInit(kLogInitL2PresampleReset, t_reset.Passed());
 }
