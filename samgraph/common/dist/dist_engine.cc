@@ -258,13 +258,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       case kCacheByPreSampleStatic:
       case kCacheByPreSample: {
         Timer tp;
-        std::cout << "before presample with worker " << worker_id << std::endl;
         if (worker_id == 0) {
-          PreSampler::SetSingleton(new PreSampler(_dataset->train_set, RunConfig::batch_size));
+          auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
+          PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
           PreSampler::Get()->DoPreSample();
           PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
         }
-        std::cout << "before barrier with worker " << worker_id << std::endl;
         _sampler_barrier->Wait();
         presample_time = tp.Passed();
         break;
