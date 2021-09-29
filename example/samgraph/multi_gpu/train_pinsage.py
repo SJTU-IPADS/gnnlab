@@ -173,7 +173,7 @@ def run_sample(worker_id, run_config):
     num_step = sam.steps_per_epoch()
     if (worker_id == (num_worker - 1)):
         num_step = int(num_step - int(num_step /
-                       num_worker * worker_id))
+                       num_worker) * worker_id)
     else:
         num_step = int(num_step / num_worker)
     # align the train_workers

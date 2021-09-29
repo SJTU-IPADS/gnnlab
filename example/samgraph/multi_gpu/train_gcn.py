@@ -113,7 +113,7 @@ def run_sample(worker_id, run_config):
 
     if (worker_id == (num_worker - 1)):
         num_step = int(num_step - int(num_step /
-                       num_worker * worker_id))
+                       num_worker) * worker_id)
     else:
         num_step = int(num_step / num_worker)
 
