@@ -52,7 +52,7 @@ size_t get_cuda_used(Context ctx) {
 
 DistSharedBarrier::DistSharedBarrier(int count) {
   size_t nbytes = sizeof(pthread_barrier_t);
-  pthread_barrier_t* _barrier_ptr= static_cast<pthread_barrier_t*>(mmap(NULL, nbytes,
+  _barrier_ptr= static_cast<pthread_barrier_t*>(mmap(NULL, nbytes,
                       PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
   CHECK_NE(_barrier_ptr, MAP_FAILED);
   pthread_barrierattr_t attr;
@@ -63,7 +63,7 @@ DistSharedBarrier::DistSharedBarrier(int count) {
 
 void DistSharedBarrier::Wait() {
   int err = pthread_barrier_wait(_barrier_ptr);
-  CHECK_EQ(err, 0);
+  CHECK_NE(err, EINVAL);
 }
 
 DistEngine::DistEngine() {
@@ -262,9 +262,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           PreSampler::Get()->DoPreSample();
           PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
         }
-        std::cout << "sampler worker_id: " << worker_id << std::endl;
         _sampler_barrier->Wait();
-        std::cout << "sampler after worker_id: " << worker_id << std::endl;
         presample_time = tp.Passed();
         break;
       }
