@@ -7,7 +7,6 @@ import torch.optim as optim
 import sys
 import numpy as np
 from dgl.nn.pytorch import GraphConv
-import torch
 
 import samgraph.torch as sam
 from common_config import *
@@ -147,7 +146,7 @@ def run():
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
                 batch_key, num_layer)
             if not run_config['pipeline']:
-                torch.cuda.synchronize(train_device)
+                th.cuda.synchronize(train_device)
             t2 = time.time()
             sam.trace_step_end_now (batch_key, sam.kL1Event_Convert)
 
@@ -160,7 +159,7 @@ def run():
             optimizer.step()
 
             if not run_config['pipeline']:
-                torch.cuda.synchronize(train_device)
+                th.cuda.synchronize(train_device)
 
             sam.trace_step_end_now   (batch_key, sam.kL1Event_Train)
             t3 = time.time()
