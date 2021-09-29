@@ -56,6 +56,9 @@ Profiler::Profiler() {
   _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _similarity.resize(num_step_logs);
+  _epoch_last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _epoch_cur_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _epoch_similarity.resize(num_epoch_logs);
 }
 
 void Profiler::ResetStepEpoch() {
@@ -82,6 +85,12 @@ void Profiler::ResetStepEpoch() {
   _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
   _similarity.clear();
   _similarity.resize(num_step_logs);
+  _epoch_last_visit.clear();
+  _epoch_last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _epoch_cur_visit.clear();
+  _epoch_cur_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+  _epoch_similarity.clear();
+  _epoch_similarity.resize(num_epoch_logs);
 }
 
 void Profiler::LogInit(LogInitItem item, double val) {
@@ -538,6 +547,48 @@ void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
   }
 
   _similarity[key] = similarity_count;
+
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+  for (size_t i = 0; i < num_input; ++i) {
+    _epoch_cur_visit[input[i]] ++;
+  }
+
+  if (Engine::Get()->GetStepFromKey(key) == Engine::Get()->NumStep()-1) {
+    size_t e_sim_cnt = 0;
+    size_t e_freq_sim_cnt = 0;
+    size_t last_e_nodes = 0, cur_e_nodes = 0;
+    size_t last_e_freqs = 0, cur_e_freqs = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : e_sim_cnt,last_e_nodes,cur_e_nodes,e_freq_sim_cnt, last_e_freqs, cur_e_freqs)
+    for (size_t i = 0; i < _epoch_last_visit.size(); ++i) {
+      if (_epoch_last_visit[i] && _epoch_cur_visit[i]) {
+        e_sim_cnt++;
+        e_freq_sim_cnt += Min(_epoch_last_visit[i], _epoch_cur_visit[i]);
+      }
+      if (_epoch_last_visit[i]) {
+        last_e_nodes++;
+        last_e_freqs += _epoch_last_visit[i];
+      }
+      if (_epoch_cur_visit[i]) {
+        cur_e_nodes++;
+        cur_e_freqs += _epoch_cur_visit[i];
+      }
+    }
+    _epoch_last_visit.swap(_epoch_cur_visit);
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for (size_t i = 0; i < _epoch_cur_visit.size(); ++i) {
+      _epoch_cur_visit[i] = 0;
+    }
+    _epoch_similarity[Engine::Get()->GetEpochFromKey(key)] = e_sim_cnt;
+    LOG(WARNING) << "epoch similarity: " 
+                 << e_sim_cnt << "/" 
+                 << last_e_nodes << "/" 
+                 << cur_e_nodes;
+    LOG(WARNING) << "epoch freq similarity: " 
+                 << e_freq_sim_cnt << "/" 
+                 << last_e_freqs << "/" 
+                 << cur_e_freqs;
+  }
+
 }
 
 void Profiler::ReportNodeAccess() {
@@ -720,13 +771,6 @@ void Profiler::ReportNodeAccessSimple() {
   for (int cache_rate = 0; cache_rate <= 100; cache_rate++) {
     double hit_rate = records[static_cast<int>((static_cast<double>(cache_rate) / 100) * num_nodes)].first / static_cast<double>(frequency_sum);
     ofs2 << cache_rate << "\t" << hit_rate << "\n";
-  }
-
-  for (auto &p : records) {
-    IdType nodeid = p.second;
-    size_t prefix = p.first;
-    // ofs0 << nodeid << " " << _node_access[nodeid] << " " << prefix << " "
-    //      << static_cast<double>(prefix) / frequency_sum << "\n";
   }
 
   // ofs0.close();
