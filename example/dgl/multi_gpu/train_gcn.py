@@ -106,7 +106,7 @@ def get_run_config():
     # default_run_config['num_sampling_worker'] = 16
 
     # DGL fanouts from front to back are from leaf to root
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [5, 10, 15]
     default_run_config['num_epoch'] = 2
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
@@ -269,14 +269,17 @@ def run(worker_id, run_config):
         tic = time.time()
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(dataloader):
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(train_device) for block in blocks]
             t2 = time.time()
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, train_device)
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t3 = time.time()
-
             # Compute loss and prediction
             batch_pred = model(blocks, batch_inputs)
             loss = loss_fcn(batch_pred, batch_labels)
@@ -290,6 +293,8 @@ def run(worker_id, run_config):
             if num_worker > 1:
                 torch.distributed.barrier()
 
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -330,8 +335,8 @@ def run(worker_id, run_config):
         torch.distributed.barrier()
 
     if worker_id == 0:
-        print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-            np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+        # print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
+        #     np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
         test_result = {}
         test_result['epoch_time'] = np.mean(epoch_total_times[1:])
