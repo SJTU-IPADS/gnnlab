@@ -17,15 +17,20 @@ namespace cuda {
 
 namespace {
 
+/** cache is only used for feature, so we can do mock here */
 template <typename T>
 void extract_miss_data(void *output_miss, const IdType *miss_src_index,
                        const size_t num_miss, const void *src, size_t dim) {
   T *output_miss_data = reinterpret_cast<T *>(output_miss);
   const T *cpu_src_data = reinterpret_cast<const T *>(src);
+  size_t idx_mock_mask = 0xffffffffffffffff;
+  if (RunConfig::option_empty_feat != 0) {
+    idx_mock_mask = (1ull << RunConfig::option_empty_feat) - 1;
+  }
 
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < num_miss; i++) {
-    size_t src_idx = miss_src_index[i];
+    size_t src_idx = miss_src_index[i] & idx_mock_mask;
 #pragma omp simd
     for (size_t j = 0; j < dim; j++) {
       output_miss_data[i * dim + j] = cpu_src_data[src_idx * dim + j];
@@ -78,8 +83,13 @@ GPUCacheManager::GPUCacheManager(Context sampler_ctx, Context trainer_ctx,
   }
 
   // 3. Populate the cache in cpu memory
-  cpu::CPUExtract(tmp_cpu_data, _cpu_src_data, nodes, _num_cached_nodes, _dim,
-                  _dtype);
+  if (RunConfig::option_empty_feat != 0) {
+    cpu::CPUMockExtract(tmp_cpu_data, _cpu_src_data, nodes, _num_cached_nodes,
+                        _dim, _dtype);
+  } else {
+    cpu::CPUExtract(tmp_cpu_data, _cpu_src_data, nodes, _num_cached_nodes, _dim,
+                    _dtype);
+  }
 
   // 4. Copy the cache from the cpu memory to gpu memory
   sampler_gpu_device->CopyDataFromTo(

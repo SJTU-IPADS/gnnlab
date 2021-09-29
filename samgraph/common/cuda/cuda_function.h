@@ -69,6 +69,10 @@ void GPUExtract(void *dst, const void *src, const IdType *index,
                 size_t num_index, size_t dim, DataType dtype, Context ctx,
                 StreamHandle stream, uint64_t task_key);
 
+void GPUMockExtract(void *dst, const void *src, const IdType *index,
+                size_t num_index, size_t dim, DataType dtype, Context ctx,
+                StreamHandle stream, uint64_t task_key);
+
 void GPUExtractNeighbour(const IdType *indptr, const IdType *indices,
                     const IdType *input, const size_t num_input,
                     IdType *&output,
