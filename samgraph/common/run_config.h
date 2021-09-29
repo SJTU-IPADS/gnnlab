@@ -52,6 +52,7 @@ struct RunConfig {
   static int                  barriered_epoch;
   static int                  presample_epoch;
   static bool                 option_dump_trace;
+  static size_t               option_empty_feat;
 
   static int                  omp_thread_num;
 

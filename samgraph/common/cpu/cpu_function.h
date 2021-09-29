@@ -32,6 +32,9 @@ void CPUSampleRandomWalk(const IdType *const indptr,
 void CPUExtract(void *dst, const void *src, const IdType *index,
                 size_t num_index, size_t dim, DataType dtype);
 
+void CPUMockExtract(void *dst, const void *src, const IdType *index,
+                size_t num_index, size_t dim, DataType dtype);
+
 IdType RandomID(const IdType &min, const IdType &max);
 
 void CPUSanityCheckList(const IdType *input, size_t num_input,

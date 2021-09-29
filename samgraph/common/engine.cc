@@ -112,16 +112,23 @@ void Engine::LoadGraphDataset() {
                        {meta[Constant::kMetaNumEdge]},
                        ctx_map[Constant::kIndicesFile], "dataset.indices");
 
-  if (FileExist(_dataset_path + Constant::kFeatFile)) {
+  if (FileExist(_dataset_path + Constant::kFeatFile) && RunConfig::option_empty_feat == 0) {
     _dataset->feat = Tensor::FromMmap(
         _dataset_path + Constant::kFeatFile, DataType::kF32,
         {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
         ctx_map[Constant::kFeatFile], "dataset.feat");
   } else if(dist::DistEngine::Get() == nullptr) { // not a DistEngine
-    _dataset->feat = Tensor::Empty(
-        DataType::kF32,
-        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
-        ctx_map[Constant::kFeatFile], "dataset.feat");
+    if (RunConfig::option_empty_feat != 0) {
+      _dataset->feat = Tensor::EmptyNoScale(
+          DataType::kF32,
+          {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]},
+          ctx_map[Constant::kFeatFile], "dataset.feat");
+    } else {
+      _dataset->feat = Tensor::EmptyNoScale(
+          DataType::kF32,
+          {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+          ctx_map[Constant::kFeatFile], "dataset.feat");
+    }
   } else { // if a DistEngine, load it in train_init
     _dataset->feat = nullptr;
   }
@@ -133,7 +140,7 @@ void Engine::LoadGraphDataset() {
                          ctx_map[Constant::kLabelFile], "dataset.label");
   } else if(dist::DistEngine::Get() == nullptr) { // not a DistEngine
     _dataset->label =
-        Tensor::Empty(DataType::kI64, {meta[Constant::kMetaNumNode]},
+        Tensor::EmptyNoScale(DataType::kI64, {meta[Constant::kMetaNumNode]},
                       ctx_map[Constant::kLabelFile], "dataset.label");
   } else { // if a DistEngine, load it in train_init
     _dataset->feat = nullptr;
