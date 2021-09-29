@@ -286,14 +286,21 @@ void DistEngine::TrainDataLoad() {
   CHECK(meta.count(Constant::kMetaNumNode) > 0);
   CHECK(meta.count(Constant::kMetaFeatDim) > 0);
   if (_dataset->feat == nullptr) {
-    _dataset->feat = Tensor::Empty(
-        DataType::kF32,
-        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
-        ctx_map[Constant::kFeatFile], "dataset.feat");
+    if (RunConfig::option_empty_feat != 0) {
+      _dataset->feat = Tensor::EmptyNoScale(
+          DataType::kF32,
+          {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]},
+          ctx_map[Constant::kFeatFile], "dataset.feat");
+    } else {
+      _dataset->feat = Tensor::EmptyNoScale(
+          DataType::kF32,
+          {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+          ctx_map[Constant::kFeatFile], "dataset.feat");
+    }
   }
   if (_dataset->label == nullptr) {
     _dataset->label =
-        Tensor::Empty(DataType::kI64, {meta[Constant::kMetaNumNode]},
+        Tensor::EmptyNoScale(DataType::kI64, {meta[Constant::kMetaNumNode]},
                       ctx_map[Constant::kLabelFile], "dataset.label");
   }
 }

@@ -119,6 +119,7 @@ def add_common_arguments(argparser, run_config):
                            'info', 'debug', 'warn', 'error'], type=str, dest='_log_level', default='error')
     argparser.add_argument('-pl', '--profile-level', choices=[
                            '0', '1', '2', '3'], type=str, dest='_profile_level', default='0')
+    argparser.add_argument('--empty-feat', type=str, dest='_empty_feat', default='0')
 
 
 def process_common_config(run_config):
@@ -163,6 +164,7 @@ def process_common_config(run_config):
 
     os.environ['SAMGRAPH_LOG_LEVEL'] = run_config['_log_level']
     os.environ["SAMGRAPH_PROFILE_LEVEL"] = run_config['_profile_level']
+    os.environ['SAMGRAPH_EMPTY_FEAT'] = run_config['_empty_feat']
 
 
 def print_run_config(run_config):
