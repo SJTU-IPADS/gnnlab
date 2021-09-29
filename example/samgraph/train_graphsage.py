@@ -138,6 +138,8 @@ def run():
             sam.trace_step_begin_now(batch_key, sam.kL1Event_Convert)
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
                 batch_key, num_layer)
+            if not run_config['pipeline']:
+                th.cuda.synchronize(train_device)
             t2 = time.time()
             sam.trace_step_end_now (batch_key, sam.kL1Event_Convert)
             sam.trace_step_begin_now (batch_key, sam.kL1Event_Train)
@@ -146,6 +148,8 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            if not run_config['pipeline']:
+                th.cuda.synchronize(train_device)
             sam.trace_step_end_now   (batch_key, sam.kL1Event_Train)
             t3 = time.time()
             sam.trace_step_end_now (epoch * num_step + step, sam.kL0Event_Train_Step)

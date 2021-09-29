@@ -108,7 +108,7 @@ def get_run_config():
     # default_run_config['num_sampling_worker'] = 16
 
     # DGL fanouts from front to back are from leaf to root
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [5, 10, 15]
     default_run_config['num_epoch'] = 2
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
@@ -244,12 +244,16 @@ def run():
         tic = time.time()
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(dataloader):
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(train_device) for block in blocks]
             t2 = time.time()
             batch_inputs, batch_labels = load_subtensor(feat, label, input_nodes,
                                                         output_nodes, train_device)
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t3 = time.time()
 
             # Compute loss and prediction
@@ -261,6 +265,9 @@ def run():
             # free input and label data
             batch_inputs = None
             batch_labels = None
+
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t4 = time.time()
 
             sample_times.append(t1 - t0)
