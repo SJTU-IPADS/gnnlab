@@ -270,14 +270,17 @@ def run(worker_id, run_config):
         tic = time.time()
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(dataloader):
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(train_device) for block in blocks]
             t2 = time.time()
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, train_device)
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t3 = time.time()
-
             # Compute loss and prediction
             batch_pred = model(blocks, batch_inputs)
             loss = loss_fcn(batch_pred, batch_labels)
@@ -291,6 +294,8 @@ def run(worker_id, run_config):
             if num_worker > 1:
                 torch.distributed.barrier()
 
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t4 = time.time()
 
             sample_times.append(t1 - t0)

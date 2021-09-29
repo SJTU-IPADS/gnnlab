@@ -19,6 +19,7 @@
 #include "../cpu/cpu_engine.h"
 #include "dist_loops.h"
 #include "pre_sampler.h"
+#include "../profiler.h"
 
 // XXX: decide CPU or GPU to shuffling, sampling and id remapping
 /*
@@ -160,9 +161,9 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _dist_type = DistType::Sample;
   RunConfig::sampler_ctx = ctx;
   _sampler_ctx = RunConfig::sampler_ctx;
-  LOG_MEM_USAGE(INFO, "before sample initialization", _sampler_ctx);
+  LOG_MEM_USAGE(WARNING, "before sample initialization", _sampler_ctx);
   _memory_queue->PinMemory();
-  LOG_MEM_USAGE(INFO, "before sample pin memory", _sampler_ctx);
+  LOG_MEM_USAGE(WARNING, "before sample pin memory", _sampler_ctx);
   if (_sampler_ctx.device_type == kGPU) {
     _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
     // use sampler_ctx in task sending
@@ -171,10 +172,10 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
   }
-  LOG_MEM_USAGE(INFO, "after create sampler stream", _sampler_ctx);
+  LOG_MEM_USAGE(WARNING, "after create sampler stream", _sampler_ctx);
 
   SampleDataCopy(_sampler_ctx, _sample_stream);
-  LOG_MEM_USAGE(INFO, "after sample data copy", _sampler_ctx);
+  LOG_MEM_USAGE(WARNING, "after sample data copy", _sampler_ctx);
 
   _shuffler = nullptr;
   switch(ctx.device_type) {
@@ -191,8 +192,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
                    << ctx.device_type;
   }
   _num_step = _shuffler->NumStep();
-  LOG_MEM_USAGE(INFO, "after create shuffler", _sampler_ctx);
-
+  LOG_MEM_USAGE(WARNING, "after create shuffler", _sampler_ctx);
 
   // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
@@ -203,12 +203,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _hashtable = new cuda::OrderedHashTable(
       _dataset->num_node, _sampler_ctx, 1);
 #endif
-  LOG_MEM_USAGE(INFO, "after create hashtable", _sampler_ctx);
+  LOG_MEM_USAGE(WARNING, "after create hashtable", _sampler_ctx);
 
   // Create CUDA random states for sampling
   _random_states = new cuda::GPURandomStates(RunConfig::sample_type, _fanout,
                                        _batch_size, _sampler_ctx);
-  LOG_MEM_USAGE(INFO, "after create random states", _sampler_ctx);
+  LOG_MEM_USAGE(WARNING, "after create random states", _sampler_ctx);
 
   if (RunConfig::sample_type == kRandomWalk) {
     size_t max_nodes =
@@ -234,27 +234,26 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   // batch results set
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
+  double presample_time = 0;
   if (RunConfig::UseGPUCache()) {
     switch (RunConfig::cache_policy) {
       case kCacheByPreSampleStatic:
       case kCacheByPreSample: {
+        Timer tp;
         PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
-        auto rank_results = static_cast<const IdType*>(PreSampler::Get()->DoPreSample()->Data());
-        auto rank_node = static_cast<IdType*>(_dataset->ranking_nodes->MutableData());
-        size_t num_node = _dataset->num_node;
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
-        for (size_t i = 0; i < num_node; ++i) {
-          rank_node[i] = rank_results[i];
-        }
+        PreSampler::Get()->DoPreSample();
+        PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
+        presample_time = tp.Passed();
         break;
       }
       default: ;
     }
-    LOG_MEM_USAGE(INFO, "after presample", _sampler_ctx);
+    LOG_MEM_USAGE(WARNING, "after presample", _sampler_ctx);
     SampleCacheTableInit();
   }
+  Profiler::Get().LogInit(kLogInitL1Presample, presample_time);
 
-  LOG_MEM_USAGE(INFO, "after finish sample initialization", _sampler_ctx);
+  LOG_MEM_USAGE(WARNING, "after finish sample initialization", _sampler_ctx);
   _initialize = true;
 }
 
@@ -297,7 +296,6 @@ void DistEngine::TrainDataLoad() {
         Tensor::Empty(DataType::kI64, {meta[Constant::kMetaNumNode]},
                       ctx_map[Constant::kLabelFile], "dataset.label");
   }
-
 }
 
 void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
@@ -313,13 +311,13 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   _dist_type = DistType::Extract;
   RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
-  LOG_MEM_USAGE(INFO, "before train initialization", _trainer_ctx);
+  LOG_MEM_USAGE(WARNING, "before train initialization", _trainer_ctx);
 
   _memory_queue->PinMemory();
-  LOG_MEM_USAGE(INFO, "after pin memory", _trainer_ctx);
+  LOG_MEM_USAGE(WARNING, "after pin memory", _trainer_ctx);
 
   TrainDataLoad();
-  LOG_MEM_USAGE(INFO, "after train data load", _trainer_ctx);
+  LOG_MEM_USAGE(WARNING, "after train data load", _trainer_ctx);
 
   // Create CUDA streams
   // XXX: create cuda streams that training needs
@@ -335,7 +333,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
 
   _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) / _batch_size);
 
-  LOG_MEM_USAGE(INFO, "after train create stream", _trainer_ctx);
+  LOG_MEM_USAGE(WARNING, "after train create stream", _trainer_ctx);
 
   if (RunConfig::UseGPUCache()) {
     TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
@@ -358,7 +356,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   } else {
     _cache_manager = nullptr;
   }
-  LOG_MEM_USAGE(INFO, "after train load cache", _trainer_ctx);
+  LOG_MEM_USAGE(WARNING, "after train load cache", _trainer_ctx);
 
   // Create queues
   for (int i = 0; i < cuda::QueueNum; i++) {
@@ -374,7 +372,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
   _initialize = true;
-  LOG_MEM_USAGE(INFO, "after train initialization", _trainer_ctx);
+  LOG_MEM_USAGE(WARNING, "after train initialization", _trainer_ctx);
 }
 
 
@@ -402,6 +400,13 @@ void DistEngine::StartExtract(int count) {
 }
 
 void DistEngine::Shutdown() {
+  if (_dist_type == DistType::Sample) {
+    LOG_MEM_USAGE(WARNING, "sampler before shutdown", _sampler_ctx);
+  }
+  else if (_dist_type == DistType::Extract) {
+    LOG_MEM_USAGE(WARNING, "trainer before shutdown", _trainer_ctx);
+  }
+
   if (_should_shutdown) {
     return;
   }

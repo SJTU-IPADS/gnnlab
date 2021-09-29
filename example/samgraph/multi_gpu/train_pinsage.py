@@ -11,6 +11,7 @@ import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
+import datetime
 '''
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 os.environ["NCCL_DEBUG"] = "INFO"
@@ -124,10 +125,10 @@ def get_run_config():
     run_config.update(get_default_common_config(run_multi_gpu=True))
     run_config['sample_type'] = 'random_walk'
 
-    run_config['random_walk_length'] = 4
+    run_config['random_walk_length'] = 3
     run_config['random_walk_restart_prob'] = 0.5
     run_config['num_random_walk'] = 4
-    run_config['num_neighbor'] = 8
+    run_config['num_neighbor'] = 5
     run_config['num_layer'] = 3
 
     run_config['lr'] = 0.003
@@ -182,7 +183,7 @@ def run_sample(worker_id, run_config):
     epoch_sample_total_times_profiler = []
     epoch_sample_times = []
     epoch_get_cache_miss_index_times = []
-    epoch_buffer_graph_times = []
+    epoch_enqueue_samples_times = []
 
     print('[Sample Worker {:d}] run sample for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
@@ -209,7 +210,7 @@ def run_sample(worker_id, run_config):
             sam.get_log_epoch_value(
                 epoch, sam.KLogEpochSampleGetCacheMissIndexTime)
         )
-        epoch_buffer_graph_times.append(
+        epoch_enqueue_samples_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleSendTime)
         )
         epoch_sample_total_times_profiler.append(
@@ -233,17 +234,22 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     if worker_id == 0:
-        test_result = {}
+        sam.report_init()
 
-        test_result['sample_time'] = np.mean(epoch_sample_times[1:])
-        test_result['cache_index_time'] = np.mean(
-            epoch_get_cache_miss_index_times[1:])
-        test_result['buffer_graph_time'] = np.mean(
-            epoch_buffer_graph_times[1:])
-        test_result['epoch_time:sample_total'] = np.mean(
-            epoch_sample_total_times_python[1:])
-        for k, v in test_result.items():
+    if worker_id == 0:
+        test_result = []
+        test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
+        test_result.append(('get_cache_miss_index_time', np.mean(
+            epoch_get_cache_miss_index_times[1:])))
+        test_result.append(
+            ('enqueue_samples_time', np.mean(epoch_enqueue_samples_times[1:])))
+        test_result.append(('epoch_time:sample_total', np.mean(
+            epoch_sample_total_times_python[1:])))
+        for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
+
+    global_barrier.wait()  # barrier for pretty print
+    # trainer print result
 
     sam.shutdown()
 
@@ -271,7 +277,7 @@ def run_train(worker_id, run_config):
                                              init_method=dist_init_method,
                                              world_size=world_size,
                                              rank=worker_id,
-                                             timeout=get_default_timeout())
+                                             timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
@@ -313,6 +319,7 @@ def run_train(worker_id, run_config):
     global_barrier.wait()
     print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
+    run_start = time.time()
 
     for epoch in range(num_epoch):
         # epoch start barrier
@@ -335,6 +342,8 @@ def run_train(worker_id, run_config):
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                     batch_key, num_layer)
+                if not run_config['pipeline']:
+                    torch.cuda.synchronize(train_device)
                 t2 = time.time()
             else:
                 t0 = t1 = t2 = time.time()
@@ -352,6 +361,9 @@ def run_train(worker_id, run_config):
 
             if num_worker > 1:
                 torch.distributed.barrier()
+
+            if not run_config['pipeline']:
+                torch.cuda.synchronize(train_device)
 
             t3 = time.time()
 
@@ -412,18 +424,28 @@ def run_train(worker_id, run_config):
 
     # run end barrier
     global_barrier.wait()
+    run_end = time.time()
+
+    # sampler print init and result
+    global_barrier.wait() # barrier for pretty print
 
     if worker_id == 0:
-        test_result = {}
-        test_result['epoch_time:copy_time'] = np.mean(epoch_copy_times[1:])
-        test_result['convert_time'] = np.mean(epoch_convert_times[1:])
-        test_result['train_time'] = np.mean(epoch_train_times[1:])
-        test_result['epoch_time:train_total'] = np.mean(
-            epoch_train_total_times_profiler[1:])
-        test_result['cache_percentage'] = run_config['cache_percentage']
-        test_result['cache_hit_rate'] = np.mean(epoch_cache_hit_rates[1:])
-        for k, v in test_result.items():
+        test_result = []
+        test_result.append(('epoch_time:copy_time',
+                           np.mean(epoch_copy_times[1:])))
+        test_result.append(('convert_time', np.mean(epoch_convert_times[1:])))
+        test_result.append(('train_time', np.mean(epoch_train_times[1:])))
+        test_result.append(('epoch_time:train_total', np.mean(
+            epoch_train_total_times_profiler[1:])))
+        test_result.append(
+            ('cache_percentage', run_config['cache_percentage']))
+        test_result.append(('cache_hit_rate', np.mean(
+            epoch_cache_hit_rates[1:])))
+        test_result.append(('run_time', run_end - run_start))
+        for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
+
+        # sam.dump_trace()
 
     sam.shutdown()
 

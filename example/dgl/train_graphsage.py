@@ -236,9 +236,13 @@ def run():
             t1 = time.time()
             # graph are copied to GPU implicitly here
             blocks = [block.int().to(train_device) for block in blocks]
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t2 = time.time()
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, train_device)
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t3 = time.time()
             # Compute loss and prediction
             batch_pred = model(blocks, batch_inputs)
@@ -249,6 +253,8 @@ def run():
             # free input and label data
             batch_inputs = None
             batch_labels = None
+            if not run_config['pipelining']:
+                torch.cuda.synchronize(train_device)
             t4 = time.time()
 
             sample_times.append(t1 - t0)

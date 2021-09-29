@@ -119,10 +119,10 @@ def get_run_config():
     run_config['arch'] = 'arch3'
     run_config['sample_type'] = 'random_walk'
 
-    run_config['random_walk_length'] = 4
+    run_config['random_walk_length'] = 3
     run_config['random_walk_restart_prob'] = 0.5
     run_config['num_random_walk'] = 4
-    run_config['num_neighbor'] = 8
+    run_config['num_neighbor'] = 5
     run_config['num_layer'] = 3
 
     run_config['lr'] = 0.003
@@ -196,6 +196,8 @@ def run():
             sam.trace_step_begin_now(batch_key, sam.kL1Event_Convert)
             blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                 batch_key, num_layer)
+            if not run_config['pipeline']:
+                th.cuda.synchronize(train_device)
             t2 = time.time()
             sam.trace_step_end_now(batch_key, sam.kL1Event_Convert)
             sam.trace_step_begin_now(batch_key, sam.kL1Event_Train)
@@ -204,6 +206,8 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            if not run_config['pipeline']:
+                th.cuda.synchronize(train_device)
             sam.trace_step_end_now(batch_key, sam.kL1Event_Train)
             t3 = time.time()
             sam.trace_step_end_now(
