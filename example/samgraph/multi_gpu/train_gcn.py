@@ -117,6 +117,7 @@ def run_sample(worker_id, run_config):
         num_step = int(num_step / num_worker)
 
     epoch_sample_total_times_python = []
+    epoch_pipleine_sample_total_times_python = []
     epoch_sample_total_times_profiler = []
     epoch_sample_times = []
     epoch_get_cache_miss_index_times = []
@@ -138,18 +139,19 @@ def run_sample(worker_id, run_config):
             sam.sample_once()
             # sam.report_step(epoch, step)
 
+        toc0 = time.time()
+
         if not run_config['pipeline']:
-            toc = time.time()
             # epoch start barrier 2
             global_barrier.wait()
 
         # epoch end barrier
         global_barrier.wait()
 
-        if run_config['pipeline']:
-            toc = time.time()
+        toc1 = time.time()
 
-        epoch_sample_total_times_python.append(toc - tic)
+        epoch_sample_total_times_python.append(toc0 - tic)
+        epoch_pipleine_sample_total_times_python.append(toc1 - tic)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
         epoch_get_cache_miss_index_times.append(
@@ -186,7 +188,7 @@ def run_sample(worker_id, run_config):
             epoch_sample_total_times_python[1:])))
         if run_config['pipeline']:
             test_result.append(
-                ('pipeline_sample_epoch_time', np.mean(epoch_sample_total_times_python[1:])))
+                ('pipeline_sample_epoch_time', np.mean(epoch_pipleine_sample_total_times_python[1:])))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 

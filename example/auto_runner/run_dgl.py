@@ -383,7 +383,7 @@ if __name__ == '__main__':
     argparser.add_argument('-l', '--log-folder', default=None)
     args = argparser.parse_args()
 
-    # motivation_test(args.log_folder)
+    motivation_test(args.log_folder)
     breakdown_test(args.log_folder)
     scalability_test(args.log_folder)
     scalability_pipeline_test(args.log_folder)
