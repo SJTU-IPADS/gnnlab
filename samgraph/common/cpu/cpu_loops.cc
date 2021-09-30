@@ -189,8 +189,11 @@ void DoFeatureExtract(TaskPtr task) {
 
   auto feat_dst = feat->MutableData();
   auto feat_src = dataset->feat->Data();
-  CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim, feat_type);
-
+  if (RunConfig::option_empty_feat != 0) {
+    CPUMockExtract(feat_dst, feat_src, input_data, num_input, feat_dim, feat_type);
+  } else {
+    CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim, feat_type);
+  }
   auto label_dst = label->MutableData();
   auto label_src = dataset->label->Data();
   CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);

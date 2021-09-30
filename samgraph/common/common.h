@@ -93,6 +93,8 @@ class Tensor {
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
                          std::string name);
+  static TensorPtr EmptyNoScale(DataType dtype, std::vector<size_t> shape, 
+                                Context ctx, std::string name);
   static TensorPtr Copy1D(TensorPtr tensor, size_t item_offset,
                           std::vector<size_t> shape, std::string name,
                           StreamHandle stream = nullptr);

@@ -46,6 +46,7 @@ bool                 RunConfig::option_sanity_check            = false;
 int                  RunConfig::barriered_epoch;
 int                  RunConfig::presample_epoch;
 bool                 RunConfig::option_dump_trace              = false;
+size_t               RunConfig::option_empty_feat              = 0;
 
 int                  RunConfig::omp_thread_num                 = 40;
 
@@ -71,6 +72,9 @@ void RunConfig::LoadConfigFromEnv() {
 
   if (IsEnvSet(Constant::kEnvDumpTrace)) {
     RunConfig::option_dump_trace = true;
+  }
+  if (GetEnv(Constant::kEnvEmptyFeat) != "") {
+    RunConfig::option_empty_feat = std::stoul(GetEnv(Constant::kEnvEmptyFeat));
   }
 }
 

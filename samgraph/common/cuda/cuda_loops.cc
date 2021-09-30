@@ -686,8 +686,13 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto feat_dst = task->input_feat->MutableData();
   auto feat_src = dataset->feat->Data();
 
-  cpu::CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
-                  feat_type);
+  if (RunConfig::option_empty_feat != 0) {
+    cpu::CPUMockExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
+                        feat_type);
+  } else {
+    cpu::CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
+                    feat_type);
+  }
 
   auto label_dst = task->output_label->MutableData();
   auto label_src = dataset->label->Data();
@@ -731,8 +736,13 @@ void DoGPUFeatureExtract(TaskPtr task) {
   auto feat_dst = task->input_feat->MutableData();
   auto feat_src = dataset->feat->Data();
 
-  GPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim, feat_type,
-             sampler_ctx, sample_stream, task->key);
+  if (RunConfig::option_empty_feat != 0) {
+    GPUMockExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
+                   feat_type, sampler_ctx, sample_stream, task->key);
+  } else {
+    GPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim, feat_type,
+              sampler_ctx, sample_stream, task->key);
+  }
 
   auto label_dst = task->output_label->MutableData();
   auto label_src = dataset->label->Data();

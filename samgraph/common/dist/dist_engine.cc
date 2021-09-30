@@ -50,6 +50,22 @@ size_t get_cuda_used(Context ctx) {
   }
 } // namespace
 
+DistSharedBarrier::DistSharedBarrier(int count) {
+  size_t nbytes = sizeof(pthread_barrier_t);
+  _barrier_ptr= static_cast<pthread_barrier_t*>(mmap(NULL, nbytes,
+                      PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+  CHECK_NE(_barrier_ptr, MAP_FAILED);
+  pthread_barrierattr_t attr;
+  pthread_barrierattr_init(&attr);
+  pthread_barrierattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+  pthread_barrier_init(_barrier_ptr, &attr, count);
+}
+
+void DistSharedBarrier::Wait() {
+  int err = pthread_barrier_wait(_barrier_ptr);
+  CHECK(err == PTHREAD_BARRIER_SERIAL_THREAD || err == 0);
+}
+
 DistEngine::DistEngine() {
   _initialize = false;
   _should_shutdown = false;
@@ -96,6 +112,8 @@ void DistEngine::Init() {
   }
 
   _memory_queue = new MessageTaskQueue(RunConfig::max_copying_jobs);
+  LOG(DEBUG) << "create sampler barrier with " << RunConfig::num_sample_worker << " samplers";
+  _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
 
   LOG(DEBUG) << "Finished pre-initialization";
 }
@@ -240,9 +258,13 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       case kCacheByPreSampleStatic:
       case kCacheByPreSample: {
         Timer tp;
-        PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
-        PreSampler::Get()->DoPreSample();
-        PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
+        if (worker_id == 0) {
+          auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
+          PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
+          PreSampler::Get()->DoPreSample();
+          PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
+        }
+        _sampler_barrier->Wait();
         presample_time = tp.Passed();
         break;
       }
@@ -286,14 +308,21 @@ void DistEngine::TrainDataLoad() {
   CHECK(meta.count(Constant::kMetaNumNode) > 0);
   CHECK(meta.count(Constant::kMetaFeatDim) > 0);
   if (_dataset->feat == nullptr) {
-    _dataset->feat = Tensor::Empty(
-        DataType::kF32,
-        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
-        ctx_map[Constant::kFeatFile], "dataset.feat");
+    if (RunConfig::option_empty_feat != 0) {
+      _dataset->feat = Tensor::EmptyNoScale(
+          DataType::kF32,
+          {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]},
+          ctx_map[Constant::kFeatFile], "dataset.feat");
+    } else {
+      _dataset->feat = Tensor::EmptyNoScale(
+          DataType::kF32,
+          {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+          ctx_map[Constant::kFeatFile], "dataset.feat");
+    }
   }
   if (_dataset->label == nullptr) {
     _dataset->label =
-        Tensor::Empty(DataType::kI64, {meta[Constant::kMetaNumNode]},
+        Tensor::EmptyNoScale(DataType::kI64, {meta[Constant::kMetaNumNode]},
                       ctx_map[Constant::kLabelFile], "dataset.label");
   }
 }
@@ -466,6 +495,10 @@ void DistEngine::Shutdown() {
 
   if (_cache_hashtable != nullptr) {
     Device::Get(_sampler_ctx)->FreeDataSpace(_sampler_ctx, _cache_hashtable);
+  }
+
+  if (_sampler_barrier != nullptr) {
+    delete _sampler_barrier;
   }
 
   _dataset = nullptr;

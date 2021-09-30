@@ -38,6 +38,7 @@ const std::string Constant::kEnvLogNodeAccess = "SAMGRAPH_LOG_NODE_ACCESS";
 const std::string Constant::kEnvLogNodeAccessSimple = "SAMGRAPH_LOG_NODE_ACCESS_SIMPLE";
 const std::string Constant::kEnvSanityCheck = "SAMGRAPH_SANITY_CHECK";
 const std::string Constant::kEnvDumpTrace = "SAMGRAPH_DUMP_TRACE";
+const std::string Constant::kEnvEmptyFeat = "SAMGRAPH_EMPTY_FEAT";
 
 const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";

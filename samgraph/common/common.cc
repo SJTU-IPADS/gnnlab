@@ -130,6 +130,26 @@ TensorPtr Tensor::Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
 
   return tensor;
 }
+TensorPtr Tensor::EmptyNoScale(DataType dtype, std::vector<size_t> shape,
+                               Context ctx, std::string name) {
+  TensorPtr tensor = std::make_shared<Tensor>();
+  CHECK_GT(shape.size(), 0);
+  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+
+  if (ctx.device_type == kMMAP) {
+    ctx = CPU();
+  }
+
+  tensor->_dtype = dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = nbytes;
+  tensor->_data = Device::Get(ctx)->
+    AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
+  tensor->_ctx = ctx;
+  tensor->_name = name;
+
+  return tensor;
+}
 
 TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
                          std::vector<size_t> shape, std::string name,

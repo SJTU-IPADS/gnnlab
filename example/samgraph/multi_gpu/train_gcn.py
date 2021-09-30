@@ -102,8 +102,8 @@ def run_sample(worker_id, run_config):
 
     ctx = run_config['sample_workers'][worker_id]
 
-    print('[Sample Worker {:d}/{:d}] Started with PID {:d}'.format(
-        worker_id, num_worker, os.getpid()))
+    print('[Sample Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
+        worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
     sam.sample_init(worker_id, ctx)
     sam.notify_sampler_ready(global_barrier)
 
@@ -202,8 +202,8 @@ def run_train(worker_id, run_config):
     global_barrier = run_config['global_barrier']
 
     train_device = torch.device(ctx)
-    print('[Train  Worker {:d}/{:d}] Started with PID {:d}'.format(
-        worker_id, num_worker, os.getpid()))
+    print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
+        worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
 
     # let the trainer initialization after sampler
     # sampler should presample before trainer initialization
