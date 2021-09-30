@@ -269,8 +269,8 @@ def run_train(worker_id, run_config):
     global_barrier = run_config['global_barrier']
 
     train_device = torch.device(ctx)
-    print('[Train  Worker {:d}/{:d}] Started with PID {:d}'.format(
-        worker_id, num_worker, os.getpid()))
+    print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
+        worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
 
     # let the trainer initialization after sampler
     # sampler should presample before trainer initialization
@@ -325,8 +325,8 @@ def run_train(worker_id, run_config):
 
     # run start barrier
     global_barrier.wait()
-    print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
-        worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
+    print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
+        worker_id, num_epoch, num_step))
     run_start = time.time()
 
     for epoch in range(num_epoch):
