@@ -374,6 +374,7 @@ void GPUCacheManager::CombineCacheData(void *output,
                                        const size_t num_cache,
                                        StreamHandle stream) {
   CHECK_LE(num_cache, _num_cached_nodes);
+  if (num_cache == 0) return;
 
   auto device = Device::Get(_trainer_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
