@@ -36,18 +36,8 @@ void CPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
                                size_t to_offset, size_t nbytes,
                                Context ctx_from, Context ctx_to,
                                StreamHandle stream) {
-  char *to_t = (static_cast<char *>(to) + to_offset);
-  const char *from_t = (static_cast<const char *>(from) + from_offset);
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
-  for (size_t i = 0; i < nbytes; i += 64) {
-    size_t len = std::min(i + 64, nbytes);
-#pragma omp simd
-    for (size_t j = i; j < len; ++j) {
-      to_t[j] = from_t[j];
-    }
-  }
-  // memcpy(static_cast<char *>(to) + to_offset,
-  //        static_cast<const char *>(from) + from_offset, nbytes);
+  memcpy(static_cast<char *>(to) + to_offset,
+         static_cast<const char *>(from) + from_offset, nbytes);
 }
 
 void CPUDevice::StreamSync(Context ctx, StreamHandle stream) {}

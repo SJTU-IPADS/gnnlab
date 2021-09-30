@@ -160,6 +160,15 @@ struct TrainGraph {
   size_t num_edge;
 };
 
+struct MissCacheIndex {
+  TensorPtr miss_src_index;
+  TensorPtr miss_dst_index;
+  TensorPtr cache_src_index;
+  TensorPtr cache_dst_index;
+  size_t num_miss;
+  size_t num_cache;
+};
+
 struct Task {
   // Key of the task
   uint64_t key;
@@ -167,16 +176,14 @@ struct Task {
   std::vector<std::shared_ptr<TrainGraph>> graphs;
   // node ids of the last train graph
   TensorPtr input_nodes;
-  // new ids of the miss and cache data
-  TensorPtr input_dst_index;
-  // total number of miss data ids
-  size_t num_miss;
   // node ids of the first train graph
   TensorPtr output_nodes;
   // Input feature tensor
   TensorPtr input_feat;
   // Output label tensor
   TensorPtr output_label;
+  // Multi-gpu miss cache index
+  MissCacheIndex miss_cache_index;
   std::atomic_bool graph_remapped;
   Task() : graph_remapped(false) {}
 };
