@@ -356,7 +356,7 @@ def run(worker_id, run_config):
 
         if num_worker > 1:
             torch.distributed.barrier()
-        
+
         torch.cuda.synchronize(device)
 
         toc = time.time()

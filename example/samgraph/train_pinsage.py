@@ -246,6 +246,7 @@ def run():
             sam.report_step(epoch, step)
             cur_step_key += 1
 
+        th.cuda.synchronize(train_device)
         # sam.report_epoch_average(epoch)
 
         epoch_sample_times[epoch] = sam.get_log_epoch_value(
