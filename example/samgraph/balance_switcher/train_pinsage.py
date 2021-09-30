@@ -130,6 +130,7 @@ def get_run_config():
     run_config['num_random_walk'] = 4
     run_config['num_neighbor'] = 8
     run_config['num_layer'] = 3
+    run_config['pipeline'] = True
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
@@ -162,14 +163,13 @@ def run_sample(worker_id, run_config):
     global_barrier = run_config['global_barrier']
 
     # used for message counter
-    mq_sem  = config['mq_sem']
-    sampler_stop_event = config['sampler_stop_event']
+    mq_sem  = run_config['mq_sem']
+    sampler_stop_event = run_config['sampler_stop_event']
 
     ctx = run_config['sample_workers'][worker_id]
-    print('sample device: ', torch.cuda.get_device_name(ctx))
 
-    print('[Sample Worker {:d}/{:d}] Started with PID {:d}'.format(
-        worker_id, num_worker, os.getpid()))
+    print('[Sample Worker {:d}/{:d}] Started with PID {:d} Device {:s}'.format(
+        worker_id, num_worker, os.getpid(), ctx))
     sam.sample_init(worker_id, ctx)
     sam.notify_sampler_ready(global_barrier)
 
@@ -194,9 +194,11 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     for epoch in range(num_epoch):
-        # epoch start barrier 1
+        if run_config['pipeline']:
+            # epoch start barrier 1
+            global_barrier.wait()
+
         sampler_stop_event.clear()
-        global_barrier.wait()
 
         tic = time.time()
         for step in range(num_step):
@@ -206,6 +208,9 @@ def run_sample(worker_id, run_config):
             # let counter of message queue increase one
             mq_sem.release()
 
+        if not run_config['pipeline']:
+            # epoch start barrier 2
+            global_barrier.wait()
         # notify switcher that sampler succeed
         sampler_stop_event.set()
         toc = time.time()
@@ -264,174 +269,20 @@ def run_train(worker_id, run_config, trainer_type):
 
     # used for sync
     global_barrier = run_config['global_barrier']
-    mq_sem  = config['mq_sem']
-    sampler_stop_event = config['sampler_stop_event']
+    mq_sem  = run_config['mq_sem']
+    sampler_stop_event = run_config['sampler_stop_event']
 
     train_device = torch.device(ctx)
-    print('[{:s}     Worker  {:d}/{:d}] Started with PID {:d} Train Device '.format(
-        trainer_type.name, worker_id, run_config['num_train_worker'], os.getpid()), train_device)
+    print('[{:10s} Worker  {:d}/{:d}] Started with PID {:d} Train Device '.format(
+        trainer_type.name, worker_id,
+        run_config['num_train_worker'] + run_config['num_sample_worker'],
+        os.getpid()), train_device)
 
 
     # let the trainer initialization after sampler
     # sampler should presample before trainer initialization
     sam.wait_for_sampler_ready(global_barrier)
     # TODO: need to change the cache_percentage ???
-    sam.train_init(worker_id, ctx)
-
-    in_feat = sam.feat_dim()
-    num_class = sam.num_class()
-    num_layer = run_config['num_layer']
-
-    model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
-                    num_layer, F.relu, run_config['dropout'])
-    model = model.to(train_device)
-
-    loss_fcn = nn.CrossEntropyLoss()
-    loss_fcn = loss_fcn.to(train_device)
-    optimizer = optim.Adam(
-        model.parameters(), lr=run_config['lr'])
-
-    num_epoch = sam.num_epoch()
-
-    model.train()
-
-    epoch_copy_times = []
-    epoch_convert_times = []
-    epoch_train_times = []
-    epoch_total_times_python = []
-    epoch_train_total_times_profiler = []
-    epoch_cache_hit_rates = []
-
-    copy_times = []
-    convert_times = []
-    train_times = []
-    total_times = []
-
-    # run start barrier
-    global_barrier.wait()
-    print('[Train  Worker {:d}] run train for {:d} epochs with global {:d} steps'.format(
-        worker_id, num_epoch, num_step))
-
-    for epoch in range(num_epoch):
-        tic = time.time()
-
-        # epoch start barrier
-        global_barrier.wait()
-
-        if (trainer_type == TrainerType.Switcher):
-            sampler_stop_event.wait()
-
-        while True:
-            if (not mq_sem.acquire(timeout=0.01)):
-                if (trainer_type == TrainerType.Switcher):
-                    break
-                elif (trainer_type == TrainerType.Trainer):
-                    if (sampler_stop_event.is_set()):
-                        break
-                    else: # expecially for the first step of trainer
-                        continue
-                else:
-                    assert(0)
-            t0 = time.time()
-            sam.sample_once()
-            batch_key = sam.get_next_batch()
-            t1 = time.time()
-            blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
-                batch_key, num_layer)
-            t2 = time.time()
-
-            # Compute loss and prediction
-            batch_pred = model(blocks, batch_input)
-            loss = loss_fcn(batch_pred, batch_label)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            batch_input = None
-            batch_label = None
-
-            # sync the arguments
-            # bala bala ...
-
-            t3 = time.time()
-
-            copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
-            convert_time = t2 - t1
-            train_time = t3 - t2
-            total_time = t3 - t1
-
-            sam.log_step(epoch, step, sam.kLogL1TrainTime, train_time)
-            sam.log_step(epoch, step, sam.kLogL1ConvertTime, convert_time)
-            sam.log_epoch_add(epoch, sam.kLogEpochConvertTime, convert_time)
-            sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
-            sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
-
-            feat_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochFeatureBytes)
-            miss_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochMissBytes)
-            epoch_cache_hit_rates.append(
-                (feat_nbytes - miss_nbytes) / feat_nbytes)
-
-            copy_times.append(copy_time)
-            convert_times.append(convert_time)
-            train_times.append(train_time)
-            total_times.append(total_time)
-
-            sam.report_step(epoch, step)
-
-        # sync the train workers
-        toc = time.time()
-
-        epoch_total_times_python.append(toc - tic)
-
-        # epoch end barrier
-        global_barrier.wait()
-
-        epoch_copy_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
-        epoch_convert_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime))
-        epoch_train_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
-        epoch_train_total_times_profiler.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
-        if worker_id == 0:
-            print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-                epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
-
-    print('[{:s}  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-      trainer_type.name, worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
-
-    # run end barrier
-    global_barrier.wait()
-
-    if worker_id == 0:
-        test_result = {}
-        test_result['epoch_time:copy_time'] = np.mean(epoch_copy_times[1:])
-        test_result['convert_time'] = np.mean(epoch_convert_times[1:])
-        test_result['train_time'] = np.mean(epoch_train_times[1:])
-        test_result['epoch_time:train_total'] = np.mean(
-            epoch_train_total_times_profiler[1:])
-        test_result['cache_percentage'] = run_config['cache_percentage']
-        test_result['cache_hit_rate'] = np.mean(epoch_cache_hit_rates[1:])
-        for k, v in test_result.items():
-            print('test_result:{:}={:.2f}'.format(k, v))
-
-    sam.shutdown()
-
-def run_switcher(worker_id, run_config):
-    ctx = run_config['sample_workers'][worker_id]
-    num_worker = run_config['sample_workers']
-    global_barrier = run_config['global_barrier']
-
-    train_device = torch.device(ctx)
-    print('[Train  Worker {:d}/{:d}] Started with PID {:d}'.format(
-        worker_id, num_worker, os.getpid()))
-
-    # let the trainer initialization after sampler
-    # sampler should presample before trainer initialization
-    sam.wait_for_sampler_ready(global_barrier)
     sam.train_init(worker_id, ctx)
 
     in_feat = sam.feat_dim()
@@ -466,27 +317,37 @@ def run_switcher(worker_id, run_config):
 
     # run start barrier
     global_barrier.wait()
+    print('[{:10s} Worker {:d}] run train for {:d} epochs with global {:d} steps'.format(
+        trainer_type.name, worker_id, num_epoch, num_step))
 
     for epoch in range(num_epoch):
+        tic = time.time()
+
         # epoch start barrier
         global_barrier.wait()
 
-        print('[Train  Switcher {:d}] run train for {:d} epochs with {:d} steps'.format(
-            worker_id, num_epoch, num_step))
+        if (trainer_type == TrainerType.Switcher):
+            sampler_stop_event.wait()
 
-        tic = time.time()
-
-        for step in range(worker_id, align_up_step, num_worker):
-            if (step < num_step):
-                t0 = time.time()
-                sam.sample_once()
-                batch_key = sam.get_next_batch()
-                t1 = time.time()
-                blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
-                    batch_key, num_layer)
-                t2 = time.time()
-            else:
-                t0 = t1 = t2 = time.time()
+        while True:
+            if (not mq_sem.acquire(timeout=0.01)):
+                if (trainer_type == TrainerType.Switcher):
+                    break
+                elif (trainer_type == TrainerType.Trainer):
+                    if (sampler_stop_event.is_set()):
+                        break
+                    else: # expecially for the first step of trainer
+                        continue
+                else:
+                    assert(0)
+            t0 = time.time()
+            sam.sample_once()
+            batch_key = sam.get_next_batch()
+            step = (batch_key % num_step)
+            t1 = time.time()
+            blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
+                batch_key, num_layer)
+            t2 = time.time()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_input)
@@ -495,12 +356,12 @@ def run_switcher(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
-            if (step + num_worker < num_step):
-                batch_input = None
-                batch_label = None
+            batch_input = None
+            batch_label = None
 
             # sync the arguments
             # bala bala ...
+            print(f'{trainer_type.name} run epoch {epoch}, step {step}')
 
             t3 = time.time()
 
@@ -549,8 +410,8 @@ def run_switcher(worker_id, run_config):
             print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
                 epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
 
-    print('[Train  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
+    print('[{:10s} Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
+      trainer_type.name, worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
     global_barrier.wait()
@@ -568,7 +429,6 @@ def run_switcher(worker_id, run_config):
             print('test_result:{:}={:.2f}'.format(k, v))
 
     sam.shutdown()
-
 
 if __name__ == '__main__':
     run_config = get_run_config()
