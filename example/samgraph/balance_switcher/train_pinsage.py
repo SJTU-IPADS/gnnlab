@@ -11,6 +11,7 @@ import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
+from enum import Enum
 '''
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 os.environ["NCCL_DEBUG"] = "INFO"
@@ -160,6 +161,10 @@ def run_sample(worker_id, run_config):
     num_worker = run_config['num_sample_worker']
     global_barrier = run_config['global_barrier']
 
+    # used for message counter
+    mq_sem  = config['mq_sem']
+    sampler_stop_event = config['sampler_stop_event']
+
     ctx = run_config['sample_workers'][worker_id]
     print('sample device: ', torch.cuda.get_device_name(ctx))
 
@@ -175,8 +180,6 @@ def run_sample(worker_id, run_config):
                        num_worker * worker_id))
     else:
         num_step = int(num_step / num_worker)
-    # align the train_workers
-    # num_step = int(int(num_step / num_train_worker) * num_train_worker)
 
     epoch_sample_total_times_python = []
     epoch_sample_total_times_profiler = []
@@ -191,15 +194,20 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     for epoch in range(num_epoch):
-        if (run_config['pipeline']):
-            # epoch start barrier 1
-            global_barrier.wait()
+        # epoch start barrier 1
+        sampler_stop_event.clear()
+        global_barrier.wait()
 
         tic = time.time()
         for step in range(num_step):
             # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
             sam.report_step(epoch, step)
+            # let counter of message queue increase one
+            mq_sem.release()
+
+        # notify switcher that sampler succeed
+        sampler_stop_event.set()
         toc = time.time()
 
         epoch_sample_total_times_python.append(toc - tic)
@@ -215,10 +223,6 @@ def run_sample(worker_id, run_config):
         epoch_sample_total_times_profiler.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
         )
-
-        if (not run_config['pipeline']):
-            # epoch start barrier 2
-            global_barrier.wait()
 
         # epoch end barrier
         global_barrier.wait()
@@ -247,19 +251,31 @@ def run_sample(worker_id, run_config):
 
     sam.shutdown()
 
+class TrainerType(Enum):
+    Trainer = 1
+    Switcher = 2
 
-def run_train(worker_id, run_config):
-    ctx = run_config['train_workers'][worker_id]
-    num_worker = run_config['num_train_worker']
+def run_train(worker_id, run_config, trainer_type):
+    ctx = None
+    if (trainer_type == TrainerType.Trainer):
+        ctx = run_config['train_workers'][worker_id]
+    elif (trainer_type == TrainerType.Switcher):
+        ctx = run_config['sample_workers'][worker_id]
+
+    # used for sync
     global_barrier = run_config['global_barrier']
+    mq_sem  = config['mq_sem']
+    sampler_stop_event = config['sampler_stop_event']
 
     train_device = torch.device(ctx)
-    print('[Train  Worker {:d}/{:d}] Started with PID {:d}'.format(
-        worker_id, num_worker, os.getpid()))
+    print('[{:s}     Worker  {:d}/{:d}] Started with PID {:d} Train Device '.format(
+        trainer_type.name, worker_id, run_config['num_train_worker'], os.getpid()), train_device)
+
 
     # let the trainer initialization after sampler
     # sampler should presample before trainer initialization
     sam.wait_for_sampler_ready(global_barrier)
+    # TODO: need to change the cache_percentage ???
     sam.train_init(worker_id, ctx)
 
     in_feat = sam.feat_dim()
@@ -276,7 +292,6 @@ def run_train(worker_id, run_config):
         model.parameters(), lr=run_config['lr'])
 
     num_epoch = sam.num_epoch()
-    num_step = sam.steps_per_epoch()
 
     model.train()
 
@@ -294,26 +309,36 @@ def run_train(worker_id, run_config):
 
     # run start barrier
     global_barrier.wait()
-    print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
+    print('[Train  Worker {:d}] run train for {:d} epochs with global {:d} steps'.format(
         worker_id, num_epoch, num_step))
 
     for epoch in range(num_epoch):
+        tic = time.time()
+
         # epoch start barrier
         global_barrier.wait()
 
-        tic = time.time()
+        if (trainer_type == TrainerType.Switcher):
+            sampler_stop_event.wait()
 
-        for step in range(worker_id, align_up_step, num_worker):
-            if (step < num_step):
-                t0 = time.time()
-                sam.sample_once()
-                batch_key = sam.get_next_batch()
-                t1 = time.time()
-                blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
-                    batch_key, num_layer)
-                t2 = time.time()
-            else:
-                t0 = t1 = t2 = time.time()
+        while True:
+            if (not mq_sem.acquire(timeout=0.01)):
+                if (trainer_type == TrainerType.Switcher):
+                    break
+                elif (trainer_type == TrainerType.Trainer):
+                    if (sampler_stop_event.is_set()):
+                        break
+                    else: # expecially for the first step of trainer
+                        continue
+                else:
+                    assert(0)
+            t0 = time.time()
+            sam.sample_once()
+            batch_key = sam.get_next_batch()
+            t1 = time.time()
+            blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
+                batch_key, num_layer)
+            t2 = time.time()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_input)
@@ -322,9 +347,8 @@ def run_train(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
-            if (step + num_worker < num_step):
-                batch_input = None
-                batch_label = None
+            batch_input = None
+            batch_label = None
 
             # sync the arguments
             # bala bala ...
@@ -376,8 +400,8 @@ def run_train(worker_id, run_config):
             print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
                 epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
 
-    print('[Train  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
+    print('[{:s}  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
+      trainer_type.name, worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
     global_barrier.wait()
@@ -555,9 +579,11 @@ if __name__ == '__main__':
 
     # global barrier is used to sync all the sample workers and train workers
     run_config['global_barrier'] = mp.Barrier(
-        num_sample_worker + num_train_worker, timeout=get_default_timeout())
-    # switcher barrier is used to notify the train_switcher
-    run_config['switch_barrier'] = mp.Barrier(2 * num_sample_worker)
+        2 * num_sample_worker + num_train_worker, timeout=get_default_timeout())
+    # let others know the info of message queue
+    run_config['mq_sem'] = mp.Semaphore(0)
+    # sampler_stop_event is used to notify the train_switcher
+    run_config['sampler_stop_event'] = mp.Event()
 
     workers = []
     # sample processes
@@ -567,15 +593,15 @@ if __name__ == '__main__':
         p.start()
         workers.append(p)
         # sampler switcher
-        p = mp.Process(target=run_switcher, args=(
-            worker_id, run_config))
+        p = mp.Process(target=run_train, args=(
+            worker_id, run_config, TrainerType.Switcher))
         p.start()
         workers.append(p)
 
     # train processes
     for worker_id in range(num_train_worker):
         p = mp.Process(target=run_train, args=(
-            worker_id, run_config))
+            worker_id, run_config, TrainerType.Trainer))
         p.start()
         workers.append(p)
 
