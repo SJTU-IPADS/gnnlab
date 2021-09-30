@@ -67,11 +67,21 @@ namespace {
 
   size_t GetDataBytes(std::shared_ptr<Task> task) {
     size_t ret = 0;
-    ret += task->input_nodes->NumBytes();
     ret += task->output_nodes->NumBytes();
-    if (task->input_dst_index != nullptr) {
-      ret += task->input_dst_index->NumBytes();
+    if (!RunConfig::UseGPUCache()) {
+      ret += task->input_nodes->NumBytes();
+    } else {
+      if (task->miss_cache_index.num_miss > 0) {
+        ret += task->miss_cache_index.miss_src_index->NumBytes();
+        ret += task->miss_cache_index.miss_dst_index->NumBytes();
+      }
+
+      if (task->miss_cache_index.num_cache > 0) {
+        ret += task->miss_cache_index.cache_src_index->NumBytes();
+        ret += task->miss_cache_index.cache_dst_index->NumBytes();
+      }
     }
+
     for (auto &graph : task->graphs) {
       ret += sizeof(GraphData);
       ret += graph->row->NumBytes();
@@ -83,14 +93,25 @@ namespace {
     return ret;
   }
 
-  Context data_ctx = Context{kCPU, 0};
-  void CopyTo(const TensorPtr& tensor, void* to) {
-    auto source_ctx = tensor->Ctx();
+  void CopyCPUToCPU(const void *from, void *to, size_t nbytes) {
+    char *to_data = static_cast<char *>(to);
+    const char *from_data = static_cast<const char *>(from);
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for (size_t i = 0; i < nbytes; i += 64) {
+      size_t len = std::min(i + 64, nbytes);
+#pragma omp simd
+      for (size_t j = i; j < len; ++j) {
+        to_data[j] = from_data[j];
+      }
+    }
+  }
+
+  void CopyGPUToCPU(const TensorPtr &from, void *to) {
+    auto from_ctx = from->Ctx();
     auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
-    auto nbytes = tensor->NumBytes();
-    LOG(DEBUG) << "deviceType, id: " << source_ctx.device_type << ", " << source_ctx.device_id;
-    Device::Get(source_ctx)->CopyDataFromTo(tensor->Data(), 0, to, 0,
-                nbytes, source_ctx, data_ctx, stream);
+    CHECK_EQ(from_ctx.device_type, kGPU);
+    Device::Get(from_ctx)->CopyDataFromTo(
+        from->Data(), 0, to, 0, from->NumBytes(), from_ctx, CPU(), stream);
   }
 
   // to print the information of a task
@@ -122,21 +143,35 @@ namespace {
     ptr->key = task->key;
     ptr->input_size = task->input_nodes->Shape()[0];
     ptr->output_size = task->output_nodes->Shape()[0];
-    ptr->num_miss = task->num_miss;
+    ptr->num_miss = task->miss_cache_index.num_miss;
 
-    IdType* ptr_data = ptr->data;
-    CHECK_EQ(sizeof(IdType) * ptr->input_size, task->input_nodes->NumBytes());
-    CopyTo(task->input_nodes, ptr_data);
-    ptr_data += ptr->input_size;
+    IdType *ptr_data = ptr->data;
+
+    if (!RunConfig::UseGPUCache()) {
+      CHECK_EQ(sizeof(IdType) * ptr->input_size, task->input_nodes->NumBytes());
+      CopyGPUToCPU(task->input_nodes, ptr_data);
+      ptr_data += ptr->input_size;
+    }
 
     CHECK_EQ(sizeof(IdType) * ptr->output_size, task->output_nodes->NumBytes());
-    CopyTo(task->output_nodes, ptr_data);
+    CopyGPUToCPU(task->output_nodes, ptr_data);
     ptr_data += ptr->output_size;
 
-    if (task->input_dst_index != nullptr) {
-      CHECK_NE(ptr->num_miss, ptr->input_size);
-      CopyTo(task->input_dst_index, ptr_data);
-      ptr_data += ptr->input_size;
+    if (RunConfig::UseGPUCache()) {
+      if (ptr->num_miss > 0) {
+        CopyGPUToCPU(task->miss_cache_index.miss_src_index, ptr_data);
+        ptr_data += ptr->num_miss;
+        CopyGPUToCPU(task->miss_cache_index.miss_dst_index, ptr_data);
+        ptr_data += ptr->num_miss;
+      }
+
+      size_t num_cache = ptr->input_size - ptr->num_miss;
+      if (num_cache > 0) {
+        CopyGPUToCPU(task->miss_cache_index.cache_src_index, ptr_data);
+        ptr_data += num_cache;
+        CopyGPUToCPU(task->miss_cache_index.cache_dst_index, ptr_data);
+        ptr_data += num_cache;
+      }
     }
 
     GraphData* graph_data = reinterpret_cast<GraphData*>(ptr_data);
@@ -147,14 +182,14 @@ namespace {
       graph_data->num_edge = graph->num_edge;
 
       CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->row->NumBytes());
-      CopyTo(graph->row, graph_data->data);
+      CopyGPUToCPU(graph->row, graph_data->data);
 
       CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->col->NumBytes());
-      CopyTo(graph->col, graph_data->data + graph_data->num_edge);
+      CopyGPUToCPU(graph->col, graph_data->data + graph_data->num_edge);
 
       if (have_data) {
         CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->data->NumBytes());
-        CopyTo(graph->data, graph_data->data + 2 * graph_data->num_edge);
+        CopyGPUToCPU(graph->data, graph_data->data + 2 * graph_data->num_edge);
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 3 * graph->num_edge);
       } else {
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 2 * graph->num_edge);
@@ -165,7 +200,6 @@ namespace {
     auto source_ctx = dist::DistEngine::Get()->GetSamplerCtx();
     auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
     Device::Get(source_ctx)->StreamSync(source_ctx, stream);
-
   }
 
   // cuda memory comsuption
@@ -182,10 +216,10 @@ namespace {
 
   TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name) {
     LOG(DEBUG) << "TaskQueue ToTensor with name: " << name;
-    void* data = Device::Get(data_ctx)->
-      AllocWorkspace(data_ctx, nbytes);
-    Device::Get(data_ctx)->CopyDataFromTo(ptr, 0, data, 0, nbytes, data_ctx, data_ctx);
-    TensorPtr ret = Tensor::FromBlob(data, kI32, {(nbytes/sizeof(IdType))}, data_ctx, name);
+    void *data = Device::Get(CPU())->AllocWorkspace(CPU(), nbytes);
+    CopyCPUToCPU(ptr, data, nbytes);
+    TensorPtr ret =
+        Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, CPU(), name);
     return ret;
   }
 
@@ -194,22 +228,49 @@ namespace {
     auto trans_data = static_cast<const TransData*>(shared_data->Data());
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
-    task->num_miss = trans_data->num_miss;
 
     const IdType *trans_data_data = trans_data->data;
 
-    task->input_nodes = ToTensor(trans_data_data,
-        trans_data->input_size * sizeof(IdType), "input_" + std::to_string(task->key));
-    trans_data_data += trans_data->input_size;
+    if (!RunConfig::UseGPUCache()) {
+      task->input_nodes =
+          ToTensor(trans_data_data, trans_data->input_size * sizeof(IdType),
+                   "input_" + std::to_string(task->key));
+      trans_data_data += trans_data->input_size;
+    }
 
     task->output_nodes = ToTensor(trans_data_data,
         trans_data->output_size * sizeof(IdType), "output_" + std::to_string(task->key));
     trans_data_data += trans_data->output_size;
 
     if (RunConfig::UseGPUCache()) {
-      task->input_dst_index = ToTensor(trans_data_data,
-          trans_data->input_size * sizeof(IdType), "cache_dst_index_" + std::to_string(task->key));
-      trans_data_data += trans_data->input_size;
+      task->miss_cache_index.num_miss = trans_data->num_miss;
+      task->miss_cache_index.num_cache =
+          trans_data->input_size - trans_data->num_miss;
+
+      if (task->miss_cache_index.num_miss > 0) {
+        task->miss_cache_index.miss_src_index =
+            ToTensor(trans_data_data, trans_data->num_miss * sizeof(IdType),
+                     "miss_src_index_" + std::to_string(task->key));
+        trans_data_data += task->miss_cache_index.num_miss;
+
+        task->miss_cache_index.miss_dst_index =
+            ToTensor(trans_data_data, trans_data->num_miss * sizeof(IdType),
+                     "mis_dst_index_" + std::to_string(task->key));
+        trans_data_data += task->miss_cache_index.num_miss;
+      }
+
+      size_t num_cache = task->miss_cache_index.num_cache;
+      if (num_cache > 0) {
+        task->miss_cache_index.cache_src_index =
+            ToTensor(trans_data_data, num_cache * sizeof(IdType),
+                     "cache_src_index_" + std::to_string(task->key));
+        trans_data_data += num_cache;
+
+        task->miss_cache_index.cache_dst_index =
+            ToTensor(trans_data_data, num_cache * sizeof(IdType),
+                     "cache_dst_index_" + std::to_string(task->key));
+        trans_data_data += num_cache;
+      }
     }
 
     task->graphs.resize(trans_data->num_layer);
