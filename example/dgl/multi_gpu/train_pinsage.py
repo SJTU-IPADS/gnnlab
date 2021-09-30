@@ -173,10 +173,10 @@ def get_run_config():
     default_run_config['num_sampling_worker'] = 16
     # default_run_config['num_sampling_worker'] = 16
 
-    default_run_config['random_walk_length'] = 4
+    default_run_config['random_walk_length'] = 3
     default_run_config['random_walk_restart_prob'] = 0.5
     default_run_config['num_random_walk'] = 4
-    default_run_config['num_neighbor'] = 8
+    default_run_config['num_neighbor'] = 5
     default_run_config['num_layer'] = 3
     default_run_config['num_epoch'] = 2
     default_run_config['num_hidden'] = 256
@@ -355,10 +355,11 @@ def run(worker_id, run_config):
 
         if num_worker > 1:
             torch.distributed.barrier()
+        
+        torch.cuda.synchronize(device)
 
         toc = time.time()
 
-        toc = time.time()
         epoch_sample_times.append(epoch_sample_time)
         epoch_graph_copy_times.append(epoch_graph_copy_time)
         epoch_copy_times.append(epoch_copy_time)

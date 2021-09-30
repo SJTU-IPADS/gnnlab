@@ -141,7 +141,17 @@ def run_sample(worker_id, run_config):
         for step in range(num_step):
             sam.sample_once()
             sam.report_step(epoch, step)
-        toc = time.time()
+
+        if not run_config['pipeline']:
+            toc = time.time()
+            # epoch start barrier 2
+            global_barrier.wait()
+
+        # epoch end barrier
+        global_barrier.wait()
+
+        if run_config['pipeline']:
+            toc = time.time()
 
         epoch_sample_total_times_python.append(toc - tic)
         epoch_sample_times.append(
@@ -156,13 +166,6 @@ def run_sample(worker_id, run_config):
         epoch_sample_total_times_profiler.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
         )
-
-        if not run_config['pipeline']:
-            # epoch start barrier 2
-            global_barrier.wait()
-
-        # epoch end barrier
-        global_barrier.wait()
 
     print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
         worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
@@ -184,10 +187,13 @@ def run_sample(worker_id, run_config):
             ('enqueue_samples_time', np.mean(epoch_enqueue_samples_times[1:])))
         test_result.append(('epoch_time:sample_total', np.mean(
             epoch_sample_total_times_python[1:])))
+        if run_config['pipeline']:
+            test_result.append(
+                ('pipeline_sample_epoch_time', np.mean(epoch_sample_total_times_python[1:])))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
-    
-    global_barrier.wait() # barrier for pretty print
+
+    global_barrier.wait()  # barrier for pretty print
     # trainer print result
 
     sam.shutdown()
@@ -328,6 +334,8 @@ def run_train(worker_id, run_config):
 
             sam.report_step(epoch, step)
 
+        torch.cuda.synchronize(train_device)
+
         # sync the train workers
         if num_worker > 1:
             torch.distributed.barrier()
@@ -363,7 +371,7 @@ def run_train(worker_id, run_config):
     run_end = time.time()
 
     # sampler print init and result
-    global_barrier.wait() # barrier for pretty print
+    global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
         test_result = []
@@ -378,6 +386,9 @@ def run_train(worker_id, run_config):
         test_result.append(('cache_hit_rate', np.mean(
             epoch_cache_hit_rates[1:])))
         test_result.append(('run_time', run_end - run_start))
+        if run_config['pipeline']:
+            test_result.append(
+                ('pipeline_train_epoch_time', np.mean(epoch_total_times_python[1:])))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 
