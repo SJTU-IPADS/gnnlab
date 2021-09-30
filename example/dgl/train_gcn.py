@@ -290,6 +290,8 @@ def run():
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
+        torch.cuda.synchronize(train_device)
+
         toc = time.time()
         epoch_sample_times.append(epoch_sample_time)
         epoch_graph_copy_times.append(epoch_graph_copy_time)
