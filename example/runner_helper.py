@@ -131,6 +131,10 @@ class RunConfig:
     self.logdir        = logdir
     self.sample_type   = SampleType.kDefaultForApp
     self.report_optimal = 0
+    self.profile_level = 1
+    self.multi_gpu = False
+    self.empty_feat = 0
+    self.log_level = 'warn'
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -156,8 +160,11 @@ class RunConfig:
     cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '
     cmd_line += f'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal}; '
     cmd_line += 'export SAMGRAPH_DUMP_TRACE=0; '
-    cmd_line += f'python samgraph/train_{self.app.name}.py'
-    cmd_line += f' --arch {self.arch.name}'
+    if self.multi_gpu:
+      cmd_line += f'python samgraph/multi_gpu/train_{self.app.name}.py'
+    else:
+      cmd_line += f'python samgraph/train_{self.app.name}.py --arch {self.arch.name}'
+
     cmd_line += f' --sample-type {str(self.sample_type)}'
     cmd_line += f' --max-sampling-jobs {self.sample_job}'
     cmd_line += f' --max-copying-jobs {self.copy_job}'
@@ -178,8 +185,9 @@ class RunConfig:
     cmd_line += f' --dataset {str(self.dataset)}'
     cmd_line += f' --num-epoch {self.epoch}'
     cmd_line += f' --batch-size {self.batch_size}'
-    cmd_line += f' --profile-level 1'
-    cmd_line += f' --log-level warn'
+    cmd_line += f' --profile-level {self.profile_level}'
+    cmd_line += f' --log-level {self.log_level}'
+    cmd_line += f' --empty-feat {self.empty_feat}'
 
     if durable_log:
       std_out_log = self.get_log_fname() + '.log'
@@ -214,7 +222,8 @@ class RunConfig:
       print(self.form_cmd(durable_log))
     else:
       print(self.beauty())
-      os.system('mkdir -p {}'.format(self.logdir))
+      if durable_log:
+        os.system('mkdir -p {}'.format(self.logdir))
       os.system(self.form_cmd(durable_log))
       if callback != None:
         callback(self)
@@ -357,3 +366,8 @@ class ConfigList:
         setattr(cfg, key, val)
       self.conf_list += new_list
     return self
+  def concat(self, another_list):
+    self.conf_list += copy.deepcopy(another_list.conf_list)
+    return self
+  def copy(self):
+    return copy.deepcopy(self)
