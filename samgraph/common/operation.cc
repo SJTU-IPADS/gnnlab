@@ -306,6 +306,14 @@ void samgraph_extract_start(int count) {
   LOG(INFO) << "SamGraph extract background thread start successfully";
 }
 
+void samgraph_switch_init(int worker_id, const char*ctx, double cache_percentage) {
+  RunConfig::cache_percentage = cache_percentage;
+  CHECK(RunConfig::is_configured);
+  dist::DistEngine::Get()->TrainInit(worker_id, Context(std::string(ctx)));
+
+  LOG(INFO) << "SamGraph switch has been initialized successfully";
+}
+
 }  // extern "c"
 
 }  // namespace common

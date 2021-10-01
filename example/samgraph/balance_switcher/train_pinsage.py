@@ -110,6 +110,8 @@ def parse_args(default_run_config):
                            default=default_run_config['num_neighbor'])
     argparser.add_argument('--num-layer', type=int,
                            default=default_run_config['num_layer'])
+    argparser.add_argument('--switch-cache-percentage', type=float,
+                           default=default_run_config['switch_cache_percentage'])
 
     argparser.add_argument(
         '--lr', type=float, default=default_run_config['lr'])
@@ -131,6 +133,7 @@ def get_run_config():
     run_config['num_neighbor'] = 8
     run_config['num_layer'] = 3
     run_config['pipeline'] = True
+    run_config['switch_cache_percentage'] = 0.1
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
@@ -140,6 +143,9 @@ def get_run_config():
     process_common_config(run_config)
     assert(run_config['arch'] == 'arch5')
     assert(run_config['sample_type'] == 'random_walk')
+
+    if (run_config['cache_percentage'] == 0.0):
+        run_config['switch_cache_percentage'] = 0.0
 
     print_run_config(run_config)
 
@@ -283,7 +289,10 @@ def run_train(worker_id, run_config, trainer_type):
     # sampler should presample before trainer initialization
     sam.wait_for_sampler_ready(global_barrier)
     # TODO: need to change the cache_percentage ???
-    sam.train_init(worker_id, ctx)
+    if (trainer_type == TrainerType.Trainer):
+        sam.train_init(worker_id, ctx)
+    else:
+        sam.switch_init(worker_id, ctx, run_config['switch_cache_percentage'])
 
     in_feat = sam.feat_dim()
     num_class = sam.num_class()

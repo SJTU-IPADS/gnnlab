@@ -56,11 +56,11 @@ kCacheByFakeOptimal     = 5
 kDynamicCache           = 6
 
 
-def cpu(device_id=0): 
+def cpu(device_id=0):
     return 'cpu:{:}'.format(device_id)
 
 
-def gpu(device_id=0): 
+def gpu(device_id=0):
     return 'cuda:{:}'.format(device_id)
 
 
@@ -329,6 +329,15 @@ class SamGraphBasics(object):
             ctypes.c_int(worker_id),
             ctypes.c_char_p(str.encode(ctx))
         )
+
+    # for dynamic switcher
+    def switch_init(self, worker_id, ctx, cache_percentage):
+        return self.C_LIB_CTYPES.samgraph_switch_init(
+            ctypes.c_int(worker_id),
+            ctypes.c_char_p(str.encode(ctx)),
+            ctypes.c_double(cache_percentage)
+        )
+
 
     def extract_start(self, count):
         return self.C_LIB_CTYPES.samgraph_extract_start(ctypes.c_int(count))
