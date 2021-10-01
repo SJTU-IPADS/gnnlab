@@ -164,7 +164,7 @@ def run_sample(worker_id, run_config):
 
     # used for message counter
     mq_sem  = run_config['mq_sem']
-    sampler_stop_event = run_config['sampler_stop_event']
+    sampler_stop_event = run_config['sampler_stop_event'][worker_id]
 
     ctx = run_config['sample_workers'][worker_id]
 
@@ -194,19 +194,19 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     for epoch in range(num_epoch):
+        sampler_stop_event.clear()
+        # set the semaphore to the number of sample results
+        for step in range(num_step):
+            mq_sem.release()
         if run_config['pipeline']:
             # epoch start barrier 1
             global_barrier.wait()
 
-        sampler_stop_event.clear()
-
         tic = time.time()
         for step in range(num_step):
-            # print(f'sample epoch {epoch}, step {step}')
+            print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
             sam.report_step(epoch, step)
-            # let counter of message queue increase one
-            mq_sem.release()
 
         if not run_config['pipeline']:
             # epoch start barrier 2
@@ -266,11 +266,11 @@ def run_train(worker_id, run_config, trainer_type):
         ctx = run_config['train_workers'][worker_id]
     elif (trainer_type == TrainerType.Switcher):
         ctx = run_config['sample_workers'][worker_id]
+        sampler_stop_event = run_config['sampler_stop_event'][worker_id]
 
     # used for sync
     global_barrier = run_config['global_barrier']
     mq_sem  = run_config['mq_sem']
-    sampler_stop_event = run_config['sampler_stop_event']
 
     train_device = torch.device(ctx)
     print('[{:10s} Worker  {:d}/{:d}] Started with PID {:d} Train Device '.format(
@@ -329,17 +329,7 @@ def run_train(worker_id, run_config, trainer_type):
         if (trainer_type == TrainerType.Switcher):
             sampler_stop_event.wait()
 
-        while True:
-            if (not mq_sem.acquire(timeout=0.01)):
-                if (trainer_type == TrainerType.Switcher):
-                    break
-                elif (trainer_type == TrainerType.Trainer):
-                    if (sampler_stop_event.is_set()):
-                        break
-                    else: # expecially for the first step of trainer
-                        continue
-                else:
-                    assert(0)
+        while mq_sem.acquire(timeout=0.01):
             t0 = time.time()
             sam.sample_once()
             batch_key = sam.get_next_batch()
@@ -442,8 +432,10 @@ if __name__ == '__main__':
         2 * num_sample_worker + num_train_worker, timeout=get_default_timeout())
     # let others know the info of message queue
     run_config['mq_sem'] = mp.Semaphore(0)
-    # sampler_stop_event is used to notify the train_switcher
-    run_config['sampler_stop_event'] = mp.Event()
+    # sampler_stop_event is used to notify each train_switcher
+    run_config['sampler_stop_event'] = []
+    for woker_id in range(num_sample_worker):
+        run_config['sampler_stop_event'].append(mp.Event())
 
     workers = []
     # sample processes
