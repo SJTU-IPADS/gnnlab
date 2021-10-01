@@ -118,7 +118,7 @@ TensorPtr Tensor::Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
 
   if (ctx.device_type == kMMAP) {
-    ctx = CPU();
+    ctx = CPU(ctx.device_id);
   }
 
   tensor->_dtype = dtype;
@@ -137,7 +137,7 @@ TensorPtr Tensor::EmptyNoScale(DataType dtype, std::vector<size_t> shape,
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
 
   if (ctx.device_type == kMMAP) {
-    ctx = CPU();
+    ctx = CPU(ctx.device_id);
   }
 
   tensor->_dtype = dtype;
