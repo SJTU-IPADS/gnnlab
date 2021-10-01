@@ -21,14 +21,6 @@
 #include "pre_sampler.h"
 #include "../profiler.h"
 
-// XXX: decide CPU or GPU to shuffling, sampling and id remapping
-/*
-#include "cpu_hashtable0.h"
-#include "cpu_hashtable1.h"
-#include "cpu_hashtable2.h"
-#include "cpu_loops.h"
-*/
-
 namespace samgraph {
 namespace common {
 namespace dist {
@@ -279,54 +271,6 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _initialize = true;
 }
 
-void DistEngine::TrainDataLoad() {
-  if ((_dataset->feat != nullptr) && (_dataset->label != nullptr)) {
-    return;
-  }
-  std::unordered_map<std::string, size_t> meta;
-  std::unordered_map<std::string, Context> ctx_map = GetGraphFileCtx();
-
-  if (_dataset_path.back() != '/') {
-    _dataset_path.push_back('/');
-  }
-
-  // Parse the meta data
-  std::ifstream meta_file(_dataset_path + Constant::kMetaFile);
-  std::string line;
-  while (std::getline(meta_file, line)) {
-    std::istringstream iss(line);
-    std::vector<std::string> kv{std::istream_iterator<std::string>{iss},
-                                std::istream_iterator<std::string>{}};
-
-    if (kv.size() < 2) {
-      break;
-    }
-
-    meta[kv[0]] = std::stoull(kv[1]);
-  }
-
-  CHECK(meta.count(Constant::kMetaNumNode) > 0);
-  CHECK(meta.count(Constant::kMetaFeatDim) > 0);
-  if (_dataset->feat == nullptr) {
-    if (RunConfig::option_empty_feat != 0) {
-      _dataset->feat = Tensor::EmptyNoScale(
-          DataType::kF32,
-          {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]},
-          ctx_map[Constant::kFeatFile], "dataset.feat");
-    } else {
-      _dataset->feat = Tensor::EmptyNoScale(
-          DataType::kF32,
-          {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
-          ctx_map[Constant::kFeatFile], "dataset.feat");
-    }
-  }
-  if (_dataset->label == nullptr) {
-    _dataset->label =
-        Tensor::EmptyNoScale(DataType::kI64, {meta[Constant::kMetaNumNode]},
-                      ctx_map[Constant::kLabelFile], "dataset.label");
-  }
-}
-
 void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
   _dataset->label = Tensor::CopyTo(_dataset->label, trainer_ctx, stream);
   LOG(DEBUG) << "TrainDataCopy finished!";
@@ -344,9 +288,6 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
 
   _memory_queue->PinMemory();
   LOG_MEM_USAGE(WARNING, "after pin memory", _trainer_ctx);
-
-  TrainDataLoad();
-  LOG_MEM_USAGE(WARNING, "after train data load", _trainer_ctx);
 
   // Create CUDA streams
   // XXX: create cuda streams that training needs
@@ -536,8 +477,8 @@ std::unordered_map<std::string, Context> DistEngine::GetGraphFileCtx() {
 
   ret[Constant::kIndptrFile] = MMAP();
   ret[Constant::kIndicesFile] = MMAP();
-  ret[Constant::kFeatFile] = MMAP();
-  ret[Constant::kLabelFile] = MMAP();
+  ret[Constant::kFeatFile] = MMAP(CPU_CLIB_MALLOC_DEVICE);
+  ret[Constant::kLabelFile] = MMAP(CPU_CLIB_MALLOC_DEVICE);
   ret[Constant::kTrainSetFile] = MMAP();
   ret[Constant::kTestSetFile] = MMAP();
   ret[Constant::kValidSetFile] = MMAP();

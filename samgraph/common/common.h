@@ -194,7 +194,11 @@ using TaskPtr = std::shared_ptr<Task>;
 typedef void (*LoopFunction)();
 typedef bool (*LoopOnceFunction)();
 
-Context CPU(int device_id = 0);
+constexpr static int CPU_CUDA_HOST_MALLOC_DEVICE = 0;
+constexpr static int CPU_CLIB_MALLOC_DEVICE = 1;
+
+Context CPU(int device_id = CPU_CUDA_HOST_MALLOC_DEVICE);
+Context CPU_CLIB(int device_id = CPU_CLIB_MALLOC_DEVICE);
 Context GPU(int device_id = 0);
 Context MMAP(int device_id = 0);
 

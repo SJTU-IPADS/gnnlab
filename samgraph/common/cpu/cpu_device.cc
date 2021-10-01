@@ -18,18 +18,26 @@ void CPUDevice::SetDevice(Context ctx) {}
 
 void *CPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   void *ptr;
-  CUDA_CALL(cudaHostAlloc(&ptr, nbytes, cudaHostAllocDefault));
-
-  // int ret = posix_memalign(&ptr, alignment, nbytes);
-  // CHECK_EQ(ret, 0);
+  if (ctx.device_id == CPU_CUDA_HOST_MALLOC_DEVICE) {
+    CUDA_CALL(cudaHostAlloc(&ptr, nbytes, cudaHostAllocDefault));
+  } else if (ctx.device_id == CPU_CLIB_MALLOC_DEVICE) {
+    int ret = posix_memalign(&ptr, alignment, nbytes);
+    CHECK_EQ(ret, 0);
+  } else {
+    CHECK(false);
+  }
 
   return ptr;
 }
 
 void CPUDevice::FreeDataSpace(Context ctx, void *ptr) {
-  CUDA_CALL(cudaFreeHost(ptr));
-
-  // free(ptr);
+  if (ctx.device_id == CPU_CUDA_HOST_MALLOC_DEVICE) {
+    CUDA_CALL(cudaFreeHost(ptr));
+  } else if (ctx.device_id == CPU_CLIB_MALLOC_DEVICE) {
+    free(ptr);
+  } else {
+    CHECK(false);
+  }
 }
 
 void CPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
