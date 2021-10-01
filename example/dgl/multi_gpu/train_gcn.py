@@ -185,6 +185,24 @@ def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
     return batch_inputs, batch_labels
 
 
+def get_data_iterator(run_config, dataloader):
+    if run_config['use_gpu_sampling']:
+        return iter(dataloader)
+    else:
+        # iterator = iter(dataloader)
+        # if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+        # q = iterator.iter_._worker_result_queue
+        # while q.qsize() < run_config['num_prefetch_batch']:
+        #     # timeout is 1 second
+        #     with q._notempty:
+        #         q._notempty.wait(timeout=1.0)
+        # return iterator
+        if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+            return [data for data in iter(dataloader)]
+        else:
+            return iter(dataloader)
+
+
 def run(worker_id, run_config):
     sample_device = torch.device(run_config['sample_devices'][worker_id])
     train_device = torch.device(run_config['train_devices'][worker_id])
@@ -268,7 +286,7 @@ def run(worker_id, run_config):
 
         tic = time.time()
         t0 = time.time()
-        for step, (input_nodes, output_nodes, blocks) in enumerate(dataloader):
+        for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
             if not run_config['pipelining']:
                 torch.cuda.synchronize(train_device)
             t1 = time.time()
