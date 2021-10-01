@@ -18,36 +18,34 @@ void CPUDevice::SetDevice(Context ctx) {}
 
 void *CPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   void *ptr;
-  CUDA_CALL(cudaHostAlloc(&ptr, nbytes, cudaHostAllocDefault));
-
-  // int ret = posix_memalign(&ptr, alignment, nbytes);
-  // CHECK_EQ(ret, 0);
+  if (ctx.device_id == CPU_CUDA_HOST_MALLOC_DEVICE) {
+    CUDA_CALL(cudaHostAlloc(&ptr, nbytes, cudaHostAllocDefault));
+  } else if (ctx.device_id == CPU_CLIB_MALLOC_DEVICE) {
+    int ret = posix_memalign(&ptr, alignment, nbytes);
+    CHECK_EQ(ret, 0);
+  } else {
+    CHECK(false);
+  }
 
   return ptr;
 }
 
 void CPUDevice::FreeDataSpace(Context ctx, void *ptr) {
-  CUDA_CALL(cudaFreeHost(ptr));
-
-  // free(ptr);
+  if (ctx.device_id == CPU_CUDA_HOST_MALLOC_DEVICE) {
+    CUDA_CALL(cudaFreeHost(ptr));
+  } else if (ctx.device_id == CPU_CLIB_MALLOC_DEVICE) {
+    free(ptr);
+  } else {
+    CHECK(false);
+  }
 }
 
 void CPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
                                size_t to_offset, size_t nbytes,
                                Context ctx_from, Context ctx_to,
                                StreamHandle stream) {
-  char *to_t = (static_cast<char *>(to) + to_offset);
-  const char *from_t = (static_cast<const char *>(from) + from_offset);
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
-  for (size_t i = 0; i < nbytes; i += 64) {
-    size_t len = std::min(i + 64, nbytes);
-#pragma omp simd
-    for (size_t j = i; j < len; ++j) {
-      to_t[j] = from_t[j];
-    }
-  }
-  // memcpy(static_cast<char *>(to) + to_offset,
-  //        static_cast<const char *>(from) + from_offset, nbytes);
+  memcpy(static_cast<char *>(to) + to_offset,
+         static_cast<const char *>(from) + from_offset, nbytes);
 }
 
 void CPUDevice::StreamSync(Context ctx, StreamHandle stream) {}

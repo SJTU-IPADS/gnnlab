@@ -1,5 +1,8 @@
 #include "engine.h"
 
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
@@ -117,7 +120,7 @@ void Engine::LoadGraphDataset() {
         _dataset_path + Constant::kFeatFile, DataType::kF32,
         {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
         ctx_map[Constant::kFeatFile], "dataset.feat");
-  } else if(dist::DistEngine::Get() == nullptr) { // not a DistEngine
+  } else {
     if (RunConfig::option_empty_feat != 0) {
       _dataset->feat = Tensor::EmptyNoScale(
           DataType::kF32,
@@ -129,8 +132,6 @@ void Engine::LoadGraphDataset() {
           {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
           ctx_map[Constant::kFeatFile], "dataset.feat");
     }
-  } else { // if a DistEngine, load it in train_init
-    _dataset->feat = nullptr;
   }
 
   if (FileExist(_dataset_path + Constant::kLabelFile)) {
@@ -138,12 +139,10 @@ void Engine::LoadGraphDataset() {
         Tensor::FromMmap(_dataset_path + Constant::kLabelFile, DataType::kI64,
                          {meta[Constant::kMetaNumNode]},
                          ctx_map[Constant::kLabelFile], "dataset.label");
-  } else if(dist::DistEngine::Get() == nullptr) { // not a DistEngine
+  } else {
     _dataset->label =
         Tensor::EmptyNoScale(DataType::kI64, {meta[Constant::kMetaNumNode]},
-                      ctx_map[Constant::kLabelFile], "dataset.label");
-  } else { // if a DistEngine, load it in train_init
-    _dataset->feat = nullptr;
+                             ctx_map[Constant::kLabelFile], "dataset.label");
   }
 
   _dataset->train_set =
