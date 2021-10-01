@@ -32,7 +32,7 @@ PreSampler::PreSampler(TensorPtr input, size_t batch_size, size_t num_nodes) {
     *nid_ptr = i;
     *(nid_ptr + 1) = 0;
   }
-  Profiler::Get().LogInit(kLogInitL2PresampleInit, t_init.Passed());
+  Profiler::Get().LogInit(kLogInitL3PresampleInit, t_init.Passed());
 }
 
 PreSampler::~PreSampler() {
@@ -92,9 +92,9 @@ void PreSampler::DoPreSample(){
       }
       cpu_device->FreeWorkspace(CPU(), input_nodes);
       double count_time = t2.Passed();
-      Profiler::Get().LogInitAdd(kLogInitL2PresampleSample, sample_time);
-      Profiler::Get().LogInitAdd(kLogInitL2PresampleCopy, copy_time);
-      Profiler::Get().LogInitAdd(kLogInitL2PresampleCount, count_time);
+      Profiler::Get().LogInitAdd(kLogInitL3PresampleSample, sample_time);
+      Profiler::Get().LogInitAdd(kLogInitL3PresampleCopy, copy_time);
+      Profiler::Get().LogInitAdd(kLogInitL3PresampleCount, count_time);
     }
   }
   Timer ts;
@@ -106,10 +106,10 @@ void PreSampler::DoPreSample(){
             std::greater<Id64Type>());
 #endif
   double sort_time = ts.Passed();
-  Profiler::Get().LogInit(kLogInitL2PresampleSort, sort_time);
+  Profiler::Get().LogInit(kLogInitL3PresampleSort, sort_time);
   Timer t_reset;
   Profiler::Get().ResetStepEpoch();
-  Profiler::Get().LogInit(kLogInitL2PresampleReset, t_reset.Passed());
+  Profiler::Get().LogInit(kLogInitL3PresampleReset, t_reset.Passed());
 }
 
 TensorPtr PreSampler::GetFreq() {
@@ -130,7 +130,7 @@ TensorPtr PreSampler::GetRankNode() {
     auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
     ranking_nodes_ptr[i] = *(nid_ptr);
   }
-  Profiler::Get().LogInit(kLogInitL2PresampleGetRank, t_prepare_rank.Passed());
+  Profiler::Get().LogInit(kLogInitL3PresampleGetRank, t_prepare_rank.Passed());
   return ranking_nodes;
 }
 void PreSampler::GetRankNode(TensorPtr& ranking_nodes) {
@@ -141,7 +141,7 @@ void PreSampler::GetRankNode(TensorPtr& ranking_nodes) {
     auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
     ranking_nodes_ptr[i] = *(nid_ptr);
   }
-  Profiler::Get().LogInit(kLogInitL2PresampleGetRank, t_prepare_rank.Passed());
+  Profiler::Get().LogInit(kLogInitL3PresampleGetRank, t_prepare_rank.Passed());
 }
 
 }

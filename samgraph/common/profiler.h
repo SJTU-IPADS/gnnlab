@@ -12,17 +12,30 @@ namespace common {
 
 enum LogInitItem {
   // L1
-  kLogInitL1LoadDataset = 0,
-  kLogInitL1Presample,
-  kLogInitL1BuildCache,
+  kLogInitL1Common = 0,
+  kLogInitL1Sampler, // pinmem, copy graph, *shuff, *hashtable, *random, *freq, queue, presmaple, cachetable
+  kLogInitL1Trainer,
   // L2
-  kLogInitL2PresampleInit,
-  kLogInitL2PresampleSample,
-  kLogInitL2PresampleCopy,
-  kLogInitL2PresampleCount,
-  kLogInitL2PresampleSort,
-  kLogInitL2PresampleReset,
-  kLogInitL2PresampleGetRank,
+  kLogInitL2LoadDataset,
+  kLogInitL2DistQueue,
+  kLogInitL2Presample,
+  kLogInitL2InternalState,
+  kLogInitL2BuildCache,
+  // L3
+  kLogInitL3LoadDatasetMMap,
+  kLogInitL3LoadDatasetCopy,
+  kLogInitL3DistQueueAlloc,
+  kLogInitL3DistQueuePin,
+  kLogInitL3DistQueuePush,
+  kLogInitL3PresampleInit,
+  kLogInitL3PresampleSample,
+  kLogInitL3PresampleCopy,
+  kLogInitL3PresampleCount,
+  kLogInitL3PresampleSort,
+  kLogInitL3PresampleReset,
+  kLogInitL3PresampleGetRank,
+  kLogInitL3InternalStateCreateCtx,
+  kLogInitL3InternalStateCreateStream,
   kNumLogInitItems,
 };
 

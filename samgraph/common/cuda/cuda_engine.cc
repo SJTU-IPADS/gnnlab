@@ -146,9 +146,10 @@ void GPUEngine::Init() {
     _cache_manager = nullptr;
     _dynamic_cache_manager = nullptr;
   }
-  Profiler::Get().LogInit(kLogInitL1Presample, presample_time);
-  Profiler::Get().LogInit(kLogInitL1BuildCache, build_cache_time);
-  Profiler::Get().LogInit(kLogInitL1LoadDataset, time_load_graph_dataset);
+
+  Profiler::Get().LogInit(kLogInitL2Presample, presample_time);
+  Profiler::Get().LogInit(kLogInitL2BuildCache, build_cache_time);
+  Profiler::Get().LogInit(kLogInitL2LoadDataset, time_load_graph_dataset);
 
   LOG_MEM_USAGE(WARNING, "after build cache states");
 
