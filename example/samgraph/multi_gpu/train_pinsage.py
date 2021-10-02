@@ -115,6 +115,8 @@ def parse_args(default_run_config):
         '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
+    argparser.add_argument('--single-gpu', action='store_true',
+                           default=default_run_config['single_gpu'])
 
     return vars(argparser.parse_args())
 
@@ -133,12 +135,20 @@ def get_run_config():
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
+    run_config['single_gpu'] = False
 
     run_config.update(parse_args(run_config))
 
     process_common_config(run_config)
     assert(run_config['arch'] == 'arch5')
     assert(run_config['sample_type'] == 'random_walk')
+
+    if (run_config['single_gpu'] == True):
+        run_config['num_sample_worker'] = 1
+        run_config['num_train_worker']  = 1
+        run_config['train_workers']     = [sam.gpu(0)]
+        run_config['sample_workers']    = [sam.gpu(0)]
+        run_config['pipeline']          = False
 
     print_run_config(run_config)
 
@@ -350,7 +360,7 @@ def run_train(worker_id, run_config):
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                     batch_key, num_layer)
-                if not run_config['pipeline']:
+                if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
                     torch.cuda.synchronize(train_device)
                 t2 = time.time()
             else:
@@ -370,7 +380,7 @@ def run_train(worker_id, run_config):
             if num_worker > 1:
                 torch.distributed.barrier()
 
-            if not run_config['pipeline']:
+            if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
                 torch.cuda.synchronize(train_device)
 
             t3 = time.time()
