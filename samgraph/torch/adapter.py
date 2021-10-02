@@ -41,10 +41,11 @@ dump_trace           = _basics.dump_trace
 forward_barrier      = _basics.forward_barrier
 
 # multi-GPUs training APIs
-data_init     = _basics.data_init
-sample_init   = _basics.sample_init
-train_init    = _basics.train_init
-extract_start = _basics.extract_start
+data_init      = _basics.data_init
+sample_init    = _basics.sample_init
+train_init     = _basics.train_init
+extract_start  = _basics.extract_start
+num_local_step = _basics.num_local_step
 
 def get_graph_feat(batch_key):
     return c_lib.samgraph_torch_get_graph_feat(batch_key)

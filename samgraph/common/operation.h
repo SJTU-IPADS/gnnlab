@@ -82,6 +82,8 @@ void samgraph_sample();
 void samgraph_extract();
 
 void samgraph_extract_start(int count);
+
+size_t samgraph_num_local_step();
 }
 
 }  // namespace common

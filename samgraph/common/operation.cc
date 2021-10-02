@@ -61,16 +61,29 @@ void samgraph_config(const char **config_keys, const char **config_values,
   RC::max_copying_jobs = std::stoull(configs["max_copying_jobs"]);
   RC::omp_thread_num = std::stoi(configs["omp_thread_num"]);
 
-  if (RC::run_arch != kArch5) {
-    CHECK(configs.count("sampler_ctx"));
-    CHECK(configs.count("trainer_ctx"));
-    RC::sampler_ctx = Context(configs["sampler_ctx"]);
-    RC::trainer_ctx = Context(configs["trainer_ctx"]);
-  } else {
-    CHECK(configs.count("num_sample_worker"));
-    CHECK(configs.count("num_train_worker"));
-    RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
-    RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+  switch (RC::run_arch) {
+    case kArch0:
+    case kArch1:
+    case kArch2:
+    case kArch3:
+    case kArch4:
+      CHECK(configs.count("sampler_ctx"));
+      CHECK(configs.count("trainer_ctx"));
+      RC::sampler_ctx = Context(configs["sampler_ctx"]);
+      RC::trainer_ctx = Context(configs["trainer_ctx"]);
+      break;
+    case kArch5:
+      CHECK(configs.count("num_sample_worker"));
+      CHECK(configs.count("num_train_worker"));
+      RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
+      RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+      break;
+    case kArch6:
+      CHECK(configs.count("num_worker"));
+      size_t num_worker = std::stoull(configs["num_worker"]);
+      RC::num_sample_worker = num_worker;
+      RC::num_train_worker = num_worker;
+      break;
   }
 
   if (RC::sample_type != kRandomWalk) {
@@ -304,6 +317,10 @@ void samgraph_train_init(int worker_id, const char*ctx) {
 void samgraph_extract_start(int count) {
   dist::DistEngine::Get()->StartExtract(count);
   LOG(INFO) << "SamGraph extract background thread start successfully";
+}
+
+size_t samgraph_num_local_step() {
+  return Engine::Get()->NumLocalStep();
 }
 
 }  // extern "c"
