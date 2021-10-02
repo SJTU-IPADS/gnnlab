@@ -171,26 +171,49 @@ void Profiler::ReportInit() {
   if (level >= 1) {
     printf(
         "    [Init Profiler Level 1]\n"
-        "        L1  load dataset %10.4lf | presample   %10.4lf | "
-        "build cache %.4lf\n",
-        _init_data[kLogInitL1LoadDataset].vals[0],
-        _init_data[kLogInitL1Presample].vals[0],
-        _init_data[kLogInitL1BuildCache].vals[0]);
+        "        L1  init %10.4lf | sampler init %10.4lf | "
+        "trainer init %.4lf\n",
+        _init_data[kLogInitL1Common].vals[0],
+        _init_data[kLogInitL1Sampler].vals[0],
+        _init_data[kLogInitL1Trainer].vals[0]);
   }
   if (level >= 2) {
     printf(
         "    [Init Profiler Level 2]\n"
-        "        L2  presample: init   %10.4lf\n"
-        "        L2  presample: sample %10.4lf | copy     %10.4lf\n"
-        "        L2  presample: count  %10.4lf | sort     %10.4lf\n"
-        "        L2  presample: reset  %10.4lf | get rank %10.4lf\n",
-        _init_data[kLogInitL2PresampleInit].vals[0],
-        _init_data[kLogInitL2PresampleSample].vals[0],
-        _init_data[kLogInitL2PresampleCopy].vals[0],
-        _init_data[kLogInitL2PresampleCount].vals[0],
-        _init_data[kLogInitL2PresampleSort].vals[0],
-        _init_data[kLogInitL2PresampleReset].vals[0],
-        _init_data[kLogInitL2PresampleGetRank].vals[0]);
+        "        L2  load ds     %10.4lf | init queue       %10.4lf\n"
+        "        L2  presample   %10.4lf | build interal ds %10.4lf\n"
+        "        L2  build cache %10.4lf\n",
+        _init_data[kLogInitL2LoadDataset].vals[0],
+        _init_data[kLogInitL2DistQueue].vals[0],
+        _init_data[kLogInitL2Presample].vals[0],
+        _init_data[kLogInitL2InternalState].vals[0],
+        _init_data[kLogInitL2BuildCache].vals[0]);
+  }
+  if (level >= 3) {
+    printf(
+        "    [Init Profiler Level 3]\n"
+        "        L3  load dataset: mmap %10.4lf | copy     %10.4lf\n"
+        "        L3  dist queue: alloc  %10.4lf | pin      %10.4lf | "
+                                "push %10.4lf\n"
+        "        L3  presample: init    %10.4lf\n"
+        "        L3  presample: sample  %10.4lf | copy     %10.4lf\n"
+        "        L3  presample: count   %10.4lf | sort     %10.4lf\n"
+        "        L3  presample: reset   %10.4lf | get rank %10.4lf\n"
+        "        L3  internal: cuda ctx %10.4lf | cuda stream %10.4lf\n",
+        _init_data[kLogInitL3LoadDatasetMMap].vals[0],
+        _init_data[kLogInitL3LoadDatasetCopy].vals[0],
+        _init_data[kLogInitL3DistQueueAlloc].vals[0],
+        _init_data[kLogInitL3DistQueuePin].vals[0],
+        _init_data[kLogInitL3DistQueuePush].vals[0],
+        _init_data[kLogInitL3PresampleInit].vals[0],
+        _init_data[kLogInitL3PresampleSample].vals[0],
+        _init_data[kLogInitL3PresampleCopy].vals[0],
+        _init_data[kLogInitL3PresampleCount].vals[0],
+        _init_data[kLogInitL3PresampleSort].vals[0],
+        _init_data[kLogInitL3PresampleReset].vals[0],
+        _init_data[kLogInitL3PresampleGetRank].vals[0],
+        _init_data[kLogInitL3InternalStateCreateCtx].vals[0],
+        _init_data[kLogInitL3InternalStateCreateStream].vals[0]);
   }
 }
 

@@ -19,7 +19,8 @@ std::shared_ptr<utility::DegreeInfo> degree_info;
 #define WEIGHT_POLICY_TYPES( F ) \
   F(kDefault) \
   F(kInverseBothDegreeRand) \
-  F(kInverseSrcDegreeRand)
+  F(kInverseSrcDegreeRand) \
+  F(kSrcSuffix)
 
 #define F(name) name,
 enum WeightPolicy {WEIGHT_POLICY_TYPES( F ) kNumItems };
@@ -65,6 +66,15 @@ float InverseBothDegreeRand(uint32_t src, uint32_t dst) {
   uint32_t dst_in_deg = degree_info->in_degrees[dst];
   return 1.0 / RandomInt(1, std::max(src_out_deg, dst_in_deg));
 }
+float SrcSuffix(uint32_t src, uint32_t dst) {
+  if (degree_info->out_degrees[src] < 10) return 100;
+  else return 1;
+  // in paper
+  // if (src % 10 < 3 && degree_info->out_degrees[src] < 15) return 100;
+  // else if (src % 10 < 3) return 10;
+  // else if (degree_info->out_degrees[src] < 15) return 10;
+  // else return 1;
+}
 
 void CreateAliasTable(const uint32_t *indptr, const uint32_t *indices,
                       size_t num_nodes, size_t num_edges,
@@ -88,6 +98,8 @@ void CreateAliasTable(const uint32_t *indptr, const uint32_t *indices,
           weights[i] = InverseBothDegreeRand(src, dst); break;
         case kInverseSrcDegreeRand:
           weights[i] = InverseSrcDegreeRand(src, dst); break;
+        case kSrcSuffix:
+          weights[i] = SrcSuffix(src, dst); break;
         default:
           utility::Check(false);
       }
@@ -95,6 +107,7 @@ void CreateAliasTable(const uint32_t *indptr, const uint32_t *indices,
     }
 
     for (uint32_t i = 0; i < len; i++) {
+      utility::Check(weights[i] != NAN, "do not allow nan");
       weights[i] /= weight_sum;
       weights[i] *= len;
     }
