@@ -198,6 +198,7 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     for epoch in range(num_epoch):
+        tic = time.time()
         sampler_stop_event.clear()
         # set the semaphore to the number of sample results
         for step in range(num_step):
@@ -206,7 +207,6 @@ def run_sample(worker_id, run_config):
             # epoch start barrier 1
             global_barrier.wait()
 
-        tic = time.time()
         for step in range(num_step):
             print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
@@ -327,13 +327,13 @@ def run_train(worker_id, run_config, trainer_type):
         trainer_type.name, worker_id, num_epoch, num_step))
 
     for epoch in range(num_epoch):
+        tic = time.time()
 
         # epoch start barrier
         global_barrier.wait()
 
         if (trainer_type == TrainerType.Switcher):
             sampler_stop_event.wait()
-        tic = time.time()
 
         while mq_sem.acquire(timeout=0.01):
             t0 = time.time()
@@ -394,12 +394,12 @@ def run_train(worker_id, run_config, trainer_type):
         torch.cuda.synchronize(train_device)
         # sync the train workers
         # bala bala ...
+        # epoch end barrier
+        global_barrier.wait()
         toc = time.time()
 
         epoch_total_times_python.append(toc - tic)
 
-        # epoch end barrier
-        global_barrier.wait()
 
         epoch_copy_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
