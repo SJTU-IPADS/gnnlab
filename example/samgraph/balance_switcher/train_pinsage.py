@@ -110,8 +110,6 @@ def parse_args(default_run_config):
                            default=default_run_config['num_neighbor'])
     argparser.add_argument('--num-layer', type=int,
                            default=default_run_config['num_layer'])
-    argparser.add_argument('--switch-cache-percentage', type=float,
-                           default=default_run_config['switch_cache_percentage'])
 
     argparser.add_argument(
         '--lr', type=float, default=default_run_config['lr'])
@@ -127,13 +125,12 @@ def get_run_config():
     run_config.update(get_default_common_config(run_multi_gpu=True))
     run_config['sample_type'] = 'random_walk'
 
-    run_config['random_walk_length'] = 4
+    run_config['random_walk_length'] = 3
     run_config['random_walk_restart_prob'] = 0.5
     run_config['num_random_walk'] = 4
-    run_config['num_neighbor'] = 8
+    run_config['num_neighbor'] = 5
     run_config['num_layer'] = 3
     run_config['pipeline'] = True
-    run_config['switch_cache_percentage'] = 0.1
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
@@ -144,8 +141,9 @@ def get_run_config():
     assert(run_config['arch'] == 'arch5')
     assert(run_config['sample_type'] == 'random_walk')
 
-    if (run_config['cache_percentage'] == 0.0):
-        run_config['switch_cache_percentage'] = 0.0
+    # cache percentage of switcher should be the same with trainer
+    #   or the "get_miss_index" results is not right for switcher
+    run_config['switch_cache_percentage'] = run_config['cache_percentage']
 
     print_run_config(run_config)
 
@@ -288,7 +286,6 @@ def run_train(worker_id, run_config, trainer_type):
     # let the trainer initialization after sampler
     # sampler should presample before trainer initialization
     sam.wait_for_sampler_ready(global_barrier)
-    # TODO: need to change the cache_percentage ???
     if (trainer_type == TrainerType.Trainer):
         sam.train_init(worker_id, ctx)
     else:
@@ -330,13 +327,13 @@ def run_train(worker_id, run_config, trainer_type):
         trainer_type.name, worker_id, num_epoch, num_step))
 
     for epoch in range(num_epoch):
-        tic = time.time()
 
         # epoch start barrier
         global_barrier.wait()
 
         if (trainer_type == TrainerType.Switcher):
             sampler_stop_event.wait()
+        tic = time.time()
 
         while mq_sem.acquire(timeout=0.01):
             t0 = time.time()
@@ -346,6 +343,8 @@ def run_train(worker_id, run_config, trainer_type):
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                 batch_key, num_layer)
+            if not run_config['pipeline']:
+                torch.cuda.synchronize(train_device)
             t2 = time.time()
 
             # Compute loss and prediction
@@ -361,6 +360,9 @@ def run_train(worker_id, run_config, trainer_type):
             # sync the arguments
             # bala bala ...
             print(f'{trainer_type.name} run epoch {epoch}, step {step}')
+
+            if not run_config['pipeline']:
+                torch.cuda.synchronize(train_device)
 
             t3 = time.time()
 
@@ -389,7 +391,9 @@ def run_train(worker_id, run_config, trainer_type):
 
             sam.report_step(epoch, step)
 
+        torch.cuda.synchronize(train_device)
         # sync the train workers
+        # bala bala ...
         toc = time.time()
 
         epoch_total_times_python.append(toc - tic)
