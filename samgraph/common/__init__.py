@@ -70,6 +70,7 @@ sample_types = {
     'khop2'                   : kKHop2,
     'random_walk'             : kRandomWalk,
     'weighted_khop'           : kWeightedKHop,
+    'weighted_khop_prefix'    : kWeightedKHopPrefix,
     'weighted_khop_hash_dedup': kWeightedKHopHashDedup
 }
 

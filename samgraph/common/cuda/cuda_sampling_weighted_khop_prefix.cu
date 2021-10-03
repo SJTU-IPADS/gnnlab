@@ -22,7 +22,7 @@ namespace cuda {
 namespace {
 
 __global__ void sample_weighted_khop_prefix(
-    const IdType *indptr, const IdType *indices, const uint32_t *prob_prefix_table,
+    const IdType *indptr, const IdType *indices, const float *prob_prefix_table,
     const IdType *input, const size_t num_input,
     const size_t fanout, IdType *tmp_src, IdType *tmp_dst,
     curandState *random_states, size_t num_random_states) {
@@ -39,16 +39,16 @@ __global__ void sample_weighted_khop_prefix(
     const IdType rid = input[task_idx / fanout];
     const IdType off = indptr[rid];
     const IdType len = indptr[rid + 1] - indptr[rid];
-    const uint32_t rand_upbound = prob_prefix_table[off + len - 1];
+    const float rand_upbound = prob_prefix_table[off + len - 1];
 
     if (len == 0) {
       tmp_src[task_idx] = Constant::kEmptyKey;
     } else {
       tmp_src[task_idx] = rid;
       // choose dst
-      size_t rand_x = curand(&local_state) % rand_upbound;
-      int cur_k = off;
-      while(rand_x >= prob_prefix_table[cur_k]) cur_k++;
+      float rand_x = curand_uniform(&local_state) * rand_upbound;
+      size_t cur_k = off;
+      while(rand_x >= prob_prefix_table[cur_k] && cur_k < off + len - 1) cur_k++;
       tmp_dst[task_idx] = indices[cur_k];
     }
   }
@@ -111,7 +111,7 @@ __global__ void compact_edge(IdType *tmp_src, IdType *tmp_dst, IdType *out_src,
 }  // namespace
 
 void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
-                           const uint32_t *prob_prefix_table,
+                           const float *prob_prefix_table,
                            const IdType *input, const size_t num_input,
                            const size_t fanout, IdType *out_src,
                            IdType *out_dst, size_t *num_out, Context ctx,
