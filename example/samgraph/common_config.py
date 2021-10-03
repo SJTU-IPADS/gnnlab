@@ -5,9 +5,9 @@ from enum import Enum
 
 
 class RunMode(Enum):
-    NORMAL = 0,
-    FGNN = 1,
-    SGNN = 2
+    NORMAL = 0  # arch0, arch1, arch2, arch3, arch4, for applications in example/samgraph
+    FGNN   = 1  # arch5, for applications in example/samgraph/multi_gpu and example/samgraph/balance_switcher
+    SGNN   = 2  # arch6, for applications in example/samgraph/sgnn
 
 
 def get_default_timeout():
