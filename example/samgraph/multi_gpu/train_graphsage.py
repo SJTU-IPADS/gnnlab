@@ -67,7 +67,7 @@ def parse_args(default_run_config):
 def get_run_config():
     run_config = {}
 
-    run_config.update(get_default_common_config(run_multi_gpu=True))
+    run_config.update(get_default_common_config(run_mode=RunMode.FGNN))
     run_config['sample_type'] = 'khop2'
 
     run_config['fanout'] = [25, 10]
@@ -288,7 +288,7 @@ def run_train(worker_id, run_config):
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks(
                     batch_key, num_layer)
-                if not run_config['pipeline']:
+                if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
                     torch.cuda.synchronize(train_device)
                 t2 = time.time()
 
@@ -306,7 +306,7 @@ def run_train(worker_id, run_config):
             if num_worker > 1:
                 torch.distributed.barrier()
 
-            if not run_config['pipeline']:
+            if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
                 torch.cuda.synchronize(train_device)
             t3 = time.time()
 

@@ -293,7 +293,7 @@ def run_train(worker_id, run_config):
                 t1 = time.time()
                 blocks, batch_input, batch_label = sam.get_dgl_blocks(
                     batch_key, num_layer)
-                if not run_config['pipeline']:
+                if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
                     torch.cuda.synchronize(train_device)
                 t2 = time.time()
             else:
@@ -313,7 +313,7 @@ def run_train(worker_id, run_config):
             if num_worker > 1:
                 torch.distributed.barrier()
 
-            if not run_config['pipeline']:
+            if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
                 torch.cuda.synchronize(train_device)
 
             t3 = time.time()
