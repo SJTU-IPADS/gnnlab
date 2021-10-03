@@ -43,6 +43,7 @@ void Engine::Create() {
       _engine = new cuda::GPUEngine();
       break;
     case kArch5:
+    case kArch6:
       LOG(INFO) << "Use Dist Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new dist::DistEngine();
       break;

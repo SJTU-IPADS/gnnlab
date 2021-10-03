@@ -18,7 +18,9 @@ class DistShuffler : public Shuffler {
   TensorPtr GetBatch(StreamHandle stream = nullptr) override;
 
   uint64_t Epoch() override { return _cur_epoch; }
-  uint64_t Step() override { return _cur_step; }
+  uint64_t Step() override {
+    return (_dataset_offset / _batch_size) + _cur_step;
+  }
 
   size_t NumEpoch() override { return _num_epoch; }
   // return the total steps for each epoch
@@ -26,11 +28,11 @@ class DistShuffler : public Shuffler {
   size_t NumStep() override { return _epoch_step; }
   bool IsLastBatch() { return _cur_step == (_num_step - 1); }
 
-  void Reset() { _cur_step = _num_step; _cur_epoch = 0; _initialized = false; }
-  // global key
-  uint64_t GetBatchKey() {
-    return _cur_epoch * _epoch_step +
-           (_dataset_offset / _batch_size) + _cur_step; }
+  void Reset() {
+    _cur_step = _num_step;
+    _cur_epoch = 0;
+    _initialized = false;
+  }
 
  private:
   bool _drop_last;

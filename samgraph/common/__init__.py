@@ -46,6 +46,7 @@ kArch2 = 2
 kArch3 = 3
 kArch4 = 4
 kArch5 = 5
+kArch6 = 6
 
 kCacheByDegree          = 0
 kCacheByHeuristic       = 1
@@ -103,6 +104,9 @@ builtin_archs = {
     },
     'arch5': {
         'arch': kArch5
+    },
+    'arch6': {
+        'arch': kArch6
     }
 }
 
@@ -281,6 +285,8 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_double
 
+        self.C_LIB_CTYPES.samgraph_num_local_step.restype = ctypes.c_size_t
+
     def config(self, run_config : dict):
         num_configs_items = len(run_config)
         config_keys = [str.encode(str(key)) for key in run_config.keys()]
@@ -331,8 +337,17 @@ class SamGraphBasics(object):
             ctypes.c_char_p(str.encode(ctx))
         )
 
+    '''
+     for multi-GPUs train
+    '''
     def extract_start(self, count):
         return self.C_LIB_CTYPES.samgraph_extract_start(ctypes.c_int(count))
+
+    '''
+     for multi-GPUs train
+    '''
+    def num_local_step(self):
+        return self.C_LIB_CTYPES.samgraph_num_local_step()
 
     def start(self):
         return self.C_LIB_CTYPES.samgraph_start()

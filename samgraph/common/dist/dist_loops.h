@@ -11,6 +11,7 @@ namespace common {
 namespace dist {
 
 void RunArch5LoopsOnce(DistType dist_type);
+void RunArch6LoopsOnce();
 
 // common steps
 TaskPtr DoShuffle();
@@ -24,6 +25,8 @@ void DoFeatureCopy(TaskPtr task);
 void DoCacheIdCopy(TaskPtr task);
 void DoCacheFeatureCopy(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
+
+void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task);
 
 typedef void (*ExtractFunction)(int);
 ExtractFunction GetArch5Loops();
