@@ -25,6 +25,7 @@ sample_once          = _basics.sample_once
 log_step             = _basics.log_step
 log_step_add         = _basics.log_step_add
 log_epoch_add        = _basics.log_epoch_add
+get_log_init_value   = _basics.get_log_init_value
 get_log_step_value   = _basics.get_log_step_value
 get_log_epoch_value  = _basics.get_log_epoch_value
 report_init          = _basics.report_init

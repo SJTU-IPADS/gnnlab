@@ -143,7 +143,7 @@ void Profiler::LogEpochAdd(uint64_t key, LogEpochItem item, double val) {
   _epoch_data[item_idx].bitmap[epoch] = true;
 }
 
-double Profiler::GetLogInitValue(LogStepItem item) {
+double Profiler::GetLogInitValue(LogInitItem item) {
   return _init_data[item].vals[0];
 }
 

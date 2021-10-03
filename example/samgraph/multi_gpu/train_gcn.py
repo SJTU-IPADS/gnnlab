@@ -189,6 +189,14 @@ def run_sample(worker_id, run_config):
         if run_config['pipeline']:
             test_result.append(
                 ('pipeline_sample_epoch_time', np.mean(epoch_pipeline_sample_total_times_python[1:])))
+        test_result.append(('init:presample', sam.get_log_init_value(sam.kLogInitL2Presample)))
+        test_result.append(('init:load_dataset:mmap', sam.get_log_init_value(sam.kLogInitL3LoadDatasetMMap)))
+        test_result.append(('init:load_dataset:copy:sampler', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
+        test_result.append(('init:dist_queue:alloc+push', 
+          sam.get_log_init_value(sam.kLogInitL3DistQueueAlloc)+sam.get_log_init_value(sam.kLogInitL3DistQueuePush)))
+        test_result.append(('init:dist_queue:pin:sampler', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
+        test_result.append(('init:internal:sampler', sam.get_log_init_value(sam.kLogInitL2InternalState)))
+        test_result.append(('init:cache:sampler', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 
@@ -389,6 +397,10 @@ def run_train(worker_id, run_config):
             test_result.append(
                 ('pipeline_train_epoch_time', np.mean(epoch_total_times_python[1:])))
         test_result.append(('run_time', run_end - run_start))
+        test_result.append(('init:load_dataset:copy:trainer', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
+        test_result.append(('init:dist_queue:pin:trainer', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
+        test_result.append(('init:internal:trainer', sam.get_log_init_value(sam.kLogInitL2InternalState)))
+        test_result.append(('init:cache:trainer', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 
