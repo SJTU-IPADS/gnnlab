@@ -12,10 +12,6 @@ from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
 import datetime
-'''
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
-os.environ["NCCL_DEBUG"] = "INFO"
-'''
 import samgraph.torch as sam
 from common_config import *
 
@@ -115,8 +111,6 @@ def parse_args(default_run_config):
         '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
-    argparser.add_argument('--no-ddp', action='store_false', dest='use_ddp',
-                           default=default_run_config['use_ddp'])
 
     return vars(argparser.parse_args())
 
@@ -124,7 +118,7 @@ def parse_args(default_run_config):
 def get_run_config():
     run_config = {}
 
-    run_config.update(get_default_common_config(run_multi_gpu=True))
+    run_config.update(get_default_common_config(run_mode=RunMode.SGNN))
     run_config['sample_type'] = 'random_walk'
 
     run_config['random_walk_length'] = 3
@@ -135,12 +129,11 @@ def get_run_config():
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
-    run_config['use_ddp'] = True
 
     run_config.update(parse_args(run_config))
 
     process_common_config(run_config)
-    assert(run_config['arch'] == 'arch5')
+    assert(run_config['arch'] == 'arch6')
     assert(run_config['sample_type'] == 'random_walk')
 
     print_run_config(run_config)
@@ -159,128 +152,20 @@ def run_init(run_config):
         sys.exit()
 
 
-def run_sample(worker_id, run_config):
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-    num_worker = run_config['num_sample_worker']
+def run(worker_id, run_config):
+    num_worker = run_config['num_worker']
     global_barrier = run_config['global_barrier']
 
-    ctx = run_config['sample_workers'][worker_id]
+    ctx = run_config['workers'][worker_id]
+    device = torch.device(ctx)
 
-    print('[Sample Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
+    print('[Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
 
     sam.sample_init(worker_id, ctx)
-    sam.notify_sampler_ready(global_barrier)
-
-    num_epoch = sam.num_epoch()
-    num_step = sam.steps_per_epoch()
-    if (worker_id == (num_worker - 1)):
-        num_step = int(num_step - int(num_step /
-                       num_worker) * worker_id)
-    else:
-        num_step = int(num_step / num_worker)
-    # align the train_workers
-    # num_step = int(int(num_step / num_train_worker) * num_train_worker)
-
-    epoch_sample_total_times_python = []
-    epoch_pipleine_sample_total_times_python = []
-    epoch_sample_total_times_profiler = []
-    epoch_sample_times = []
-    epoch_get_cache_miss_index_times = []
-    epoch_enqueue_samples_times = []
-
-    print('[Sample Worker {:d}] run sample for {:d} epochs with {:d} steps'.format(
-        worker_id, num_epoch, num_step))
-
-    # run start barrier
-    global_barrier.wait()
-
-    for epoch in range(num_epoch):
-        if (run_config['pipeline']):
-            # epoch start barrier 1
-            global_barrier.wait()
-
-        tic = time.time()
-        for step in range(num_step):
-            # print(f'sample epoch {epoch}, step {step}')
-            sam.sample_once()
-            sam.report_step(epoch, step)
-
-        toc0 = time.time()
-
-        if (not run_config['pipeline']):
-            # epoch start barrier 2
-            global_barrier.wait()
-
-        # epoch end barrier
-        global_barrier.wait()
-
-        toc1 = time.time()
-
-        epoch_sample_total_times_python.append(toc0 - tic)
-        epoch_pipleine_sample_total_times_python.append(toc1 - tic)
-        epoch_sample_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
-        epoch_get_cache_miss_index_times.append(
-            sam.get_log_epoch_value(
-                epoch, sam.KLogEpochSampleGetCacheMissIndexTime)
-        )
-        epoch_enqueue_samples_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleSendTime)
-        )
-        epoch_sample_total_times_profiler.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
-        )
-
-    print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
-        worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
-
-    if worker_id == 0:
-        sam.report_step_average(epoch - 1, step - 1)
-
-    # run end barrier
-    global_barrier.wait()
-
-    if worker_id == 0:
-        sam.report_init()
-
-    if worker_id == 0:
-        test_result = []
-        test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
-        test_result.append(('get_cache_miss_index_time', np.mean(
-            epoch_get_cache_miss_index_times[1:])))
-        test_result.append(
-            ('enqueue_samples_time', np.mean(epoch_enqueue_samples_times[1:])))
-        test_result.append(('epoch_time:sample_total', np.mean(
-            epoch_sample_total_times_python[1:])))
-        if run_config['pipeline']:
-            test_result.append(
-                ('pipeline_sample_epoch_time', np.mean(epoch_pipleine_sample_total_times_python[1:])))
-        for k, v in test_result:
-            print('test_result:{:}={:.2f}'.format(k, v))
-
-    global_barrier.wait()  # barrier for pretty print
-    # trainer print result
-
-    sam.shutdown()
-
-
-def run_train(worker_id, run_config):
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    ctx = run_config['train_workers'][worker_id]
-    num_worker = run_config['num_train_worker']
-    global_barrier = run_config['global_barrier']
-
-    train_device = torch.device(ctx)
-    print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
-        worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
-
-    # let the trainer initialization after sampler
-    # sampler should presample before trainer initialization
-    sam.wait_for_sampler_ready(global_barrier)
     sam.train_init(worker_id, ctx)
 
-    if (num_worker > 1) and (run_config['use_ddp']):
+    if num_worker > 1:
         dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='12345')
         world_size = num_worker
@@ -296,13 +181,13 @@ def run_train(worker_id, run_config):
 
     model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
                     num_layer, F.relu, run_config['dropout'])
-    model = model.to(train_device)
-    if (num_worker > 1) and (run_config['use_ddp']):
+    model = model.to(device)
+    if num_worker > 1:
         model = DistributedDataParallel(
-            model, device_ids=[train_device], output_device=train_device)
+            model, device_ids=[device], output_device=device)
 
     loss_fcn = nn.CrossEntropyLoss()
-    loss_fcn = loss_fcn.to(train_device)
+    loss_fcn = loss_fcn.to(device)
     optimizer = optim.Adam(
         model.parameters(), lr=run_config['lr'])
 
@@ -311,6 +196,7 @@ def run_train(worker_id, run_config):
 
     model.train()
 
+    epoch_sample_times = []
     epoch_copy_times = []
     epoch_convert_times = []
     epoch_train_times = []
@@ -328,7 +214,7 @@ def run_train(worker_id, run_config):
 
     # run start barrier
     global_barrier.wait()
-    print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
+    print('[Worker {:d}] run for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
     run_start = time.time()
 
@@ -337,27 +223,16 @@ def run_train(worker_id, run_config):
         global_barrier.wait()
 
         tic = time.time()
-        if (run_config['pipeline']):
-            need_steps = int(num_step / num_worker)
-            if (worker_id < num_step % num_worker):
-                need_steps += 1
-            sam.extract_start(need_steps)
 
         for step in range(worker_id, align_up_step, num_worker):
-            if (step < num_step):
-                t0 = time.time()
-                if (not run_config['pipeline']):
-                    sam.sample_once()
-                # sam.sample_once()
-                batch_key = sam.get_next_batch()
-                t1 = time.time()
-                blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
-                    batch_key, num_layer)
-                if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
-                    torch.cuda.synchronize(train_device)
-                t2 = time.time()
-            else:
-                t0 = t1 = t2 = time.time()
+            t0 = time.time()
+            sam.sample_once()
+            batch_key = sam.get_next_batch()
+            t1 = time.time()
+            blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
+                batch_key, num_layer)
+            torch.cuda.synchronize(device)
+            t2 = time.time()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_input)
@@ -366,15 +241,13 @@ def run_train(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
-            if (step + num_worker < num_step):
-                batch_input = None
-                batch_label = None
+            batch_input = None
+            batch_label = None
 
-            if (num_worker > 1) and (run_config['use_ddp']):
+            if num_worker > 1:
                 torch.distributed.barrier()
 
-            if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
-                torch.cuda.synchronize(train_device)
+            torch.cuda.synchronize(device)
 
             t3 = time.time()
 
@@ -389,13 +262,6 @@ def run_train(worker_id, run_config):
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
 
-            feat_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochFeatureBytes)
-            miss_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochMissBytes)
-            epoch_cache_hit_rates.append(
-                (feat_nbytes - miss_nbytes) / feat_nbytes)
-
             copy_times.append(copy_time)
             convert_times.append(convert_time)
             train_times.append(train_time)
@@ -403,10 +269,10 @@ def run_train(worker_id, run_config):
 
             sam.report_step(epoch, step)
 
-        torch.cuda.synchronize(train_device)
+        torch.cuda.synchronize(device)
 
         # sync the train workers
-        if (num_worker > 1) and (run_config['use_ddp']):
+        if num_worker > 1:
             torch.distributed.barrier()
 
         toc = time.time()
@@ -422,6 +288,9 @@ def run_train(worker_id, run_config):
             epoch, sam.kLogEpochMissBytes)
         epoch_cache_hit_rates.append(
             (feat_nbytes - miss_nbytes) / feat_nbytes)
+        epoch_sample_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
+        )
         epoch_copy_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
         epoch_convert_times.append(
@@ -431,25 +300,26 @@ def run_train(worker_id, run_config):
         epoch_train_total_times_profiler.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
         if worker_id == 0:
-            print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-                epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
+            print('Epoch {:05d} | Epoch Time {:.4f} | Sample {:.4f} | Copy {:.4f} | Total Train(Profiler) {:.4f}'.format(
+                epoch, epoch_total_times_python[-1], epoch_sample_times[-1], epoch_copy_times[-1], epoch_train_total_times_profiler[-1]))
 
     # sync the train workers
-    if (num_worker > 1) and (run_config['use_ddp']):
+    if num_worker > 1:
         torch.distributed.barrier()
-
-    print('[Train  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
-          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
     global_barrier.wait()
     run_end = time.time()
 
-    # sampler print init and result
+    print('[Train  Worker {:d}] Avg Epoch {:.4f} | Sample {:.4f} | Copy {:.4f} | Train Total (Profiler) {:.4f}'.format(
+          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_total_times_profiler[1:])))
+
     global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
         test_result = []
+        test_result.append(
+            ('epoch_time:sample_time', np.mean(epoch_sample_times[1:])))
         test_result.append(('epoch_time:copy_time',
                            np.mean(epoch_copy_times[1:])))
         test_result.append(('convert_time', np.mean(epoch_convert_times[1:])))
@@ -460,10 +330,9 @@ def run_train(worker_id, run_config):
             ('cache_percentage', run_config['cache_percentage']))
         test_result.append(('cache_hit_rate', np.mean(
             epoch_cache_hit_rates[1:])))
+        test_result.append(
+            ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
         test_result.append(('run_time', run_end - run_start))
-        if run_config['pipeline']:
-            test_result.append(
-                ('pipeline_train_epoch_time', np.mean(epoch_total_times_python[1:])))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 
@@ -476,27 +345,21 @@ if __name__ == '__main__':
     run_config = get_run_config()
     run_init(run_config)
 
-    num_sample_worker = run_config['num_sample_worker']
-    num_train_worker = run_config['num_train_worker']
+    num_worker = run_config['num_worker']
 
-    # global barrier is used to sync all the sample workers and train workers
+    # global barrier is used to sync all the workers
     run_config['global_barrier'] = mp.Barrier(
-        num_sample_worker + num_train_worker, timeout=get_default_timeout())
+        num_worker, timeout=get_default_timeout())
 
-    workers = []
-    # sample processes
-    for worker_id in range(num_sample_worker):
-        p = mp.Process(target=run_sample, args=(
-            worker_id, run_config))
-        p.start()
-        workers.append(p)
+    if num_worker == 1:
+        run(0, run_config)
+    else:
+        workers = []
+        # sample processes
+        for worker_id in range(num_worker):
+            p = mp.Process(target=run, args=(worker_id, run_config))
+            p.start()
+            workers.append(p)
 
-    # train processes
-    for worker_id in range(num_train_worker):
-        p = mp.Process(target=run_train, args=(
-            worker_id, run_config))
-        p.start()
-        workers.append(p)
-
-    for p in workers:
-        p.join()
+        for p in workers:
+            p.join()

@@ -66,7 +66,7 @@ def parse_args(default_run_config):
 def get_run_config():
     run_config = {}
 
-    run_config.update(get_default_common_config(run_multi_gpu=True))
+    run_config.update(get_default_common_config(run_mode=RunMode.FGNN))
     run_config['sample_type'] = 'khop2'
 
     run_config['fanout'] = [5, 10, 15]
@@ -117,7 +117,7 @@ def run_sample(worker_id, run_config):
         num_step = int(num_step / num_worker)
 
     epoch_sample_total_times_python = []
-    epoch_pipleine_sample_total_times_python = []
+    epoch_pipeline_sample_total_times_python = []
     epoch_sample_total_times_profiler = []
     epoch_sample_times = []
     epoch_get_cache_miss_index_times = []
@@ -151,7 +151,7 @@ def run_sample(worker_id, run_config):
         toc1 = time.time()
 
         epoch_sample_total_times_python.append(toc0 - tic)
-        epoch_pipleine_sample_total_times_python.append(toc1 - tic)
+        epoch_pipeline_sample_total_times_python.append(toc1 - tic)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
         epoch_get_cache_miss_index_times.append(
@@ -188,7 +188,15 @@ def run_sample(worker_id, run_config):
             epoch_sample_total_times_python[1:])))
         if run_config['pipeline']:
             test_result.append(
-                ('pipeline_sample_epoch_time', np.mean(epoch_pipleine_sample_total_times_python[1:])))
+                ('pipeline_sample_epoch_time', np.mean(epoch_pipeline_sample_total_times_python[1:])))
+        test_result.append(('init:presample', sam.get_log_init_value(sam.kLogInitL2Presample)))
+        test_result.append(('init:load_dataset:mmap', sam.get_log_init_value(sam.kLogInitL3LoadDatasetMMap)))
+        test_result.append(('init:load_dataset:copy:sampler', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
+        test_result.append(('init:dist_queue:alloc+push', 
+          sam.get_log_init_value(sam.kLogInitL3DistQueueAlloc)+sam.get_log_init_value(sam.kLogInitL3DistQueuePush)))
+        test_result.append(('init:dist_queue:pin:sampler', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
+        test_result.append(('init:internal:sampler', sam.get_log_init_value(sam.kLogInitL2InternalState)))
+        test_result.append(('init:cache:sampler', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 
@@ -248,6 +256,7 @@ def run_train(worker_id, run_config):
     epoch_train_times = []
     epoch_total_times_python = []
     epoch_train_total_times_profiler = []
+    epoch_pipeline_train_total_times_python = []
     epoch_cache_hit_rates = []
 
     copy_times = []
@@ -320,13 +329,6 @@ def run_train(worker_id, run_config):
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
 
-            feat_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochFeatureBytes)
-            miss_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochMissBytes)
-            epoch_cache_hit_rates.append(
-                (feat_nbytes - miss_nbytes) / feat_nbytes)
-
             copy_times.append(copy_time)
             convert_times.append(convert_time)
             train_times.append(train_time)
@@ -347,6 +349,12 @@ def run_train(worker_id, run_config):
         # epoch end barrier
         global_barrier.wait()
 
+        feat_nbytes = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochFeatureBytes)
+        miss_nbytes = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochMissBytes)
+        epoch_cache_hit_rates.append(
+            (feat_nbytes - miss_nbytes) / feat_nbytes)
         epoch_copy_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
         epoch_convert_times.append(
@@ -389,6 +397,10 @@ def run_train(worker_id, run_config):
             test_result.append(
                 ('pipeline_train_epoch_time', np.mean(epoch_total_times_python[1:])))
         test_result.append(('run_time', run_end - run_start))
+        test_result.append(('init:load_dataset:copy:trainer', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
+        test_result.append(('init:dist_queue:pin:trainer', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
+        test_result.append(('init:internal:trainer', sam.get_log_init_value(sam.kLogInitL2InternalState)))
+        test_result.append(('init:cache:trainer', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 

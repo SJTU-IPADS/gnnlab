@@ -47,7 +47,8 @@ enum SampleType {
 // TODO:  is it a prefetch mode ?
 // arch4: prefetch mode
 // arch5: distributed mode (CPU/GPU sampling + multi-GPUs traning)
-enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3, kArch4, kArch5 = 5 };
+// arch6: sgnn mode
+enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3, kArch4, kArch5, kArch6 };
 
 // cache by degree: cache the nodes with large degree
 // cache by heuristic: cache the training set and the first hop neighbors first,
@@ -69,6 +70,10 @@ struct Context {
   Context() {}
   Context(DeviceType type, int id) : device_type(type), device_id(id) {}
   Context(std::string name);
+  bool operator==(const Context& rhs) {
+    return this->device_type == rhs.device_type &&
+           this->device_id == rhs.device_id;
+  }
 };
 
 using StreamHandle = void*;
@@ -253,6 +258,7 @@ class Shuffler {
   virtual uint64_t Step() = 0;
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
+  virtual size_t NumLocalStep() { return 0; };
 };
 
 std::ostream& operator<<(std::ostream&, const SampleType);

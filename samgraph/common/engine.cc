@@ -43,6 +43,7 @@ void Engine::Create() {
       _engine = new cuda::GPUEngine();
       break;
     case kArch5:
+    case kArch6:
       LOG(INFO) << "Use Dist Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new dist::DistEngine();
       break;
@@ -173,8 +174,8 @@ void Engine::LoadGraphDataset() {
     _dataset->prob_table = Tensor::Null();
     _dataset->alias_table = Tensor::Null();
     _dataset->prob_prefix_table = Tensor::FromMmap(
-        _dataset_path + Constant::kProbPrefixTableFile, DataType::kI32,
-        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbPrefixTableFile],
+        _dataset_path + Constant::kProbPrefixTableFile, DataType::kF32,
+        {meta[Constant::kMetaNumEdge]}, ctx_map[Constant::kProbTableFile],
         "dataset.prob_prefix_table");
   } else {
     _dataset->prob_table = Tensor::Null();

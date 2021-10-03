@@ -27,6 +27,7 @@ class Engine {
   std::vector<size_t> GetFanout() { return _fanout; }
   size_t NumEpoch() { return _num_epoch; }
   size_t NumStep() { return _num_step; }
+  size_t NumLocalStep() { return _num_local_step; }
 
   inline uint64_t GetBatchKey(uint64_t epoch, uint64_t step) {
     return epoch * _num_step + step;
@@ -83,6 +84,8 @@ class Engine {
   size_t _num_epoch;
   // Number of steps per epoch
   size_t _num_step;
+  // Number of steps per epoch in the view of the current worker
+  size_t _num_local_step;
   // Ready graph batch pool
   GraphPool* _graph_pool;
   // Current graph batch
