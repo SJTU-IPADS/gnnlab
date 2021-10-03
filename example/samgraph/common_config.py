@@ -65,6 +65,8 @@ def add_common_arguments(argparser, run_config):
                                default=run_config['num_train_worker'])
         argparser.add_argument('--num-sample-worker', type=int,
                                default=run_config['num_sample_worker'])
+        argparser.add_argument('--single-gpu', action='store_true',
+                               default=False)
     else:
         argparser.add_argument('--arch', type=str, choices=sam.builtin_archs.keys(),
                                default=run_config['arch'])
@@ -149,6 +151,12 @@ def process_common_config(run_config):
             sam.gpu(i) for i in range(run_config['num_train_worker'])]
         run_config['sample_workers'] = [sam.gpu(
             run_config['num_train_worker'] + i) for i in range(run_config['num_sample_worker'])]
+        if (run_config['single_gpu'] == True):
+            run_config['num_sample_worker'] = 1
+            run_config['num_train_worker']  = 1
+            run_config['train_workers']     = [sam.gpu(0)]
+            run_config['sample_workers']    = [sam.gpu(0)]
+            run_config['pipeline']          = False
 
     run_config['_sample_type'] = sam.sample_types[run_config['sample_type']]
     run_config['_cache_policy'] = sam.cache_policies[run_config['cache_policy']]

@@ -60,8 +60,6 @@ def parse_args(default_run_config):
                            default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
-    argparser.add_argument('--single-gpu', action='store_true',
-                           default=default_run_config['single_gpu'])
 
     return vars(argparser.parse_args())
 
@@ -75,7 +73,6 @@ def get_run_config():
     run_config['fanout'] = [25, 10]
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
-    run_config['single_gpu'] = False
 
     run_config.update(parse_args(run_config))
 
@@ -85,12 +82,6 @@ def get_run_config():
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
-    if (run_config['single_gpu'] == True):
-        run_config['num_sample_worker'] = 1
-        run_config['num_train_worker']  = 1
-        run_config['train_workers']     = [sam.gpu(0)]
-        run_config['sample_workers']    = [sam.gpu(0)]
-        run_config['pipeline']          = False
 
     print_run_config(run_config)
 

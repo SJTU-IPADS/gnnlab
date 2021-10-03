@@ -115,8 +115,8 @@ def parse_args(default_run_config):
         '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
-    argparser.add_argument('--single-gpu', action='store_true',
-                           default=default_run_config['single_gpu'])
+    argparser.add_argument('--no-ddp', action='store_false', dest='use_ddp',
+                           default=default_run_config['use_ddp'])
 
     return vars(argparser.parse_args())
 
@@ -135,20 +135,13 @@ def get_run_config():
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
-    run_config['single_gpu'] = False
+    run_config['use_ddp'] = True
 
     run_config.update(parse_args(run_config))
 
     process_common_config(run_config)
     assert(run_config['arch'] == 'arch5')
     assert(run_config['sample_type'] == 'random_walk')
-
-    if (run_config['single_gpu'] == True):
-        run_config['num_sample_worker'] = 1
-        run_config['num_train_worker']  = 1
-        run_config['train_workers']     = [sam.gpu(0)]
-        run_config['sample_workers']    = [sam.gpu(0)]
-        run_config['pipeline']          = False
 
     print_run_config(run_config)
 
@@ -287,7 +280,7 @@ def run_train(worker_id, run_config):
     sam.wait_for_sampler_ready(global_barrier)
     sam.train_init(worker_id, ctx)
 
-    if num_worker > 1:
+    if (num_worker > 1) and (run_config['use_ddp']):
         dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='12345')
         world_size = num_worker
@@ -304,7 +297,7 @@ def run_train(worker_id, run_config):
     model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
                     num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
-    if num_worker > 1:
+    if (num_worker > 1) and (run_config['use_ddp']):
         model = DistributedDataParallel(
             model, device_ids=[train_device], output_device=train_device)
 
@@ -377,7 +370,7 @@ def run_train(worker_id, run_config):
                 batch_input = None
                 batch_label = None
 
-            if num_worker > 1:
+            if (num_worker > 1) and (run_config['use_ddp']):
                 torch.distributed.barrier()
 
             if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
@@ -413,7 +406,7 @@ def run_train(worker_id, run_config):
         torch.cuda.synchronize(train_device)
 
         # sync the train workers
-        if num_worker > 1:
+        if (num_worker > 1) and (run_config['use_ddp']):
             torch.distributed.barrier()
 
         toc = time.time()
@@ -436,7 +429,7 @@ def run_train(worker_id, run_config):
                 epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
 
     # sync the train workers
-    if num_worker > 1:
+    if (num_worker > 1) and (run_config['use_ddp']):
         torch.distributed.barrier()
 
     print('[Train  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
