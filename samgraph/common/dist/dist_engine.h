@@ -8,15 +8,15 @@
 #include <vector>
 
 #include "../common.h"
-#include "../engine.h"
-#include "../logging.h"
-#include "../graph_pool.h"
-#include "../task_queue.h"
+#include "../cuda/cuda_cache_manager.h"
 #include "../cuda/cuda_common.h"
 #include "../cuda/cuda_frequency_hashmap.h"
 #include "../cuda/cuda_hashtable.h"
 #include "../cuda/cuda_random_states.h"
-#include "dist_shuffler.h"
+#include "../engine.h"
+#include "../graph_pool.h"
+#include "../logging.h"
+#include "../task_queue.h"
 #include "dist_cache_manager.h"
 
 namespace samgraph {
@@ -52,11 +52,12 @@ class DistEngine : public Engine {
   void StartExtract(int count);
 
   // XXX: decide CPU or GPU to shuffling, sampling and id remapping
-  DistShuffler* GetShuffler() { return static_cast<DistShuffler*>(_shuffler); }
+  Shuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(cuda::QueueType qt) { return _queues[qt]; }
   cuda::OrderedHashTable* GetHashtable() { return _hashtable; }
   cuda::GPURandomStates* GetRandomStates() { return _random_states; }
   DistCacheManager* GetCacheManager() { return _cache_manager; }
+  cuda::GPUCacheManager* GetGPUCacheManager() { return _gpu_cache_manager; }
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
   IdType *GetCacheHashtable() { return _cache_hashtable; }
 
@@ -88,6 +89,8 @@ class DistEngine : public Engine {
   cuda::GPURandomStates* _random_states;
   // Feature cache in GPU
   DistCacheManager* _cache_manager;
+  // Cuda Cache Manager
+  cuda::GPUCacheManager* _gpu_cache_manager;
   // Frequency hashmap
   cuda::FrequencyHashmap* _frequency_hashmap;
   // vertices cache hash table

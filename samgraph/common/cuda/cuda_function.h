@@ -41,7 +41,7 @@ void GPUSampleRandomWalk(const IdType *indptr, const IdType *indices,
                          GPURandomStates *random_states, uint64_t task_key);
 
 void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
-                           const uint32_t *prob_prefix_table,
+                           const float *prob_prefix_table,
                            const IdType *input, const size_t num_input,
                            const size_t fanout, IdType *out_src,
                            IdType *out_dst, size_t *num_out, Context ctx,

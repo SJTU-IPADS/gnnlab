@@ -1,6 +1,13 @@
 import samgraph.torch as sam
 import time
 import os
+from enum import Enum
+
+
+class RunMode(Enum):
+    NORMAL = 0  # arch0, arch1, arch2, arch3, arch4, for applications in example/samgraph
+    FGNN   = 1  # arch5, for applications in example/samgraph/multi_gpu and example/samgraph/balance_switcher
+    SGNN   = 2  # arch6, for applications in example/samgraph/sgnn
 
 
 def get_default_timeout():
@@ -10,19 +17,21 @@ def get_default_timeout():
 
 def get_dataset_list():
     return ['papers100M', 'com-friendster',
-            'reddit', 'products', 'twitter', 'uk-2006-05']
+            'reddit', 'products', 'twitter', 'uk-2006-05', 'papers100M_empty']
 
 
-def get_default_common_config(run_multi_gpu=False, **kwargs):
+def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
     default_common_config = {}
 
-    default_common_config['_run_multi_gpu'] = run_multi_gpu
+    default_common_config['_run_mode'] = run_mode
 
-    if run_multi_gpu:
-        default_common_config['_run_multi_gpu'] = True
+    if run_mode == RunMode.FGNN:
         default_common_config['arch'] = 'arch5'
         default_common_config['num_train_worker'] = 1
         default_common_config['num_sample_worker'] = 1
+    elif run_mode == RunMode.SGNN:
+        default_common_config['arch'] = 'arch6'
+        default_common_config['num_worker'] = 1
     else:
         default_common_config['arch'] = 'arch3'
 
@@ -55,18 +64,22 @@ def get_default_common_config(run_multi_gpu=False, **kwargs):
 
 
 def add_common_arguments(argparser, run_config):
-    run_multi_gpu = run_config['_run_multi_gpu']
+    run_mode = run_config['_run_mode']
 
-    if run_multi_gpu or run_config['arch'] == 'arch5':
+    if run_mode == RunMode.FGNN or run_config['arch'] == 'arch5':
         run_config['arch'] = 'arch5'
-        run_config['_run_multi_gpu'] = 'true'
-        assert(run_config['arch'] == 'arch5')
+        run_config['_run_mode'] = RunMode.FGNN
         argparser.add_argument('--num-train-worker', type=int,
                                default=run_config['num_train_worker'])
         argparser.add_argument('--num-sample-worker', type=int,
                                default=run_config['num_sample_worker'])
         argparser.add_argument('--single-gpu', action='store_true',
                                default=False)
+    elif run_mode == RunMode.SGNN or run_config['arch'] == 'arch6':
+        run_config['arch'] = 'arch6'
+        run_config['_run_mode'] = RunMode.SGNN
+        argparser.add_argument('--num-worker', type=int,
+                               default=run_config['num_worker'])
     else:
         argparser.add_argument('--arch', type=str, choices=sam.builtin_archs.keys(),
                                default=run_config['arch'])
@@ -81,10 +94,11 @@ def add_common_arguments(argparser, run_config):
     argparser.add_argument('--sample-type', type=str, choices=sam.sample_types.keys(),
                            default=run_config['sample_type'])
 
-    argparser.add_argument('--pipeline', action='store_true',
-                           default=run_config['pipeline'])
-    argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
-                           default=run_config['pipeline'])
+    if not run_config['_run_mode'] == RunMode.SGNN:
+        argparser.add_argument('--pipeline', action='store_true',
+                               default=run_config['pipeline'])
+        argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
+                               default=run_config['pipeline'])
 
     argparser.add_argument('--root-path', type=str,
                            default=run_config['root_path'])
@@ -121,7 +135,8 @@ def add_common_arguments(argparser, run_config):
                            'info', 'debug', 'warn', 'error'], type=str, dest='_log_level', default='error')
     argparser.add_argument('-pl', '--profile-level', choices=[
                            '0', '1', '2', '3'], type=str, dest='_profile_level', default='0')
-    argparser.add_argument('--empty-feat', type=str, dest='_empty_feat', default='0')
+    argparser.add_argument('--empty-feat', type=str,
+                           dest='_empty_feat', default='0')
 
 
 def process_common_config(run_config):
@@ -131,16 +146,17 @@ def process_common_config(run_config):
     # the first epoch is used to warm up the system
     run_config['num_epoch'] += 1
 
+    run_mode = run_config['_run_mode']
     arch = run_config['arch']
     run_config['_arch'] = sam.builtin_archs[arch]['arch']
-    if run_config['arch'] != 'arch5':
+    if run_mode == RunMode.NORMAL:
         run_config['sampler_ctx'] = sam.builtin_archs[arch]['sampler_ctx']
         run_config['trainer_ctx'] = sam.builtin_archs[arch]['trainer_ctx']
 
         if run_config['override_device']:
             run_config['sampler_ctx'] = run_config['override_sample_device']
             run_config['trainer_ctx'] = run_config['override_train_device']
-    else:
+    elif run_mode == RunMode.FGNN:
         run_config['omp_thread_num'] //= run_config['num_train_worker']
         assert(
             'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
@@ -157,6 +173,12 @@ def process_common_config(run_config):
             run_config['train_workers']     = [sam.gpu(0)]
             run_config['sample_workers']    = [sam.gpu(0)]
             run_config['pipeline']          = False
+    elif run_mode == RunMode.SGNN:
+        run_config['omp_thread_num'] //= run_config['num_worker']
+        run_config['workers'] = [sam.gpu(i)
+                                 for i in range(run_config['num_worker'])]
+    else:
+        assert(False)
 
     run_config['_sample_type'] = sam.sample_types[run_config['sample_type']]
     run_config['_cache_policy'] = sam.cache_policies[run_config['cache_policy']]

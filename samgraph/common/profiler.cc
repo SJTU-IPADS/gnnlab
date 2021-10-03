@@ -53,12 +53,14 @@ Profiler::Profiler() {
   _step_trace.resize(kNumTraceItems, TraceData(num_step_logs));
   _num_step = Engine::Get()->NumStep();
 
-  _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _similarity.resize(num_step_logs);
-  _epoch_last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _epoch_cur_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _epoch_similarity.resize(num_epoch_logs);
+  if (RunConfig::option_log_node_access || RunConfig::option_log_node_access_simple) {
+    _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _similarity.resize(num_step_logs);
+    _epoch_last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _epoch_cur_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _epoch_similarity.resize(num_epoch_logs);
+  }
 }
 
 void Profiler::ResetStepEpoch() {
@@ -79,18 +81,20 @@ void Profiler::ResetStepEpoch() {
   _step_trace.resize(kNumTraceItems, TraceData(num_step_logs));
   _num_step = Engine::Get()->NumStep();
 
-  _node_access.clear();
-  _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _last_visit.clear();
-  _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _similarity.clear();
-  _similarity.resize(num_step_logs);
-  _epoch_last_visit.clear();
-  _epoch_last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _epoch_cur_visit.clear();
-  _epoch_cur_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
-  _epoch_similarity.clear();
-  _epoch_similarity.resize(num_epoch_logs);
+  if (RunConfig::option_log_node_access || RunConfig::option_log_node_access_simple) {
+    _node_access.clear();
+    _node_access.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _last_visit.clear();
+    _last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _similarity.clear();
+    _similarity.resize(num_step_logs);
+    _epoch_last_visit.clear();
+    _epoch_last_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _epoch_cur_visit.clear();
+    _epoch_cur_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
+    _epoch_similarity.clear();
+    _epoch_similarity.resize(num_epoch_logs);
+  }
 }
 
 void Profiler::LogInit(LogInitItem item, double val) {
@@ -143,7 +147,7 @@ void Profiler::LogEpochAdd(uint64_t key, LogEpochItem item, double val) {
   _epoch_data[item_idx].bitmap[epoch] = true;
 }
 
-double Profiler::GetLogInitValue(LogStepItem item) {
+double Profiler::GetLogInitValue(LogInitItem item) {
   return _init_data[item].vals[0];
 }
 

@@ -61,16 +61,29 @@ void samgraph_config(const char **config_keys, const char **config_values,
   RC::max_copying_jobs = std::stoull(configs["max_copying_jobs"]);
   RC::omp_thread_num = std::stoi(configs["omp_thread_num"]);
 
-  if (RC::run_arch != kArch5) {
-    CHECK(configs.count("sampler_ctx"));
-    CHECK(configs.count("trainer_ctx"));
-    RC::sampler_ctx = Context(configs["sampler_ctx"]);
-    RC::trainer_ctx = Context(configs["trainer_ctx"]);
-  } else {
-    CHECK(configs.count("num_sample_worker"));
-    CHECK(configs.count("num_train_worker"));
-    RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
-    RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+  switch (RC::run_arch) {
+    case kArch0:
+    case kArch1:
+    case kArch2:
+    case kArch3:
+    case kArch4:
+      CHECK(configs.count("sampler_ctx"));
+      CHECK(configs.count("trainer_ctx"));
+      RC::sampler_ctx = Context(configs["sampler_ctx"]);
+      RC::trainer_ctx = Context(configs["trainer_ctx"]);
+      break;
+    case kArch5:
+      CHECK(configs.count("num_sample_worker"));
+      CHECK(configs.count("num_train_worker"));
+      RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
+      RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+      break;
+    case kArch6:
+      CHECK(configs.count("num_worker"));
+      size_t num_worker = std::stoull(configs["num_worker"]);
+      RC::num_sample_worker = num_worker;
+      RC::num_train_worker = num_worker;
+      break;
   }
 
   if (RC::sample_type != kRandomWalk) {
@@ -216,6 +229,11 @@ void samgraph_log_epoch_add(uint64_t epoch, int item, double val) {
   Profiler::Get().LogEpochAdd(key, static_cast<LogEpochItem>(item), val);
 }
 
+double samgraph_get_log_init_value(int item) {
+  CHECK_LT(item, kNumLogInitItems);
+  return Profiler::Get().GetLogInitValue(static_cast<LogInitItem>(item));
+}
+
 double samgraph_get_log_step_value(uint64_t epoch, uint64_t step, int item) {
   CHECK_LT(item, kNumLogStepItems);
   uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
@@ -312,6 +330,10 @@ void samgraph_switch_init(int worker_id, const char*ctx, double cache_percentage
   dist::DistEngine::Get()->TrainInit(worker_id, Context(std::string(ctx)));
 
   LOG(INFO) << "SamGraph switch has been initialized successfully";
+}
+
+size_t samgraph_num_local_step() {
+  return Engine::Get()->NumLocalStep();
 }
 
 }  // extern "c"

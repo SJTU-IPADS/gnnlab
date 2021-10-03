@@ -2,24 +2,27 @@
 
 #include <semaphore.h>
 #include <stddef.h>
+
 #include <chrono>
 #include <cstdlib>
-#include <numeric>
 #include <iterator>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 
 #include "../constant.h"
+#include "../cpu/cpu_engine.h"
+#include "../cuda/cuda_common.h"
 #include "../device.h"
 #include "../logging.h"
+#include "../profiler.h"
 #include "../run_config.h"
 #include "../timer.h"
-#include "../cuda/cuda_common.h"
-#include "../cpu/cpu_engine.h"
 #include "dist_loops.h"
+#include "dist_shuffler.h"
+#include "dist_shuffler_aligned.h"
 #include "pre_sampler.h"
-#include "../profiler.h"
 
 namespace samgraph {
 namespace common {
@@ -107,20 +110,48 @@ void DistEngine::Init() {
   double init_load_ds_mmap_time = t_l2_init_load_ds_mmap.Passed();
 
   Timer t_l2_init_build_queue;
-  _memory_queue = new MessageTaskQueue(RunConfig::max_copying_jobs);
+  if (RunConfig::run_arch == kArch5) {
+    _memory_queue = new MessageTaskQueue(RunConfig::max_copying_jobs);
+  } else {
+    _memory_queue = nullptr;
+  }
   double init_build_queue_time = t_l2_init_build_queue.Passed();
+
+  // Create queues
+  Timer t_push_queue;
+  for (int i = 0; i < cuda::QueueNum; i++) {
+    LOG(DEBUG) << "Create task queue" << i;
+    if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
+      _queues.push_back(RunConfig::run_arch == kArch5
+                            ? _memory_queue
+                            : new TaskQueue(RunConfig::max_copying_jobs));
+    } else {
+      _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+    }
+  }
+  double time_push_queue = t_push_queue.Passed();
 
   LOG(DEBUG) << "create sampler barrier with " << RunConfig::num_sample_worker << " samplers";
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
 
   double init_time = t_l1_init.Passed();
-  _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) / _batch_size);
+  if (RunConfig::run_arch == kArch5) {
+    _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) /
+                 _batch_size);
+  } else {
+    size_t num_data = _dataset->train_set->Shape().front();
+    _num_local_step = RoundUpDiv(
+        RoundUpDiv(num_data, RunConfig::num_sample_worker), _batch_size);
+    _num_step = _num_local_step * RunConfig::num_sample_worker;
+  }
 
-  Profiler::Get().LogInit(kLogInitL1Common,          init_time);
-  Profiler::Get().LogInit(kLogInitL2LoadDataset,     init_load_ds_mmap_time);
+  Profiler::Get().LogInit(kLogInitL1Common, init_time);
+  Profiler::Get().LogInit(kLogInitL2LoadDataset, init_load_ds_mmap_time);
   Profiler::Get().LogInit(kLogInitL3LoadDatasetMMap, init_load_ds_mmap_time);
-  Profiler::Get().LogInit(kLogInitL2DistQueue,       init_build_queue_time);
-  Profiler::Get().LogInit(kLogInitL3DistQueueAlloc,  init_build_queue_time);
+  Profiler::Get().LogInitAdd(kLogInitL2DistQueue, init_build_queue_time);
+  Profiler::Get().LogInitAdd(kLogInitL2DistQueue, time_push_queue);
+  Profiler::Get().LogInit(kLogInitL3DistQueueAlloc, init_build_queue_time);
+  Profiler::Get().LogInit(kLogInitL3DistQueuePush, time_push_queue);
   LOG(DEBUG) << "Finished pre-initialization";
 }
 
@@ -190,7 +221,9 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   double time_cuda_context = t0.Passed();
 
   Timer t_pin_memory;
-  _memory_queue->PinMemory();
+  if (_memory_queue) {
+    _memory_queue->PinMemory();
+  }
   double time_pin_memory = t_pin_memory.Passed();
   LOG_MEM_USAGE(WARNING, "before sample pin memory", _sampler_ctx);
   Timer t_create_stream;
@@ -212,14 +245,16 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
 
   Timer t_sam_interal_state;
   _shuffler = nullptr;
-  switch(ctx.device_type) {
-    case kCPU:
-      _shuffler = new CPUShuffler(_dataset->train_set,
-          _num_epoch, _batch_size, false);
-      break;
-    case kGPU:
+  switch (RunConfig::run_arch) {
+    case kArch5:
       _shuffler = new DistShuffler(_dataset->train_set,
           _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
+      break;
+    case kArch6:
+      CHECK_EQ(RunConfig::num_sample_worker, RunConfig::num_train_worker);
+      _shuffler =
+          new DistAlignedShuffler(_dataset->train_set, _num_epoch, _batch_size,
+                                  worker_id, RunConfig::num_sample_worker);
       break;
     default:
         LOG(FATAL) << "shuffler does not support device_type: "
@@ -257,18 +292,6 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   }
   double time_sam_internal_state = t_sam_interal_state.Passed();
 
-  // Create queues
-  Timer t_push_queue;
-  for (int i = 0; i < cuda::QueueNum; i++) {
-    LOG(DEBUG) << "Create task queue" << i;
-    if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
-      _queues.push_back(_memory_queue);
-    }
-    else {
-      _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
-    }
-  }
-  double time_push_queue = t_push_queue.Passed();
   // batch results set
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
@@ -304,15 +327,14 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   Profiler::Get().LogInitAdd(kLogInitL2InternalState,   time_create_stream);
   Profiler::Get().LogInitAdd(kLogInitL2LoadDataset,     time_load_graph_ds_copy);
   Profiler::Get().LogInitAdd(kLogInitL2InternalState,   time_sam_internal_state);
-  Profiler::Get().LogInitAdd(kLogInitL2DistQueue,       time_push_queue);
+
   Profiler::Get().LogInit   (kLogInitL2Presample,       time_presample);
   Profiler::Get().LogInitAdd(kLogInitL2BuildCache,      time_cache_table);
 
   Profiler::Get().LogInit   (kLogInitL3InternalStateCreateCtx,    time_cuda_context);
   Profiler::Get().LogInit   (kLogInitL3DistQueuePin,    time_pin_memory);
   Profiler::Get().LogInit   (kLogInitL3InternalStateCreateStream,    time_create_stream);
-  Profiler::Get().LogInit   (kLogInitL3LoadDatasetCopy, time_load_graph_ds_copy);
-  Profiler::Get().LogInit   (kLogInitL3DistQueuePush, time_push_queue);
+  Profiler::Get().LogInit(kLogInitL3LoadDatasetCopy, time_load_graph_ds_copy);
 
   LOG_MEM_USAGE(WARNING, "after finish sample initialization", _sampler_ctx);
   _initialize = true;
@@ -324,10 +346,6 @@ void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
 }
 
 void DistEngine::TrainInit(int worker_id, Context ctx) {
-  if (_initialize) {
-    LOG(FATAL) << "DistEngine already initialized!";
-    return;
-  }
   Timer t0;
   _dist_type = DistType::Extract;
   RunConfig::trainer_ctx = ctx;
@@ -337,7 +355,9 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   double time_create_cuda_ctx = t0.Passed();
 
   Timer t_pin_memory;
-  _memory_queue->PinMemory();
+  if (_memory_queue) {
+    _memory_queue->PinMemory();
+  }
   double time_pin_memory = t_pin_memory.Passed();
   LOG_MEM_USAGE(WARNING, "after pin memory", _trainer_ctx);
 
@@ -362,6 +382,8 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
 
   double time_load_graph_ds_copy = 0;
   double time_build_cache = 0;
+  _cache_manager = nullptr;
+  _gpu_cache_manager = nullptr;
   if (RunConfig::UseGPUCache()) {
     Timer t_load_graph_ds_copy;
     TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
@@ -378,29 +400,23 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
     }
     */
     Timer t_build_cache;
-    _cache_manager = new DistCacheManager(
-        _trainer_ctx, _dataset->feat->Data(),
-        _dataset->feat->Type(), _dataset->feat->Shape()[1],
-        static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
-        _dataset->num_node, RunConfig::cache_percentage);
+    if (RunConfig::run_arch == kArch5) {
+      _cache_manager = new DistCacheManager(
+          _trainer_ctx, _dataset->feat->Data(), _dataset->feat->Type(),
+          _dataset->feat->Shape()[1],
+          static_cast<const IdType *>(_dataset->ranking_nodes->Data()),
+          _dataset->num_node, RunConfig::cache_percentage);
+    } else {
+      _gpu_cache_manager = new cuda::GPUCacheManager(
+          _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
+          _dataset->feat->Type(), _dataset->feat->Shape()[1],
+          static_cast<const IdType *>(_dataset->ranking_nodes->Data()),
+          _dataset->num_node, RunConfig::cache_percentage);
+    }
     time_build_cache = t_build_cache.Passed();
-  } else {
-    _cache_manager = nullptr;
   }
   LOG_MEM_USAGE(WARNING, "after train load cache", _trainer_ctx);
 
-  // Create queues
-  Timer t_push_queue;
-  for (int i = 0; i < cuda::QueueNum; i++) {
-    LOG(DEBUG) << "Create task queue" << i;
-    if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
-      _queues.push_back(_memory_queue);
-    }
-    else {
-      _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
-    }
-  }
-  double time_push_queue = t_push_queue.Passed();
   // results pool
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
 
@@ -412,18 +428,15 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
   Profiler::Get().LogInitAdd(kLogInitL2DistQueue,                 time_pin_memory);
   Profiler::Get().LogInitAdd(kLogInitL2InternalState,             time_create_stream);
   Profiler::Get().LogInitAdd(kLogInitL2LoadDataset,               time_load_graph_ds_copy);
-  Profiler::Get().LogInitAdd(kLogInitL2BuildCache,                time_build_cache);
-  Profiler::Get().LogInitAdd(kLogInitL2DistQueue,                 time_push_queue);
+  Profiler::Get().LogInitAdd(kLogInitL2BuildCache, time_build_cache);
 
   Profiler::Get().LogInit   (kLogInitL3InternalStateCreateCtx,    time_create_cuda_ctx);
   Profiler::Get().LogInit   (kLogInitL3DistQueuePin,              time_pin_memory);
   Profiler::Get().LogInit   (kLogInitL3InternalStateCreateStream, time_create_stream);
-  Profiler::Get().LogInit   (kLogInitL3LoadDatasetCopy,           time_load_graph_ds_copy);
-  Profiler::Get().LogInit   (kLogInitL3DistQueuePush,             time_push_queue);
+  Profiler::Get().LogInit(kLogInitL3LoadDatasetCopy, time_load_graph_ds_copy);
   _initialize = true;
   LOG_MEM_USAGE(WARNING, "after train initialization", _trainer_ctx);
 }
-
 
 void DistEngine::Start() {
   LOG(FATAL) << "DistEngine needs not implement the Start function!!!";
@@ -540,6 +553,9 @@ void DistEngine::RunSampleOnce() {
     case kArch5:
       RunArch5LoopsOnce(_dist_type);
       break;
+    case kArch6:
+      RunArch6LoopsOnce();
+      break;
     default:
       CHECK(0);
   }
@@ -547,7 +563,7 @@ void DistEngine::RunSampleOnce() {
 }
 
 void DistEngine::ArchCheck() {
-  CHECK_EQ(RunConfig::run_arch, kArch5);
+  CHECK(RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch6);
   CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
 }
 

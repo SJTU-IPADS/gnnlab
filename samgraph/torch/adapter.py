@@ -25,6 +25,7 @@ sample_once          = _basics.sample_once
 log_step             = _basics.log_step
 log_step_add         = _basics.log_step_add
 log_epoch_add        = _basics.log_epoch_add
+get_log_init_value   = _basics.get_log_init_value
 get_log_step_value   = _basics.get_log_step_value
 get_log_epoch_value  = _basics.get_log_epoch_value
 report_init          = _basics.report_init
@@ -40,13 +41,15 @@ trace_step_end_now   = _basics.trace_step_end_now
 dump_trace           = _basics.dump_trace
 forward_barrier      = _basics.forward_barrier
 
-# multi-GPUs training APIs
-data_init     = _basics.data_init
-sample_init   = _basics.sample_init
-train_init    = _basics.train_init
-extract_start = _basics.extract_start
 # switch APIs
 switch_init   = _basics.switch_init
+
+# multi-GPUs training APIs
+data_init      = _basics.data_init
+sample_init    = _basics.sample_init
+train_init     = _basics.train_init
+extract_start  = _basics.extract_start
+num_local_step = _basics.num_local_step
 
 def get_graph_feat(batch_key):
     return c_lib.samgraph_torch_get_graph_feat(batch_key)
