@@ -62,6 +62,16 @@ void CPUEngine::Init() {
       CHECK(0);
   }
 
+  if (RunConfig::UseGPUCache()) {
+    _cache_manager = new cuda::GPUCacheManager(
+        _trainer_ctx, _trainer_ctx, _dataset->feat->Data(),
+        _dataset->feat->Type(), _dataset->feat->Shape()[1],
+        static_cast<const IdType *>(_dataset->ranking_nodes->Data()),
+        _dataset->num_node, RunConfig::cache_percentage);
+  } else {
+    _cache_manager = nullptr;
+  }
+
   LOG(INFO) << "CPU Engine uses type " << RunConfig::cpu_hash_type
             << " hashtable";
 
@@ -104,10 +114,16 @@ void CPUEngine::Shutdown() {
   delete _shuffler;
   delete _graph_pool;
   delete _hash_table;
+
+  if (_cache_manager) {
+    delete _cache_manager;
+  }
+
   _dataset = nullptr;
   _shuffler = nullptr;
   _graph_pool = nullptr;
   _hash_table = nullptr;
+  _cache_manager = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;
@@ -121,15 +137,20 @@ void CPUEngine::ArchCheck() {
   CHECK_EQ(RunConfig::run_arch, kArch0);
   CHECK_EQ(_sampler_ctx.device_type, kCPU);
   CHECK_EQ(_trainer_ctx.device_type, kGPU);
+
+  CHECK(RunConfig::cache_policy != kCacheByPreSample);
+  CHECK(RunConfig::cache_policy != kCacheByPreSampleStatic);
+  CHECK(RunConfig::cache_policy != kDynamicCache);
 }
 
 std::unordered_map<std::string, Context> CPUEngine::GetGraphFileCtx() {
   std::unordered_map<std::string, Context> ret;
 
   ret[Constant::kIndptrFile] = MMAP();
-  ret[Constant::kIndicesFile] = MMAP();
+  ret[Constant::kIndicesFile] =
+      RunConfig::sample_type == kKHop2 ? CPU() : MMAP();
   ret[Constant::kFeatFile] = MMAP();
-  ret[Constant::kLabelFile] = MMAP();
+  ret[Constant::kLabelFile] = RunConfig::UseGPUCache() ? _trainer_ctx : MMAP();
   ret[Constant::kTrainSetFile] = CPU();
   ret[Constant::kTestSetFile] = CPU();
   ret[Constant::kValidSetFile] = CPU();

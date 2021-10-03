@@ -17,6 +17,11 @@ void CPUSampleKHop1(const IdType *const indptr, const IdType *const indices,
                     IdType *output_src, IdType *output_dst, size_t *num_ouput,
                     const size_t fanout);
 
+void CPUSampleKHop2(const IdType *const indptr, IdType *indices,
+                    const IdType *const input, const size_t num_input,
+                    IdType *output_src, IdType *output_dst, size_t *num_ouput,
+                    const size_t fanout);
+
 void CPUSampleWeightedKHop(const IdType *const indptr,
                            const IdType *const indices,
                            const IdType *const input, const size_t num_input,
@@ -39,6 +44,8 @@ IdType RandomID(const IdType &min, const IdType &max);
 
 void CPUSanityCheckList(const IdType *input, size_t num_input,
                         IdType invalid_val);
+
+void CPUSanityCheckNoDuplicate(const IdType *input, size_t num_input);
 
 }  // namespace cpu
 }  // namespace common

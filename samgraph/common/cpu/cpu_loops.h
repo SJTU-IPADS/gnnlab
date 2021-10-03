@@ -18,6 +18,10 @@ void DoGraphCopy(TaskPtr task);
 void DoFeatureExtract(TaskPtr task);
 void DoFeatureCopy(TaskPtr task);
 
+void DoCacheIdCopy(TaskPtr task);
+void DoGPULabelExtract(TaskPtr task);
+void DoCacheFeatureExtractCopy(TaskPtr task);
+
 }  // namespace cpu
 }  // namespace common
 }  // namespace samgraph
