@@ -24,13 +24,20 @@ class CPUHashTable2 : public CPUHashTable {
  private:
   struct BucketO2N {
     IdType key;
-    IdType thread_index;
+    IdType index;
     IdType local;
     IdType version;
   };
 
   struct BucketN2O {
     IdType global;
+  };
+
+  struct PrefixItem {
+    size_t val;
+    size_t _padding[7];
+
+    PrefixItem() : val(0) {}
   };
 
   BucketO2N *_o2n_table;
