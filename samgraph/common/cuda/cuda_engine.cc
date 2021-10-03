@@ -47,7 +47,7 @@ void GPUEngine::Init() {
   if (_initialize) {
     return;
   }
-
+  Timer t_init;
   _sampler_ctx = RunConfig::sampler_ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
   _dataset_path = RunConfig::dataset_path;
@@ -59,14 +59,18 @@ void GPUEngine::Init() {
   // Check whether the ctx configuration is allowable
   ArchCheck();
 
+  Timer t_cuda_context;
   // Load the target graph data
   LOG_MEM_USAGE(WARNING, "before load dataset");
+  double time_cuda_context = t_cuda_context.Passed();
+
   Timer tl;
   LoadGraphDataset();
   double time_load_graph_dataset = tl.Passed();
   LOG_MEM_USAGE(INFO, "after load dataset");
 
   // Create CUDA streams
+  Timer t_create_stream;
   _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
   _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
   _trainer_copy_stream = Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx);
@@ -74,7 +78,9 @@ void GPUEngine::Init() {
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
+  double time_create_stream = t_create_stream.Passed();
 
+  Timer t_sam_interal_state;
   _shuffler =
       new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
   _num_step = _shuffler->NumStep();
@@ -110,6 +116,7 @@ void GPUEngine::Init() {
     _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
   }
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
+  double time_sam_internal_state = t_sam_interal_state.Passed();
 
   double presample_time = 0;
   double build_cache_time = 0;
@@ -147,9 +154,15 @@ void GPUEngine::Init() {
     _dynamic_cache_manager = nullptr;
   }
 
+  double time_init = t_init.Passed();
+  Profiler::Get().LogInit(kLogInitL1Common, time_init);
+  Profiler::Get().LogInit(kLogInitL2InternalState, time_sam_internal_state);
   Profiler::Get().LogInit(kLogInitL2Presample, presample_time);
   Profiler::Get().LogInit(kLogInitL2BuildCache, build_cache_time);
   Profiler::Get().LogInit(kLogInitL2LoadDataset, time_load_graph_dataset);
+
+  Profiler::Get().LogInit(kLogInitL3InternalStateCreateCtx, time_cuda_context);
+  Profiler::Get().LogInit(kLogInitL3InternalStateCreateStream, time_create_stream);
 
   LOG_MEM_USAGE(WARNING, "after build cache states");
 
