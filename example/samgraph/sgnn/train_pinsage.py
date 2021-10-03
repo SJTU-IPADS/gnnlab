@@ -184,7 +184,7 @@ def run(worker_id, run_config):
     model = model.to(device)
     if num_worker > 1:
         model = DistributedDataParallel(
-            model, device_ids=[train_device], output_device=train_device)
+            model, device_ids=[device], output_device=device)
 
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(device)
