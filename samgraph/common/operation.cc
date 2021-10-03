@@ -77,7 +77,10 @@ void samgraph_config(const char **config_keys, const char **config_values,
       CHECK(configs.count("num_train_worker"));
       RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
       RC::num_train_worker = std::stoull(configs["num_train_worker"]);
-      RC::hava_switcher = std::stoi(configs["have_switcher"])
+      if (!configs.count("have_switcher")) {
+        configs["have_switcher"] = "0";
+      }
+      RC::have_switcher = std::stoi(configs["have_switcher"]);
       break;
     case kArch6:
       CHECK(configs.count("num_worker"));

@@ -110,6 +110,8 @@ def parse_args(default_run_config):
                            default=default_run_config['num_neighbor'])
     argparser.add_argument('--num-layer', type=int,
                            default=default_run_config['num_layer'])
+    argparser.add_argument('--switch-cache-percentage', type=float,
+                           default=default_run_config['switch_cache_percentage'])
 
     argparser.add_argument(
         '--lr', type=float, default=default_run_config['lr'])
@@ -135,6 +137,7 @@ def get_run_config():
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
+    run_config['switch_cache_percentage'] = 0.0
 
     run_config.update(parse_args(run_config))
 
@@ -144,7 +147,8 @@ def get_run_config():
 
     # cache percentage of switcher should be the same with trainer
     #   or the "get_miss_index" results is not right for switcher
-    run_config['switch_cache_percentage'] = run_config['cache_percentage']
+    if (run_config['cache_percentage'] == 0.0):
+        run_config['switch_cache_percentage'] = 0.0
 
     print_run_config(run_config)
 
