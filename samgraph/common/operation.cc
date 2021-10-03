@@ -229,6 +229,11 @@ void samgraph_log_epoch_add(uint64_t epoch, int item, double val) {
   Profiler::Get().LogEpochAdd(key, static_cast<LogEpochItem>(item), val);
 }
 
+double samgraph_get_log_init_value(int item) {
+  CHECK_LT(item, kNumLogInitItems);
+  return Profiler::Get().GetLogInitValue(static_cast<LogInitItem>(item));
+}
+
 double samgraph_get_log_step_value(uint64_t epoch, uint64_t step, int item) {
   CHECK_LT(item, kNumLogStepItems);
   uint64_t key = Engine::Get()->GetBatchKey(epoch, step);

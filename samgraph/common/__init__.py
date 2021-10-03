@@ -121,6 +121,33 @@ cache_policies = {
     'dynamic_cache'   : kDynamicCache
 }
 
+_init_log_val = [0]
+# L1
+kLogInitL1Common                    = _get_next_enum_val(_init_log_val)
+kLogInitL1Sampler                   = _get_next_enum_val(_init_log_val)
+kLogInitL1Trainer                   = _get_next_enum_val(_init_log_val)
+# L2
+kLogInitL2LoadDataset               = _get_next_enum_val(_init_log_val)
+kLogInitL2DistQueue                 = _get_next_enum_val(_init_log_val)
+kLogInitL2Presample                 = _get_next_enum_val(_init_log_val)
+kLogInitL2InternalState             = _get_next_enum_val(_init_log_val)
+kLogInitL2BuildCache                = _get_next_enum_val(_init_log_val)
+# L3
+kLogInitL3LoadDatasetMMap           = _get_next_enum_val(_init_log_val)
+kLogInitL3LoadDatasetCopy           = _get_next_enum_val(_init_log_val)
+kLogInitL3DistQueueAlloc            = _get_next_enum_val(_init_log_val)
+kLogInitL3DistQueuePin              = _get_next_enum_val(_init_log_val)
+kLogInitL3DistQueuePush             = _get_next_enum_val(_init_log_val)
+kLogInitL3PresampleInit             = _get_next_enum_val(_init_log_val)
+kLogInitL3PresampleSample           = _get_next_enum_val(_init_log_val)
+kLogInitL3PresampleCopy             = _get_next_enum_val(_init_log_val)
+kLogInitL3PresampleCount            = _get_next_enum_val(_init_log_val)
+kLogInitL3PresampleSort             = _get_next_enum_val(_init_log_val)
+kLogInitL3PresampleReset            = _get_next_enum_val(_init_log_val)
+kLogInitL3PresampleGetRank          = _get_next_enum_val(_init_log_val)
+kLogInitL3InternalStateCreateCtx    = _get_next_enum_val(_init_log_val)
+kLogInitL3InternalStateCreateStream = _get_next_enum_val(_init_log_val)
+kNumLogInitItems                    = _get_next_enum_val(_init_log_val)
 
 _step_log_val = [0]
 
@@ -244,6 +271,8 @@ class SamGraphBasics(object):
             ctypes.c_int,
             ctypes.c_double
         )
+        self.C_LIB_CTYPES.samgraph_get_log_init_value.argtypes = (
+            ctypes.c_int,)
         self.C_LIB_CTYPES.samgraph_get_log_step_value.argtypes = (
             ctypes.c_uint64,
             ctypes.c_uint64,
@@ -282,6 +311,7 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_src.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_dst.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_get_log_init_value.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_double
 
@@ -388,6 +418,9 @@ class SamGraphBasics(object):
 
     def log_epoch_add(self, epoch, item, val):
         return self.C_LIB_CTYPES.samgraph_log_epoch_add(epoch, item, val)
+
+    def get_log_init_value(self, item):
+        return self.C_LIB_CTYPES.samgraph_get_log_init_value(item)
 
     def get_log_step_value(self, epoch, step, item):
         return self.C_LIB_CTYPES.samgraph_get_log_step_value(epoch, step, item)

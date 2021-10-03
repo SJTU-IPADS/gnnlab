@@ -171,7 +171,7 @@ class Profiler {
   inline void TraceStepBegin(uint64_t key, TraceItem item, uint64_t us) { _step_trace[item].events[key].begin = us; }
   inline void TraceStepEnd(uint64_t key, TraceItem item, uint64_t us) { _step_trace[item].events[key].end = us; }
 
-  double GetLogInitValue(LogStepItem item);
+  double GetLogInitValue(LogInitItem item);
   double GetLogStepValue(uint64_t key, LogStepItem item);
   double GetLogEpochValue(uint64_t epoch, LogEpochItem item);
 
