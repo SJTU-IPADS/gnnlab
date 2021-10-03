@@ -92,10 +92,11 @@ def add_common_arguments(argparser, run_config):
     argparser.add_argument('--sample-type', type=str, choices=sam.sample_types.keys(),
                            default=run_config['sample_type'])
 
-    argparser.add_argument('--pipeline', action='store_true',
-                           default=run_config['pipeline'])
-    argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
-                           default=run_config['pipeline'])
+    if not run_config['_run_mode'] == RunMode.SGNN:
+        argparser.add_argument('--pipeline', action='store_true',
+                               default=run_config['pipeline'])
+        argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
+                               default=run_config['pipeline'])
 
     argparser.add_argument('--root-path', type=str,
                            default=run_config['root_path'])
@@ -166,7 +167,8 @@ def process_common_config(run_config):
             run_config['num_train_worker'] + i) for i in range(run_config['num_sample_worker'])]
     elif run_mode == RunMode.SGNN:
         run_config['omp_thread_num'] //= run_config['num_worker']
-        run_config['workers'] = [sam.gpu(i) for i in range(run_config['num_worker'])]
+        run_config['workers'] = [sam.gpu(i)
+                                 for i in range(run_config['num_worker'])]
     else:
         assert(False)
 

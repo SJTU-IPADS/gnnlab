@@ -321,13 +321,6 @@ def run_train(worker_id, run_config):
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
 
-            feat_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochFeatureBytes)
-            miss_nbytes = sam.get_log_epoch_value(
-                epoch, sam.kLogEpochMissBytes)
-            epoch_cache_hit_rates.append(
-                (feat_nbytes - miss_nbytes) / feat_nbytes)
-
             copy_times.append(copy_time)
             convert_times.append(convert_time)
             train_times.append(train_time)
@@ -348,6 +341,12 @@ def run_train(worker_id, run_config):
         # epoch end barrier
         global_barrier.wait()
 
+        feat_nbytes = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochFeatureBytes)
+        miss_nbytes = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochMissBytes)
+        epoch_cache_hit_rates.append(
+            (feat_nbytes - miss_nbytes) / feat_nbytes)
         epoch_copy_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
         epoch_convert_times.append(
