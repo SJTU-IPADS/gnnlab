@@ -68,7 +68,7 @@ namespace {
   size_t GetDataBytes(std::shared_ptr<Task> task) {
     size_t ret = 0;
     ret += task->output_nodes->NumBytes();
-    if (!RunConfig::UseGPUCache()) {
+    if (!RunConfig::UseGPUCache() || RunConfig::have_switcher) {
       ret += task->input_nodes->NumBytes();
     } else {
       if (task->miss_cache_index.num_miss > 0) {
@@ -147,7 +147,7 @@ namespace {
 
     IdType *ptr_data = ptr->data;
 
-    if (!RunConfig::UseGPUCache()) {
+    if (!RunConfig::UseGPUCache() || RunConfig::have_switcher) {
       CHECK_EQ(sizeof(IdType) * ptr->input_size, task->input_nodes->NumBytes());
       CopyGPUToCPU(task->input_nodes, ptr_data);
       ptr_data += ptr->input_size;
@@ -231,7 +231,7 @@ namespace {
 
     const IdType *trans_data_data = trans_data->data;
 
-    if (!RunConfig::UseGPUCache()) {
+    if (!RunConfig::UseGPUCache() || RunConfig::have_switcher) {
       task->input_nodes =
           ToTensor(trans_data_data, trans_data->input_size * sizeof(IdType),
                    "input_" + std::to_string(task->key));
@@ -319,6 +319,9 @@ namespace {
     ret += (RunConfig::batch_size * sizeof(IdType)); // label size;
     ret += (layer_cnt * sizeof(IdType));
     if (RunConfig::UseGPUCache()) {
+      ret += (layer_cnt * sizeof(IdType));
+    }
+    if (RunConfig::have_switcher) {
       ret += (layer_cnt * sizeof(IdType));
     }
     return ret;

@@ -77,6 +77,7 @@ void samgraph_config(const char **config_keys, const char **config_values,
       CHECK(configs.count("num_train_worker"));
       RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
       RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+      RC::hava_switcher = std::stoi(configs["have_switcher"])
       break;
     case kArch6:
       CHECK(configs.count("num_worker"));
@@ -314,7 +315,7 @@ void samgraph_sample_init(int worker_id, const char*ctx) {
 
 void samgraph_train_init(int worker_id, const char*ctx) {
   CHECK(RunConfig::is_configured);
-  dist::DistEngine::Get()->TrainInit(worker_id, Context(std::string(ctx)));
+  dist::DistEngine::Get()->TrainInit(worker_id, Context(std::string(ctx)), dist::DistType::Extract);
 
   LOG(INFO) << "SamGraph train has been initialized successfully";
 }
@@ -327,7 +328,7 @@ void samgraph_extract_start(int count) {
 void samgraph_switch_init(int worker_id, const char*ctx, double cache_percentage) {
   RunConfig::cache_percentage = cache_percentage;
   CHECK(RunConfig::is_configured);
-  dist::DistEngine::Get()->TrainInit(worker_id, Context(std::string(ctx)));
+  dist::DistEngine::Get()->TrainInit(worker_id, Context(std::string(ctx)), dist::DistType::Switch);
 
   LOG(INFO) << "SamGraph switch has been initialized successfully";
 }

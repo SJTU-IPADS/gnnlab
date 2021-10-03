@@ -43,6 +43,8 @@ struct RunConfig {
   // For multi-gpu sampling and training
   static size_t               num_sample_worker;
   static size_t               num_train_worker;
+  // If transform the input_nodes for Switcher architecture
+  static bool                 have_switcher;
 
   // Environment variables
   static bool                 option_profile_cuda;

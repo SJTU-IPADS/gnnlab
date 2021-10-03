@@ -23,6 +23,7 @@ void DoCPUFeatureExtract(TaskPtr task);
 void DoFeatureCopy(TaskPtr task);
 
 void DoCacheIdCopy(TaskPtr task);
+void DoSwitchCacheFeatureCopy(TaskPtr task);
 void DoCacheFeatureCopy(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
 

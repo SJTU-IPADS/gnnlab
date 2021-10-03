@@ -84,6 +84,7 @@ void DistEngine::Init() {
   _shuffler = nullptr;
   _random_states = nullptr;
   _cache_manager = nullptr;
+  _gpu_cache_manager = nullptr;
   _frequency_hashmap = nullptr;
   _cache_hashtable = nullptr;
 
@@ -345,9 +346,9 @@ void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
   LOG(DEBUG) << "TrainDataCopy finished!";
 }
 
-void DistEngine::TrainInit(int worker_id, Context ctx) {
+void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Timer t0;
-  _dist_type = DistType::Extract;
+  _dist_type = dist_type;
   RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
 
@@ -401,11 +402,22 @@ void DistEngine::TrainInit(int worker_id, Context ctx) {
     */
     Timer t_build_cache;
     if (RunConfig::run_arch == kArch5) {
-      _cache_manager = new DistCacheManager(
-          _trainer_ctx, _dataset->feat->Data(), _dataset->feat->Type(),
-          _dataset->feat->Shape()[1],
-          static_cast<const IdType *>(_dataset->ranking_nodes->Data()),
-          _dataset->num_node, RunConfig::cache_percentage);
+      if (_dist_type == DistType::Extract) {
+        _cache_manager = new DistCacheManager(
+            _trainer_ctx, _dataset->feat->Data(), _dataset->feat->Type(),
+            _dataset->feat->Shape()[1],
+            static_cast<const IdType *>(_dataset->ranking_nodes->Data()),
+            _dataset->num_node, RunConfig::cache_percentage);
+      } else if(_dist_type == DistType::Switch) {
+        _gpu_cache_manager = new cuda::GPUCacheManager(
+            // use the same GPU ctx for cache for Switcher
+            _trainer_ctx, _trainer_ctx, _dataset->feat->Data(),
+            _dataset->feat->Type(), _dataset->feat->Shape()[1],
+            static_cast<const IdType*>(_dataset->ranking_nodes->Data()),
+            _dataset->num_node, RunConfig::cache_percentage);
+      } else {
+        LOG(FATAL) << "DistType: " << static_cast<int>(_dist_type) << " not supported!";
+      }
     } else {
       _gpu_cache_manager = new cuda::GPUCacheManager(
           _sampler_ctx, _trainer_ctx, _dataset->feat->Data(),
@@ -465,7 +477,7 @@ void DistEngine::Shutdown() {
   if (_dist_type == DistType::Sample) {
     LOG_MEM_USAGE(WARNING, "sampler before shutdown", _sampler_ctx);
   }
-  else if (_dist_type == DistType::Extract) {
+  else if (_dist_type == DistType::Extract || _dist_type == DistType::Switch) {
     LOG_MEM_USAGE(WARNING, "trainer before shutdown", _trainer_ctx);
   }
 
@@ -501,7 +513,7 @@ void DistEngine::Shutdown() {
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
     Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
   }
-  else if (_dist_type == DistType::Extract) {
+  else if (_dist_type == DistType::Extract || _dist_type == DistType::Switch) {
     Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
     Device::Get(_trainer_ctx)->FreeStream(_trainer_ctx, _trainer_copy_stream);
   }
@@ -522,6 +534,10 @@ void DistEngine::Shutdown() {
     delete _cache_manager;
   }
 
+  if (_gpu_cache_manager != nullptr) {
+    delete _gpu_cache_manager;
+  }
+
   if (_frequency_hashmap != nullptr) {
     delete _frequency_hashmap;
   }
@@ -538,6 +554,7 @@ void DistEngine::Shutdown() {
   _shuffler = nullptr;
   _graph_pool = nullptr;
   _cache_manager = nullptr;
+  _gpu_cache_manager = nullptr;
   _random_states = nullptr;
   _frequency_hashmap = nullptr;
 

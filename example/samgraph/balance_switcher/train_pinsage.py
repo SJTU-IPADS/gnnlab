@@ -122,7 +122,7 @@ def parse_args(default_run_config):
 def get_run_config():
     run_config = {}
 
-    run_config.update(get_default_common_config(run_multi_gpu=True))
+    run_config.update(get_default_common_config(run_mode=RunMode.FGNN))
     run_config['sample_type'] = 'random_walk'
 
     run_config['random_walk_length'] = 3
@@ -131,6 +131,7 @@ def get_run_config():
     run_config['num_neighbor'] = 5
     run_config['num_layer'] = 3
     run_config['pipeline'] = True
+    run_config['have_switcher'] = 1
 
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
