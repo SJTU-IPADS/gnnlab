@@ -5,6 +5,8 @@
 #include <torch/extension.h>
 #include <torch/torch.h>
 
+#include "torch/types.h"
+
 #undef LOG
 #undef CHECK_NOTNULL
 #undef CHECK_NE
@@ -100,12 +102,76 @@ namespace torch {
   return tensor;
 }
 
+::torch::Tensor GetDatasetFeature() {
+  auto feat = common::Engine::Get()->GetGraphDataset()->feat;
+
+  CHECK(feat->Ctx().device_type == common::kCPU ||
+        feat->Ctx().device_type == common::kMMAP);
+
+  ::torch::Tensor tensor = ::torch::from_blob(
+      feat->MutableData(),
+      {(long long)feat->Shape()[0], (long long)feat->Shape()[1]},
+      [feat](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kF32).device("cpu"));
+
+  return tensor;
+}
+
+::torch::Tensor GetDatasetLabel() {
+  auto label = common::Engine::Get()->GetGraphDataset()->label;
+
+  CHECK(label->Ctx().device_type == common::kCPU ||
+        label->Ctx().device_type == common::kMMAP);
+
+  ::torch::Tensor tensor = ::torch::from_blob(
+      label->MutableData(), {(long long)label->Shape()[0]},
+      [label](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI64).device("cpu"));
+
+  return tensor;
+}
+
+::torch::Tensor GetGraphInputNodes(uint64_t key) {
+  auto graph_batch = common::Engine::Get()->GetGraphBatch();
+  auto input_nodes = graph_batch->input_nodes;
+  auto sampler_ctx = common::Engine::Get()->GetSamplerCtx();
+  auto device = "cuda:" + std::to_string(sampler_ctx.device_id);
+
+  CHECK_EQ(key, graph_batch->key);
+  ::torch::Tensor tensor = ::torch::from_blob(
+      input_nodes->MutableData(), {(long long)input_nodes->Shape()[0]},
+      [input_nodes](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI32).device(device));
+
+  return tensor;
+}
+
+::torch::Tensor GetGraphOuputNodes(uint64_t key) {
+  auto graph_batch = common::Engine::Get()->GetGraphBatch();
+  auto output_nodes = graph_batch->output_nodes;
+  auto sampler_ctx = common::Engine::Get()->GetSamplerCtx();
+  auto device = "cuda:" + std::to_string(sampler_ctx.device_id);
+
+  CHECK_EQ(key, graph_batch->key);
+  ::torch::Tensor tensor = ::torch::from_blob(
+      output_nodes->MutableData(), {(long long)output_nodes->Shape()[0]},
+      [output_nodes](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI32).device(device));
+
+  return tensor;
+}
+
 PYBIND11_MODULE(c_lib, m) {
   m.def("samgraph_torch_get_graph_feat", &GetGraphFeature);
   m.def("samgraph_torch_get_graph_label", &GetGraphLabel);
   m.def("samgraph_torch_get_graph_row", &GetGraphRow);
   m.def("samgraph_torch_get_graph_col", &GetGraphCol);
   m.def("samgraph_torch_get_graph_data", &GetGraphData);
+
+  m.def("samgraph_torch_get_dataset_feat", &GetDatasetFeature);
+  m.def("samgraph_torch_get_dataset_label", &GetDatasetLabel);
+  m.def("samgraph_torch_get_graph_input_nodes", &GetGraphInputNodes);
+  m.def("samgraph_torch_get_graph_output_nodes", &GetGraphOuputNodes);
 }
 
 }  // namespace torch

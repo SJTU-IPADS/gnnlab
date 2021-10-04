@@ -7,13 +7,14 @@
 #include "../common.h"
 #include "../constant.h"
 #include "../device.h"
+#include "../dist/dist_shuffler_aligned.h"
 #include "../logging.h"
+#include "../profiler.h"
 #include "../run_config.h"
+#include "../timer.h"
 #include "cuda_common.h"
 #include "cuda_loops.h"
 #include "pre_sampler.h"
-#include "../profiler.h"
-#include "../timer.h"
 
 namespace samgraph {
 namespace common {
@@ -81,9 +82,17 @@ void GPUEngine::Init() {
   double time_create_stream = t_create_stream.Passed();
 
   Timer t_sam_interal_state;
-  _shuffler =
-      new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
-  _num_step = _shuffler->NumStep();
+  if (RunConfig::run_arch == kArch7) {
+    _shuffler = new dist::DistAlignedShuffler(_dataset->train_set, _num_epoch,
+                                              _batch_size, RunConfig::worker_id,
+                                              RunConfig::num_worker);
+    _num_step = _shuffler->NumStep();
+    _num_local_step = _shuffler->NumLocalStep();
+  } else {
+    _shuffler =
+        new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
+    _num_step = _shuffler->NumStep();
+  }
 
 #ifndef SXN_NAIVE_HASHMAP
   _hashtable = new OrderedHashTable(
@@ -272,6 +281,9 @@ void GPUEngine::RunSampleOnce() {
     case kArch4:
       RunArch4LoopsOnce();
       break;
+    case kArch7:
+      RunArch7LoopsOnce();
+      break;
     default:
       // Not supported arch 0
       CHECK(0);
@@ -296,6 +308,10 @@ void GPUEngine::ArchCheck() {
       break;
     case kArch4:
       CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
+      break;
+    case kArch7:
+      CHECK_EQ(_sampler_ctx, _trainer_ctx);
+      CHECK(!RunConfig::UseGPUCache());
       break;
     default:
       CHECK(0);
@@ -334,6 +350,10 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       ret[Constant::kFeatFile] = MMAP();
       ret[Constant::kLabelFile] = 
           RunConfig::UseDynamicGPUCache() ? _trainer_ctx : MMAP();
+      break;
+    case kArch7:
+      ret[Constant::kFeatFile] = MMAP();
+      ret[Constant::kLabelFile] = MMAP();
       break;
     default:
       CHECK(0);

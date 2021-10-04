@@ -86,10 +86,21 @@ void samgraph_config(const char **config_keys, const char **config_values,
       break;
     case kArch6:
       CHECK(configs.count("num_worker"));
-      size_t num_worker = std::stoull(configs["num_worker"]);
-      RC::num_sample_worker = num_worker;
-      RC::num_train_worker = num_worker;
+      RC::num_sample_worker = std::stoull(configs["num_worker"]);
+      RC::num_train_worker = std::stoull(configs["num_worker"]);
       break;
+    case kArch7:
+      CHECK(configs.count("worker_id"));
+      CHECK(configs.count("num_worker"));
+      CHECK(configs.count("sampler_ctx"));
+      CHECK(configs.count("trainer_ctx"));
+      RC::worker_id = std::stoull(configs["worker_id"]);
+      RC::num_worker = std::stoull(configs["num_worker"]);
+      RC::sampler_ctx = Context(configs["sampler_ctx"]);
+      RC::trainer_ctx = Context(configs["trainer_ctx"]);
+      break;
+    default:
+      CHECK(false);
   }
 
   if (RC::sample_type != kRandomWalk) {

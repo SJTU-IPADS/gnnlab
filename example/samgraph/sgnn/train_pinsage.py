@@ -192,7 +192,7 @@ def run(worker_id, run_config):
         model.parameters(), lr=run_config['lr'])
 
     num_epoch = sam.num_epoch()
-    num_step = sam.steps_per_epoch()
+    num_step = sam.num_local_step()
 
     model.train()
 
@@ -209,9 +209,6 @@ def run(worker_id, run_config):
     train_times = []
     total_times = []
 
-    align_up_step = int(
-        int((num_step + num_worker - 1) / num_worker) * num_worker)
-
     # run start barrier
     global_barrier.wait()
     print('[Worker {:d}] run for {:d} epochs with {:d} steps'.format(
@@ -224,14 +221,13 @@ def run(worker_id, run_config):
 
         tic = time.time()
 
-        for step in range(worker_id, align_up_step, num_worker):
+        for step in range(worker_id, num_step * num_worker, num_worker):
             t0 = time.time()
             sam.sample_once()
             batch_key = sam.get_next_batch()
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                 batch_key, num_layer)
-            torch.cuda.synchronize(device)
             t2 = time.time()
 
             # Compute loss and prediction
@@ -241,13 +237,17 @@ def run(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
+            # wait for the train finish then we can free the data safely
+            train_end_event = torch.cuda.Event(blocking=True)
+            train_end_event.record()
+            train_end_event.synchronize()
+
             batch_input = None
             batch_label = None
+            blocks = None
 
             if num_worker > 1:
                 torch.distributed.barrier()
-
-            torch.cuda.synchronize(device)
 
             t3 = time.time()
 
@@ -268,8 +268,6 @@ def run(worker_id, run_config):
             total_times.append(total_time)
 
             sam.report_step(epoch, step)
-
-        torch.cuda.synchronize(device)
 
         # sync the train workers
         if num_worker > 1:

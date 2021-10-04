@@ -38,6 +38,10 @@ size_t               RunConfig::num_sample_worker;
 size_t               RunConfig::num_train_worker;
 bool                 RunConfig::have_switcher                  = false;
 
+// For arch7
+size_t               RunConfig::worker_id                      = false;
+size_t               RunConfig::num_worker                     = false;
+
 bool                 RunConfig::option_profile_cuda            = false;
 bool                 RunConfig::option_log_node_access         = false;
 bool                 RunConfig::option_log_node_access_simple  = false;

@@ -48,7 +48,17 @@ enum SampleType {
 // arch4: prefetch mode
 // arch5: distributed mode (CPU/GPU sampling + multi-GPUs traning)
 // arch6: sgnn mode
-enum RunArch { kArch0 = 0, kArch1, kArch2, kArch3, kArch4, kArch5, kArch6 };
+// arch7: sgnn mode but use pytorch extracting
+enum RunArch {
+  kArch0 = 0,
+  kArch1,
+  kArch2,
+  kArch3,
+  kArch4,
+  kArch5,
+  kArch6,
+  kArch7
+};
 
 // cache by degree: cache the nodes with large degree
 // cache by heuristic: cache the training set and the first hop neighbors first,
@@ -259,6 +269,7 @@ class Shuffler {
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
   virtual size_t NumLocalStep() { return 0; };
+  virtual void Reset() {};
 };
 
 std::ostream& operator<<(std::ostream&, const SampleType);
