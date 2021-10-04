@@ -10,6 +10,7 @@ import time
 import numpy as np
 import math
 import sys
+from train_accuracy import Accuracy
 
 
 class SAGE(nn.Module):
@@ -204,6 +205,9 @@ def run():
         prefetch_factor=run_config['prefetch_factor'],
         num_workers=run_config['num_sampling_worker'])
 
+    accuracy = Accuracy(g, dataset.valid_set, dataset.test_set, run_config['fanout'],
+                        run_config['batch_size'], sample_device)
+
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
                  run_config['num_layer'], F.relu, run_config['dropout'])
     model = model.to(train_device)
@@ -281,8 +285,8 @@ def run():
             epoch_num_node += num_nodes[-1]
             epoch_num_sample += num_samples[-1]
 
-            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
+            # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+            #     epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
         torch.cuda.synchronize(train_device)
@@ -295,6 +299,18 @@ def run():
         epoch_total_times.append(toc - tic)
         epoch_num_samples.append(epoch_num_sample)
         epoch_num_nodes.append(epoch_num_node)
+
+        tt = time.time()
+        acc = accuracy.valid_acc(model, train_device)
+        acc_time = (time.time() - tt)
+        print('Validate Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+        print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
+            np.mean(epoch_total_times[-1]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[-1]), np.mean(epoch_graph_copy_times[-1]), np.mean(epoch_copy_times[-1]), np.mean(epoch_train_times[-1])))
+
+    tt = time.time()
+    acc = accuracy.valid_acc(model, train_device)
+    acc_time = (time.time() - tt)
+    print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
 
     print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
