@@ -22,85 +22,85 @@ def breakdown_test(log_folder=None):
         log_dir = os.path.join(
             here, f'run-logs/logs_samgraph_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
 
-    log_table = LogTable(
-        num_row=12,
-        num_col=5
-    ).update_col_definition(
-        col_id=0,
-        definition='sample_time'
-    ).update_col_definition(
-        col_id=1,
-        definition='copy_time'
-    ).update_col_definition(
-        col_id=2,
-        definition='convert_time'
-    ).update_col_definition(
-        col_id=3,
-        definition='train_time'
-    ).update_col_definition(
-        col_id=4,
-        definition='epoch_time'
-    ).update_row_definition(
-        row_id=0,
-        col_range=[0, 4],
-        app=App.gcn,
-        dataset=Dataset.products
-    ).update_row_definition(
-        row_id=1,
-        col_range=[0, 4],
-        app=App.gcn,
-        dataset=Dataset.papers100M
-    ).update_row_definition(
-        row_id=2,
-        col_range=[0, 4],
-        app=App.gcn,
-        dataset=Dataset.twitter
-    ).update_row_definition(
-        row_id=3,
-        col_range=[0, 4],
-        app=App.gcn,
-        dataset=Dataset.uk_2006_05
-    ).update_row_definition(
-        row_id=4,
-        col_range=[0, 4],
-        app=App.graphsage,
-        dataset=Dataset.products
-    ).update_row_definition(
-        row_id=5,
-        col_range=[0, 4],
-        app=App.graphsage,
-        dataset=Dataset.papers100M
-    ).update_row_definition(
-        row_id=6,
-        col_range=[0, 4],
-        app=App.graphsage,
-        dataset=Dataset.twitter
-    ).update_row_definition(
-        row_id=7,
-        col_range=[0, 4],
-        app=App.graphsage,
-        dataset=Dataset.uk_2006_05
-    ).update_row_definition(
-        row_id=8,
-        col_range=[0, 4],
-        app=App.pinsage,
-        dataset=Dataset.products
-    ).update_row_definition(
-        row_id=9,
-        col_range=[0, 4],
-        app=App.pinsage,
-        dataset=Dataset.papers100M
-    ).update_row_definition(
-        row_id=10,
-        col_range=[0, 4],
-        app=App.pinsage,
-        dataset=Dataset.twitter
-    ).update_row_definition(
-        row_id=11,
-        col_range=[0, 4],
-        app=App.pinsage,
-        dataset=Dataset.uk_2006_05
-    ).create()
+    # log_table = LogTable(
+    #     num_row=12,
+    #     num_col=5
+    # ).update_col_definition(
+    #     col_id=0,
+    #     definition='sample_time'
+    # ).update_col_definition(
+    #     col_id=1,
+    #     definition='copy_time'
+    # ).update_col_definition(
+    #     col_id=2,
+    #     definition='convert_time'
+    # ).update_col_definition(
+    #     col_id=3,
+    #     definition='train_time'
+    # ).update_col_definition(
+    #     col_id=4,
+    #     definition='epoch_time'
+    # ).update_row_definition(
+    #     row_id=0,
+    #     col_range=[0, 4],
+    #     app=App.gcn,
+    #     dataset=Dataset.products
+    # ).update_row_definition(
+    #     row_id=1,
+    #     col_range=[0, 4],
+    #     app=App.gcn,
+    #     dataset=Dataset.papers100M
+    # ).update_row_definition(
+    #     row_id=2,
+    #     col_range=[0, 4],
+    #     app=App.gcn,
+    #     dataset=Dataset.twitter
+    # ).update_row_definition(
+    #     row_id=3,
+    #     col_range=[0, 4],
+    #     app=App.gcn,
+    #     dataset=Dataset.uk_2006_05
+    # ).update_row_definition(
+    #     row_id=4,
+    #     col_range=[0, 4],
+    #     app=App.graphsage,
+    #     dataset=Dataset.products
+    # ).update_row_definition(
+    #     row_id=5,
+    #     col_range=[0, 4],
+    #     app=App.graphsage,
+    #     dataset=Dataset.papers100M
+    # ).update_row_definition(
+    #     row_id=6,
+    #     col_range=[0, 4],
+    #     app=App.graphsage,
+    #     dataset=Dataset.twitter
+    # ).update_row_definition(
+    #     row_id=7,
+    #     col_range=[0, 4],
+    #     app=App.graphsage,
+    #     dataset=Dataset.uk_2006_05
+    # ).update_row_definition(
+    #     row_id=8,
+    #     col_range=[0, 4],
+    #     app=App.pinsage,
+    #     dataset=Dataset.products
+    # ).update_row_definition(
+    #     row_id=9,
+    #     col_range=[0, 4],
+    #     app=App.pinsage,
+    #     dataset=Dataset.papers100M
+    # ).update_row_definition(
+    #     row_id=10,
+    #     col_range=[0, 4],
+    #     app=App.pinsage,
+    #     dataset=Dataset.twitter
+    # ).update_row_definition(
+    #     row_id=11,
+    #     col_range=[0, 4],
+    #     app=App.pinsage,
+    #     dataset=Dataset.uk_2006_05
+    # ).create()
 
     ConfigList(
         test_group_name='Samgraph breakdown test'
@@ -119,13 +119,10 @@ def breakdown_test(log_folder=None):
         ['random_walk']
     ).override(
         'num_epoch',
-        [3]
-    ).override(
-        'cache_percentage',
-        [0]
+        [10]
     ).override(
         'omp-thread-num',
-        [40]
+        [80]
     ).combo(
         'app',
         [App.gcn],
@@ -133,12 +130,72 @@ def breakdown_test(log_folder=None):
         ['5 10 15']
     ).combo(
         'app',
-        [App.gcn],
+        [App.graphsage],
         'fanout',
-        ['5 10 15']
+        ['25 10']
     ).override(
         'BOOL_pipeline',
         ['no_pipeline']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.products]},
+        'cache-percentage',
+        ['1.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.papers100M]},
+        'cache-percentage',
+        ['0.2']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.twitter]},
+        'cache-percentage',
+        ['0.24']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.uk_2006_05]},
+        'cache-percentage',
+        ['0.13']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.products]},
+        'cache-percentage',
+        ['1.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.papers100M]},
+        'cache-percentage',
+        ['0.24']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.twitter]},
+        'cache-percentage',
+        ['0.32']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.uk_2006_05]},
+        'cache-percentage',
+        ['0.16']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.products]},
+        'cache-percentage',
+        ['1.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.papers100M]},
+        'cache-percentage',
+        ['0.19']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.twitter]},
+        'cache-percentage',
+        ['0.25']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.uk_2006_05]},
+        'cache-percentage',
+        ['0.11']
         # ).override(
         #     'BOOL_validate_configs',
         #     ['validate_configs']
@@ -146,9 +203,9 @@ def breakdown_test(log_folder=None):
         appdir=app_dir,
         logdir=log_dir,
         mock=mock
-    ).parse_logs(
-        logtable=log_table,
-        logdir=log_dir
+        # ).parse_logs(
+        #     logtable=log_table,
+        #     logdir=log_dir
     )
 
     toc = time.time()

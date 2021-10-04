@@ -12,7 +12,7 @@ class RunMode(Enum):
 
 def get_default_timeout():
     # in seconds
-    return 600.0
+    return 300.0
 
 
 def get_dataset_list():
@@ -169,10 +169,10 @@ def process_common_config(run_config):
             run_config['num_train_worker'] + i) for i in range(run_config['num_sample_worker'])]
         if (run_config['single_gpu'] == True):
             run_config['num_sample_worker'] = 1
-            run_config['num_train_worker']  = 1
-            run_config['train_workers']     = [sam.gpu(0)]
-            run_config['sample_workers']    = [sam.gpu(0)]
-            run_config['pipeline']          = False
+            run_config['num_train_worker'] = 1
+            run_config['train_workers'] = [sam.gpu(0)]
+            run_config['sample_workers'] = [sam.gpu(0)]
+            run_config['pipeline'] = False
     elif run_mode == RunMode.SGNN:
         run_config['omp_thread_num'] //= run_config['num_worker']
         run_config['workers'] = [sam.gpu(i)

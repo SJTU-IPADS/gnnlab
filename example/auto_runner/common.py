@@ -251,12 +251,12 @@ class ConfigList:
     def _list_select(self, cfg, select_op, select_key_val_dict):
         if select_op == 'and':
             for key, vals in select_key_val_dict.items():
-                if not key in cfg.configs.key() or not cfg.configs[key] in vals:
+                if not key in cfg.configs.keys() or not cfg.configs[key] in vals:
                     return False
             return True
         else:
             for key, vals in select_key_val_dict.items():
-                if key in cfg.configs.key() and cfg.configs[key] in vals:
+                if key in cfg.configs.keys() and cfg.configs[key] in vals:
                     return True
             return False
 
@@ -271,7 +271,7 @@ class ConfigList:
         newlist = []
         self.conf_list = []
         for cfg in orig_list:
-            if self._list_select(self, cfg, select_op, select_key_val_dict):
+            if self._list_select(cfg, select_op, select_key_val_dict):
                 newlist.append(cfg)
             else:
                 self.conf_list.append(cfg)
