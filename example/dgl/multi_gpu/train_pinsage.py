@@ -237,6 +237,13 @@ def get_data_iterator(run_config, dataloader):
         else:
             return iter(dataloader)
 
+
+def sync_device():
+    train_end_event = torch.cuda.Event(blocking=True)
+    train_end_event.record()
+    train_end_event.synchronize()
+
+
 def run(worker_id, run_config):
     device = torch.device(run_config['devices'][worker_id])
     num_worker = run_config['num_worker']
@@ -314,7 +321,7 @@ def run(worker_id, run_config):
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(device) for block in blocks]
@@ -322,7 +329,7 @@ def run(worker_id, run_config):
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, device)
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t3 = time.time()
 
             # Compute loss and prediction
@@ -338,7 +345,7 @@ def run(worker_id, run_config):
             if num_worker > 1:
                 torch.distributed.barrier()
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -365,7 +372,7 @@ def run(worker_id, run_config):
         if num_worker > 1:
             torch.distributed.barrier()
 
-        torch.cuda.synchronize(device)
+        sync_device()
 
         toc = time.time()
 

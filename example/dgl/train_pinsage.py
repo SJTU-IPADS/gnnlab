@@ -237,6 +237,13 @@ def get_data_iterator(run_config, dataloader):
         else:
             return iter(dataloader)
 
+
+def sync_device():
+    train_end_event = torch.cuda.Event(blocking=True)
+    train_end_event.record()
+    train_end_event.synchronize()
+
+
 def run():
     run_config = get_run_config()
     device = torch.device(run_config['device'])
@@ -301,7 +308,7 @@ def run():
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(device) for block in blocks]
@@ -309,7 +316,7 @@ def run():
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, device)
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t3 = time.time()
 
             # Compute loss and prediction
@@ -322,7 +329,7 @@ def run():
             batch_inputs = None
             batch_labels = None
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -344,8 +351,6 @@ def run():
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
-
-        torch.cuda.synchronize(device)
 
         toc = time.time()
         epoch_sample_times.append(epoch_sample_time)

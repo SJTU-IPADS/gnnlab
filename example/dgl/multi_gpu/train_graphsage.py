@@ -184,6 +184,13 @@ def get_data_iterator(run_config, dataloader):
         else:
             return iter(dataloader)
 
+
+def sync_device():
+    train_end_event = torch.cuda.Event(blocking=True)
+    train_end_event.record()
+    train_end_event.synchronize()
+
+
 def run(worker_id, run_config):
     sample_device = torch.device(run_config['sample_devices'][worker_id])
     train_device = torch.device(run_config['train_devices'][worker_id])
@@ -268,7 +275,7 @@ def run(worker_id, run_config):
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
             if not run_config['pipelining']:
-                torch.cuda.synchronize(train_device)
+                sync_device()
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(train_device) for block in blocks]
@@ -276,7 +283,7 @@ def run(worker_id, run_config):
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, train_device)
             if not run_config['pipelining']:
-                torch.cuda.synchronize(train_device)
+                sync_device()
             t3 = time.time()
 
             # Compute loss and prediction
@@ -293,7 +300,7 @@ def run(worker_id, run_config):
                 torch.distributed.barrier()
 
             if not run_config['pipelining']:
-                torch.cuda.synchronize(train_device)
+                sync_device()
 
             t4 = time.time()
 
@@ -317,8 +324,6 @@ def run(worker_id, run_config):
                 print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                     epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
-
-        torch.cuda.synchronize(train_device)
 
         if num_worker > 1:
             torch.distributed.barrier()

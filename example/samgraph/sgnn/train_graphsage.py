@@ -164,7 +164,6 @@ def run(worker_id, run_config):
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
                 batch_key, num_layer)
-            torch.cuda.synchronize(device)
             t2 = time.time()
 
             # Compute loss and prediction
@@ -174,13 +173,18 @@ def run(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
+            # wait for the train finish then we can free the data safely
+            train_end_event = torch.cuda.Event(blocking=True)
+            train_end_event.record()
+            train_end_event.synchronize()
+
             batch_input = None
             batch_label = None
+            blocks = None
 
             if num_worker > 1:
                 torch.distributed.barrier()
 
-            torch.cuda.synchronize(device)
             t3 = time.time()
 
             copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
@@ -200,8 +204,6 @@ def run(worker_id, run_config):
             total_times.append(total_time)
 
             sam.report_step(epoch, step)
-
-        torch.cuda.synchronize(device)
 
         # sync the train workers
         if num_worker > 1:
