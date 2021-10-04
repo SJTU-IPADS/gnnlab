@@ -53,6 +53,7 @@ class LogTable:
             tmp_col_0) for _ in range(num_row)]
         self.col_definitions = [None for _ in range(num_col)]
         self.data = [copy.deepcopy(tmp_col_1) for _ in range(num_row)]
+        self.row_log_reference = [[] for _ in range(num_row)]
 
         self.is_finalized = False
 
@@ -284,6 +285,30 @@ class ConfigList:
             self.conf_list += newnew_list
         return self
 
+    def multi_combo_multi_override(self, select_op, select_key_val_dict, override_key_val_dict):
+        assert(select_op == 'and' or select_op == 'or')
+
+        if len(override_key_val_dict) == 0:
+            return self
+
+        # tmp select
+        orig_list = self.conf_list
+        newlist = []
+        self.conf_list = []
+        for cfg in orig_list:
+            if self._list_select(cfg, select_op, select_key_val_dict):
+                newlist.append(cfg)
+            else:
+                self.conf_list.append(cfg)
+
+        # apply override
+        for cfg in newlist:
+            for override_key, override_value in override_key_val_dict.items():
+                cfg.configs[override_key] = override_value
+
+        self.conf_list += newlist
+        return self
+
     def write_configs_book(self, logdir, mock=False):
         os.system('mkdir -p {}'.format(logdir))
         if mock:
@@ -353,5 +378,25 @@ class ConfigList:
                     f.write(' {:}'.format(os.sep.join(
                         os.path.normpath(logfile).split(os.sep)[-2:])))
                 f.write('\n')
+
+        return self
+
+    def parse_logs_no_output(self, logtable):
+        assert(logtable.is_finalized)
+        for i in range(logtable.num_row):
+            for j in range(logtable.num_col):
+                print(
+                    f'Parsing log [{i * logtable.num_col + j + 1}/{logtable.num_col * logtable.num_row}]')
+                row_def = logtable.row_definitions[i][j]
+                col_def = logtable.col_definitions[j]
+
+                configs = self.match(row_def)
+                assert(len(configs) == 1)
+
+                conf = configs[0]
+                conf.parse_log()
+
+                logtable.data[i][j] = conf.test_results[col_def]
+                logtable.row_log_reference[i].append(conf.std_out_log)
 
         return self
