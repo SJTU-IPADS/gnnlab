@@ -47,7 +47,7 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
     default_common_config['cache_policy'] = 'pre_sample'
     default_common_config['cache_percentage'] = 0.0
 
-    default_common_config['num_epoch'] = 3
+    default_common_config['num_epoch'] = 10
     default_common_config['batch_size'] = 8000
     default_common_config['num_hidden'] = 256
 
@@ -56,7 +56,7 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
 
     default_common_config['barriered_epoch'] = 0
     default_common_config['presample_epoch'] = 1
-    default_common_config['omp_thread_num'] = 40
+    default_common_config['omp_thread_num'] = 40 # 40 is faster than 80 in aliyun machine
 
     default_common_config.update(kwargs)
 
