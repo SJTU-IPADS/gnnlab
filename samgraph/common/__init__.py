@@ -47,6 +47,7 @@ kArch3 = 3
 kArch4 = 4
 kArch5 = 5
 kArch6 = 6
+kArch7 = 7
 
 kCacheByDegree          = 0
 kCacheByHeuristic       = 1
@@ -107,6 +108,9 @@ builtin_archs = {
     },
     'arch6': {
         'arch': kArch6
+    },
+    'arch7': {
+        'arch': kArch7
     }
 }
 

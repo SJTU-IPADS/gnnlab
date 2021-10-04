@@ -4,6 +4,7 @@ from __future__ import print_function
 
 # Load all the necessary PyTorch C types.
 import dgl
+import torch
 from dgl.heterograph import DGLBlock
 
 from samgraph.torch import c_lib
@@ -78,9 +79,13 @@ def _create_dgl_block(data, num_src_nodes, num_dst_nodes):
 
     return g
 
-def get_dgl_blocks(batch_key, num_layers):
-    feat = get_graph_feat(batch_key)
-    label = get_graph_label(batch_key)
+def get_dgl_blocks(batch_key, num_layers, with_feat=True):
+    if with_feat:
+        feat = get_graph_feat(batch_key)
+        label = get_graph_label(batch_key)
+    else:
+        feat = None
+        label = None
     blocks = []
     for i in range(num_layers):
         row = get_graph_row(batch_key, i)
@@ -96,9 +101,13 @@ def get_dgl_blocks(batch_key, num_layers):
     return blocks, feat, label
 
 
-def get_dgl_blocks_with_weights(batch_key, num_layers):
-    feat = get_graph_feat(batch_key)
-    label = get_graph_label(batch_key)
+def get_dgl_blocks_with_weights(batch_key, num_layers, with_feat=True):
+    if with_feat:
+        feat = get_graph_feat(batch_key)
+        label = get_graph_label(batch_key)
+    else:
+        feat = None
+        label = None
     blocks = []
     for i in range(num_layers):
         row = get_graph_row(batch_key, i)
@@ -120,5 +129,34 @@ def get_dgl_blocks_with_weights(batch_key, num_layers):
 def notify_sampler_ready(barrier):
     barrier.wait()
 
+
 def wait_for_sampler_ready(barrier):
     barrier.wait()
+
+
+def get_dataset_feat():
+    return c_lib.samgraph_torch_get_dataset_feat()
+
+
+def get_dataset_label():
+    return c_lib.samgraph_torch_get_dataset_label()
+
+
+def get_graph_input_nodes(batch_key):
+    return c_lib.samgraph_torch_get_graph_input_nodes(batch_key)
+
+
+def get_graph_output_nodes(batch_key):
+    return c_lib.samgraph_torch_get_graph_output_nodes(batch_key)
+
+
+def load_subtensor(batch_key, feat, label, device):
+    input_nodes = get_graph_input_nodes(batch_key).to(feat.device)
+    output_nodes = get_graph_output_nodes(batch_key).to(label.device)
+
+    batch_inputs = torch.index_select(
+        feat, 0, input_nodes.long()).to(device)
+    batch_labels = torch.index_select(
+        label, 0, output_nodes.long()).to(device)
+
+    return batch_inputs, batch_labels

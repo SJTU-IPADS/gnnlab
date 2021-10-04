@@ -178,7 +178,7 @@ def get_run_config():
     default_run_config['num_random_walk'] = 4
     default_run_config['num_neighbor'] = 5
     default_run_config['num_layer'] = 3
-    default_run_config['num_epoch'] = 2
+    default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
     default_run_config['lr'] = 0.003
@@ -229,13 +229,10 @@ def get_run_config():
 
 
 def get_data_iterator(run_config, dataloader):
-    if run_config['use_gpu_sampling']:
-        return iter(dataloader)
+    if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+        return [data for data in iter(dataloader)]
     else:
-        if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
-            return [data for data in iter(dataloader)]
-        else:
-            return iter(dataloader)
+        return iter(dataloader)
 
 
 def sync_device():

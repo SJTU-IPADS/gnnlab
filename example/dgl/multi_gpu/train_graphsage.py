@@ -97,7 +97,7 @@ def get_run_config():
 
     # DGL fanouts from front to back are from leaf to root
     default_run_config['fanout'] = [25, 10]
-    default_run_config['num_epoch'] = 2
+    default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
     default_run_config['lr'] = 0.003

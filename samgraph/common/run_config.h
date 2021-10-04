@@ -45,6 +45,9 @@ struct RunConfig {
   static size_t               num_train_worker;
   // If transform the input_nodes for Switcher architecture
   static bool                 have_switcher;
+  // For arch7
+  static size_t               worker_id;
+  static size_t               num_worker;
 
   // Environment variables
   static bool                 option_profile_cuda;

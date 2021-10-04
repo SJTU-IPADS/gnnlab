@@ -13,6 +13,7 @@ void RunArch1LoopsOnce();
 void RunArch2LoopsOnce();
 void RunArch3LoopsOnce();
 void RunArch4LoopsOnce();
+void RunArch7LoopsOnce();
 
 std::vector<LoopFunction> GetArch1Loops();
 std::vector<LoopFunction> GetArch2Loops();
