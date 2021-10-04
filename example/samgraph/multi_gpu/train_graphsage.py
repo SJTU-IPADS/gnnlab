@@ -299,15 +299,17 @@ def run_train(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
+            train_end_event = torch.cuda.Event(blocking=True)
+            train_end_event.record()
+            train_end_event.synchronize()
+
             if step + num_worker < num_step:
                 batch_input = None
                 batch_label = None
-
+            
             if num_worker > 1:
                 torch.distributed.barrier()
 
-            if (not run_config['pipeline']) and (run_config['single_gpu'] == False):
-                torch.cuda.synchronize(train_device)
             t3 = time.time()
 
             copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
