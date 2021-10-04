@@ -214,6 +214,8 @@ def get_run_config():
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
 
+    run_config['num_thread'] = torch.get_num_threads() // run_config['num_worker']
+
     print('config:eval_tsp="{:}"'.format(time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime())))
     for k, v in run_config.items():
@@ -242,6 +244,7 @@ def sync_device():
 
 
 def run(worker_id, run_config):
+    torch.set_num_threads(run_config['num_thread'])
     device = torch.device(run_config['devices'][worker_id])
     num_worker = run_config['num_worker']
 
