@@ -7,10 +7,12 @@ import torch.optim as optim
 import numpy as np
 from dgl.nn.pytorch import SAGEConv
 import dgl.multiprocessing as mp
+import dgl
 from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
 import datetime
+import train_accuracy
 '''
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 os.environ["NCCL_DEBUG"] = "INFO"
@@ -207,6 +209,11 @@ def run_train(worker_id, run_config):
     num_worker = run_config['num_train_worker']
     global_barrier = run_config['global_barrier']
 
+    dgl_graph, valid_set, test_set = train_accuracy.load_accuracy_data(run_config['dataset'],
+                                                                       run_config['root_path'])
+    accuracy = train_accuracy.Accuracy(dgl_graph, valid_set, test_set, run_config['fanout'],
+                                       run_config['batch_size'], torch.device('cpu'))
+
     train_device = torch.device(ctx)
     print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
@@ -329,6 +336,10 @@ def run_train(worker_id, run_config):
             sam.report_step(epoch, step)
 
         torch.cuda.synchronize(train_device)
+        tt = time.time()
+        acc = accuracy.valid_acc(model, train_device)
+        acc_time = (time.time() - tt)
+        print('Valid Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
 
         # sync the train workers
         if num_worker > 1:
@@ -363,6 +374,10 @@ def run_train(worker_id, run_config):
     if num_worker > 1:
         torch.distributed.barrier()
 
+    tt = time.time()
+    acc = accuracy.test_acc(model, train_device)
+    acc_time = (time.time() - tt)
+    print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
     print('[Train  Worker {:d}] Avg Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 

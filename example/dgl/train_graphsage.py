@@ -285,8 +285,12 @@ def run():
             epoch_num_node += num_nodes[-1]
             epoch_num_sample += num_samples[-1]
 
-            # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-            #     epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
+            print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
+                epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
+            tt = time.time()
+            acc = accuracy.valid_acc(model, train_device)
+            acc_time = (time.time() - tt)
+            print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
             t0 = time.time()
 
         torch.cuda.synchronize(train_device)
