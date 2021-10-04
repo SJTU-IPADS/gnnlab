@@ -11,6 +11,7 @@ from dgl.nn.pytorch import GraphConv
 import samgraph.torch as sam
 from common_config import *
 
+
 class GCN(nn.Module):
     def __init__(self,
                  in_feats,
@@ -115,10 +116,10 @@ def run():
 
     model.train()
 
-    epoch_sample_times  = [0 for i in range(num_epoch)]
-    epoch_copy_times    = [0 for i in range(num_epoch)]
+    epoch_sample_times = [0 for i in range(num_epoch)]
+    epoch_copy_times = [0 for i in range(num_epoch)]
     epoch_convert_times = [0 for i in range(num_epoch)]
-    epoch_train_times   = [0 for i in range(num_epoch)]
+    epoch_train_times = [0 for i in range(num_epoch)]
     epoch_total_times_profiler = [0 for i in range(num_epoch)]
     epoch_total_times_python = []
 
@@ -128,36 +129,36 @@ def run():
     # train_times   = [0 for i in range(num_epoch * num_step)]
     # total_times   = [0 for i in range(num_epoch * num_step)]
     # num_nodes     = [0 for i in range(num_epoch * num_step)]
-    num_samples   = [0 for i in range(num_epoch * num_step)]
+    num_samples = [0 for i in range(num_epoch * num_step)]
 
     cur_step_key = 0
     for epoch in range(num_epoch):
         tic = time.time()
         for step in range(num_step):
             t0 = time.time()
-            sam.trace_step_begin_now (epoch * num_step + step, sam.kL0Event_Train_Step)
+            sam.trace_step_begin_now(
+                epoch * num_step + step, sam.kL0Event_Train_Step)
             if not run_config['pipeline']:
                 sam.sample_once()
             elif epoch + step == 0:
                 sam.start()
             batch_key = sam.get_next_batch()
             t1 = time.time()
-            sam.trace_step_begin_now (batch_key, sam.kL1Event_Convert)
+            sam.trace_step_begin_now(batch_key, sam.kL1Event_Convert)
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
                 batch_key, num_layer)
-            if not run_config['pipeline']:
-                th.cuda.synchronize(train_device)
             t2 = time.time()
-            sam.trace_step_end_now (batch_key, sam.kL1Event_Convert)
+            sam.trace_step_end_now(batch_key, sam.kL1Event_Convert)
 
             # Compute loss and prediction
-            sam.trace_step_begin_now (batch_key, sam.kL1Event_Train)
+            sam.trace_step_begin_now(batch_key, sam.kL1Event_Train)
             batch_pred = model(blocks, batch_input)
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
+            # wait for the train finish then we can free the data safely
             train_end_event = th.cuda.Event(blocking=True)
             train_end_event.record()
             train_end_event.synchronize()
@@ -166,9 +167,10 @@ def run():
             batch_label = None
             blocks = None
 
-            sam.trace_step_end_now   (batch_key, sam.kL1Event_Train)
+            sam.trace_step_end_now(batch_key, sam.kL1Event_Train)
             t3 = time.time()
-            sam.trace_step_end_now (epoch * num_step + step, sam.kL0Event_Train_Step)
+            sam.trace_step_end_now(
+                epoch * num_step + step, sam.kL0Event_Train_Step)
 
             # sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
             # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
@@ -196,7 +198,7 @@ def run():
                 num_sample += block.num_edges()
             # num_samples.append(num_sample)
             # num_nodes     [cur_step_key] = num_node
-            num_samples   [cur_step_key] = num_sample
+            num_samples[cur_step_key] = num_sample
 
             # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
             #     epoch, step, num_node, num_sample, total_time,
@@ -207,14 +209,16 @@ def run():
             sam.report_step(epoch, step)
             cur_step_key += 1
 
-        th.cuda.synchronize(train_device)
-
         toc = time.time()
         epoch_total_times_python.append(toc - tic)
-        epoch_sample_times  [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
-        epoch_copy_times    [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime)
-        epoch_convert_times [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochConvertTime)
-        epoch_train_times   [epoch] =  sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime)
+        epoch_sample_times[epoch] = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochSampleTime)
+        epoch_copy_times[epoch] = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochCopyTime)
+        epoch_convert_times[epoch] = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochConvertTime)
+        epoch_train_times[epoch] = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochTrainTime)
         epoch_total_times_profiler[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochTotalTime)
         sam.forward_barrier()
