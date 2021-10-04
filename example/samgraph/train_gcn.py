@@ -158,8 +158,13 @@ def run():
             loss.backward()
             optimizer.step()
 
-            if not run_config['pipeline']:
-                th.cuda.synchronize(train_device)
+            train_end_event = th.cuda.Event(blocking=True)
+            train_end_event.record()
+            train_end_event.synchronize()
+
+            batch_input = None
+            batch_label = None
+            blocks = None
 
             sam.trace_step_end_now   (batch_key, sam.kL1Event_Train)
             t3 = time.time()

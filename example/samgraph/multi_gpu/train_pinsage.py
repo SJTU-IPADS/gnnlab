@@ -373,6 +373,7 @@ def run_train(worker_id, run_config):
             if (step + num_worker < num_step):
                 batch_input = None
                 batch_label = None
+                blocks = None
             
             if (num_worker > 1) and (run_config['use_ddp']):
                 torch.distributed.barrier()
