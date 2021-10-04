@@ -14,9 +14,14 @@ mkdir -p $log_dir
 
 export CUDA_VISIBLE_DEVICES=2,3
 # dgl hete GPU
-python ${dgl_dir}/train_gcn.py --use-gpu-sampling --num-epoch ${num_epoch} --dataset ${data_set} --fanout 5 10 15 > ${log_dir}/hete_dgl_gcn.log 2> ${log_dir}/hete_dgl_gcn.err.log
-python ${dgl_dir}/train_graphsage.py --use-gpu-sampling --num-epoch  ${num_epoch} --dataset ${data_set} --fanout 25 10 > ${log_dir}/hete_dgl_graphsage.log 2> ${log_dir}/hete_dgl_graphsage.err.log
-python ${dgl_dir}/train_pinsage.py --num-epoch ${num_epoch} --dataset ${data_set} --random-walk-length 3 --random-walk-restart-prob 0.5 --num-random-walk 4 --num-neighbor 5 > ${log_dir}/hete_dgl_pinsage.log 2> ${log_dir}/hete_dgl_pinsage.err.log
+python ${dgl_dir}/train_gcn.py --use-gpu-sampling --num-epoch ${num_epoch} --dataset ${data_set} --fanout 5 10 15 --no-pipelining > ${log_dir}/hete_dgl_gcn.log 2> ${log_dir}/hete_dgl_gcn.err.log
+python ${dgl_dir}/train_graphsage.py --use-gpu-sampling --num-epoch  ${num_epoch} --dataset ${data_set} --fanout 25 10 --no-pipelining > ${log_dir}/hete_dgl_graphsage.log 2> ${log_dir}/hete_dgl_graphsage.err.log
+python ${dgl_dir}/train_pinsage.py --num-epoch ${num_epoch} --dataset ${data_set} --random-walk-length 3 --random-walk-restart-prob 0.5 --num-random-walk 4 --num-neighbor 5 --no-pipelining > ${log_dir}/hete_dgl_pinsage.log 2> ${log_dir}/hete_dgl_pinsage.err.log
+
+# dgl hete GPU pipeline
+python ${dgl_dir}/train_gcn.py --use-gpu-sampling --num-epoch ${num_epoch} --dataset ${data_set} --fanout 5 10 15 --pipelining > ${log_dir}/hete_dgl_gcn_pipe.log 2> ${log_dir}/hete_dgl_gcn_pipe.err.log
+python ${dgl_dir}/train_graphsage.py --use-gpu-sampling --num-epoch  ${num_epoch} --dataset ${data_set} --fanout 25 10 --pipelining > ${log_dir}/hete_dgl_graphsage_pipe.log 2> ${log_dir}/hete_dgl_graphsage_pipe.err.log
+python ${dgl_dir}/train_pinsage.py --num-epoch ${num_epoch} --dataset ${data_set} --random-walk-length 3 --random-walk-restart-prob 0.5 --num-random-walk 4 --num-neighbor 5 --pipelining > ${log_dir}/hete_dgl_pinsage_pipe.log 2> ${log_dir}/hete_dgl_pinsage_pipe.err.log
 
 # FGNN hete GPU
 python ${sam_dir}/train_gcn.py --num-epoch ${num_epoch} --dataset ${data_set} --fanout 5 10 15 --cache-percentage 0.20 > ${log_dir}/hete_sam_gcn.log 2> ${log_dir}/hete_sam_gcn.err.log

@@ -186,6 +186,7 @@ bool RunDataCopySubLoopOnce() {
 
 bool RunCacheDataCopySubLoopOnce() {
   auto graph_pool = DistEngine::Get()->GetGraphPool();
+  auto dist_type  = DistEngine::Get()->GetDistType();
   while (graph_pool->Full()) {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
     // return true;
@@ -208,7 +209,18 @@ bool RunCacheDataCopySubLoopOnce() {
     double id_copy_time = t1.Passed();
 
     Timer t2;
-    DoCacheFeatureCopy(task);
+    switch(dist_type) {
+      case (DistType::Extract): {
+            DoCacheFeatureCopy(task);
+            break;
+      }
+      case (DistType::Switch): {
+            DoSwitchCacheFeatureCopy(task);
+            break;
+      }
+      default:
+            CHECK(0);
+    }
     DoGPULabelExtract(task);
     double cache_feat_copy_time = t2.Passed();
 
@@ -252,7 +264,7 @@ void RunArch5LoopsOnce(DistType dist_type) {
     LOG(DEBUG) << "RunArch5LoopsOnce with Sample!";
     RunSampleSubLoopOnce();
   }
-  else if (dist_type == DistType::Extract) {
+  else if (dist_type == DistType::Extract || dist_type == DistType::Switch) {
     if (!RunConfig::UseGPUCache()) {
       LOG(DEBUG) << "RunArch5LoopsOnce with Extract no Cache!";
       RunDataCopySubLoopOnce();

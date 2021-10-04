@@ -34,7 +34,7 @@ class DistSharedBarrier {
   pthread_barrier_t* _barrier_ptr;
 };
 
-enum class DistType {Sample = 0, Extract, Default};
+enum class DistType {Sample = 0, Extract, Switch, Default};
 
 class DistEngine : public Engine {
  public:
@@ -45,7 +45,7 @@ class DistEngine : public Engine {
   void Shutdown() override;
   void RunSampleOnce() override;
   void SampleInit(int worker_id, Context ctx);
-  void TrainInit(int worker_id, Context ctx);
+  void TrainInit(int worker_id, Context ctx, DistType dist_type);
   /**
    * @param count: the total times to loop extract
    */
@@ -60,6 +60,7 @@ class DistEngine : public Engine {
   cuda::GPUCacheManager* GetGPUCacheManager() { return _gpu_cache_manager; }
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
   IdType *GetCacheHashtable() { return _cache_hashtable; }
+  DistType GetDistType() { return _dist_type; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }

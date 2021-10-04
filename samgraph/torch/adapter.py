@@ -41,6 +41,9 @@ trace_step_end_now   = _basics.trace_step_end_now
 dump_trace           = _basics.dump_trace
 forward_barrier      = _basics.forward_barrier
 
+# switch APIs
+switch_init   = _basics.switch_init
+
 # multi-GPUs training APIs
 data_init      = _basics.data_init
 sample_init    = _basics.sample_init
