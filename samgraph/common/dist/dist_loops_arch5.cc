@@ -156,10 +156,6 @@ bool RunDataCopySubLoopOnce() {
     DoGraphCopy(task);
     double graph_copy_time = t0.Passed();
 
-    Timer t1;
-    DoIdCopy(task);
-    double id_copy_time = t1.Passed();
-
     Timer t2;
     DoCPUFeatureExtract(task);
     double extract_time = t2.Passed();
@@ -173,15 +169,14 @@ bool RunDataCopySubLoopOnce() {
 
     Profiler::Get().LogStep(
         task->key, kLogL1CopyTime,
-        recv_time + graph_copy_time + id_copy_time + extract_time + feat_copy_time);
+        recv_time + graph_copy_time + extract_time + feat_copy_time);
     Profiler::Get().LogStep(task->key, kLogL1RecvTime, recv_time);
     Profiler::Get().LogStep(task->key, kLogL2GraphCopyTime, graph_copy_time);
-    Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2ExtractTime, extract_time);
     Profiler::Get().LogStep(task->key, kLogL2FeatCopyTime, feat_copy_time);
     Profiler::Get().LogEpochAdd(
         task->key, kLogEpochCopyTime,
-        recv_time + graph_copy_time + id_copy_time + extract_time + feat_copy_time);
+        recv_time + graph_copy_time + extract_time + feat_copy_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }

@@ -93,6 +93,7 @@ setup(
                 'samgraph/common/cpu/cpu_random.cc',
                 'samgraph/common/cpu/cpu_sampling_khop0.cc',
                 'samgraph/common/cpu/cpu_sampling_khop1.cc',
+                'samgraph/common/cpu/cpu_sampling_khop2.cc',
                 'samgraph/common/cpu/cpu_sampling_random_walk.cc',
                 'samgraph/common/cpu/cpu_sampling_weighted_khop.cc',
                 'samgraph/common/cpu/cpu_sanity_check.cc',
