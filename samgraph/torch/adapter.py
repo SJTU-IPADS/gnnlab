@@ -40,6 +40,7 @@ trace_step_begin_now = _basics.trace_step_begin_now
 trace_step_end_now   = _basics.trace_step_end_now
 dump_trace           = _basics.dump_trace
 forward_barrier      = _basics.forward_barrier
+wait_one_child       = _basics.wait_one_child
 
 # switch APIs
 switch_init   = _basics.switch_init

@@ -8,6 +8,8 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <sys/types.h> 
+#include <sys/wait.h>
 
 #include "./dist/dist_engine.h"
 #include "common.h"
@@ -338,6 +340,18 @@ void samgraph_switch_init(int worker_id, const char*ctx, double cache_percentage
 
 size_t samgraph_num_local_step() {
   return Engine::Get()->NumLocalStep();
+}
+
+int samgraph_wait_one_child() {
+  int child_stat;
+  waitpid(-1, &child_stat, 0);
+  if (WEXITSTATUS(child_stat) != 0) {
+    LOG(ERROR) << "detect a terminated child, status is " << WEXITSTATUS(child_stat);
+    return 1;
+  } else if (WIFSIGNALED(child_stat) && (WTERMSIG(child_stat) == SIGABRT)) {
+    LOG(ERROR) << "detect an aborted child";
+    return 1;
+  } else return 0;
 }
 
 }  // extern "c"
