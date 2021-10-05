@@ -330,6 +330,8 @@ def run(worker_id, run_config):
                     epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
+        sync_device()
+
         if num_worker > 1:
             torch.distributed.barrier()
 
