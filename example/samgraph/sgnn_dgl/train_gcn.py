@@ -92,7 +92,7 @@ def get_run_config():
 
 
 def run(worker_id, run_config):
-    torch.set_num_threads(run_config['torch_num_thread'])
+    torch.set_num_threads(run_config['torch_thread_num'])
     num_worker = run_config['num_worker']
     global_barrier = run_config['global_barrier']
     ctx = run_config['workers'][worker_id]
