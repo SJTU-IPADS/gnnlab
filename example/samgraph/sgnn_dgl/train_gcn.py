@@ -91,6 +91,12 @@ def get_run_config():
     return run_config
 
 
+def sync():
+    event = torch.cuda.Event(blocking=True)
+    event.record()
+    event.synchronize()
+
+
 def run(worker_id, run_config):
     torch.set_num_threads(run_config['torch_thread_num'])
     num_worker = run_config['num_worker']
@@ -165,6 +171,8 @@ def run(worker_id, run_config):
         epoch_train_time = 0
         epoch_total_time = 0
 
+        garbage_data = []
+
         for step in range(worker_id, num_step * num_worker, num_worker):
             t0 = time.time()
             sam.sample_once()
@@ -172,6 +180,8 @@ def run(worker_id, run_config):
             t1 = time.time()
             batch_input, batch_label = sam.load_subtensor(
                 batch_key, feat, label, device)
+            if not run_config['pipeline']:
+                sync()
             t2 = time.time()
             blocks, _, _ = sam.get_dgl_blocks(
                 batch_key, num_layer, with_feat=False)
@@ -184,14 +194,13 @@ def run(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
-            # wait for the train finish then we can free the data safely
-            train_end_event = torch.cuda.Event(blocking=True)
-            train_end_event.record()
-            train_end_event.synchronize()
-
-            batch_input = None
-            batch_label = None
-            blocks = None
+            if run_config['pipeline']:
+                garbage_data.append((batch_input, batch_label, blocks))
+            else:
+                sync()
+                batch_input = None
+                batch_label = None
+                blocks = None
 
             if num_worker > 1:
                 torch.distributed.barrier()
@@ -205,6 +214,11 @@ def run(worker_id, run_config):
             epoch_total_time += t4 - t0
 
             sam.report_step_average(epoch, step)
+
+        if run_config['pipeline']:
+            sync()
+            # now is safe to free the garbage_data
+            garbage_data = None
 
         # sync the train workers
         if num_worker > 1:
