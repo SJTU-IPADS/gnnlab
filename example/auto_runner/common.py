@@ -376,14 +376,18 @@ class ConfigList:
 
     def load_run_status(self, logdir):
         pattern = r'Test(.+)=(.+)\n'
-        with open(os.path.join(logdir, 'run_status.txt'), 'w+', encoding='utf8') as f:
-            for line in f:
-                m = re.match(pattern, line)
-                if m:
-                    idx = int(m.group(1))
-                    status = m.group(2)
-                    self.conf_list[idx].status = RunStatus.Ok if status == '1' else RunStatus.NotOk
-                    print(f'Test{idx}={status}')
+        try:
+            with open(os.path.join(logdir, 'run_status.txt'), 'r', encoding='utf8') as f:
+                for line in f:
+                    m = re.match(pattern, line)
+                    if m:
+                        idx = int(m.group(1))
+                        status = m.group(2)
+                        self.conf_list[idx].status = RunStatus.Ok if status == '1' else RunStatus.NotOk
+                        print(f'Test{idx}={status}')
+                print('Rerun Test')
+        except:
+            print('New Test')
 
     def match(self, params):
         ret = []
