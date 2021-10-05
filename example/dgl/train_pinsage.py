@@ -168,7 +168,7 @@ def get_run_config():
     default_run_config['num_random_walk'] = 4
     default_run_config['num_neighbor'] = 5
     default_run_config['num_layer'] = 3
-    default_run_config['num_epoch'] = 2
+    default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
     default_run_config['lr'] = 0.003
@@ -229,13 +229,17 @@ def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
 
 
 def get_data_iterator(run_config, dataloader):
-    if run_config['use_gpu_sampling']:
-        return iter(dataloader)
+    if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+        return [data for data in iter(dataloader)]
     else:
-        if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
-            return [data for data in iter(dataloader)]
-        else:
-            return iter(dataloader)
+        return iter(dataloader)
+
+
+def sync_device():
+    train_end_event = torch.cuda.Event(blocking=True)
+    train_end_event.record()
+    train_end_event.synchronize()
+
 
 def run():
     run_config = get_run_config()
@@ -301,7 +305,7 @@ def run():
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(device) for block in blocks]
@@ -309,7 +313,7 @@ def run():
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, device)
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t3 = time.time()
 
             # Compute loss and prediction
@@ -322,7 +326,7 @@ def run():
             batch_inputs = None
             batch_labels = None
             if not run_config['pipelining']:
-                torch.cuda.synchronize(device)
+                sync_device()
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -344,8 +348,6 @@ def run():
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
-
-        torch.cuda.synchronize(device)
 
         toc = time.time()
         epoch_sample_times.append(epoch_sample_time)

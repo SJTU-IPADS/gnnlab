@@ -16,9 +16,8 @@ MemoryQueue* MemoryQueue::_mq = nullptr;
 MemoryQueue::MemoryQueue(size_t mq_nbytes) {
   _meta_size = (sizeof(QueueMetaData) + mq_nbytes * mq_size);
   _meta_data = reinterpret_cast<QueueMetaData*>(
-      mmap(NULL, _meta_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED,
-           -1, 0));
-  mlock(_meta_data, _meta_size);
+      mmap(NULL, _meta_size, PROT_READ | PROT_WRITE,
+           MAP_ANONYMOUS | MAP_SHARED | MAP_LOCKED, -1, 0));
   CHECK_NE(_meta_data, MAP_FAILED);
   _meta_data->Init(mq_nbytes);
   LOG(INFO) << "MemoryQueue initialized";

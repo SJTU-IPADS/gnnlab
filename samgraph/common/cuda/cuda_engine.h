@@ -31,7 +31,7 @@ class GPUEngine : public Engine {
   void Shutdown() override;
   void RunSampleOnce() override;
 
-  GPUShuffler* GetShuffler() { return _shuffler; }
+  Shuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(QueueType qt) { return _queues[qt]; }
   OrderedHashTable* GetHashtable() { return _hashtable; }
   GPURandomStates* GetRandomStates() { return _random_states; }
@@ -54,7 +54,7 @@ class GPUEngine : public Engine {
   StreamHandle _sampler_copy_stream;
   StreamHandle _trainer_copy_stream;
   // Random node batch generator
-  GPUShuffler* _shuffler;
+  Shuffler* _shuffler;
   // Hash table
   OrderedHashTable* _hashtable;
   // CUDA random states

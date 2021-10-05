@@ -348,8 +348,6 @@ def run_train(worker_id, run_config, trainer_type):
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                 batch_key, num_layer)
-            if not run_config['pipeline']:
-                torch.cuda.synchronize(train_device)
             t2 = time.time()
 
             # Compute loss and prediction
@@ -359,15 +357,18 @@ def run_train(worker_id, run_config, trainer_type):
             loss.backward()
             optimizer.step()
 
+            # wait for the train finish then we can free the data safely
+            train_end_event = torch.cuda.Event(blocking=True)
+            train_end_event.record()
+            train_end_event.synchronize()
+
             batch_input = None
             batch_label = None
+            blocks = None
 
             # sync the arguments
             # bala bala ...
             print(f'{trainer_type.name} run epoch {epoch}, step {step}')
-
-            if not run_config['pipeline']:
-                torch.cuda.synchronize(train_device)
 
             t3 = time.time()
 
@@ -396,7 +397,6 @@ def run_train(worker_id, run_config, trainer_type):
 
             sam.report_step(epoch, step)
 
-        torch.cuda.synchronize(train_device)
         # sync the train workers
         # bala bala ...
         # epoch end barrier

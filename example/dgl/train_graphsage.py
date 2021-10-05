@@ -101,7 +101,7 @@ def get_run_config():
 
     # DGL fanouts from front to back are from leaf to root
     default_run_config['fanout'] = [25, 10]
-    default_run_config['num_epoch'] = 2
+    default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
     default_run_config['lr'] = 0.003
@@ -171,6 +171,7 @@ def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
 
     return batch_inputs, batch_labels
 
+
 def get_data_iterator(run_config, dataloader):
     if run_config['use_gpu_sampling']:
         return iter(dataloader)
@@ -179,6 +180,13 @@ def get_data_iterator(run_config, dataloader):
             return [data for data in iter(dataloader)]
         else:
             return iter(dataloader)
+
+
+def sync_device():
+    train_end_event = torch.cuda.Event(blocking=True)
+    train_end_event.record()
+    train_end_event.synchronize()
+
 
 def run():
     run_config = get_run_config()
@@ -249,12 +257,12 @@ def run():
             # graph are copied to GPU implicitly here
             blocks = [block.int().to(train_device) for block in blocks]
             if not run_config['pipelining']:
-                torch.cuda.synchronize(train_device)
+                sync_device()
             t2 = time.time()
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, train_device)
             if not run_config['pipelining']:
-                torch.cuda.synchronize(train_device)
+                sync_device()
             t3 = time.time()
             # Compute loss and prediction
             batch_pred = model(blocks, batch_inputs)
@@ -266,7 +274,7 @@ def run():
             batch_inputs = None
             batch_labels = None
             if not run_config['pipelining']:
-                torch.cuda.synchronize(train_device)
+                sync_device()
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -292,8 +300,6 @@ def run():
             acc_time = (time.time() - tt)
             print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
             t0 = time.time()
-
-        torch.cuda.synchronize(train_device)
 
         toc = time.time()
         epoch_sample_times.append(epoch_sample_time)

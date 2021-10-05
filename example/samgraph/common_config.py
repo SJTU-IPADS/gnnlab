@@ -6,13 +6,14 @@ from enum import Enum
 
 class RunMode(Enum):
     NORMAL = 0  # arch0, arch1, arch2, arch3, arch4, for applications in example/samgraph
-    FGNN   = 1  # arch5, for applications in example/samgraph/multi_gpu and example/samgraph/balance_switcher
-    SGNN   = 2  # arch6, for applications in example/samgraph/sgnn
+    FGNN = 1  # arch5, for applications in example/samgraph/multi_gpu and example/samgraph/balance_switcher
+    SGNN = 2  # arch6, for applications in example/samgraph/sgnn
+    SGNN_DGL = 3  # arch7, for applications in example/samgraph/sgnn_dgl
 
 
 def get_default_timeout():
     # in seconds
-    return 600.0
+    return 300.0
 
 
 def get_dataset_list():
@@ -32,6 +33,9 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
     elif run_mode == RunMode.SGNN:
         default_common_config['arch'] = 'arch6'
         default_common_config['num_worker'] = 1
+    elif run_mode == RunMode.SGNN_DGL:
+        default_common_config['arch'] = 'arch7'
+        default_common_config['num_worker'] = 1
     else:
         default_common_config['arch'] = 'arch3'
 
@@ -47,7 +51,7 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
     default_common_config['cache_policy'] = 'pre_sample'
     default_common_config['cache_percentage'] = 0.0
 
-    default_common_config['num_epoch'] = 3
+    default_common_config['num_epoch'] = 10
     default_common_config['batch_size'] = 8000
     default_common_config['num_hidden'] = 256
 
@@ -56,6 +60,7 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
 
     default_common_config['barriered_epoch'] = 0
     default_common_config['presample_epoch'] = 1
+    # 40 is faster than 80 in aliyun machine
     default_common_config['omp_thread_num'] = 40
 
     default_common_config.update(kwargs)
@@ -73,11 +78,14 @@ def add_common_arguments(argparser, run_config):
                                default=run_config['num_train_worker'])
         argparser.add_argument('--num-sample-worker', type=int,
                                default=run_config['num_sample_worker'])
-        argparser.add_argument('--single-gpu', action='store_true',
-                               default=False)
     elif run_mode == RunMode.SGNN or run_config['arch'] == 'arch6':
         run_config['arch'] = 'arch6'
         run_config['_run_mode'] = RunMode.SGNN
+        argparser.add_argument('--num-worker', type=int,
+                               default=run_config['num_worker'])
+    elif run_mode == RunMode.SGNN or run_config['arch'] == 'arch7':
+        run_config['arch'] = 'arch7'
+        run_config['_run_mode'] = RunMode.SGNN_DGL
         argparser.add_argument('--num-worker', type=int,
                                default=run_config['num_worker'])
     else:
@@ -167,13 +175,11 @@ def process_common_config(run_config):
             sam.gpu(i) for i in range(run_config['num_train_worker'])]
         run_config['sample_workers'] = [sam.gpu(
             run_config['num_train_worker'] + i) for i in range(run_config['num_sample_worker'])]
-        if (run_config['single_gpu'] == True):
-            run_config['num_sample_worker'] = 1
-            run_config['num_train_worker']  = 1
-            run_config['train_workers']     = [sam.gpu(0)]
-            run_config['sample_workers']    = [sam.gpu(0)]
-            run_config['pipeline']          = False
     elif run_mode == RunMode.SGNN:
+        run_config['omp_thread_num'] //= run_config['num_worker']
+        run_config['workers'] = [sam.gpu(i)
+                                 for i in range(run_config['num_worker'])]
+    elif run_mode == RunMode.SGNN_DGL:
         run_config['omp_thread_num'] //= run_config['num_worker']
         run_config['workers'] = [sam.gpu(i)
                                  for i in range(run_config['num_worker'])]

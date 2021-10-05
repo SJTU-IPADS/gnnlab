@@ -47,6 +47,7 @@ kArch3 = 3
 kArch4 = 4
 kArch5 = 5
 kArch6 = 6
+kArch7 = 7
 
 kCacheByDegree          = 0
 kCacheByHeuristic       = 1
@@ -107,6 +108,9 @@ builtin_archs = {
     },
     'arch6': {
         'arch': kArch6
+    },
+    'arch7': {
+        'arch': kArch7
     }
 }
 
@@ -316,6 +320,7 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_double
 
         self.C_LIB_CTYPES.samgraph_num_local_step.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_wait_one_child.restype = ctypes.c_int
 
     def config(self, run_config : dict):
         num_configs_items = len(run_config)
@@ -472,3 +477,6 @@ class SamGraphBasics(object):
 
     def forward_barrier(self):
         return self.C_LIB_CTYPES.samgraph_forward_barrier()
+
+    def wait_one_child(self):
+        return self.C_LIB_CTYPES.samgraph_wait_one_child()

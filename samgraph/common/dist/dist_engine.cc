@@ -163,9 +163,11 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
   if (sampler_ctx.device_type == kGPU) {
     _dataset->indptr = Tensor::CopyTo(_dataset->indptr, sampler_ctx, stream);
     _dataset->indices = Tensor::CopyTo(_dataset->indices, sampler_ctx, stream);
-    if (RunConfig::sample_type == kWeightedKHop) {
-      _dataset->prob_table->Tensor::CopyTo(_dataset->prob_table, sampler_ctx, stream);
-      _dataset->alias_table->Tensor::CopyTo(_dataset->prob_table, sampler_ctx, stream);
+    if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
+      _dataset->prob_table = Tensor::CopyTo(_dataset->prob_table, sampler_ctx, stream);
+      _dataset->alias_table = Tensor::CopyTo(_dataset->alias_table, sampler_ctx, stream);
+    } else if (RunConfig::sample_type == kWeightedKHopPrefix) {
+      _dataset->prob_prefix_table = Tensor::CopyTo(_dataset->prob_prefix_table, sampler_ctx, stream);
     }
   }
   LOG(DEBUG) << "SampleDataCopy finished!";
