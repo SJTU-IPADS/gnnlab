@@ -21,6 +21,8 @@ mkdir -p $log_dir
 # multi_gpu for single gpu run
 python ${sam_dir}/train_gcn.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_gcn_products_single.log
 python ${sam_dir}/train_gcn.py --dataset papers100M --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.03 2>&1 | tee ${log_dir}/sam_gcn_papers_single.log
+
+# a special case, use pytorch overlap can get best performance with cache Pct. 0.04
 python ${sam_dir}/train_gcn.py --dataset twitter --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.0 2>&1 | tee ${log_dir}/sam_gcn_twitter_single.log
 
 python ${sam_dir}/train_graphsage.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_graphsage_products_single.log
