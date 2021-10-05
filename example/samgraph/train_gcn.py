@@ -120,8 +120,10 @@ def run():
     epoch_copy_times = [0 for i in range(num_epoch)]
     epoch_convert_times = [0 for i in range(num_epoch)]
     epoch_train_times = [0 for i in range(num_epoch)]
+    epoch_train_total_times_profiler = []
     epoch_total_times_profiler = [0 for i in range(num_epoch)]
     epoch_total_times_python = []
+    epoch_cache_hit_rates = []
 
     # sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
@@ -163,6 +165,10 @@ def run():
             train_end_event.record()
             train_end_event.synchronize()
 
+            num_sample = 0
+            for block in blocks:
+                num_sample += block.num_edges()
+
             batch_input = None
             batch_label = None
             blocks = None
@@ -193,9 +199,6 @@ def run():
             # train_times   [cur_step_key] = train_time
             # total_times   [cur_step_key] = total_time
 
-            num_sample = 0
-            for block in blocks:
-                num_sample += block.num_edges()
             # num_samples.append(num_sample)
             # num_nodes     [cur_step_key] = num_node
             num_samples[cur_step_key] = num_sample
@@ -210,6 +213,15 @@ def run():
             cur_step_key += 1
 
         toc = time.time()
+        feat_nbytes = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochFeatureBytes)
+        miss_nbytes = sam.get_log_epoch_value(
+            epoch, sam.kLogEpochMissBytes)
+        epoch_cache_hit_rates.append(
+            (feat_nbytes - miss_nbytes) / feat_nbytes)
+        epoch_sample_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
+        )
         epoch_total_times_python.append(toc - tic)
         epoch_sample_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochSampleTime)
@@ -219,6 +231,8 @@ def run():
             epoch, sam.kLogEpochConvertTime)
         epoch_train_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochTrainTime)
+        epoch_train_total_times_profiler.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
         epoch_total_times_profiler[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochTotalTime)
         sam.forward_barrier()
@@ -228,6 +242,25 @@ def run():
     sam.report_step_average(num_epoch - 1, num_step - 1)
     print('[Avg] Epoch Time {:.4f} | Epoch Time(Profiler) {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Convert Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times_python[1:]), np.mean(epoch_total_times_profiler[1:]),  np.mean(epoch_sample_times[1:]),  np.mean(epoch_copy_times[1:]), np.mean(epoch_convert_times[1:]), np.mean(epoch_train_times[1:])))
+
+    test_result = []
+    test_result.append(
+        ('epoch_time:sample_time', np.mean(epoch_sample_times[1:])))
+    test_result.append(('epoch_time:copy_time',
+                    np.mean(epoch_copy_times[1:])))
+    test_result.append(('convert_time', np.mean(epoch_convert_times[1:])))
+    test_result.append(('train_time', np.mean(epoch_train_times[1:])))
+    test_result.append(('epoch_time:train_total', np.mean(
+            np.mean(epoch_train_times[1:]) + np.mean(epoch_convert_times[1:]))))
+    test_result.append(
+        ('cache_percentage', run_config['cache_percentage']))
+    test_result.append(('cache_hit_rate', np.mean(
+        epoch_cache_hit_rates[1:])))
+    test_result.append(
+        ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
+    for k, v in test_result:
+        print('test_result:{:}={:.2f}'.format(k, v))
+
     sam.report_init()
 
     sam.report_node_access()

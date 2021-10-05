@@ -10,6 +10,82 @@ app_dir = os.path.join(here, '../dgl/multi_gpu')
     if log_dir is not None, it will only parse logs
 """
 
+def motivation_test(log_folder=None):
+    tic = time.time()
+
+    if log_folder:
+        mock = True
+        log_dir = os.path.join(os.path.join(here, f'run-logs/{log_folder}'))
+    else:
+        mock = False
+        log_dir = os.path.join(
+            here, f'run-logs/logs_dgl_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+
+
+    log_table = LogTable(
+        num_row=2,
+        num_col=4
+    ).update_col_definition(
+        col_id=0,
+        definition='sample_time'
+    ).update_col_definition(
+        col_id=1,
+        definition='copy_time'
+    ).update_col_definition(
+        col_id=2,
+        definition='train_time'
+    ).update_col_definition(
+        col_id=3,
+        definition='epoch_time'
+    ).update_row_definition(
+        row_id=0,
+        col_range=[0, 3],
+        BOOL_use_gpu_sampling='use_gpu_sampling'
+    ).update_row_definition(
+        row_id=1,
+        col_range=[0, 3],
+        BOOL_use_gpu_sampling='no_use_gpu_sampling'
+    ).create()
+
+    ConfigList(
+        test_group_name='DGL motivation test'
+    ).select(
+        'app',
+        [App.gcn]
+    ).select(
+        'dataset',
+        [Dataset.papers100M]
+    ).override(
+        'num_epoch',
+        [10]
+    ).override(
+        'num_sampling_worker',
+        [16]
+    ).override(
+        'BOOL_use_gpu_sampling',
+        ['use_gpu_sampling', 'no_use_gpu_sampling']
+    ).override(
+        'BOOL_pipelining',
+        ['no_pipelining']
+    ).override(
+        'devices',
+        ['0'],
+        # ).override(
+        #     'BOOL_validate_configs',
+        #     ['validate_configs']
+    ).run(
+        appdir=app_dir,
+        logdir=log_dir,
+        mock=mock
+    ).parse_logs(
+        logtable=log_table,
+        logdir=log_dir
+    )
+
+    toc = time.time()
+
+    print('motivation test uses {:.4f} secs'.format(toc - tic))
+
 
 def breakdown_test(log_folder=None):
     tic = time.time()
@@ -410,8 +486,8 @@ if __name__ == '__main__':
     argparser.add_argument('-l', '--log-folder', default=None)
     args = argparser.parse_args()
 
-    # motivation_test(args.log_folder)
-    breakdown_test(args.log_folder)
-    scalability_test(args.log_folder)
-    scalability_pipeline_test(args.log_folder)
+    motivation_test(args.log_folder)
+    # breakdown_test(args.log_folder)
+    # scalability_test(args.log_folder)
+    # scalability_pipeline_test(args.log_folder)
     # overall_perf_test(args.log_folder)
