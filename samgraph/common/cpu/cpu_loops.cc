@@ -275,6 +275,9 @@ void DoFeatureCopy(TaskPtr task) {
   Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
                           train_feat->NumBytes());
   Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochFeatureBytes,
+                              train_feat->NumBytes());
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochMissBytes,train_feat->NumBytes());
 }
 
 void DoCacheIdCopy(TaskPtr task) {
@@ -487,6 +490,11 @@ void DoCacheFeatureExtractCopy(TaskPtr task) {
                           combine_miss_time);  // t4, step 4
   Profiler::Get().LogStep(task->key, kLogL3CacheCombineCacheTime,
                           combine_cache_time);  // t5, step 5
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochFeatureBytes,
+                              train_feat->NumBytes());
+  Profiler::Get().LogEpochAdd(
+      task->key, kLogEpochMissBytes,
+      GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }
