@@ -4,7 +4,7 @@ import argparse
 import time
 
 here = os.path.abspath(os.path.dirname(__file__))
-app_dir = os.path.join(here, '../samgraph/sgnn_dgl')
+app_dir = os.path.join(here, '../samgraph')
 
 """
     if log_dir is not None, it will only parse logs
@@ -69,7 +69,7 @@ def breakdown_test(log_folder=None):
     #     'BOOL_validate_configs',
     #     ['validate_configs']
     ).run(
-        appdir=app_dir,
+        appdir=None,
         logdir=log_dir,
         mock=mock
     ).parse_logs(
