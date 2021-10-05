@@ -166,17 +166,15 @@ def run(worker_id, run_config):
         epoch_train_time = 0
         epoch_total_time = 0
 
-        garbage_data = []
-
         for step in range(worker_id, num_step * num_worker, num_worker):
             t0 = time.time()
             sam.sample_once()
+            if run_config['pipeline']:
+                sync()
             batch_key = sam.get_next_batch()
             t1 = time.time()
             batch_input, batch_label = sam.load_subtensor(
                 batch_key, feat, label, device)
-            if not run_config['pipeline']:
-                sync()
             t2 = time.time()
             blocks, _, _ = sam.get_dgl_blocks(
                 batch_key, num_layer, with_feat=False)
@@ -194,9 +192,7 @@ def run(worker_id, run_config):
             train_end_event.record()
             train_end_event.synchronize()
 
-            if run_config['pipeline']:
-                garbage_data.append((batch_input, batch_label, blocks))
-            else:
+            if not run_config['pipeline']:
                 sync()
                 batch_input = None
                 batch_label = None
@@ -215,10 +211,7 @@ def run(worker_id, run_config):
 
             sam.report_step(epoch, step)
 
-        if run_config['pipeline']:
-            sync()
-            # now is safe to free the garbage_data
-            garbage_data = None
+        sync()
 
         # sync the train workers
         if num_worker > 1:
