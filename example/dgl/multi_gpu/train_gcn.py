@@ -158,6 +158,8 @@ def get_run_config():
         run_config['sample_devices'] = ['cpu' for _ in run_config['devices']]
         run_config['train_devices'] = run_config['devices']
 
+    run_config['num_thread'] = torch.get_num_threads() // run_config['num_worker']
+
     print('config:eval_tsp="{:}"'.format(time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime())))
     for k, v in run_config.items():
@@ -210,6 +212,7 @@ def sync_device():
 
 
 def run(worker_id, run_config):
+    torch.set_num_threads(run_config['num_thread'])
     sample_device = torch.device(run_config['sample_devices'][worker_id])
     train_device = torch.device(run_config['train_devices'][worker_id])
     num_worker = run_config['num_worker']
