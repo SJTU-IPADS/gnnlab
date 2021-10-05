@@ -79,6 +79,8 @@ def parse_args(default_run_config):
         '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
+    argparser.add_argument('--report-acc', type=int,
+                           default=0)
 
     argparser.add_argument('--validate-configs',
                            action='store_true', default=False)
@@ -213,8 +215,10 @@ def run():
         prefetch_factor=run_config['prefetch_factor'],
         num_workers=run_config['num_sampling_worker'])
 
-    accuracy = Accuracy(g, dataset.valid_set, dataset.test_set, run_config['fanout'],
-                        run_config['batch_size'], sample_device)
+    if (run_config['report_acc'] != 0):
+        accuracy = Accuracy(g, dataset.valid_set, dataset.test_set, dataset.feat,
+                            dataset.label, run_config['fanout'],
+                            run_config['batch_size'], sample_device)
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
                  run_config['num_layer'], F.relu, run_config['dropout'])
@@ -242,11 +246,13 @@ def run():
     num_nodes = []
     num_samples = []
 
+    total_steps = 0
     for epoch in range(num_epoch):
         epoch_sample_time = 0.0
         epoch_graph_copy_time = 0.0
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
+        epoch_acc_time = 0.0
         epoch_num_node = 0
         epoch_num_sample = 0
 
@@ -293,12 +299,18 @@ def run():
             epoch_num_node += num_nodes[-1]
             epoch_num_sample += num_samples[-1]
 
+            if (run_config['report_acc']) and (step % run_config['report_acc'] == 0):
+                tt = time.time()
+                acc = accuracy.valid_acc(model, train_device)
+                acc_time = (time.time() - tt)
+                epoch_acc_time += acc_time
+                print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d}'.format(
+                    acc * 100.0, acc_time, total_steps))
+            total_steps += 1
+            '''
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
-            tt = time.time()
-            acc = accuracy.valid_acc(model, train_device)
-            acc_time = (time.time() - tt)
-            print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+            '''
             t0 = time.time()
 
         toc = time.time()
@@ -306,21 +318,23 @@ def run():
         epoch_graph_copy_times.append(epoch_graph_copy_time)
         epoch_copy_times.append(epoch_copy_time)
         epoch_train_times.append(epoch_train_time)
-        epoch_total_times.append(toc - tic)
+        epoch_total_times.append(toc - tic - epoch_acc_time)
         epoch_num_samples.append(epoch_num_sample)
         epoch_num_nodes.append(epoch_num_node)
 
-        tt = time.time()
-        acc = accuracy.valid_acc(model, train_device)
-        acc_time = (time.time() - tt)
-        print('Validate Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+        if (run_config['report_acc'] != 0):
+            tt = time.time()
+            acc = accuracy.valid_acc(model, train_device)
+            acc_time = (time.time() - tt)
+            print('Validate Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
         print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
             np.mean(epoch_total_times[-1]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[-1]), np.mean(epoch_graph_copy_times[-1]), np.mean(epoch_copy_times[-1]), np.mean(epoch_train_times[-1])))
 
-    tt = time.time()
-    acc = accuracy.valid_acc(model, train_device)
-    acc_time = (time.time() - tt)
-    print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+    if (run_config['report_acc'] != 0):
+        tt = time.time()
+        acc = accuracy.test_acc(model, train_device)
+        acc_time = (time.time() - tt)
+        print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
 
     print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
