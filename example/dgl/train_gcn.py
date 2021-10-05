@@ -278,12 +278,17 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            # free input and label data
-            batch_inputs = None
-            batch_labels = None
 
             if not run_config['pipelining']:
                 sync_device()
+
+            num_samples.append(sum([block.num_edges() for block in blocks]))
+            num_nodes.append(blocks[0].num_src_nodes())
+
+            batch_inputs = None
+            batch_labels = None
+            blocks = None
+
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -291,9 +296,6 @@ def run():
             copy_times.append(t3 - t1)
             train_times.append(t4 - t3)
             total_times.append(t4 - t0)
-
-            num_samples.append(sum([block.num_edges() for block in blocks]))
-            num_nodes.append(blocks[0].num_src_nodes())
 
             epoch_sample_time += sample_times[-1]
             epoch_graph_copy_time += graph_copy_times[-1]
