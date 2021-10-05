@@ -345,6 +345,12 @@ def run_train(worker_id, run_config, trainer_type):
             sam.sample_once()
             batch_key = sam.get_next_batch()
             step = (batch_key % num_step)
+
+            # wait for the train finish then we can free the data safely
+            train_end_event = torch.cuda.Event(blocking=True)
+            train_end_event.record()
+            train_end_event.synchronize()
+
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                 batch_key, num_layer)
@@ -356,11 +362,6 @@ def run_train(worker_id, run_config, trainer_type):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-            # wait for the train finish then we can free the data safely
-            train_end_event = torch.cuda.Event(blocking=True)
-            train_end_event.record()
-            train_end_event.synchronize()
 
             batch_input = None
             batch_label = None
