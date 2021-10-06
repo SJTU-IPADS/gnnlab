@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import fastgraph
 import time
+import math
+import sys
 import numpy as np
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
@@ -73,6 +75,10 @@ def parse_args(default_run_config):
                            default=default_run_config['dataset'])
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
+    argparser.add_argument('--pipelining', action='store_true',
+                           default=default_run_config['pipelining'])
+    argparser.add_argument(
+        '--no-pipelining', dest='pipelining', action='store_false')
     argparser.add_argument('--num-sampling-worker', type=int,
                            default=default_run_config['num_sampling_worker'])
 
@@ -88,6 +94,11 @@ def parse_args(default_run_config):
         '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
+    argparser.add_argument('--weight-decay', type=float,
+                           default=default_run_config['weight_decay'])
+
+    argparser.add_argument('--validate-configs',
+                           action='store_true', default=False)
 
     return vars(argparser.parse_args())
 
@@ -103,14 +114,18 @@ def get_run_config():
     default_run_config['num_sampling_worker'] = 16
 
     # In PyG, the order from root to leaf is from front to end
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [5, 10, 15]
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
-    default_run_config['lr'] = 0.003
+    default_run_config['lr'] = 0.01
     default_run_config['dropout'] = 0.5
+    default_run_config['weight_decay'] = 0.0005
 
     run_config = parse_args(default_run_config)
+
+    assert(len(run_config['devices']) > 0)
+    assert(run_config['num_sampling_worker'] >= 0)
 
     # the first epoch is used to warm up the system
     run_config['num_epoch'] += 1
@@ -118,15 +133,57 @@ def get_run_config():
         run_config['fanout'])
     run_config['num_worker'] = len(run_config['devices'])
     run_config['num_sampling_worker'] = run_config['num_sampling_worker'] // run_config['num_worker']
+    
+    dataset = fastgraph.dataset(
+        run_config['dataset'], run_config['root_path'], force_load64=True)
+    num_train_set = dataset.train_set.shape[0]
 
-    print('Evaluation time: ', time.strftime(
-        "%Y-%m-%d %H:%M:%S", time.localtime()))
-    print(*run_config.items(), sep='\n')
+    # [prefetch_factor]: number of samples loaded in advance by each worker.
+    # 2 means there will be a total of 2 * num_workers samples prefetched across all workers. (default: 2)
+    # DGL uses a custom dataset, it makes PyTorch thinks a batch is a sample.
+    if run_config['pipelining'] == False and run_config['num_sampling_worker'] > 0:
+        # make it sequential. sample all the batch before training.
+        # assumed that drop last = False
+        num_samples_per_epoch = math.ceil(
+            num_train_set / run_config['num_worker'])
+        num_batch_per_epoch = math.ceil(
+            num_samples_per_epoch / run_config['batch_size'])
+        run_config['num_prefetch_batch'] = num_batch_per_epoch
+        run_config['prefetch_factor'] = math.ceil(
+            num_batch_per_epoch / run_config['num_sampling_worker'])
+    else:
+        # default prefetch factor is 2
+        run_config['prefetch_factor'] = 2
+
+    run_config['seed'] = 0
+
+    print('config:eval_tsp="{:}"'.format(time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.localtime())))
+    for k, v in run_config.items():
+        print('config:{:}={:}'.format(k, v))
+
+    g = dataset.to_pyg_graph()
+    run_config['dataset'] = dataset
+    run_config['g'] = g.to_pyg_graph()
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
 
+def get_data_iterator(run_config, dataloader):
+    if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+        return [data for data in iter(dataloader)]
+    else:
+        return iter(dataloader)
+
+def sync_device():
+    train_end_event = torch.cuda.Event(blocking=True)
+    train_end_event.record()
+    train_end_event.synchronize()
 
 def run(worker_id, run_config):
+    torch.set_num_threads(run_config['num_thread'])
     dev_id = run_config['devices'][worker_id]
     num_worker = run_config['num_worker']
 
@@ -137,7 +194,6 @@ def run(worker_id, run_config):
                                              init_method=dist_init_method,
                                              world_size=num_worker,
                                              rank=worker_id)
-    torch.cuda.set_device(dev_id)
 
     dataset = run_config['dataset']
     g = run_config['g']
@@ -150,7 +206,7 @@ def run(worker_id, run_config):
 
     if num_worker > 1:
         dataloader_sampler = DistributedSampler(train_nids, num_replicas=num_worker,
-                                                rank=worker_id, shuffle=True, seed=run_config['seed'])
+                                                rank=worker_id, shuffle=True, drop_last=False, seed=run_config['seed'])
         dataloader = NeighborSampler(g,
                                      sizes=run_config['fanout'],
                                      batch_size=run_config['batch_size'],
@@ -158,7 +214,7 @@ def run(worker_id, run_config):
                                      return_e_id=False,
                                      num_workers=run_config['num_sampling_worker'],
                                      sampler=dataloader_sampler,
-                                     #  prefetch_factor=run_config['num_epoch']
+                                     prefetch_factor=run_config['prefetch_factor']
                                      )
     else:
         dataloader = NeighborSampler(g,
@@ -167,8 +223,9 @@ def run(worker_id, run_config):
                                      node_idx=train_nids,
                                      shuffle=True,
                                      return_e_id=False,
+                                     drop_last=False,
                                      num_workers=run_config['num_sampling_worker'],
-                                     #  prefetch_factor=run_config['num_epoch']
+                                     prefetch_factor=run_config['prefetch_factor']
                                      )
 
     model = GCN(in_feats, run_config['num_hidden'], n_classes,
@@ -179,7 +236,7 @@ def run(worker_id, run_config):
             model, device_ids=[dev_id], output_device=dev_id)
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(dev_id)
-    optimizer = torch.optim.Adam(model.parameters(), lr=run_config['lr'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=run_config['lr'], weight_decay=run_config['weight_decay'])
     num_epoch = run_config['num_epoch']
 
     model.train()
@@ -200,7 +257,8 @@ def run(worker_id, run_config):
         epoch_sample_time = 0.0
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
-        epoch_total_time = 0.0
+
+        tic = time.time()
 
         # In distributed mode, calling the set_epoch() method at the beginning of each epoch
         # before creating the DataLoader iterator is necessary to make shuffling work properly across multiple epochs.
@@ -210,11 +268,13 @@ def run(worker_id, run_config):
             dataloader_sampler.set_epoch(epoch)
 
         t0 = time.time()
-        for step, (batch_size, n_id, adjs) in enumerate(dataloader):
+        for step, (batch_size, n_id, adjs) in enumerate(get_data_iterator(run_config, dataloader)):
             t1 = time.time()
             adjs = [adj.to(dev_id) for adj in adjs]
             batch_inputs = feat[n_id].to(dev_id)
             batch_labels = label[n_id[:batch_size]].to(dev_id)
+            if not run_config['pipelining']:
+                sync_device()
             t2 = time.time()
 
             # Compute loss and prediction
@@ -223,6 +283,18 @@ def run(worker_id, run_config):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            if not run_config['pipelining']:
+                sync_device()
+
+            num_samples.append(sum([adj.adj_t.nnz() for adj in adjs]))
+            num_nodes.append(batch_inputs.shape[0])
+            batch_inputs = None
+            batch_labels = None
+            adjs = None
+
+            if num_worker > 1:
+                torch.distributed.barrier()
 
             t3 = time.time()
 
@@ -234,13 +306,7 @@ def run(worker_id, run_config):
             epoch_sample_time += (t1 - t0)
             epoch_copy_time += (t2 - t1)
             epoch_train_time += (t3 - t2)
-            epoch_total_time += (t3 - t0)
 
-            num_sample = 0
-            for adj in adjs:
-                num_sample += adj.adj_t.nnz()
-            num_samples.append(num_sample)
-            num_nodes.append(batch_inputs.shape[0])
 
             if worker_id == 0:
                 print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
@@ -250,29 +316,27 @@ def run(worker_id, run_config):
         if num_worker > 1:
             torch.distributed.barrier()
 
+        toc = time.time()
+
         epoch_sample_times.append(epoch_sample_time)
         epoch_copy_times.append(epoch_copy_time)
         epoch_train_times.append(epoch_train_time)
-        epoch_total_times.append(epoch_total_time)
+        epoch_total_times.append(toc - tic)
 
     if num_worker > 1:
         torch.distributed.barrier()
 
     if worker_id == 0:
-        print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-            np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
-
+        test_result = {}
+        test_result['epoch_time'] = np.mean(epoch_total_times[1:])
+        test_result['sample_time'] = np.mean(epoch_sample_times[1:])
+        test_result['copy_time'] = np.mean(epoch_copy_times[1:])
+        test_result['train_time'] = np.mean(epoch_train_times[1:])
+        for k, v in test_result.items():
+            print('test_result:{:}={:.2f}'.format(k, v))
 
 if __name__ == '__main__':
     run_config = get_run_config()
-
-    dataset = fastgraph.dataset(
-        run_config['dataset'], run_config['root_path'], force_load64=True)
-    g = dataset.to_pyg_graph()
-    run_config['dataset'] = dataset
-    run_config['g'] = g
-    run_config['seed'] = 12345
-
     num_worker = run_config['num_worker']
 
     if num_worker == 1:

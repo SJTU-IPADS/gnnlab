@@ -84,6 +84,16 @@ class LogTable:
         return self
 
 
+class RunStatus(Enum):
+    Ok = 0
+    NotOk = 1
+
+    def __str__(self):
+        if self is RunStatus.Ok:
+            return '1'
+        else:
+            return '0'
+
 class RunConfig:
     def __init__(self, app: App, **kwargs):
         self.configs = {}
@@ -97,6 +107,8 @@ class RunConfig:
         self.is_log_parsed = False
         self.full_configs = defaultdict(lambda: None)
         self.test_results = defaultdict(lambda: None)
+
+        self.status = RunStatus.NotOk
 
     def form_cmd(self, idx, appdir, logdir, durable_log=True):
         cmd_line = ''
@@ -309,6 +321,33 @@ class ConfigList:
         self.conf_list += newlist
         return self
 
+    def multi_combo_multi_override_list(self, select_op, select_key_val_dict, override_key_val_dict_list):
+        assert(select_op == 'and' or select_op == 'or')
+
+        if len(override_key_val_dict_list) == 0:
+            return self
+
+        # tmp select
+        orig_list = self.conf_list
+        newlist = []
+        self.conf_list = []
+        for cfg in orig_list:
+            if self._list_select(cfg, select_op, select_key_val_dict):
+                newlist.append(cfg)
+            else:
+                self.conf_list.append(cfg)
+
+        # apply override
+        for cfg in newlist:
+            for override_key_val_dict in override_key_val_dict_list:
+                new_cfg = copy.deepcopy(cfg)
+                for override_key, override_value in override_key_val_dict.items():
+                    new_cfg.configs[override_key] = override_value
+
+                self.conf_list.append(new_cfg)
+
+        return self
+
     def write_configs_book(self, logdir, mock=False):
         os.system('mkdir -p {}'.format(logdir))
         if mock:
@@ -325,6 +364,31 @@ class ConfigList:
                     for k, v in conf.configs.items():
                         f.write(f'  {k}: {v}' + '\n')
 
+    def write_run_status(self, logdir, mock):
+        if mock:
+            for i, conf in enumerate(self.conf_list):
+                print(f'Test{i}={conf.status}')
+        else:
+            os.system('mkdir -p {}'.format(logdir))
+            with open(os.path.join(logdir, 'run_status.txt'), 'w', encoding='utf8') as f:
+                for i, conf in enumerate(self.conf_list):
+                    f.write(f'Test{i}={conf.status}' + '\n')
+
+    def load_run_status(self, logdir):
+        pattern = r'Test(.+)=(.+)\n'
+        try:
+            with open(os.path.join(logdir, 'run_status.txt'), 'r', encoding='utf8') as f:
+                for line in f:
+                    m = re.match(pattern, line)
+                    if m:
+                        idx = int(m.group(1))
+                        status = m.group(2)
+                        self.conf_list[idx].status = RunStatus.Ok if status == '1' else RunStatus.NotOk
+                        print(f'Test{idx}={status}')
+                print('Rerun Test')
+        except:
+            print('New Test')
+
     def match(self, params):
         ret = []
 
@@ -337,16 +401,25 @@ class ConfigList:
     def run(self, appdir, logdir, mock=False, durable_log=True, callback=None):
         print(f'Running test group [{self.test_group_name}]')
         self.write_configs_book(logdir, mock)
+        self.load_run_status(logdir)
 
         error_count = 0
         for i, conf in enumerate(self.conf_list):
-            print(
-                f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
-            conf: RunConfig
-            ret = conf.run(i, appdir, logdir,
-                           mock, durable_log, callback)
-            error_count += (ret > 0)
+            if conf.status != RunStatus.Ok:
+                print(
+                    f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
+                conf: RunConfig
+                ret = conf.run(i, appdir, logdir,
+                               mock, durable_log, callback)
+                error_count += (ret > 0)
+                if ret == 0:
+                    conf.status = RunStatus.Ok
+            else:
+                print(
+                    f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
+                ret = conf.form_cmd(i, appdir, logdir, durable_log)
 
+        self.write_run_status(logdir, mock)
         return self
 
     def parse_logs(self, logtable, logdir, left_wrap='{', right_wrap='}', sep=' & '):

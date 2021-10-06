@@ -464,3 +464,6 @@ if __name__ == '__main__':
         p.kill()
     for p in workers:
         p.join()
+    
+    if ret != 0:
+        sys.exit(1)

@@ -1,6 +1,7 @@
 import samgraph.torch as sam
 import time
 import os
+import torch
 from enum import Enum
 
 
@@ -188,6 +189,7 @@ def process_common_config(run_config):
                                  for i in range(run_config['num_worker'])]
     elif run_mode == RunMode.SGNN_DGL:
         run_config['omp_thread_num'] //= run_config['num_worker']
+        run_config['torch_thread_num'] = torch.get_num_threads() // run_config['num_worker']
         run_config['workers'] = [sam.gpu(i)
                                  for i in range(run_config['num_worker'])]
     else:

@@ -322,11 +322,17 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            # free input and label data
-            batch_inputs = None
-            batch_labels = None
+
             if not run_config['pipelining']:
                 sync_device()
+
+            num_samples.append(sum([block.num_edges() for block in blocks]))
+            num_nodes.append(blocks[0].num_src_nodes())
+
+            batch_inputs = None
+            batch_labels = None
+            blocks = None
+
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -334,9 +340,6 @@ def run():
             copy_times.append(t3 - t1)
             train_times.append(t4 - t3)
             total_times.append(t4 - t0)
-
-            num_samples.append(sum([block.num_edges() for block in blocks]))
-            num_nodes.append(blocks[0].num_src_nodes())
 
             epoch_sample_time += sample_times[-1]
             epoch_graph_copy_time += graph_copy_times[-1]
@@ -348,6 +351,8 @@ def run():
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
+
+        sync_device()
 
         toc = time.time()
         epoch_sample_times.append(epoch_sample_time)

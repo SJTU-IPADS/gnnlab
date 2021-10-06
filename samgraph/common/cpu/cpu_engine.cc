@@ -139,8 +139,8 @@ void CPUEngine::ArchCheck() {
   CHECK_EQ(_trainer_ctx.device_type, kGPU);
 
   CHECK_NE(RunConfig::cache_policy, kCacheByPreSample);
-  CHECK_EQ(RunConfig::cache_policy, kCacheByPreSampleStatic);
-  CHECK_EQ(RunConfig::cache_policy, kDynamicCache);
+  CHECK_NE(RunConfig::cache_policy, kCacheByPreSampleStatic);
+  CHECK_NE(RunConfig::cache_policy, kDynamicCache);
 }
 
 std::unordered_map<std::string, Context> CPUEngine::GetGraphFileCtx() {
