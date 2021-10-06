@@ -193,6 +193,7 @@ uint64_t samgraph_get_next_batch() {
   CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
 
   // uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  Engine::Get()->SetGraphBatch(nullptr);
   auto graph = Engine::Get()->GetGraphPool()->GetGraphBatch();
   uint64_t key = graph->key;
 
