@@ -84,7 +84,7 @@ def add_common_arguments(argparser, run_config):
         run_config['_run_mode'] = RunMode.SGNN
         argparser.add_argument('--num-worker', type=int,
                                default=run_config['num_worker'])
-    elif run_mode == RunMode.SGNN or run_config['arch'] == 'arch7':
+    elif run_mode == RunMode.SGNN_DGL or run_config['arch'] == 'arch7':
         run_config['arch'] = 'arch7'
         run_config['_run_mode'] = RunMode.SGNN_DGL
         argparser.add_argument('--num-worker', type=int,
@@ -103,11 +103,10 @@ def add_common_arguments(argparser, run_config):
     argparser.add_argument('--sample-type', type=str, choices=sam.sample_types.keys(),
                            default=run_config['sample_type'])
 
-    if not run_config['_run_mode'] == RunMode.SGNN:
-        argparser.add_argument('--pipeline', action='store_true',
-                               default=run_config['pipeline'])
-        argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
-                               default=run_config['pipeline'])
+    argparser.add_argument('--pipeline', action='store_true',
+                            default=run_config['pipeline'])
+    argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
+                            default=run_config['pipeline'])
 
     argparser.add_argument('--root-path', type=str,
                            default=run_config['root_path'])

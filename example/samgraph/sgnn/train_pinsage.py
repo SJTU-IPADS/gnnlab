@@ -152,6 +152,12 @@ def run_init(run_config):
         sys.exit()
 
 
+def sync():
+    event = torch.cuda.Event(blocking=True)
+    event.record()
+    event.synchronize()
+
+
 def run(worker_id, run_config):
     num_worker = run_config['num_worker']
     global_barrier = run_config['global_barrier']
@@ -225,6 +231,8 @@ def run(worker_id, run_config):
             t0 = time.time()
             sam.sample_once()
             batch_key = sam.get_next_batch()
+            if run_config['pipeline']:
+                sync()
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                 batch_key, num_layer)
@@ -237,14 +245,11 @@ def run(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
-            # wait for the train finish then we can free the data safely
-            train_end_event = torch.cuda.Event(blocking=True)
-            train_end_event.record()
-            train_end_event.synchronize()
-
-            batch_input = None
-            batch_label = None
-            blocks = None
+            if not run_config['pipeline']:
+                sync()
+                batch_input = None
+                batch_label = None
+                blocks = None
 
             if num_worker > 1:
                 torch.distributed.barrier()
@@ -268,6 +273,8 @@ def run(worker_id, run_config):
             total_times.append(total_time)
 
             sam.report_step(epoch, step)
+
+        sync()
 
         # sync the train workers
         if num_worker > 1:
