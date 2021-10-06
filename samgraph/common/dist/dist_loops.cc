@@ -924,10 +924,6 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   task->output_label = train_label;
 
   Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
-  Profiler::Get().LogEpochAdd(task->key, kLogEpochFeatureBytes,
-                              train_label->NumBytes());
-  Profiler::Get().LogEpochAdd(task->key, kLogEpochMissBytes,
-                              train_label->NumBytes());
 
   LOG(DEBUG) << "DoCPULabelExtractAndCopy: process task with key " << task->key;
 }

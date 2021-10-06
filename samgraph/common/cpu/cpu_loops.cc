@@ -290,29 +290,17 @@ void DoCacheIdCopy(TaskPtr task) {
       "task.output_nodes_cuda_" + std::to_string(task->key));
   LOG(DEBUG) << "DoCacheIdCopy input_nodes cuda malloc "
              << ToReadableSize(input_nodes->NumBytes());
-  auto output_nodes = Tensor::Empty(
-      task->output_nodes->Type(), task->output_nodes->Shape(), trainer_ctx,
-      "task.output_nodes_cuda_" + std::to_string(task->key));
-  LOG(DEBUG) << "DoCacheIdCopy output_nodes cuda malloc "
-             << ToReadableSize(output_nodes->NumBytes());
 
   trainer_device->CopyDataFromTo(
       task->input_nodes->Data(), 0, input_nodes->MutableData(), 0,
       task->input_nodes->NumBytes(), task->input_nodes->Ctx(),
       input_nodes->Ctx(), stream);
-  trainer_device->CopyDataFromTo(
-      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
-      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
-      output_nodes->Ctx(), stream);
 
   trainer_device->StreamSync(trainer_ctx, stream);
 
   task->input_nodes = input_nodes;
-  task->output_nodes = output_nodes;
 
-  Profiler::Get().LogStepAdd(
-      task->key, kLogL1IdBytes,
-      input_nodes->NumBytes() + output_nodes->NumBytes());
+  Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes, input_nodes->NumBytes());
 
   LOG(DEBUG) << "DoCacheIdCopy: process task with key " << task->key;
 }
@@ -352,6 +340,52 @@ void DoGPULabelExtract(TaskPtr task) {
   task->output_label = train_label;
 
   Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
+}
+
+void DoCPULabelExtractAndCopy(TaskPtr task) {
+  auto dataset = CPUEngine::Get()->GetGraphDataset();
+
+  auto trainer_ctx = CPUEngine::Get()->GetTrainerCtx();
+  auto trainer_device = Device::Get(trainer_ctx);
+  auto stream = CPUEngine::Get()->GetWorkStream();
+
+  // 1. Extract
+  auto output_nodes = task->output_nodes;
+
+  auto label = dataset->label;
+  auto label_type = dataset->label->Type();
+
+  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto num_ouput = output_nodes->Shape()[0];
+
+  task->output_label =
+      Tensor::Empty(label_type, {num_ouput}, CPU(),
+                    "task.output_label_cpu" + std::to_string(task->key));
+
+  LOG(DEBUG) << "DoCPUFeatureExtract output_label cpu malloc "
+             << ToReadableSize(task->output_label->NumBytes());
+
+  auto label_dst = task->output_label->MutableData();
+  auto label_src = dataset->label->Data();
+
+  cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
+
+  // 2. Copy
+  auto cpu_label = task->output_label;
+  CHECK_EQ(cpu_label->Ctx().device_type, CPU().device_type);
+  auto train_label =
+      Tensor::Empty(cpu_label->Type(), cpu_label->Shape(), trainer_ctx,
+                    "task.train_label_cuda" + std::to_string(task->key));
+  trainer_device->CopyDataFromTo(
+      cpu_label->Data(), 0, train_label->MutableData(), 0,
+      cpu_label->NumBytes(), cpu_label->Ctx(), train_label->Ctx(), stream);
+  trainer_device->StreamSync(trainer_ctx, stream);
+
+  task->output_label = train_label;
+
+  Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
+
+  LOG(DEBUG) << "DoCPULabelExtractAndCopy: process task with key " << task->key;
 }
 
 void DoCacheFeatureExtractCopy(TaskPtr task) {
