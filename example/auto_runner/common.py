@@ -419,6 +419,7 @@ class ConfigList:
                     f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
                 ret = conf.form_cmd(i, appdir, logdir, durable_log)
 
+        print(f'Total Fails Count={error_count}')
         self.write_run_status(logdir, mock)
         return self
 
