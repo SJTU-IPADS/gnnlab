@@ -47,9 +47,27 @@ __global__ void sample_weighted_khop_prefix(
       tmp_src[task_idx] = rid;
       // choose dst
       float rand_x = curand_uniform(&local_state) * rand_upbound;
-      size_t cur_k = off;
-      while(rand_x >= prob_prefix_table[cur_k] && cur_k < off + len - 1) cur_k++;
-      tmp_dst[task_idx] = indices[cur_k];
+      // {
+      //   size_t cur_k = off;
+      //   while(rand_x >= prob_prefix_table[cur_k] && cur_k < off + len - 1) cur_k++;
+      //   tmp_dst[task_idx] = indices[cur_k];
+      // }
+
+      {
+        if (rand_x <= prob_prefix_table[off]) tmp_dst[task_idx] = indices[off];
+        else {
+          size_t cur_low = off, cur_high = off + len - 1;
+          while (cur_high - cur_low >= 2) {
+            size_t mid = (cur_low + cur_high) >> 1;
+            if (prob_prefix_table[mid] >= rand_x) {
+              cur_high = mid;
+            } else {
+              cur_low = mid;
+            }
+          }
+          tmp_dst[task_idx] = indices[cur_high];
+        }
+      }
     }
   }
   // restore the state
