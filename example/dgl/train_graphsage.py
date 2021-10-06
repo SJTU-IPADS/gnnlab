@@ -246,8 +246,10 @@ def run():
     total_times = []
     num_nodes = []
     num_samples = []
-
+    run_start = time.time()
+    run_acc_total = 0.0
     total_steps = 0
+
     for epoch in range(num_epoch):
         epoch_sample_time = 0.0
         epoch_graph_copy_time = 0.0
@@ -308,8 +310,9 @@ def run():
                 acc = accuracy.valid_acc(model, train_device)
                 acc_time = (time.time() - tt)
                 epoch_acc_time += acc_time
-                print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d}'.format(
-                    acc * 100.0, acc_time, total_steps))
+                run_acc_total += acc_time
+                print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
+                    acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
             total_steps += 1
             '''
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
@@ -332,7 +335,9 @@ def run():
             tt = time.time()
             acc = accuracy.valid_acc(model, train_device)
             acc_time = (time.time() - tt)
-            print('Validate Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+            run_acc_total += acc_time
+            print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
+                acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
         print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
             np.mean(epoch_total_times[-1]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[-1]), np.mean(epoch_graph_copy_times[-1]), np.mean(epoch_copy_times[-1]), np.mean(epoch_train_times[-1])))
 
@@ -340,7 +345,9 @@ def run():
         tt = time.time()
         acc = accuracy.test_acc(model, train_device)
         acc_time = (time.time() - tt)
-        print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+        run_acc_total += acc_time
+        print('Test Acc: {:.2f}% | Acc Time: {:.4f} | Time Cost: {:.2f}'.format(
+            acc * 100.0, acc_time, (time.time() - run_start - run_acc_total)))
 
     print('Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))

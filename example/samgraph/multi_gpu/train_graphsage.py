@@ -280,6 +280,7 @@ def run_train(worker_id, run_config):
     print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
     run_start = time.time()
+    run_acc_total = 0.0
 
     for epoch in range(num_epoch):
         # epoch start barrier
@@ -351,8 +352,9 @@ def run_train(worker_id, run_config):
                 acc = accuracy.valid_acc(model, train_device)
                 acc_time = (time.time() - tt)
                 epoch_acc_time += acc_time
-                print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d}'.format(
-                    acc * 100.0, acc_time, total_steps))
+                run_acc_total += acc_time
+                print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
+                    acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
             total_steps += run_config['num_train_worker']
 
         # sync the train workers
@@ -384,7 +386,9 @@ def run_train(worker_id, run_config):
             tt = time.time()
             acc = accuracy.valid_acc(model, train_device)
             acc_time = (time.time() - tt)
-            print('Validate Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+            run_acc_total += acc_time
+            print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
+                acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
         if worker_id == 0:
             print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
                 epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
@@ -397,7 +401,8 @@ def run_train(worker_id, run_config):
         tt = time.time()
         acc = accuracy.test_acc(model, train_device)
         acc_time = (time.time() - tt)
-        print('Test Acc: {:.2f}% | Time Cost: {:.4f}'.format(acc * 100.0, acc_time))
+        run_acc_total += acc_time
+        print('Test Acc: {:.2f}% | Acc Time: {:.4f} | Time Cost: {:.2f}'.format(acc * 100.0, acc_time, (time.time() - run_start - run_acc_total)))
     print('[Train  Worker {:d}] Avg Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
@@ -464,6 +469,6 @@ if __name__ == '__main__':
         p.kill()
     for p in workers:
         p.join()
-    
+
     if ret != 0:
         sys.exit(1)
