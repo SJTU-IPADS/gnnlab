@@ -37,8 +37,7 @@ class Graph:
     def __str__(self):
         graph_sz = sz_format(
             ((self.num_nodes + 1) + self.num_edges) * INT_BYTES)
-        feat_sz = sz_format((self.num_nodes * self.feat_dim)
-                            * FLOAT_BYTES + self.num_nodes * LONG_BYTES)
+        feat_sz = sz_format((self.num_nodes * self.feat_dim) * FLOAT_BYTES)
 
         return "{:15s} | topology: {:s} | feat: {:s}".format(self.name, graph_sz, feat_sz)
 
