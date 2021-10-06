@@ -216,7 +216,8 @@ def run():
         num_workers=run_config['num_sampling_worker'])
 
     if (run_config['report_acc'] != 0):
-        accuracy = Accuracy(g, dataset.valid_set, dataset.test_set, dataset.feat,
+        accuracy = Accuracy(g, dataset.valid_set.to(sample_device),
+                            dataset.test_set.to(sample_device), dataset.feat,
                             dataset.label, run_config['fanout'],
                             run_config['batch_size'], sample_device)
 

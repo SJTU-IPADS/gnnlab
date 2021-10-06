@@ -215,7 +215,7 @@ def run_train(worker_id, run_config):
         dgl_graph, valid_set, test_set, feat, label = \
             train_accuracy.load_accuracy_data(run_config['dataset'], run_config['root_path'])
         # use sample device to speedup the sampling
-        # TODO: why can not work?
+        # XXX: why can not work while graph is hold on this GPU ?
         acc_device = torch.device(run_config['sample_workers'][0])
         accuracy = train_accuracy.Accuracy(dgl_graph, valid_set, test_set, feat, label,
                             run_config['fanout'], run_config['batch_size'], acc_device)

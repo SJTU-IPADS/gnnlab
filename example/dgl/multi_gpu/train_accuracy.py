@@ -11,9 +11,11 @@ def load_accuracy_data(dataset_name, root_path):
 
 class Accuracy:
     def __init__(self, graph, valid_set, test_set, feat, label, fanout, batch_size, sample_device):
-        self.graph = graph.to(sample_device)
-        self.valid_set = valid_set.to(sample_device)
-        self.test_set = test_set.to(sample_device)
+        # XXX: function "to" is
+        #        not useful for samgraph while sample device is different GPU with training
+        self.graph = graph #.to(sample_device)
+        self.valid_set = valid_set #.to(sample_device)
+        self.test_set = test_set #.to(sample_device)
         self.feat = feat
         self.label = label
         self.fanout = fanout
