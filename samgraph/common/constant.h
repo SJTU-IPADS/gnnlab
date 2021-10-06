@@ -32,6 +32,7 @@ class Constant {
   static const std::string kCacheByHeuristicFile;
   static const std::string kCacheByDegreeHopFile;
   static const std::string kCacheByFakeOptimalFile;
+  static const std::string kCacheByRandomFile;
 
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;

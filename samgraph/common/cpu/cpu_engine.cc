@@ -162,6 +162,7 @@ std::unordered_map<std::string, Context> CPUEngine::GetGraphFileCtx() {
   ret[Constant::kCacheByHeuristicFile] = MMAP();
   ret[Constant::kCacheByDegreeHopFile] = MMAP();
   ret[Constant::kCacheByFakeOptimalFile] = MMAP();
+  ret[Constant::kCacheByRandomFile] = MMAP();
 
   return ret;
 }

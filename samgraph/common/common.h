@@ -71,6 +71,7 @@ enum CachePolicy {
   kCacheByPreSampleStatic,
   kCacheByFakeOptimal,
   kDynamicCache,
+  kCacheByRandom,
 };
 
 struct Context {

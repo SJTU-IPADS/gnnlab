@@ -334,6 +334,7 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
   ret[Constant::kCacheByHeuristicFile] = MMAP();
   ret[Constant::kCacheByDegreeHopFile] = MMAP();
   ret[Constant::kCacheByFakeOptimalFile] = MMAP();
+  ret[Constant::kCacheByRandomFile] = MMAP();
 
   switch (RunConfig::run_arch) {
     case kArch1:
