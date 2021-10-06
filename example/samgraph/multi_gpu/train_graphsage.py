@@ -288,7 +288,7 @@ def run_train(worker_id, run_config):
         epoch_acc_time = 0.0
 
         tic = time.time()
-        if run_config['pipeline']:
+        if run_config['pipeline'] or run_config['single_gpu']:
             need_steps = int(num_step / num_worker)
             if worker_id < num_step % num_worker:
                 need_steps += 1
@@ -297,7 +297,7 @@ def run_train(worker_id, run_config):
         for step in range(worker_id, align_up_step, num_worker):
             if step < num_step:
                 t0 = time.time()
-                if not run_config['pipeline']:
+                if (not run_config['pipeline']) and (not run_config['single_gpu']):
                     sam.sample_once()
                 # sam.sample_once()
                 batch_key = sam.get_next_batch()
