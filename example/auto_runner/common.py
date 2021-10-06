@@ -407,7 +407,7 @@ class ConfigList:
         for i, conf in enumerate(self.conf_list):
             if conf.status != RunStatus.Ok:
                 print(
-                    f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
+                    f'Running config [{i}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
                 conf: RunConfig
                 ret = conf.run(i, appdir, logdir,
                                mock, durable_log, callback)
@@ -416,7 +416,7 @@ class ConfigList:
                     conf.status = RunStatus.Ok
             else:
                 print(
-                    f'Running config [{i + 1}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
+                    f'Running config [{i}/{len(self.conf_list)}], fails_count={error_count}, mock={mock}')
                 ret = conf.form_cmd(i, appdir, logdir, durable_log)
 
         print(f'Total Fails Count={error_count}')
