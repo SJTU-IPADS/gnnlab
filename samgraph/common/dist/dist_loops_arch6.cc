@@ -112,13 +112,13 @@ bool RunCacheSampleCopySubLoopOnce() {
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().LogStep(
-        task->key, kLogL1SampleTime,
-        shuffle_time + sample_time + id_copy_time + feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL1SampleTime,
+                            shuffle_time + sample_time);
     Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
                                 shuffle_time + sample_time);
-    Profiler::Get().LogStep(task->key, kLogL1CopyTime, feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL1CopyTime,
+                            id_copy_time + feat_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2FeatCopyTime, feat_copy_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochCopyTime,
