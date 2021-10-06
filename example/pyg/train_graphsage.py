@@ -245,6 +245,8 @@ def run():
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
+        sync_device()
+
         toc = time.time()
 
         epoch_sample_times.append(epoch_sample_time)

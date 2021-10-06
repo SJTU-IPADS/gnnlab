@@ -271,7 +271,9 @@ def run():
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
-        
+
+        sync_device()
+
         toc = time.time()
 
         epoch_sample_times.append(epoch_sample_time)
