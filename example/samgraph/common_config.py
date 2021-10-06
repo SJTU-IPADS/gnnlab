@@ -19,7 +19,8 @@ def get_default_timeout():
 
 def get_dataset_list():
     return ['papers100M', 'com-friendster',
-            'reddit', 'products', 'twitter', 'uk-2006-05', 'papers100M_empty']
+            'reddit', 'products', 'twitter', 'uk-2006-05', 'papers100M_empty',
+            'papers100M_300', 'papers100M_600']
 
 
 def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):

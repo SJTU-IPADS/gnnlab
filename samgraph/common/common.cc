@@ -414,6 +414,9 @@ std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
     case kCacheByFakeOptimal:
       os << "fake_optimal";
       break;
+    case kCacheByRandom:
+      os << "random";
+      break;
     default:
       CHECK(false);
   }
