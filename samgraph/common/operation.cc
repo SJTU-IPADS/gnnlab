@@ -193,6 +193,7 @@ uint64_t samgraph_get_next_batch() {
   CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
 
   // uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  Engine::Get()->SetGraphBatch(nullptr);
   auto graph = Engine::Get()->GetGraphPool()->GetGraphBatch();
   uint64_t key = graph->key;
 
@@ -355,12 +356,13 @@ size_t samgraph_num_local_step() {
 
 int samgraph_wait_one_child() {
   int child_stat;
-  waitpid(-1, &child_stat, 0);
+  pid_t pid = waitpid(-1, &child_stat, 0);
   if (WEXITSTATUS(child_stat) != 0) {
-    LOG(ERROR) << "detect a terminated child, status is " << WEXITSTATUS(child_stat);
+    LOG(ERROR) << "detect a terminated child " << pid << ", status is "
+               << WEXITSTATUS(child_stat);
     return 1;
   } else if (WIFSIGNALED(child_stat) && (WTERMSIG(child_stat) == SIGABRT)) {
-    LOG(ERROR) << "detect an aborted child";
+    LOG(ERROR) << "detect an aborted child " << pid;
     return 1;
   } else return 0;
 }
