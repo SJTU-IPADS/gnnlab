@@ -41,7 +41,7 @@ size_t get_cuda_used(Context ctx) {
     LOG(LEVEL) << (title) << ", data alloc: " << ToReadableSize(_target_device->DataSize(ctx));\
     LOG(LEVEL) << (title) << ", workspace : " << ToReadableSize(_target_device->WorkspaceSize(ctx));\
     LOG(LEVEL) << (title) << ", total     : " << ToReadableSize(_target_device->TotalSize(ctx));\
-    LOG(LEVEL) << "cuda usage: " << ToReadableSize(get_cuda_used(ctx));\
+    LOG(LEVEL) << "cuda" << ctx.device_id << ": usage: " << ToReadableSize(get_cuda_used(ctx));\
   }
 } // namespace
 

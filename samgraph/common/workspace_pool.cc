@@ -47,8 +47,14 @@ class WorkspacePool::Pool {
         for (; it->size >= nbytes; --it) {
         }
         e = *(it + 1);
-        _free_list.erase(it + 1);
-        _free_list_total_size -= e.size;
+        if (e.size > 2 * nbytes) {
+          nbytes *= scale;
+          e.data = device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment);
+          e.size = nbytes;
+        } else {
+          _free_list.erase(it + 1);
+          _free_list_total_size -= e.size;
+        }
       } else {
         nbytes *= scale;
         e.data = device->AllocDataSpace(ctx, nbytes, kTempAllocaAlignment);
