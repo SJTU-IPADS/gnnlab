@@ -100,7 +100,7 @@ bool RunCacheSampleCopySubLoopOnce() {
     double id_copy_time = t3.Passed();
 
     Timer t4;
-    DoGPULabelExtract(task);
+    DoCPULabelExtractAndCopy(task);
     DoCacheFeatureExtractCopy(task);
     double feat_copy_time = t4.Passed();
 

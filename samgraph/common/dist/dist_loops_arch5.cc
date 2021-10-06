@@ -204,10 +204,6 @@ bool RunCacheDataCopySubLoopOnce() {
     DoGraphCopy(task);
     double graph_copy_time = t0.Passed();
 
-    Timer t1;
-    DoCacheIdCopy(task);
-    double id_copy_time = t1.Passed();
-
     Timer t2;
     switch(dist_type) {
       case (DistType::Extract): {
@@ -221,23 +217,21 @@ bool RunCacheDataCopySubLoopOnce() {
       default:
             CHECK(0);
     }
-    DoGPULabelExtract(task);
+    DoCPULabelExtractAndCopy(task);
     double cache_feat_copy_time = t2.Passed();
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().LogStep(
-        task->key, kLogL1CopyTime,
-        recv_time + graph_copy_time + id_copy_time + cache_feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL1CopyTime,
+                            recv_time + graph_copy_time + cache_feat_copy_time);
     Profiler::Get().LogStep(task->key, kLogL1RecvTime, recv_time);
     Profiler::Get().LogStep(task->key, kLogL2GraphCopyTime, graph_copy_time);
-    Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2CacheCopyTime,
                             cache_feat_copy_time);
     Profiler::Get().LogEpochAdd(
         task->key, kLogEpochCopyTime,
-        recv_time + graph_copy_time + id_copy_time + cache_feat_copy_time);
+        recv_time + graph_copy_time + cache_feat_copy_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }

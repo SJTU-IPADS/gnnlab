@@ -150,7 +150,7 @@ std::unordered_map<std::string, Context> CPUEngine::GetGraphFileCtx() {
   ret[Constant::kIndicesFile] =
       RunConfig::sample_type == kKHop2 ? CPU() : MMAP();
   ret[Constant::kFeatFile] = MMAP();
-  ret[Constant::kLabelFile] = RunConfig::UseGPUCache() ? _trainer_ctx : MMAP();
+  ret[Constant::kLabelFile] = MMAP();
   ret[Constant::kTrainSetFile] = CPU();
   ret[Constant::kTestSetFile] = CPU();
   ret[Constant::kValidSetFile] = CPU();

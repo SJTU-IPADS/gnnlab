@@ -343,11 +343,6 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _initialize = true;
 }
 
-void DistEngine::TrainDataCopy(Context trainer_ctx, StreamHandle stream) {
-  _dataset->label = Tensor::CopyTo(_dataset->label, trainer_ctx, stream);
-  LOG(DEBUG) << "TrainDataCopy finished!";
-}
-
 void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Timer t0;
   _dist_type = dist_type;
@@ -388,9 +383,6 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _cache_manager = nullptr;
   _gpu_cache_manager = nullptr;
   if (RunConfig::UseGPUCache()) {
-    Timer t_load_graph_ds_copy;
-    TrainDataCopy(_trainer_ctx, _trainer_copy_stream);
-    time_load_graph_ds_copy = t_load_graph_ds_copy.Passed();
     // wait the presample
     // XXX: let the app ensure sampler initialization before trainer
     /*

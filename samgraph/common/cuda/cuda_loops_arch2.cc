@@ -120,18 +120,25 @@ bool RunCacheDataCopySubLoopOnce() {
   auto task = q->GetTask();
 
   if (task) {
+    Timer t1;
+    DoCacheIdCopyToCPU(task);
+    double id_copy_time = t1.Passed();
+
     Timer t2;
     DoCacheFeatureCopy(task);
-    DoGPULabelExtract(task);
+    DoCPULabelExtractAndCopy(task);
     double cache_feat_copy_time = t2.Passed();
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().LogStep(task->key, kLogL1CopyTime, cache_feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL1CopyTime,
+                            id_copy_time + cache_feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2CacheCopyTime,
                             cache_feat_copy_time);
-    Profiler::Get().LogEpochAdd(task->key, kLogEpochCopyTime, cache_feat_copy_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochCopyTime,
+                                id_copy_time + cache_feat_copy_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }

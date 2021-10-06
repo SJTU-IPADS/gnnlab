@@ -100,8 +100,12 @@ bool RunCacheSampleCopySubLoopOnce() {
     DoGPUSample(task);
     double sample_time = t1.Passed();
 
+    Timer t2;
+    DoCacheIdCopyToCPU(task);
+    double id_copy_time = t2.Passed();
+
     Timer t4;
-    DoGPULabelExtract(task);
+    DoCPULabelExtractAndCopy(task);
     DoGetCacheMissIndexAndFeatureCopy(task);
     double feat_copy_time = t4.Passed();
 
@@ -113,9 +117,12 @@ bool RunCacheSampleCopySubLoopOnce() {
     Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
                                 shuffle_time + sample_time);
-    Profiler::Get().LogStep(task->key, kLogL1CopyTime, feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL1CopyTime,
+                            id_copy_time + feat_copy_time);
+    Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2FeatCopyTime, feat_copy_time);
-    Profiler::Get().LogEpochAdd(task->key, kLogEpochCopyTime, feat_copy_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochCopyTime,
+                                id_copy_time + feat_copy_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
   }

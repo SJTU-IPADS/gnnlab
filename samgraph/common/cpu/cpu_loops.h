@@ -20,6 +20,7 @@ void DoFeatureCopy(TaskPtr task);
 
 void DoCacheIdCopy(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
+void DoCPULabelExtractAndCopy(TaskPtr task);
 void DoCacheFeatureExtractCopy(TaskPtr task);
 
 }  // namespace cpu
