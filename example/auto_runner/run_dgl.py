@@ -10,6 +10,7 @@ app_dir = os.path.join(here, '../dgl/multi_gpu')
     if log_dir is not None, it will only parse logs
 """
 
+
 def motivation_test(log_folder=None):
     tic = time.time()
 
@@ -20,7 +21,6 @@ def motivation_test(log_folder=None):
         mock = False
         log_dir = os.path.join(
             here, f'run-logs/logs_dgl_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
-
 
     log_table = LogTable(
         num_row=2,
@@ -226,9 +226,9 @@ def breakdown_test(log_folder=None):
         [App.pinsage],
         'BOOL_validate_configs',
         ['validate_configs']
-    # ).override(
-    #     'BOOL_validate_configs',
-    #     ['validate_configs']
+        # ).override(
+        #     'BOOL_validate_configs',
+        #     ['validate_configs']
     ).run(
         appdir=app_dir,
         logdir=log_dir,
@@ -448,6 +448,44 @@ def overall_perf_test(log_folder=None):
         log_dir = os.path.join(
             here, f'run-logs/logs_dgl_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
 
+    log_table = LogTable(
+        num_row=6,
+        num_col=1
+    ).update_col_definition(
+        col_id=0,
+        definition='epoch_time'
+    ).update_row_definition(
+        row_id=0,
+        col_range=[0, 0],
+        app=App.gcn,
+        dataset=Dataset.products
+    ).update_row_definition(
+        row_id=1,
+        col_range=[0, 0],
+        app=App.gcn,
+        dataset=Dataset.papers100M
+    ).update_row_definition(
+        row_id=2,
+        col_range=[0, 0],
+        app=App.gcn,
+        dataset=Dataset.twitter
+    ).update_row_definition(
+        row_id=3,
+        col_range=[0, 0],
+        app=App.graphsage,
+        dataset=Dataset.products
+    ).update_row_definition(
+        row_id=4,
+        col_range=[0, 0],
+        app=App.graphsage,
+        dataset=Dataset.papers100M
+    ).update_row_definition(
+        row_id=5,
+        col_range=[0, 0],
+        app=App.graphsage,
+        dataset=Dataset.twitter
+    ).create()
+
     ConfigList(
         test_group_name='DGL overall performance test'
     ).select(
@@ -455,10 +493,10 @@ def overall_perf_test(log_folder=None):
         [App.gcn, App.graphsage]
     ).select(
         'dataset',
-        [Dataset.papers100M, Dataset.products, Dataset.uk_2006_05]
+        [Dataset.products, Dataset.papers100M, Dataset.twitter]
     ).override(
         'num_epoch',
-        [3]
+        [10]
     ).override(
         'devices',
         ['0 1 2 3 4 5 6 7'],
@@ -468,17 +506,17 @@ def overall_perf_test(log_folder=None):
         # ).override(
         #     'BOOL_validate_configs',
         #     ['validate_configs']
-    ).override(
-        'BOOL_pipelining',
-        ['pipelining']
     ).run(
         appdir=app_dir,
         logdir=log_dir,
         mock=mock
+    ).parse_logs(
+        logtable=log_table,
+        logdir=log_dir
     )
 
     toc = time.time()
-    print('overall performance test uses {:.4f} secs'.format(toc - tic))
+    print('DGL overall performance test uses {:.4f} secs'.format(toc - tic))
 
 
 if __name__ == '__main__':
@@ -486,8 +524,8 @@ if __name__ == '__main__':
     argparser.add_argument('-l', '--log-folder', default=None)
     args = argparser.parse_args()
 
-    motivation_test(args.log_folder)
+    # motivation_test(args.log_folder)
     # breakdown_test(args.log_folder)
     # scalability_test(args.log_folder)
     # scalability_pipeline_test(args.log_folder)
-    # overall_perf_test(args.log_folder)
+    overall_perf_test(args.log_folder)

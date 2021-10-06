@@ -5,6 +5,8 @@ import torch.nn.functional as F
 import fastgraph
 import time
 import numpy as np
+import sys
+import math
 
 import torch
 import torch.nn as nn
@@ -45,6 +47,10 @@ def parse_args(default_run_config):
                            default=default_run_config['dataset'])
     argparser.add_argument('--root-path', type=str,
                            default='/graph-learning/samgraph/')
+    argparser.add_argument('--pipelining', action='store_true',
+                           default=default_run_config['pipelining'])
+    argparser.add_argument(
+        '--no-pipelining', dest='pipelining', action='store_false')
     argparser.add_argument('--num-sampling-worker', type=int,
                            default=default_run_config['num_sampling_worker'])
 
@@ -61,6 +67,9 @@ def parse_args(default_run_config):
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
 
+    argparser.add_argument('--validate-configs',
+                           action='store_true', default=False)
+
     return vars(argparser.parse_args())
 
 
@@ -72,6 +81,7 @@ def get_run_config():
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
+    default_run_config['pipelining'] = False
     default_run_config['num_sampling_worker'] = 16
 
     # In PyG, the order from root to leaf is from front to end
@@ -83,17 +93,62 @@ def get_run_config():
     default_run_config['dropout'] = 0.5
 
     run_config = parse_args(default_run_config)
+    assert(run_config['num_sampling_worker'] >= 0)
 
     # the first epoch is used to warm up the system
     run_config['num_epoch'] += 1
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
 
-    print('Evaluation time: ', time.strftime(
-        "%Y-%m-%d %H:%M:%S", time.localtime()))
-    print(*run_config.items(), sep='\n')
+    dataset = fastgraph.dataset(
+        run_config['dataset'], run_config['root_path'], force_load64=True)
+    num_train_set = dataset.train_set.shape[0]
+
+    # [prefetch_factor]: number of samples loaded in advance by each worker.
+    # 2 means there will be a total of 2 * num_workers samples prefetched across all workers. (default: 2)
+    # DGL uses a custom dataset, it makes PyTorch thinks a batch is a sample.
+    if run_config['pipelining'] == False and run_config['num_sampling_worker'] > 0:
+        # make it sequential. sample all the batch before training.
+        # assumed that drop last = False
+
+        num_samples_per_epoch = math.ceil(
+            num_train_set / run_config['num_worker'])
+        num_batch_per_epoch = math.ceil(
+            num_samples_per_epoch / run_config['batch_size'])
+        run_config['num_prefetch_batch'] = num_batch_per_epoch
+        run_config['prefetch_factor'] = math.ceil(
+            num_batch_per_epoch / run_config['num_sampling_worker'])
+    else:
+        # default prefetch factor is 2
+        run_config['prefetch_factor'] = 2
+
+    run_config['seed'] = 0
+
+    print('config:eval_tsp="{:}"'.format(time.strftime(
+        "%Y-%m-%d %H:%M:%S", time.localtime())))
+    for k, v in run_config.items():
+        print('config:{:}={:}'.format(k, v))
+
+    run_config['dataset'] = dataset
+    run_config['g'] = dataset.to_pyg_graph()
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
+
+
+def get_data_iterator(run_config, dataloader):
+    if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+        return [data for data in iter(dataloader)]
+    else:
+        return iter(dataloader)
+
+
+def sync_device():
+    train_end_event = torch.cuda.Event(blocking=True)
+    train_end_event.record()
+    train_end_event.synchronize()
 
 
 def run():
@@ -114,9 +169,10 @@ def run():
                                  batch_size=run_config['batch_size'],
                                  node_idx=train_nids,
                                  shuffle=True,
+                                 drop_last=False,
                                  return_e_id=False,
                                  num_workers=run_config['num_sampling_worker'],
-                                 #  prefetch_factor=run_config['num_epoch']
+                                 prefetch_factor=run_config['prefetch_factor']
                                  )
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
@@ -145,14 +201,17 @@ def run():
         epoch_sample_time = 0.0
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
-        epoch_total_time = 0.0
+
+        tic = time.time()
 
         t0 = time.time()
-        for step, (batch_size, n_id, adjs) in enumerate(dataloader):
+        for step, (batch_size, n_id, adjs) in enumerate(get_data_iterator(run_config, dataloader)):
             t1 = time.time()
             adjs = [adj.to(device) for adj in adjs]
             batch_inputs = feat[n_id].to(device)
             batch_labels = label[n_id[:batch_size]].to(device)
+            if not run_config['pipelining']:
+                sync_device()
             t2 = time.time()
 
             # Compute loss and prediction
@@ -161,6 +220,15 @@ def run():
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            if not run_config['pipelining']:
+                sync_device()
+
+            num_samples.append(sum([adj.adj_t.nnz() for adj in adjs]))
+            num_nodes.append(batch_inputs.shape[0])
+            batch_inputs = None
+            batch_labels = None
+            adjs = None
 
             t3 = time.time()
 
@@ -172,22 +240,17 @@ def run():
             epoch_sample_time += (t1 - t0)
             epoch_copy_time += (t2 - t1)
             epoch_train_time += (t3 - t2)
-            epoch_total_time += (t3 - t0)
-
-            num_sample = 0
-            for adj in adjs:
-                num_sample += adj.adj_t.nnz()
-            num_samples.append(num_sample)
-            num_nodes.append(batch_inputs.shape[0])
 
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
+        toc = time.time()
+
         epoch_sample_times.append(epoch_sample_time)
         epoch_copy_times.append(epoch_copy_time)
         epoch_train_times.append(epoch_train_time)
-        epoch_total_times.append(epoch_total_time)
+        epoch_total_times.append(toc - tic)
 
     print('Avg Epoch Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
         np.mean(epoch_total_times[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))

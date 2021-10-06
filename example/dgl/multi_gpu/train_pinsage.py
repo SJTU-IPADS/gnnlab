@@ -214,7 +214,8 @@ def get_run_config():
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
 
-    run_config['num_thread'] = torch.get_num_threads() // run_config['num_worker']
+    run_config['num_thread'] = torch.get_num_threads(
+    ) // run_config['num_worker']
 
     print('config:eval_tsp="{:}"'.format(time.strftime(
         "%Y-%m-%d %H:%M:%S", time.localtime())))
@@ -338,14 +339,19 @@ def run(worker_id, run_config):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            # free input and label data
+
+            if not run_config['pipelining']:
+                sync_device()
+
+            num_samples.append(sum([block.num_edges() for block in blocks]))
+            num_nodes.append(blocks[0].num_src_nodes())
+
             batch_inputs = None
             batch_labels = None
+            blocks = None
 
             if num_worker > 1:
                 torch.distributed.barrier()
-            if not run_config['pipelining']:
-                sync_device()
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -353,9 +359,6 @@ def run(worker_id, run_config):
             copy_times.append(t3 - t1)
             train_times.append(t4 - t3)
             total_times.append(t4 - t0)
-
-            num_samples.append(sum([block.num_edges() for block in blocks]))
-            num_nodes.append(blocks[0].num_src_nodes())
 
             epoch_sample_time += sample_times[-1]
             epoch_graph_copy_time += graph_copy_times[-1]
@@ -369,10 +372,10 @@ def run(worker_id, run_config):
                     epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
+        sync_device()
+
         if num_worker > 1:
             torch.distributed.barrier()
-
-        sync_device()
 
         toc = time.time()
 
