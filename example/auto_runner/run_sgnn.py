@@ -556,7 +556,7 @@ def gcn_scalability_test(log_folder, mock):
         ['degree']
     ).override(
         'cache_percentage',
-        [0.04]
+        [0.03]
     ).override(
         'num_worker',
         [1, 2, 3, 4, 5, 6, 7, 8],
@@ -692,4 +692,4 @@ if __name__ == '__main__':
     # overall_pipeline_test(args.log_folder, args.mock)
     # overall_no_pipeline_test(args.log_folder, args.mock)
     gcn_scalability_test(args.log_folder, args.mock)
-    pinsage_scalability_test(args.log_folder, args.mock)
+    # pinsage_scalability_test(args.log_folder, args.mock)
