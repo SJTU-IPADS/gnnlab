@@ -131,12 +131,12 @@ bool RunCacheDataCopySubLoopOnce() {
     double graph_copy_time = t0.Passed();
 
     Timer t1;
-    DoCacheIdCopy(task);
+    DoCacheIdCopyToCPU(task);
     double id_copy_time = t1.Passed();
 
     Timer t2;
     DoCacheFeatureCopy(task);
-    DoGPULabelExtract(task);
+    DoCPULabelExtractAndCopy(task);
     double cache_feat_copy_time = t2.Passed();
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;

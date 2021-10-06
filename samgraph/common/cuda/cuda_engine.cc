@@ -342,18 +342,14 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       break;
     case kArch2:
     case kArch3:
+    case kArch7:
       ret[Constant::kFeatFile] = MMAP();
-      ret[Constant::kLabelFile] =
-          RunConfig::UseGPUCache() ? _trainer_ctx : MMAP();
+      ret[Constant::kLabelFile] = MMAP();
       break;
     case kArch4:
       ret[Constant::kFeatFile] = MMAP();
       ret[Constant::kLabelFile] = 
           RunConfig::UseDynamicGPUCache() ? _trainer_ctx : MMAP();
-      break;
-    case kArch7:
-      ret[Constant::kFeatFile] = MMAP();
-      ret[Constant::kLabelFile] = MMAP();
       break;
     default:
       CHECK(0);

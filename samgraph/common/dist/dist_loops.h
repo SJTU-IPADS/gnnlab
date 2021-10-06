@@ -23,9 +23,11 @@ void DoCPUFeatureExtract(TaskPtr task);
 void DoFeatureCopy(TaskPtr task);
 
 void DoCacheIdCopy(TaskPtr task);
+void DoCacheIdCopyToCPU(TaskPtr task);
 void DoSwitchCacheFeatureCopy(TaskPtr task);
 void DoCacheFeatureCopy(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
+void DoCPULabelExtractAndCopy(TaskPtr task);
 
 void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task);
 
