@@ -7,10 +7,12 @@ import torch.optim as optim
 import numpy as np
 from dgl.nn.pytorch import SAGEConv
 import dgl.multiprocessing as mp
+import dgl
 from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
 import datetime
+import train_accuracy
 '''
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 os.environ["NCCL_DEBUG"] = "INFO"
@@ -60,6 +62,8 @@ def parse_args(default_run_config):
                            default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
+    argparser.add_argument('--report-acc', type=int,
+                           default=0)
 
     return vars(argparser.parse_args())
 
@@ -207,6 +211,15 @@ def run_train(worker_id, run_config):
     num_worker = run_config['num_train_worker']
     global_barrier = run_config['global_barrier']
 
+    if (run_config['report_acc'] != 0) and (worker_id == 0):
+        dgl_graph, valid_set, test_set, feat, label = \
+            train_accuracy.load_accuracy_data(run_config['dataset'], run_config['root_path'])
+        # use sample device to speedup the sampling
+        # XXX: why can not work while graph is hold on this GPU ?
+        acc_device = torch.device(run_config['sample_workers'][0])
+        accuracy = train_accuracy.Accuracy(dgl_graph, valid_set, test_set, feat, label,
+                            run_config['fanout'], run_config['batch_size'], acc_device)
+
     train_device = torch.device(ctx)
     print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
@@ -257,6 +270,7 @@ def run_train(worker_id, run_config):
     convert_times = []
     train_times = []
     total_times = []
+    total_steps = 0
 
     align_up_step = int(
         int((num_step + num_worker - 1) / num_worker) * num_worker)
@@ -266,13 +280,16 @@ def run_train(worker_id, run_config):
     print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
     run_start = time.time()
+    run_acc_total = 0.0
 
     for epoch in range(num_epoch):
         # epoch start barrier
         global_barrier.wait()
 
+        epoch_acc_time = 0.0
+
         tic = time.time()
-        if run_config['pipeline']:
+        if run_config['pipeline'] or run_config['single_gpu']:
             need_steps = int(num_step / num_worker)
             if worker_id < num_step % num_worker:
                 need_steps += 1
@@ -281,7 +298,7 @@ def run_train(worker_id, run_config):
         for step in range(worker_id, align_up_step, num_worker):
             if step < num_step:
                 t0 = time.time()
-                if not run_config['pipeline']:
+                if (not run_config['pipeline']) and (not run_config['single_gpu']):
                     sam.sample_once()
                 # sam.sample_once()
                 batch_key = sam.get_next_batch()
@@ -306,7 +323,7 @@ def run_train(worker_id, run_config):
                 batch_input = None
                 batch_label = None
                 blocks = None
-            
+
             if num_worker > 1:
                 torch.distributed.barrier()
 
@@ -329,6 +346,16 @@ def run_train(worker_id, run_config):
             total_times.append(total_time)
 
             sam.report_step(epoch, step)
+            if (run_config['report_acc']) and \
+                    (step % run_config['report_acc'] == 0) and (worker_id == 0):
+                tt = time.time()
+                acc = accuracy.valid_acc(model, train_device)
+                acc_time = (time.time() - tt)
+                epoch_acc_time += acc_time
+                run_acc_total += acc_time
+                print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
+                    acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
+            total_steps += run_config['num_train_worker']
 
         # sync the train workers
         if num_worker > 1:
@@ -336,7 +363,7 @@ def run_train(worker_id, run_config):
 
         toc = time.time()
 
-        epoch_total_times_python.append(toc - tic)
+        epoch_total_times_python.append(toc - tic - epoch_acc_time)
 
         # epoch end barrier
         global_barrier.wait()
@@ -355,6 +382,13 @@ def run_train(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
         epoch_train_total_times_profiler.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
+        if (run_config['report_acc'] != 0) and (worker_id == 0):
+            tt = time.time()
+            acc = accuracy.valid_acc(model, train_device)
+            acc_time = (time.time() - tt)
+            run_acc_total += acc_time
+            print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
+                acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
         if worker_id == 0:
             print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
                 epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
@@ -363,6 +397,12 @@ def run_train(worker_id, run_config):
     if num_worker > 1:
         torch.distributed.barrier()
 
+    if (run_config['report_acc'] != 0) and (worker_id == 0):
+        tt = time.time()
+        acc = accuracy.test_acc(model, train_device)
+        acc_time = (time.time() - tt)
+        run_acc_total += acc_time
+        print('Test Acc: {:.2f}% | Acc Time: {:.4f} | Time Cost: {:.2f}'.format(acc * 100.0, acc_time, (time.time() - run_start - run_acc_total)))
     print('[Train  Worker {:d}] Avg Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
@@ -429,6 +469,6 @@ if __name__ == '__main__':
         p.kill()
     for p in workers:
         p.join()
-    
+
     if ret != 0:
         sys.exit(1)
