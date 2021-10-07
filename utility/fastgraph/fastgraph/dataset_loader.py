@@ -52,8 +52,8 @@ class DatasetLoader:
             dataset_path, 'indptr.bin'), dtype='int32', mode='r', shape=(self.num_node + 1,)))
         self.indices = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'indices.bin'), dtype='int32', mode='r', shape=(self.num_edge,)))
-        self.eids = torch.from_numpy(
-            np.arange(0, self.num_edge, dtype='int32'))
+        # self.eids = torch.from_numpy(
+        #     np.arange(0, self.num_edge, dtype='int32'))
         if os.path.isfile(os.path.join(
                 dataset_path, 'feat.bin')):
             self.feat = torch.from_numpy(np.memmap(os.path.join(
@@ -83,8 +83,8 @@ class DatasetLoader:
             dataset_path, 'indptr64.bin'), dtype='int64', mode='r', shape=(self.num_node + 1,)))
         self.indices = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'indices64.bin'), dtype='int64', mode='r', shape=(self.num_edge,)))
-        self.eids = torch.from_numpy(
-            np.arange(0, self.num_edge, dtype='int64'))
+        # self.eids = torch.from_numpy(
+        #     np.arange(0, self.num_edge, dtype='int64'))
 
         self.train_set = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'train_set64.bin'), dtype='int64', mode='r', shape=(self.num_train_set,)))

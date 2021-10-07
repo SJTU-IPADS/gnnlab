@@ -8,12 +8,13 @@ import time
 import math
 import sys
 import numpy as np
+import datetime
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data.distributed import DistributedSampler
+from common_config import *
 
 from torch_geometric.nn import GCNConv
-from torch_geometric.data import NeighborSampler
+from torch_geometric.loader import NeighborSampler
 from torch_sparse import SparseTensor, sum as sparsesum, mul
 
 
@@ -112,7 +113,7 @@ def get_run_config():
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
     default_run_config['pipelining'] = False
-    default_run_config['num_sampling_worker'] = 16
+    default_run_config['num_sampling_worker'] = 0
 
     # In PyG, the order from root to leaf is from front to end
     default_run_config['fanout'] = [5, 10, 15]
@@ -181,10 +182,6 @@ def get_data_iterator(run_config, dataloader):
     else:
         return iter(dataloader)
 
-def sync_device():
-    train_end_event = torch.cuda.Event(blocking=True)
-    train_end_event.record()
-    train_end_event.synchronize()
 
 def run(worker_id, run_config):
     torch.set_num_threads(run_config['num_thread'])
@@ -197,7 +194,8 @@ def run(worker_id, run_config):
         torch.distributed.init_process_group(backend="nccl",
                                              init_method=dist_init_method,
                                              world_size=num_worker,
-                                             rank=worker_id)
+                                             rank=worker_id,
+                                             timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     dataset = run_config['dataset']
     g = run_config['g']
@@ -205,32 +203,30 @@ def run(worker_id, run_config):
     feat = dataset.feat
     label = dataset.label
     train_nids = dataset.train_set
+    train_nids = train_nids.split(train_nids.size(0) // num_worker)[worker_id]
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
-    if num_worker > 1:
-        dataloader_sampler = DistributedSampler(train_nids, num_replicas=num_worker,
-                                                rank=worker_id, shuffle=True, drop_last=False, seed=run_config['seed'])
-        dataloader = NeighborSampler(g,
-                                     sizes=run_config['fanout'],
-                                     batch_size=run_config['batch_size'],
-                                     node_idx=train_nids,
-                                     return_e_id=False,
-                                     num_workers=run_config['num_sampling_worker'],
-                                     sampler=dataloader_sampler,
-                                     prefetch_factor=run_config['prefetch_factor']
-                                     )
-    else:
-        dataloader = NeighborSampler(g,
-                                     sizes=run_config['fanout'],
-                                     batch_size=run_config['batch_size'],
-                                     node_idx=train_nids,
-                                     shuffle=True,
-                                     return_e_id=False,
-                                     drop_last=False,
-                                     num_workers=run_config['num_sampling_worker'],
-                                     prefetch_factor=run_config['prefetch_factor']
-                                     )
+    dataloader = NeighborSampler(g, sizes=run_config['fanout'],
+                                    batch_size=run_config['batch_size'],
+                                    node_idx=train_nids,
+                                    shuffle=True,
+                                    return_e_id=False,
+                                    drop_last=False,
+                                    num_workers=run_config['num_sampling_worker'],
+                                    prefetch_factor=run_config['prefetch_factor']
+                                    )
+
+    dataloader = NeighborSampler(g,
+                                    sizes=run_config['fanout'],
+                                    batch_size=run_config['batch_size'],
+                                    node_idx=train_nids,
+                                    shuffle=True,
+                                    return_e_id=False,
+                                    drop_last=False,
+                                    num_workers=run_config['num_sampling_worker'],
+                                    prefetch_factor=run_config['prefetch_factor']
+                                    )
 
     model = GCN(in_feats, run_config['num_hidden'], n_classes,
                 run_config['num_layer'], F.relu, run_config['dropout'])
@@ -264,13 +260,6 @@ def run(worker_id, run_config):
 
         tic = time.time()
 
-        # In distributed mode, calling the set_epoch() method at the beginning of each epoch
-        # before creating the DataLoader iterator is necessary to make shuffling work properly across multiple epochs.
-        # Otherwise, the same ordering will be always used.
-        # https://pytorch.org/docs/stable/data.html
-        if num_worker > 1:
-            dataloader_sampler.set_epoch(epoch)
-
         t0 = time.time()
         for step, (batch_size, n_id, adjs) in enumerate(get_data_iterator(run_config, dataloader)):
             t1 = time.time()
@@ -278,7 +267,7 @@ def run(worker_id, run_config):
             batch_inputs = feat[n_id].to(dev_id)
             batch_labels = label[n_id[:batch_size]].to(dev_id)
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
             t2 = time.time()
 
             # Compute loss and prediction
@@ -289,16 +278,13 @@ def run(worker_id, run_config):
             optimizer.step()
 
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
 
             num_samples.append(sum([adj.adj_t.nnz() for adj in adjs]))
             num_nodes.append(batch_inputs.shape[0])
             batch_inputs = None
             batch_labels = None
             adjs = None
-
-            if num_worker > 1:
-                torch.distributed.barrier()
 
             t3 = time.time()
 
@@ -317,7 +303,7 @@ def run(worker_id, run_config):
                     epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
 
-        sync_device()
+        event_sync()
 
         if num_worker > 1:
             torch.distributed.barrier()

@@ -146,7 +146,7 @@ def overall_perf_test(log_folder=None, mock=False):
         ['pipelining', 'no_pipelining']
     ).override(
         'num_sampling_worker',
-        [16],
+        [0],
     ).override(
         'devices',
         ['0 1 2 3 4 5 6 7']
