@@ -23,8 +23,8 @@ class DatasetLoader:
         self.num_valid_set = meta['NUM_VALID_SET']
         self.num_test_set = meta['NUM_TEST_SET']
 
-        if self.num_edge < INT_MAX and not force_load64:
-            self.load32(dataset_path)
+        if self.num_edge < INT_MAX or force_load64:
+            self.load32(dataset_path, force_load64)
         else:
             self.load64(dataset_path)
 
@@ -47,7 +47,7 @@ class DatasetLoader:
 
         print('Loading {:s} uses {:4f} secs.'.format(dataset_path, toc-tic))
 
-    def load32(self, dataset_path):
+    def load32(self, dataset_path, force_load64):
         self.indptr = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'indptr.bin'), dtype='int32', mode='r', shape=(self.num_node + 1,)))
         self.indices = torch.from_numpy(np.memmap(os.path.join(
@@ -76,6 +76,15 @@ class DatasetLoader:
         self.test_set = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'test_set.bin'), dtype='int32', mode='r', shape=(self.num_test_set,)
         ))
+
+        if force_load64:
+            self.indptr = self.indptr.to(torch.int64)
+            self.indices = self.indices.to(torch.int64)
+            self.eids = self.eids.to(torch.int64)
+            self.train_set = self.train_set.to(torch.int64)
+            self.valid_set = self.valid_set.to(torch.int64)
+            self.test_set = self.test_set.to(torch.int64)
+
 
     def load64(self, dataset_path):
         self.indptr = torch.from_numpy(np.memmap(os.path.join(

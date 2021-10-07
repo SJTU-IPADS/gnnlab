@@ -111,6 +111,7 @@ def get_run_config():
     # default_run_config['dataset'] = 'papers100M'
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
+    default_run_config['pipelining'] = False
     default_run_config['num_sampling_worker'] = 16
 
     # In PyG, the order from root to leaf is from front to end
@@ -155,6 +156,9 @@ def get_run_config():
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
 
+    run_config['num_thread'] = torch.get_num_threads(
+    ) // run_config['num_worker']
+
     run_config['seed'] = 0
 
     print('config:eval_tsp="{:}"'.format(time.strftime(
@@ -164,7 +168,7 @@ def get_run_config():
 
     g = dataset.to_pyg_graph()
     run_config['dataset'] = dataset
-    run_config['g'] = g.to_pyg_graph()
+    run_config['g'] = g
 
     if run_config['validate_configs']:
         sys.exit()

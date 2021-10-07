@@ -160,7 +160,7 @@ def get_run_config():
 
     g = dataset.to_pyg_graph()
     run_config['dataset'] = dataset
-    run_config['g'] = g.to_pyg_graph()
+    run_config['g'] = g
 
     if run_config['validate_configs']:
         sys.exit()
