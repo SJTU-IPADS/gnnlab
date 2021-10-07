@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import dgl
 import torch
 import torch.optim as optim
@@ -12,6 +13,7 @@ import time
 import numpy as np
 import math
 import sys
+from common_config import *
 
 """
   We have made the following modification(or say, simplification) on PinSAGE,
@@ -256,7 +258,8 @@ def run(worker_id, run_config):
         torch.distributed.init_process_group(backend="nccl",
                                              init_method=dist_init_method,
                                              world_size=world_size,
-                                             rank=worker_id)
+                                             rank=worker_id,
+                                             timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     dataset = run_config['dataset']
     g = run_config['g']
@@ -342,6 +345,8 @@ def run(worker_id, run_config):
 
             if not run_config['pipelining']:
                 sync_device()
+                if num_worker > 1:
+                    torch.distributed.barrier()
 
             num_samples.append(sum([block.num_edges() for block in blocks]))
             num_nodes.append(blocks[0].num_src_nodes())
@@ -350,8 +355,6 @@ def run(worker_id, run_config):
             batch_labels = None
             blocks = None
 
-            if num_worker > 1:
-                torch.distributed.barrier()
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -418,5 +421,5 @@ if __name__ == '__main__':
             p = mp.Process(target=run, args=(worker_id, run_config))
             p.start()
             workers.append(p)
-        for p in workers:
-            p.join()
+
+        wait_and_join(workers)
