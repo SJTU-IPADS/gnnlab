@@ -24,7 +24,7 @@ class DatasetLoader:
         self.num_test_set = meta['NUM_TEST_SET']
 
         if self.num_edge < INT_MAX and not force_load64:
-            self.load32(dataset_path, force_load64)
+            self.load32(dataset_path)
         else:
             self.load64(dataset_path)
 
