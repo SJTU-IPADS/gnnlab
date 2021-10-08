@@ -12,6 +12,12 @@ class RunMode(Enum):
     SGNN_DGL = 3  # arch7, for applications in example/samgraph/sgnn_dgl
 
 
+def event_sync():
+    event = torch.cuda.Event(blocking=True)
+    event.record()
+    event.synchronize()
+
+
 def get_default_timeout():
     # in seconds
     return 300.0

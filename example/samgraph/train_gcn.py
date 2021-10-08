@@ -161,9 +161,7 @@ def run():
             optimizer.step()
 
             # wait for the train finish then we can free the data safely
-            train_end_event = th.cuda.Event(blocking=True)
-            train_end_event.record()
-            train_end_event.synchronize()
+            event_sync()
 
             num_sample = 0
             for block in blocks:

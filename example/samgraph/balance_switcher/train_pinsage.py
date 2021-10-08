@@ -358,9 +358,7 @@ def run_train(worker_id, run_config, trainer_type):
             optimizer.step()
 
             # wait for the train finish then we can free the data safely
-            train_end_event = torch.cuda.Event(blocking=True)
-            train_end_event.record()
-            train_end_event.synchronize()
+            event_sync()
 
             batch_input = None
             batch_label = None

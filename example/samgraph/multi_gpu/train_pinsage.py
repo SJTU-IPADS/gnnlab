@@ -365,17 +365,12 @@ def run_train(worker_id, run_config):
             optimizer.step()
 
             # wait for the train finish then we can free the data safely
-            train_end_event = torch.cuda.Event(blocking=True)
-            train_end_event.record()
-            train_end_event.synchronize()
+            event_sync()
 
             if (step + num_worker < num_step):
                 batch_input = None
                 batch_label = None
                 blocks = None
-
-            if (num_worker > 1) and (run_config['use_ddp']):
-                torch.distributed.barrier()
 
             t3 = time.time()
 
