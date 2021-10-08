@@ -86,7 +86,7 @@ def get_run_config():
     default_run_config['num_sampling_worker'] = 0
 
     # In PyG, the order from root to leaf is from front to end
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [10, 25]
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
@@ -150,9 +150,8 @@ def run():
     run_config = get_run_config()
     device = torch.device(run_config['device'])
 
-    dataset = fastgraph.dataset(
-        run_config['dataset'], run_config['root_path'], force_load64=True)
-    g = dataset.to_pyg_graph()
+    dataset = run_config['dataset']
+    g = run_config['g']
     feat = dataset.feat
     label = dataset.label
     train_nids = dataset.train_set

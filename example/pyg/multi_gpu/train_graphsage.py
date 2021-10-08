@@ -85,7 +85,7 @@ def get_run_config():
     default_run_config['num_sampling_worker'] = 0
 
     # In PyG, the order from root to leaf is from front to end
-    default_run_config['fanout'] = [25, 10]
+    default_run_config['fanout'] = [10, 25]
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
@@ -154,14 +154,13 @@ def run(worker_id, run_config):
     dev_id = run_config['devices'][worker_id]
     num_worker = run_config['num_worker']
 
-    if num_worker > 1:
-        dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
-            master_ip='127.0.0.1', master_port='12345')
-        torch.distributed.init_process_group(backend="nccl",
-                                             init_method=dist_init_method,
-                                             world_size=num_worker,
-                                             rank=worker_id,
-                                             timeout=datetime.timedelta(seconds=get_default_timeout()))
+    dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
+        master_ip='127.0.0.1', master_port='12345')
+    torch.distributed.init_process_group(backend="nccl",
+                                         init_method=dist_init_method,
+                                         world_size=num_worker,
+                                         rank=worker_id,
+                                         timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     dataset = run_config['dataset']
     g = run_config['g']
@@ -176,7 +175,7 @@ def run(worker_id, run_config):
     dataloader = MyNeighborSampler(g, sizes=run_config['fanout'],
                                     batch_size=run_config['batch_size'],
                                     node_idx=train_nids,
-                                    shuffle=False,
+                                    shuffle=True,
                                     return_e_id=False,
                                     drop_last=False,
                                     num_workers=run_config['num_sampling_worker'],
