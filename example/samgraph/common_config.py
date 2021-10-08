@@ -25,7 +25,8 @@ def get_default_timeout():
 
 def get_dataset_list():
     return ['papers100M', 'com-friendster',
-            'reddit', 'products', 'twitter', 'uk-2006-05', 'papers100M_empty']
+            'reddit', 'products', 'twitter', 'uk-2006-05', 'papers100M_empty',
+            'papers100M_300', 'papers100M_600']
 
 
 def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
@@ -85,6 +86,7 @@ def add_common_arguments(argparser, run_config):
                                default=run_config['num_train_worker'])
         argparser.add_argument('--num-sample-worker', type=int,
                                default=run_config['num_sample_worker'])
+        argparser.add_argument('--single-gpu', action='store_true', default=False)
     elif run_mode == RunMode.SGNN or run_config['arch'] == 'arch6':
         run_config['arch'] = 'arch6'
         run_config['_run_mode'] = RunMode.SGNN
@@ -181,6 +183,12 @@ def process_common_config(run_config):
             sam.gpu(i) for i in range(run_config['num_train_worker'])]
         run_config['sample_workers'] = [sam.gpu(
             run_config['num_train_worker'] + i) for i in range(run_config['num_sample_worker'])]
+        if (run_config['single_gpu'] == True):
+            run_config['num_sample_worker'] = 1
+            run_config['num_train_worker'] = 1
+            run_config['train_workers'] = [sam.gpu(0)]
+            run_config['sample_workers'] = [sam.gpu(0)]
+            run_config['pipeline'] = False
     elif run_mode == RunMode.SGNN:
         run_config['omp_thread_num'] //= run_config['num_worker']
         run_config['workers'] = [sam.gpu(i)

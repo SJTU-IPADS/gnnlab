@@ -192,7 +192,7 @@ def run_sample(worker_id, run_config):
         test_result.append(('init:presample', sam.get_log_init_value(sam.kLogInitL2Presample)))
         test_result.append(('init:load_dataset:mmap', sam.get_log_init_value(sam.kLogInitL3LoadDatasetMMap)))
         test_result.append(('init:load_dataset:copy:sampler', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
-        test_result.append(('init:dist_queue:alloc+push', 
+        test_result.append(('init:dist_queue:alloc+push',
           sam.get_log_init_value(sam.kLogInitL3DistQueueAlloc)+sam.get_log_init_value(sam.kLogInitL3DistQueuePush)))
         test_result.append(('init:dist_queue:pin:sampler', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
         test_result.append(('init:internal:sampler', sam.get_log_init_value(sam.kLogInitL2InternalState)))
@@ -278,7 +278,7 @@ def run_train(worker_id, run_config):
         global_barrier.wait()
 
         tic = time.time()
-        if run_config['pipeline']:
+        if run_config['pipeline'] or run_config['single_gpu']:
             need_steps = int(num_step / num_worker)
             if worker_id < num_step % num_worker:
                 need_steps += 1
@@ -288,7 +288,7 @@ def run_train(worker_id, run_config):
             
             if step < num_step:
                 t0 = time.time()
-                if (not run_config['pipeline']):
+                if (not run_config['pipeline']) and (not run_config['single_gpu']):
                     sam.sample_once()
                 batch_key = sam.get_next_batch()
                 t1 = time.time()
