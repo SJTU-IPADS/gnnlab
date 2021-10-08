@@ -28,7 +28,7 @@ def event_sync():
 
 def get_default_timeout():
     # In seconds
-    return 10
+    return 600
 
 def wait_and_join(processes):
     ret = os.waitpid(-1, 0)
@@ -39,134 +39,6 @@ def wait_and_join(processes):
         
     for p in processes:
             p.join()
-
-class _ScalarDataBatcherIter:
-    def __init__(self, dataset, batch_size, drop_last):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.index = 0
-        self.drop_last = drop_last
-
-    # Make this an iterator for PyTorch Lightning compatibility
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        num_items = self.dataset.shape[0]
-        if self.index >= num_items:
-            raise StopIteration
-        end_idx = self.index + self.batch_size
-        if end_idx > num_items:
-            if self.drop_last:
-                raise StopIteration
-            end_idx = num_items
-        batch = self.dataset[self.index:end_idx]
-        self.index += self.batch_size
-
-        return batch
-
-class _ScalarDataBatcher(torch.utils.data.IterableDataset):
-    """Custom Dataset wrapper to return mini-batches as tensors, rather than as
-    lists. When the dataset is on the GPU, this significantly reduces
-    the overhead. For the case of a batch size of 1024, instead of giving a
-    list of 1024 tensors to the collator, a single tensor of 1024 dimensions
-    is passed in.
-    """
-    def __init__(self, dataset, shuffle=False, batch_size=1,
-                 drop_last=False, use_ddp=False, ddp_seed=0):
-        super(_ScalarDataBatcher).__init__()
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.drop_last = drop_last
-        self.use_ddp = use_ddp
-        if use_ddp:
-            self.rank = dist.get_rank()
-            self.num_replicas = dist.get_world_size()
-            self.seed = ddp_seed
-            self.epoch = 0
-            # The following code (and the idea of cross-process shuffling with the same seed)
-            # comes from PyTorch.  See torch/utils/data/distributed.py for details.
-
-            # If the dataset length is evenly divisible by # of replicas, then there
-            # is no need to drop any sample, since the dataset will be split evenly.
-            if self.drop_last and len(self.dataset) % self.num_replicas != 0:  # type: ignore
-                # Split to nearest available length that is evenly divisible.
-                # This is to ensure each rank receives the same amount of data when
-                # using this Sampler.
-                self.num_samples = math.ceil(
-                    # `type:ignore` is required because Dataset cannot provide a default __len__
-                    # see NOTE in pytorch/torch/utils/data/sampler.py
-                    (len(self.dataset) - self.num_replicas) / self.num_replicas  # type: ignore
-                )
-            else:
-                self.num_samples = math.ceil(len(self.dataset) / self.num_replicas)  # type: ignore
-            self.total_size = self.num_samples * self.num_replicas
-
-    def __iter__(self):
-        if self.use_ddp:
-            return self._iter_ddp()
-        else:
-            return self._iter_non_ddp()
-
-    def _divide_by_worker(self, dataset):
-        worker_info = torch.utils.data.get_worker_info()
-        if worker_info:
-            # worker gets only a fraction of the dataset
-            chunk_size = dataset.shape[0] // worker_info.num_workers
-            left_over = dataset.shape[0] % worker_info.num_workers
-            start = (chunk_size*worker_info.id) + min(left_over, worker_info.id)
-            end = start + chunk_size + (worker_info.id < left_over)
-            assert worker_info.id < worker_info.num_workers-1 or \
-                end == dataset.shape[0]
-            dataset = dataset[start:end]
-
-        return dataset
-
-    def _iter_non_ddp(self):
-        dataset = self._divide_by_worker(self.dataset)
-
-        if self.shuffle:
-            # permute the dataset
-            perm = torch.randperm(dataset.shape[0], device=dataset.device)
-            dataset = dataset[perm]
-
-        return _ScalarDataBatcherIter(dataset, self.batch_size, self.drop_last)
-
-    def _iter_ddp(self):
-        # The following code (and the idea of cross-process shuffling with the same seed)
-        # comes from PyTorch.  See torch/utils/data/distributed.py for details.
-        if self.shuffle:
-            # deterministically shuffle based on epoch and seed
-            g = torch.Generator()
-            g.manual_seed(self.seed + self.epoch)
-            indices = torch.randperm(len(self.dataset), generator=g)
-        else:
-            indices = torch.arange(len(self.dataset))
-
-        if not self.drop_last:
-            # add extra samples to make it evenly divisible
-            indices = torch.cat([indices, indices[:(self.total_size - indices.shape[0])]])
-        else:
-            # remove tail of data to make it evenly divisible.
-            indices = indices[:self.total_size]
-        assert indices.shape[0] == self.total_size
-
-        # subsample
-        indices = indices[self.rank:self.total_size:self.num_replicas]
-        assert indices.shape[0] == self.num_samples
-
-        # Dividing by worker is our own stuff.
-        dataset = self._divide_by_worker(self.dataset[indices])
-        return _ScalarDataBatcherIter(dataset, self.batch_size, self.drop_last)
-
-    def __len__(self):
-        num_samples = self.num_samples if self.use_ddp else self.dataset.shape[0]
-        return (num_samples + (0 if self.drop_last else self.batch_size - 1)) // self.batch_size
-
-    def set_epoch(self, epoch):
-        """Set epoch number for distributed training."""
-        self.epoch = epoch
 
 class EdgeIndex(NamedTuple):
     edge_index: Tensor
@@ -278,18 +150,10 @@ class MyNeighborSampler(torch.utils.data.DataLoader):
         
         if use_ddp:
             dataloader_kwargs = {}
-            # dataset = _ScalarDataBatcher(node_idx,
-            #                              batch_size=kwargs.get('batch_size', 1),
-            #                              shuffle=kwargs.get('shuffle', False),
-            #                              drop_last=kwargs.get('drop_last', False),
-            #                              use_ddp=use_ddp,
-            #                              ddp_seed=ddp_seed)
             dataloader_kwargs.update(kwargs)
-            # dataloader_kwargs['batch_size'] = None
             dataloader_kwargs['shuffle'] = False
             dataloader_kwargs['drop_last'] = False
             self.use_ddp = use_ddp
-            # self.scalar_batcher = dataset
             self.dist_sampler = DistributedSampler(node_idx, shuffle=kwargs['shuffle'], drop_last=kwargs['drop_last'])
             super(MyNeighborSampler, self).__init__(node_idx, sampler=self.dist_sampler, collate_fn=self.sample, **dataloader_kwargs)
         else:

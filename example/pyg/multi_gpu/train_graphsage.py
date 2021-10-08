@@ -173,28 +173,15 @@ def run(worker_id, run_config):
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
-    if num_worker > 1:
-        dataloader = NeighborSampler(g,
-                                     sizes=run_config['fanout'],
-                                     batch_size=run_config['batch_size'],
-                                     node_idx=train_nids,
-                                     return_e_id=False,
-                                     drop_last = False,
-                                     shuffle=True,
-                                     num_workers=run_config['num_sampling_worker'],
-                                     prefetch_factor=run_config['prefetch_factor'],
-                                     )
-    else:
-        dataloader = NeighborSampler(g,
-                                     sizes=run_config['fanout'],
-                                     batch_size=run_config['batch_size'],
-                                     node_idx=train_nids,
-                                     shuffle=True,
-                                     return_e_id=False,
-                                     drop_last=False,
-                                     num_workers=run_config['num_sampling_worker'],
-                                     prefetch_factor=run_config['prefetch_factor']
-                                     )
+    dataloader = MyNeighborSampler(g, sizes=run_config['fanout'],
+                                    batch_size=run_config['batch_size'],
+                                    node_idx=train_nids,
+                                    shuffle=False,
+                                    return_e_id=False,
+                                    drop_last=False,
+                                    num_workers=run_config['num_sampling_worker'],
+                                    prefetch_factor=run_config['prefetch_factor']
+                                    )
 
     model = SAGE(in_feats, run_config['num_hidden'], n_classes,
                  run_config['num_layer'], F.relu, run_config['dropout'])
@@ -220,6 +207,9 @@ def run(worker_id, run_config):
     total_times = []
     num_nodes = []
     num_samples = []
+
+    # run start barrier
+    torch.distributed.barrier()
 
     for epoch in range(num_epoch):
         epoch_sample_time = 0.0
@@ -267,13 +257,10 @@ def run(worker_id, run_config):
 
             if worker_id == 0:
                 print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
-                    epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
+                    epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
-        event_sync()
-
-        if num_worker > 1:
-            torch.distributed.barrier()
+        torch.distributed.barrier()
 
         toc = time.time()
 
@@ -282,8 +269,8 @@ def run(worker_id, run_config):
         epoch_train_times.append(epoch_train_time)
         epoch_total_times.append(toc - tic)
 
-    if num_worker > 1:
-        torch.distributed.barrier()
+    # run end barrier
+    torch.distributed.barrier()
 
     if worker_id == 0:
         test_result = {}
