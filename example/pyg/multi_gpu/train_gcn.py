@@ -202,7 +202,6 @@ def run(worker_id, run_config):
     feat = dataset.feat
     label = dataset.label
     train_nids = dataset.train_set
-    train_nids = train_nids.split(train_nids.size(0) // num_worker)[worker_id]
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
