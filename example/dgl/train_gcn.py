@@ -17,7 +17,7 @@ import time
 import numpy as np
 import math
 import sys
-
+from common_config import *
 
 class GCN(nn.Module):
     def __init__(self,
@@ -190,13 +190,6 @@ def get_data_iterator(run_config, dataloader):
         else:
             return iter(dataloader)
 
-
-def sync_device():
-    train_end_event = torch.cuda.Event(blocking=True)
-    train_end_event.record()
-    train_end_event.synchronize()
-
-
 def run():
     run_config = get_run_config()
 
@@ -261,7 +254,7 @@ def run():
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(train_device) for block in blocks]
@@ -269,7 +262,7 @@ def run():
             batch_inputs, batch_labels = load_subtensor(feat, label, input_nodes,
                                                         output_nodes, train_device)
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
             t3 = time.time()
 
             # Compute loss and prediction
@@ -280,7 +273,7 @@ def run():
             optimizer.step()
 
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
 
             num_samples.append(sum([block.num_edges() for block in blocks]))
             num_nodes.append(blocks[0].num_src_nodes())
@@ -308,7 +301,7 @@ def run():
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
-        sync_device()
+        event_sync()
 
         toc = time.time()
         epoch_sample_times.append(epoch_sample_time)
