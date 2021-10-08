@@ -266,7 +266,7 @@ def scalability_test(log_folder=None, mock=False):
         [1, 2, 3, 4, 5, 6, 7, 8],
     ).override(
         'BOOL_pipeline',
-        ['no_pipeline', 'pipeline']
+        ['pipeline', 'no_pipeline']
         # ).override(
         #     'BOOL_validate_configs',
         #     ['validate_configs']
@@ -361,5 +361,5 @@ if __name__ == '__main__':
 
     # breakdown_test(args.log_folder)
     # overall_perf_test(args.log_folder, args.mock)
-    # scalability_test(args.log_folder, args.mock)
-    one_gpu_test(args.log_folder, args.mock)
+    scalability_test(args.log_folder, args.mock)
+    # one_gpu_test(args.log_folder, args.mock)
