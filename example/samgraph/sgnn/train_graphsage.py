@@ -92,12 +92,6 @@ def run_init(run_config):
         sys.exit()
 
 
-def sync():
-    event = torch.cuda.Event(blocking=True)
-    event.record()
-    event.synchronize()
-
-
 def run(worker_id, run_config):
     num_worker = run_config['num_worker']
     global_barrier = run_config['global_barrier']
@@ -167,8 +161,6 @@ def run(worker_id, run_config):
             t0 = time.time()
             sam.sample_once()
             batch_key = sam.get_next_batch()
-            if run_config['pipeline']:
-                sync()
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
                 batch_key, num_layer)
@@ -181,14 +173,10 @@ def run(worker_id, run_config):
             loss.backward()
             optimizer.step()
 
-            if not run_config['pipeline']:
-                sync()
-                batch_input = None
-                batch_label = None
-                blocks = None
-
-            if num_worker > 1:
-                torch.distributed.barrier()
+            event_sync()
+            batch_input = None
+            batch_label = None
+            blocks = None
 
             t3 = time.time()
 
@@ -210,7 +198,7 @@ def run(worker_id, run_config):
 
             sam.report_step(epoch, step)
 
-        sync()
+        event_sync()
 
         # sync the train workers
         if num_worker > 1:
