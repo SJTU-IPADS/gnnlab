@@ -212,6 +212,7 @@ def run(worker_id, run_config):
                                     shuffle=True,
                                     return_e_id=False,
                                     drop_last=False,
+                                    use_ddp=True,
                                     num_workers=run_config['num_sampling_worker'],
                                     prefetch_factor=run_config['prefetch_factor']
                                     )
@@ -247,6 +248,12 @@ def run(worker_id, run_config):
         epoch_sample_time = 0.0
         epoch_copy_time = 0.0
         epoch_train_time = 0.0
+
+        # In distributed mode, calling the set_epoch() method at the beginning of each epoch
+        # before creating the DataLoader iterator is necessary to make shuffling work properly across multiple epochs.
+        # Otherwise, the same ordering will be always used.
+        # https://pytorch.org/docs/stable/data.html
+        dataloader.set_epoch(epoch)
 
         tic = time.time()
 

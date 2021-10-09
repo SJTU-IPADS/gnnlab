@@ -283,4 +283,4 @@ if __name__ == '__main__':
     args = argparser.parse_args()
 
     overall_perf_test(args.log_folder, args.mock)
-    # breakdown_test(args.log_folder, args.mock)
+    breakdown_test(args.log_folder, args.mock)

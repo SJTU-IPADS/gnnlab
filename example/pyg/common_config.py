@@ -187,8 +187,8 @@ class MyNeighborSampler(torch.utils.data.DataLoader):
         return out
     
     def set_epoch(self, epoch):
-        assert(self.use_ddp)
-        self.dist_sampler.set_epoch(epoch)
+        if self.use_ddp:
+            self.dist_sampler.set_epoch(epoch)
 
     def __repr__(self):
         return '{}(sizes={})'.format(self.__class__.__name__, self.sizes)
