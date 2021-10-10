@@ -430,8 +430,8 @@ if __name__ == '__main__':
 
     ret = sam.wait_one_child()
     if ret != 0:
-      for p in workers:
-        p.kill()
+        for p in workers:
+            p.kill()
     for p in workers:
         p.join()
 
