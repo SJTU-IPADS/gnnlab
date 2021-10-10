@@ -793,6 +793,7 @@ void OrderedHashTable::CopyUnique(IdType *const unique, StreamHandle stream) {
   auto device = Device::Get(_ctx);
   device->CopyDataFromTo(_n2o_table, 0, unique, 0,
     sizeof(IdType) * _num_items, _ctx, _ctx, stream);
+  device->StreamSync(_ctx, stream);
 }
 void OrderedHashTable::RefUnique(const IdType *&unique, IdType * const num_unique) {
   unique = reinterpret_cast<const IdType*>(_n2o_table);

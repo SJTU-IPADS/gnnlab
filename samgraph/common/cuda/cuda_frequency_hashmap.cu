@@ -921,6 +921,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
       device->AllocWorkspace(_ctx, sizeof(IdType) * _num_unique));
   device->CopyDataFromTo(_unique_range, 0, unique_idx, 0,
                          sizeof(IdType) * _num_unique, _ctx, _ctx, stream);
+  device->StreamSync(_ctx, stream);
 
   size_t workspace_bytes3;
   CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
