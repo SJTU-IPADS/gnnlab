@@ -180,12 +180,12 @@ size_t samgraph_steps_per_epoch() {
 }
 
 size_t samgraph_num_class() {
-  CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
+  // CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
   return Engine::Get()->GetGraphDataset()->num_class;
 }
 
 size_t samgraph_feat_dim() {
-  CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
+  // CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
   return Engine::Get()->GetGraphDataset()->feat->Shape().at(1);
 }
 
