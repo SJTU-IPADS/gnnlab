@@ -285,6 +285,7 @@ def run_train(worker_id, run_config):
             sam.extract_start(need_steps)
 
         for step in range(worker_id, align_up_step, num_worker):
+            
             if step < num_step:
                 t0 = time.time()
                 if (not run_config['pipeline']) and (not run_config['single_gpu']):
@@ -305,17 +306,12 @@ def run_train(worker_id, run_config):
             optimizer.step()
 
             # wait for the train finish then we can free the data safely
-            train_end_event = torch.cuda.Event(blocking=True)
-            train_end_event.record()
-            train_end_event.synchronize()
+            event_sync()
 
             if (step + num_worker < num_step):
                 batch_input = None
                 batch_label = None
                 blocks = None
-
-            if num_worker > 1:
-                torch.distributed.barrier()
 
             t3 = time.time()
 

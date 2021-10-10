@@ -14,9 +14,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch_geometric.nn import GCNConv
-from torch_geometric.data import NeighborSampler
+from torch_geometric.loader import NeighborSampler
 from torch_sparse import SparseTensor, sum as sparsesum, mul
 
+from common_config import *
 
 class GCN(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, activation, dropout, norm=True):
@@ -93,6 +94,8 @@ def parse_args(default_run_config):
                            default=default_run_config['batch_size'])
     argparser.add_argument(
         '--lr', type=float, default=default_run_config['lr'])
+    argparser.add_argument('--dropout', type=float,
+                           default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
 
@@ -111,10 +114,10 @@ def get_run_config():
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
     default_run_config['pipelining'] = False
-    default_run_config['num_sampling_worker'] = 16
+    default_run_config['num_sampling_worker'] = 0
 
     # In PyG, the order from root to leaf is from front to end
-    default_run_config['fanout'] = [5, 10, 15]
+    default_run_config['fanout'] = [15, 10, 5]
     default_run_config['num_epoch'] = 10
     default_run_config['num_hidden'] = 256
     default_run_config['batch_size'] = 8000
@@ -160,7 +163,7 @@ def get_run_config():
 
     g = dataset.to_pyg_graph()
     run_config['dataset'] = dataset
-    run_config['g'] = g.to_pyg_graph()
+    run_config['g'] = g
 
     if run_config['validate_configs']:
         sys.exit()
@@ -173,18 +176,12 @@ def get_data_iterator(run_config, dataloader):
     else:
         return iter(dataloader)
 
-def sync_device():
-    train_end_event = torch.cuda.Event(blocking=True)
-    train_end_event.record()
-    train_end_event.synchronize()
-
 def run():
     run_config = get_run_config()
     device = torch.device(run_config['device'])
 
-    dataset = fastgraph.dataset(
-        run_config['dataset'], run_config['root_path'], force_load64=True)
-    g = dataset.to_pyg_graph()
+    dataset = run_config['dataset']
+    g = run_config['g']
     feat = dataset.feat
     label = dataset.label
     train_nids = dataset.train_set
@@ -238,7 +235,7 @@ def run():
             batch_inputs = feat[n_id].to(device)
             batch_labels = label[n_id[:batch_size]].to(device)
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
             t2 = time.time()
 
             # Compute loss and prediction
@@ -249,7 +246,7 @@ def run():
             optimizer.step()
 
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
 
             num_samples.append(sum([adj.adj_t.nnz() for adj in adjs]))
             num_nodes.append(batch_inputs.shape[0])
@@ -271,7 +268,9 @@ def run():
             print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} | Sample Time {:.4f} | Copy Time {:.4f} | Train time {:4f} |  Loss {:.4f} '.format(
                 epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times[1:]), np.mean(sample_times[1:]), np.mean(copy_times[1:]), np.mean(train_times[1:]), loss))
             t0 = time.time()
-        
+
+        event_sync()
+
         toc = time.time()
 
         epoch_sample_times.append(epoch_sample_time)

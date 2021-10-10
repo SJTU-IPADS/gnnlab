@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import dgl
 import torch
 import torch.optim as optim
@@ -12,6 +13,7 @@ import time
 import numpy as np
 import math
 import sys
+from common_config import *
 
 """
   We have made the following modification(or say, simplification) on PinSAGE,
@@ -237,13 +239,6 @@ def get_data_iterator(run_config, dataloader):
     else:
         return iter(dataloader)
 
-
-def sync_device():
-    train_end_event = torch.cuda.Event(blocking=True)
-    train_end_event.record()
-    train_end_event.synchronize()
-
-
 def run(worker_id, run_config):
     torch.set_num_threads(run_config['num_thread'])
     device = torch.device(run_config['devices'][worker_id])
@@ -256,7 +251,8 @@ def run(worker_id, run_config):
         torch.distributed.init_process_group(backend="nccl",
                                              init_method=dist_init_method,
                                              world_size=world_size,
-                                             rank=worker_id)
+                                             rank=worker_id,
+                                             timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     dataset = run_config['dataset']
     g = run_config['g']
@@ -322,7 +318,7 @@ def run(worker_id, run_config):
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
             t1 = time.time()
             # graph are copied to GPU here
             blocks = [block.int().to(device) for block in blocks]
@@ -330,7 +326,7 @@ def run(worker_id, run_config):
             batch_inputs, batch_labels = load_subtensor(
                 feat, label, input_nodes, output_nodes, device)
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
             t3 = time.time()
 
             # Compute loss and prediction
@@ -341,7 +337,7 @@ def run(worker_id, run_config):
             optimizer.step()
 
             if not run_config['pipelining']:
-                sync_device()
+                event_sync()
 
             num_samples.append(sum([block.num_edges() for block in blocks]))
             num_nodes.append(blocks[0].num_src_nodes())
@@ -350,8 +346,6 @@ def run(worker_id, run_config):
             batch_labels = None
             blocks = None
 
-            if num_worker > 1:
-                torch.distributed.barrier()
             t4 = time.time()
 
             sample_times.append(t1 - t0)
@@ -372,7 +366,7 @@ def run(worker_id, run_config):
                     epoch, step, np.mean(num_nodes), np.mean(num_samples), np.mean(total_times), np.mean(sample_times), np.mean(graph_copy_times), np.mean(copy_times), np.mean(train_times), loss))
             t0 = time.time()
 
-        sync_device()
+        event_sync()
 
         if num_worker > 1:
             torch.distributed.barrier()
@@ -418,5 +412,5 @@ if __name__ == '__main__':
             p = mp.Process(target=run, args=(worker_id, run_config))
             p.start()
             workers.append(p)
-        for p in workers:
-            p.join()
+
+        wait_and_join(workers)

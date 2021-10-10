@@ -7,8 +7,6 @@ import torch.optim as optim
 import numpy as np
 from dgl.nn.pytorch import SAGEConv
 import dgl.multiprocessing as mp
-import dgl
-from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
 import datetime
@@ -203,6 +201,14 @@ def run_sample(worker_id, run_config):
 
     sam.shutdown()
 
+def get_global_model(run_config):
+    in_feat = sam.feat_dim()
+    num_class = sam.num_class()
+    model = SAGE(in_feat, run_config['num_hidden'], num_class,
+                 run_config['num_layer'], F.relu, run_config['dropout'])
+    model.share_memory() # gradients are allocated lazily, so they are not shared here
+
+    return model
 
 def run_train(worker_id, run_config):
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
@@ -210,6 +216,7 @@ def run_train(worker_id, run_config):
     ctx = run_config['train_workers'][worker_id]
     num_worker = run_config['num_train_worker']
     global_barrier = run_config['global_barrier']
+    global_cpu_model = run_config['global_cpu_model']
 
     if (run_config['report_acc'] != 0) and (worker_id == 0):
         dgl_graph, valid_set, test_set, feat, label = \
@@ -246,13 +253,11 @@ def run_train(worker_id, run_config):
     model = SAGE(in_feat, run_config['num_hidden'], num_class,
                  num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
-    if num_worker > 1:
-        model = DistributedDataParallel(
-            model, device_ids=[train_device], output_device=train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(train_device)
     optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
+    cpu_optimizer = optim.Adam(global_cpu_model.parameters(), lr=run_config['lr'])
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -312,7 +317,13 @@ def run_train(worker_id, run_config):
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+            # optimizer.step()
+
+            for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
+                cpu_param.grad = param.grad.to('cpu')
+            cpu_optimizer.step()
+            for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
+                param.data = cpu_param.data.to(train_device).data
 
             # wait for the train finish then we can free the data safely
             event_sync()
@@ -435,6 +446,8 @@ def run_train(worker_id, run_config):
 if __name__ == '__main__':
     run_config = get_run_config()
     run_init(run_config)
+
+    run_config['global_cpu_model'] = get_global_model(run_config)
 
     num_sample_worker = run_config['num_sample_worker']
     num_train_worker = run_config['num_train_worker']

@@ -363,6 +363,9 @@ def run_train(worker_id, run_config, trainer_type):
             loss.backward()
             optimizer.step()
 
+            # wait for the train finish then we can free the data safely
+            event_sync()
+
             batch_input = None
             batch_label = None
             blocks = None
