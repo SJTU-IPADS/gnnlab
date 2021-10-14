@@ -728,9 +728,10 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
              << num_input << " inputs";
 
   IdType *item_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1)));
+      device->AllocWorkspace(_ctx, sizeof(IdType) * 2 * (grid.x + 1)));
+  IdType *const item_prefix_out = &item_prefix[grid.x + 1];
   LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
-             << ToReadableSize(sizeof(IdType) * (grid.x + 1));
+             << ToReadableSize(sizeof(IdType) * 2 * (grid.x + 1));
 
   count_hashmap<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(input, num_input, device_table,
@@ -748,7 +749,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
              << ToReadableSize(sizeof(IdType) * (num_input + 1));
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
-                                          item_prefix, item_prefix, grid.x + 1,
+                                          item_prefix, item_prefix_out, grid.x + 1,
                                           cu_stream));
   device->StreamSync(_ctx, stream);
 
@@ -760,7 +761,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   compact_hashmap<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(input, num_input, device_table,
-                                      item_prefix, gpu_num_unique, _num_items,
+                                      item_prefix_out, gpu_num_unique, _num_items,
                                       _version);
   device->StreamSync(_ctx, stream);
 
@@ -814,9 +815,10 @@ void OrderedHashTable::FillWithDupRevised(const IdType *const input,
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
   IdType *item_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid.x + 1)));
+      device->AllocWorkspace(_ctx, sizeof(IdType) * 2 * (grid.x + 1)));
+  IdType *const item_prefix_out = &item_prefix[grid.x + 1];
   LOG(DEBUG) << "OrderedHashTable::FillWithDupRevised cuda item_prefix malloc "
-             << ToReadableSize(sizeof(IdType) * (grid.x + 1));
+             << ToReadableSize(sizeof(IdType) * 2 * (grid.x + 1));
   
   // 1. insert into o2n table, collect each block's new insertion count
   generate_count_hashmap_duplicates<Constant::kCudaBlockSize, Constant::kCudaTileSize>
@@ -839,14 +841,14 @@ void OrderedHashTable::FillWithDupRevised(const IdType *const input,
              << ToReadableSize(workspace_bytes);
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
-                                          item_prefix, item_prefix, grid.x + 1,
+                                          item_prefix, item_prefix_out, grid.x + 1,
                                           cu_stream));
   device->StreamSync(_ctx, stream);
 
   // 3. now each block knows where in n2o to put the node
   compact_hashmap_revised<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(input, num_input, device_table,
-                                      item_prefix,
+                                      item_prefix_out,
                                       _num_items,
                                       _version);
   device->StreamSync(_ctx, stream);

@@ -168,16 +168,17 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   // 2.2 Count edges
   Timer t2;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * (num_sample + 1)));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * 2 * (num_sample + 1)));
+  size_t *const item_prefix_out = &item_prefix[num_sample + 1];
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
-             << ToReadableSize(sizeof(int) * num_sample);
+             << ToReadableSize(sizeof(size_t) * 2 * (num_sample + 1));
   count_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,
                                             num_sample);
   sampler_device->StreamSync(ctx, stream);
 
   temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes,
-                                          item_prefix, item_prefix,
+                                          item_prefix, item_prefix_out,
                                           num_sample + 1, cu_stream));
   sampler_device->StreamSync(ctx, stream);
 
@@ -185,7 +186,7 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda temp_storage for ExclusiveSum malloc "
              << ToReadableSize(temp_storage_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes,
-                                          item_prefix, item_prefix,
+                                          item_prefix, item_prefix_out,
                                           num_sample + 1, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
@@ -195,7 +196,7 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   // 2.3 Compact edges
   Timer t3;
   compact_edge<<<grid, block, 0, cu_stream>>>(
-      tmp_src, tmp_dst, out_src, out_dst, item_prefix, num_sample, num_out);
+      tmp_src, tmp_dst, out_src, out_dst, item_prefix_out, num_sample, num_out);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t3.Passed();
   LOG(DEBUG) << "GPUSample: compact_edge time cost: " << compact_edge_time;

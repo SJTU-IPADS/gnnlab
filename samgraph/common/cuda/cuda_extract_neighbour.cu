@@ -107,9 +107,11 @@ void GPUExtractNeighbour(const IdType *indptr, const IdType *indices,
   Timer t1;
   size_t n_item_prefix = block.x * grid.x + 1;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * n_item_prefix));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * 2 * n_item_prefix));
+  size_t *const item_prefix_out = &item_prefix[n_item_prefix];
+
   LOG(DEBUG) << "GPUExtractNeighbour: cuda item_prefix malloc "
-             << ToReadableSize(sizeof(size_t) * n_item_prefix);
+             << ToReadableSize(sizeof(size_t) * 2 * n_item_prefix);
 
   count_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
@@ -126,13 +128,13 @@ void GPUExtractNeighbour(const IdType *indptr, const IdType *indices,
 
   void *workspace = sampler_device->AllocWorkspace(ctx, workspace_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
-                                          item_prefix, item_prefix, n_item_prefix,
+                                          item_prefix, item_prefix_out, n_item_prefix,
                                           cu_stream));
   sampler_device->StreamSync(ctx, stream);
   LOG(DEBUG) << "GPUExtractNeighbour: cuda workspace malloc "
              << ToReadableSize(workspace_bytes);
 
-  sampler_device->CopyDataFromTo(item_prefix + n_item_prefix - 1, 0, num_out, 0, sizeof(size_t), ctx, CPU(), stream);
+  sampler_device->CopyDataFromTo(&item_prefix_out[n_item_prefix - 1], 0, num_out, 0, sizeof(size_t), ctx, CPU(), stream);
   sampler_device->StreamSync(ctx, stream);
 
   output = static_cast<IdType *>(sampler_device->AllocWorkspace(ctx, sizeof(IdType) * *num_out));

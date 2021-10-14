@@ -99,6 +99,7 @@ void GPUDevice::SyncStreamFromTo(Context ctx, StreamHandle event_src,
 }
 
 void GPUDevice::StreamSync(Context ctx, StreamHandle stream) {
+  /** FIXME: no mechanism to ensure stream belongs to this ctx */
   if (stream != 0) {
     CUDA_CALL(cudaSetDevice(ctx.device_id));
     CUDA_CALL(cudaStreamSynchronize(static_cast<cudaStream_t>(stream)));
