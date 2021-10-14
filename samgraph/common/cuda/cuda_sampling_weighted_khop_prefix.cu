@@ -186,7 +186,7 @@ void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
   // count the prefix num
   Timer t2;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_sample + 1));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * (num_sample + 1)));
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
              << ToReadableSize(sizeof(int) * num_sample);
   count_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,
