@@ -137,8 +137,9 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   const dim3 grid(
       RoundUpDiv(num_threads, static_cast<size_t>(Constant::kCudaBlockSize)));
   const dim3 block(Constant::kCudaBlockSize);
+  /** out_src/dst is same large as tmp_src/dst */
   sample_khop1<<<grid, block, 0, cu_stream>>>(
-      indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+      indptr, indices, input, num_input, fanout, out_src, out_dst,
       random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
 
@@ -150,14 +151,14 @@ void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
   Timer t1;
   size_t temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
-      nullptr, temp_storage_bytes, tmp_src, tmp_src, tmp_dst, tmp_dst,
+      nullptr, temp_storage_bytes, out_src, tmp_src, out_dst, tmp_dst,
       num_sample, 0, sizeof(IdType) * 8, cu_stream));
   sampler_device->StreamSync(ctx, stream);
 
   void *d_temp_storage =
       sampler_device->AllocWorkspace(ctx, temp_storage_bytes);
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
-      d_temp_storage, temp_storage_bytes, tmp_src, tmp_src, tmp_dst, tmp_dst,
+      d_temp_storage, temp_storage_bytes, out_src, tmp_src, out_dst, tmp_dst,
       num_sample, 0, sizeof(IdType) * 8, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
