@@ -191,9 +191,10 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
 
   Timer t1;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * (grid.x + 1)));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * 2 * (grid.x + 1)));
+  size_t *const item_prefix_out = &item_prefix[grid.x + 1];
   LOG(DEBUG) << "GPUSample: cuda item_prefix malloc "
-             << ToReadableSize(sizeof(size_t) * (grid.x + 1));
+             << ToReadableSize(sizeof(size_t) * 2 * (grid.x + 1));
 
   count_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(tmp_src, item_prefix, num_input, fanout);
@@ -209,7 +210,7 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
 
   void *workspace = sampler_device->AllocWorkspace(ctx, workspace_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
-                                          item_prefix, item_prefix, grid.x + 1,
+                                          item_prefix, item_prefix_out, grid.x + 1,
                                           cu_stream));
   sampler_device->StreamSync(ctx, stream);
   LOG(DEBUG) << "GPUSample: cuda workspace malloc "
@@ -217,7 +218,7 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
 
   compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src, out_dst,
-                                      num_out, item_prefix, num_input, fanout);
+                                      num_out, item_prefix_out, num_input, fanout);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t2.Passed();
 

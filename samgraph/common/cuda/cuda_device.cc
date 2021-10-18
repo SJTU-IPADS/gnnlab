@@ -86,6 +86,11 @@ void GPUDevice::FreeStream(Context ctx, StreamHandle stream) {
   CUDA_CALL(cudaStreamDestroy(cu_stream));
 }
 
+void GPUDevice::SyncDevice(Context ctx) {
+  CUDA_CALL(cudaSetDevice(ctx.device_id));
+  CUDA_CALL(cudaDeviceSynchronize());
+}
+
 void GPUDevice::SyncStreamFromTo(Context ctx, StreamHandle event_src,
                                  StreamHandle event_dst) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
@@ -99,6 +104,7 @@ void GPUDevice::SyncStreamFromTo(Context ctx, StreamHandle event_src,
 }
 
 void GPUDevice::StreamSync(Context ctx, StreamHandle stream) {
+  /** FIXME: no mechanism to ensure stream belongs to this ctx */
   if (stream != 0) {
     CUDA_CALL(cudaSetDevice(ctx.device_id));
     CUDA_CALL(cudaStreamSynchronize(static_cast<cudaStream_t>(stream)));

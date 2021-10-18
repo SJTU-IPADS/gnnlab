@@ -26,6 +26,7 @@ class GPUDevice final : public Device {
 
   StreamHandle CreateStream(Context ctx) override;
   void FreeStream(Context ctx, StreamHandle stream) override;
+  void SyncDevice(Context ctx) override;
   void StreamSync(Context ctx, StreamHandle stream) override;
   void SyncStreamFromTo(Context ctx, StreamHandle event_src,
                         StreamHandle event_dst) override;

@@ -266,6 +266,9 @@ void GPUCacheManager::GetMissCacheIndex(
   IdType *cache_prefix_counts =
       static_cast<IdType *>(sampler_device->AllocWorkspace(
           _sampler_ctx, sizeof(IdType) * (grid.x + 1)));
+  IdType *exclusive_sum_tmp = 
+      static_cast<IdType *>(sampler_device->AllocWorkspace(
+          _sampler_ctx, sizeof(IdType) * (grid.x + 1)));
 
   // LOG(DEBUG) << "GetMissCacheIndex num nodes " << num_nodes;
 
@@ -284,12 +287,15 @@ void GPUCacheManager::GetMissCacheIndex(
   void *workspace =
       sampler_device->AllocWorkspace(_sampler_ctx, workspace_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      workspace, workspace_bytes, miss_prefix_counts, miss_prefix_counts,
-      grid.x + 1, cu_stream));
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      workspace, workspace_bytes, cache_prefix_counts, cache_prefix_counts,
+      workspace, workspace_bytes, miss_prefix_counts, exclusive_sum_tmp,
       grid.x + 1, cu_stream));
   sampler_device->StreamSync(_sampler_ctx, stream);
+  std::swap(miss_prefix_counts, exclusive_sum_tmp);
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
+      workspace, workspace_bytes, cache_prefix_counts, exclusive_sum_tmp,
+      grid.x + 1, cu_stream));
+  sampler_device->StreamSync(_sampler_ctx, stream);
+  std::swap(cache_prefix_counts, exclusive_sum_tmp);
 
   get_miss_index<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
@@ -315,6 +321,7 @@ void GPUCacheManager::GetMissCacheIndex(
   *num_output_cache = num_cache;
 
   sampler_device->FreeWorkspace(_sampler_ctx, workspace);
+  sampler_device->FreeWorkspace(_sampler_ctx, exclusive_sum_tmp);
   sampler_device->FreeWorkspace(_sampler_ctx, cache_prefix_counts);
   sampler_device->FreeWorkspace(_sampler_ctx, miss_prefix_counts);
 }
@@ -444,6 +451,9 @@ void GPUDynamicCacheManager::GetMissCacheIndex(
   IdType *cache_prefix_counts =
       static_cast<IdType *>(sampler_device->AllocWorkspace(
           _sampler_ctx, sizeof(IdType) * (grid.x + 1)));
+  IdType *exclusive_sum_tmp = 
+      static_cast<IdType *>(sampler_device->AllocWorkspace(
+          _sampler_ctx, sizeof(IdType) * (grid.x + 1)));
 
   // LOG(DEBUG) << "GetMissCacheIndex num nodes " << num_nodes;
 
@@ -462,12 +472,15 @@ void GPUDynamicCacheManager::GetMissCacheIndex(
   void *workspace =
       sampler_device->AllocWorkspace(_sampler_ctx, workspace_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      workspace, workspace_bytes, miss_prefix_counts, miss_prefix_counts,
-      grid.x + 1, cu_stream));
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
-      workspace, workspace_bytes, cache_prefix_counts, cache_prefix_counts,
+      workspace, workspace_bytes, miss_prefix_counts, exclusive_sum_tmp,
       grid.x + 1, cu_stream));
   sampler_device->StreamSync(_sampler_ctx, stream);
+  std::swap(miss_prefix_counts, exclusive_sum_tmp);
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(
+      workspace, workspace_bytes, cache_prefix_counts, exclusive_sum_tmp,
+      grid.x + 1, cu_stream));
+  sampler_device->StreamSync(_sampler_ctx, stream);
+  std::swap(cache_prefix_counts, exclusive_sum_tmp);
 
   get_miss_index<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
@@ -493,6 +506,7 @@ void GPUDynamicCacheManager::GetMissCacheIndex(
   *num_output_cache = num_cache;
 
   sampler_device->FreeWorkspace(_sampler_ctx, workspace);
+  sampler_device->FreeWorkspace(_sampler_ctx, exclusive_sum_tmp);
   sampler_device->FreeWorkspace(_sampler_ctx, cache_prefix_counts);
   sampler_device->FreeWorkspace(_sampler_ctx, miss_prefix_counts);
 }

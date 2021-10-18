@@ -87,7 +87,7 @@ class OrderedHashTable {
   using BucketN2O = typename DeviceOrderedHashTable::BucketN2O;
 
   OrderedHashTable(const size_t size, Context ctx,
-                   const size_t scale = kDefaultScale);
+                   StreamHandle stream, const size_t scale = kDefaultScale);
 
   ~OrderedHashTable();
 

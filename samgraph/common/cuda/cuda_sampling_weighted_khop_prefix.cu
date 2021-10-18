@@ -156,9 +156,10 @@ void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
   const dim3 grid(
       RoundUpDiv(num_threads, static_cast<size_t>(Constant::kCudaBlockSize)));
   const dim3 block(Constant::kCudaBlockSize);
+  /** out_src/dst is same large as tmp_src/dst */
   sample_weighted_khop_prefix<<<grid, block, 0, cu_stream>>>(
       indptr, indices, prob_prefix_table, input, num_input, fanout,
-      tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates());
+      out_src, out_dst, random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
 
   double sample_time = t0.Passed();
@@ -168,14 +169,14 @@ void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
   Timer t1;
   size_t temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
-      nullptr, temp_storage_bytes, tmp_src, tmp_src, tmp_dst, tmp_dst,
+      nullptr, temp_storage_bytes, out_src, tmp_src, out_dst, tmp_dst,
       num_sample, 0, sizeof(IdType) * 8, cu_stream));
   sampler_device->StreamSync(ctx, stream);
 
   void *d_temp_storage =
       sampler_device->AllocWorkspace(ctx, temp_storage_bytes);
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
-      d_temp_storage, temp_storage_bytes, tmp_src, tmp_src, tmp_dst, tmp_dst,
+      d_temp_storage, temp_storage_bytes, out_src, tmp_src, out_dst, tmp_dst,
       num_sample, 0, sizeof(IdType) * 8, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
@@ -186,7 +187,8 @@ void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
   // count the prefix num
   Timer t2;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * num_sample + 1));
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * 2 * (num_sample + 1)));
+  size_t *const item_prefix_out = &item_prefix[num_sample + 1];
   LOG(DEBUG) << "GPUSample: cuda prefix_num malloc "
              << ToReadableSize(sizeof(int) * num_sample);
   count_edge<<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, item_prefix,
@@ -195,7 +197,7 @@ void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
 
   temp_storage_bytes = 0;
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes,
-                                          item_prefix, item_prefix,
+                                          item_prefix, item_prefix_out,
                                           num_sample + 1, cu_stream));
   sampler_device->StreamSync(ctx, stream);
 
@@ -203,7 +205,7 @@ void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda temp_storage for ExclusiveSum malloc "
              << ToReadableSize(temp_storage_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(d_temp_storage, temp_storage_bytes,
-                                          item_prefix, item_prefix,
+                                          item_prefix, item_prefix_out,
                                           num_sample + 1, cu_stream));
   sampler_device->StreamSync(ctx, stream);
   sampler_device->FreeWorkspace(ctx, d_temp_storage);
@@ -213,7 +215,7 @@ void GPUSampleWeightedKHopPrefix(const IdType *indptr, const IdType *indices,
   // compact edge
   Timer t3;
   compact_edge<<<grid, block, 0, cu_stream>>>(
-      tmp_src, tmp_dst, out_src, out_dst, item_prefix, num_sample, num_out);
+      tmp_src, tmp_dst, out_src, out_dst, item_prefix_out, num_sample, num_out);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t3.Passed();
   LOG(DEBUG) << "GPUSample: compact_edge time cost: " << compact_edge_time;

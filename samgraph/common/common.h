@@ -120,7 +120,7 @@ class Tensor {
   static TensorPtr FromBlob(void* data, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name);
-  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream);
+  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr);
   static TensorPtr CopyBlob(const void * data, DataType dtype,
                             std::vector<size_t> shape, Context from_ctx,
                             Context to_ctx, std::string name, StreamHandle stream = nullptr);

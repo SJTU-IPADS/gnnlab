@@ -878,7 +878,7 @@ void FrequencyHashmap::GetTopK(const IdType *input_src, const IdType *input_dst,
   // 3. count the number of unique edges.
   //    prefix sum the the array
   Timer t3;
-
+  /** FIX: this TopK is not used when SXN_REVISED is defined. consider remove. */
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace1, workspace_bytes1,
                                           num_unique_prefix, num_unique_prefix,
                                           grid1.x + 1, cu_stream));
@@ -1171,7 +1171,8 @@ void FrequencyHashmap::GetTopK(
   //    count unique edges for every node
   Timer t2;
   IdType *num_unique_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, sizeof(IdType) * (grid_input_edge.x + 1)));
+      device->AllocWorkspace(_ctx, sizeof(IdType) * 2 * (grid_input_edge.x + 1)));
+  IdType *const num_unique_prefix_out = &num_unique_prefix[grid_input_edge.x + 1];
   count_frequency_revised<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid_input_edge, block_input_edge, 0, cu_stream>>>(input_src, input_dst, num_input_edge,
                                         _edges_per_node, num_unique_prefix,
@@ -1186,7 +1187,7 @@ void FrequencyHashmap::GetTopK(
   Timer t3;
 
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace1, workspace_bytes1,
-                                          num_unique_prefix, num_unique_prefix,
+                                          num_unique_prefix, num_unique_prefix_out,
                                           grid_input_edge.x + 1, cu_stream));
   device->StreamSync(_ctx, stream);
   double step3_time = t3.Passed();
@@ -1194,7 +1195,7 @@ void FrequencyHashmap::GetTopK(
 
   // 4. get the array of all unique edges' pos in table
   Timer t4;
-  device->CopyDataFromTo(&num_unique_prefix[grid_input_edge.x], 0, &_num_unique, 0,
+  device->CopyDataFromTo(&num_unique_prefix_out[grid_input_edge.x], 0, &_num_unique, 0,
                          sizeof(IdType), _ctx, CPU(), stream);
   device->StreamSync(_ctx, stream);
   LOG(DEBUG) << "FrequencyHashmap::Before gettopk step 4,  number of unique is " << _num_unique;
@@ -1204,7 +1205,7 @@ void FrequencyHashmap::GetTopK(
   input_dst = nullptr;
   generate_unique_edges_pos<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid_input_edge, block_input_edge, 0, cu_stream>>>(input_src, input_nodes, num_input_node, num_input_edge,
-                                        num_unique_prefix, _unique_combination_key, tmp_unique_pos,
+                                        num_unique_prefix_out, _unique_combination_key, tmp_unique_pos,
                                         _edges_per_node, device_table);
   device->StreamSync(_ctx, stream);
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 4 finish with number of unique "
@@ -1261,22 +1262,24 @@ void FrequencyHashmap::GetTopK(
   Timer t7;
   IdType *num_edge_prefix = _node_table;
   IdType *num_output_prefix = static_cast<IdType *>(
-      device->AllocWorkspace(_ctx, (num_input_node + 1) * sizeof(IdType)));
+      device->AllocWorkspace(_ctx, (num_input_node + 1) * 2 * sizeof(IdType)));
   generate_num_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid_input_node, block_input_node, 0, cu_stream>>>(input_nodes, num_input_node, K,
                                         num_edge_prefix, num_output_prefix,
                                         device_table);
   device->StreamSync(_ctx, stream);
-  /** FIX: only the first num_input_node items are used in num_edge_prefix. reset also only rests these.(notice the grid size) */
+  IdType *const num_output_prefix_out = &num_output_prefix[num_input_node + 1];
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
-                                          num_edge_prefix, num_edge_prefix,
+                                          num_output_prefix, num_output_prefix_out,
+                                          num_input_node + 1, cu_stream));
+  device->StreamSync(_ctx, stream);
+  /** FIX: only the first num_input_node items are used in num_edge_prefix. reset also only rests these.(notice the grid size) */
+  IdType *const num_edge_prefix_out = num_output_prefix;
+  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
+                                          num_edge_prefix, num_edge_prefix_out,
                                           num_input_node, cu_stream));
   device->StreamSync(_ctx, stream);
 
-  CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace2, workspace_bytes2,
-                                          num_output_prefix, num_output_prefix,
-                                          num_input_node + 1, cu_stream));
-  device->StreamSync(_ctx, stream);
   double step7_time = t7.Passed();
   LOG(DEBUG) << "FrequencyHashmap::GetTopK step 7 finish";
 
@@ -1296,7 +1299,7 @@ void FrequencyHashmap::GetTopK(
   compact_output_revised<<<grid2, block2, 0, cu_stream>>>(
       input_nodes,
       _unique_combination_key, _unique_dst, num_input_node, K,
-      num_edge_prefix, num_output_prefix, output_src, output_dst, output_data,
+      num_edge_prefix_out, num_output_prefix_out, output_src, output_dst, output_data,
       num_output);
   device->StreamSync(_ctx, stream);
 

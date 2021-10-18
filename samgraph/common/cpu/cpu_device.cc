@@ -44,6 +44,8 @@ void CPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
                                size_t to_offset, size_t nbytes,
                                Context ctx_from, Context ctx_to,
                                StreamHandle stream) {
+  // avoid copying with gpu
+  CHECK(ctx_from.device_type != kGPU && ctx_to.device_type != kGPU);
   memcpy(static_cast<char *>(to) + to_offset,
          static_cast<const char *>(from) + from_offset, nbytes);
 }
