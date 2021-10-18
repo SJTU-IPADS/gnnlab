@@ -33,6 +33,7 @@ class Device {
   virtual StreamHandle CreateStream(Context ctx);
   virtual void FreeStream(Context ctx, StreamHandle stream);
   virtual void StreamSync(Context ctx, StreamHandle stream) = 0;
+  virtual void SyncDevice(Context ctx) {}
   virtual void SyncStreamFromTo(Context ctx, StreamHandle event_src,
                                 StreamHandle event_dst);
   virtual size_t TotalSize(Context ctx) {return 0;};

@@ -86,6 +86,11 @@ void GPUDevice::FreeStream(Context ctx, StreamHandle stream) {
   CUDA_CALL(cudaStreamDestroy(cu_stream));
 }
 
+void GPUDevice::SyncDevice(Context ctx) {
+  CUDA_CALL(cudaSetDevice(ctx.device_id));
+  CUDA_CALL(cudaDeviceSynchronize());
+}
+
 void GPUDevice::SyncStreamFromTo(Context ctx, StreamHandle event_src,
                                  StreamHandle event_dst) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
