@@ -96,10 +96,10 @@ void GPUEngine::Init() {
 
 #ifndef SXN_NAIVE_HASHMAP
   _hashtable = new OrderedHashTable(
-      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
+      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx, _sampler_copy_stream);
 #else
   _hashtable = new OrderedHashTable(
-      _dataset->num_node, _sampler_ctx, 1);
+      _dataset->num_node, _sampler_ctx, _sampler_copy_stream, 1);
 #endif
   LOG_MEM_USAGE(INFO, "after create hashtable");
 
@@ -303,7 +303,7 @@ void GPUEngine::ArchCheck() {
       CHECK_EQ(_sampler_ctx.device_id, _trainer_ctx.device_id);
       break;
     case kArch3:
-      CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
+      // CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
       CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
       break;
     case kArch4:

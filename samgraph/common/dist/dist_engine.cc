@@ -271,10 +271,10 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   //       _hashtable only support GPU device
 #ifndef SXN_NAIVE_HASHMAP
   _hashtable = new cuda::OrderedHashTable(
-      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx);
+      PredictNumNodes(_batch_size, _fanout, _fanout.size()), _sampler_ctx, _sampler_copy_stream);
 #else
   _hashtable = new cuda::OrderedHashTable(
-      _dataset->num_node, _sampler_ctx, 1);
+      _dataset->num_node, _sampler_ctx, _sampler_copy_stream, 1);
 #endif
   LOG_MEM_USAGE(WARNING, "after create hashtable", _sampler_ctx);
 

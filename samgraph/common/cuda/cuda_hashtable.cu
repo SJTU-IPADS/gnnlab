@@ -657,7 +657,7 @@ DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
 
 // OrderedHashTable implementation
 OrderedHashTable::OrderedHashTable(const size_t size, Context ctx,
-                                   const size_t scale)
+                                   StreamHandle stream, const size_t scale)
     : _o2n_table(nullptr),
 #ifndef SXN_NAIVE_HASHMAP
       _o2n_size(TableSize(size, scale)),
@@ -670,17 +670,18 @@ OrderedHashTable::OrderedHashTable(const size_t size, Context ctx,
       _num_items(0) {
   // make sure we will at least as many buckets as items.
   auto device = Device::Get(_ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
 
   _o2n_table = static_cast<BucketO2N *>(
       device->AllocDataSpace(_ctx, sizeof(BucketO2N) * _o2n_size));
   _n2o_table = static_cast<BucketN2O *>(
       device->AllocDataSpace(_ctx, sizeof(BucketN2O) * _n2o_size));
 
-  CUDA_CALL(cudaMemset(_o2n_table, (int)Constant::kEmptyKey,
-                       sizeof(BucketO2N) * _o2n_size));
-  CUDA_CALL(cudaMemset(_n2o_table, (int)Constant::kEmptyKey,
-                       sizeof(BucketN2O) * _n2o_size));
-  device->SyncDevice(_ctx);
+  CUDA_CALL(cudaMemsetAsync(_o2n_table, (int)Constant::kEmptyKey,
+                       sizeof(BucketO2N) * _o2n_size, cu_stream));
+  CUDA_CALL(cudaMemsetAsync(_n2o_table, (int)Constant::kEmptyKey,
+                       sizeof(BucketN2O) * _n2o_size, cu_stream));
+  device->StreamSync(_ctx, stream);
   LOG(INFO) << "cuda hashtable init with " << _o2n_size
             << " O2N table size and " << _n2o_size << " N2O table size";
 }

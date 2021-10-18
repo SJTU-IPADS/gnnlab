@@ -49,9 +49,12 @@ GPUShuffler::GPUShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
     auto ctx = Engine::Get()->GetSamplerCtx();
     auto device = Device::Get(ctx);
     auto num_node = Engine::Get()->GetGraphDataset()->num_node;
+    StreamHandle stream = GPUEngine::Get()->GetSamplerCopyStream();
+    auto cu_stream = static_cast<cudaStream_t>(stream);
     _sanity_check_map = static_cast<IdType *>(
         device->AllocDataSpace(ctx, num_node * sizeof(IdType)));
-    CUDA_CALL(cudaMemset(_sanity_check_map, 0, sizeof(IdType) * num_node));
+    CUDA_CALL(cudaMemsetAsync(_sanity_check_map, 0, sizeof(IdType) * num_node, cu_stream));
+    device->StreamSync(ctx, stream);
   }
 }
 

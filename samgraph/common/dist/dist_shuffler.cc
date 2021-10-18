@@ -71,10 +71,13 @@ DistShuffler::DistShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
   if (RunConfig::option_sanity_check) {
     auto ctx = Engine::Get()->GetSamplerCtx();
     auto device = Device::Get(ctx);
+    StreamHandle stream = DistEngine::Get()->GetSamplerCopyStream();
+    auto cu_stream = static_cast<cudaStream_t>(stream);
     auto num_node = Engine::Get()->GetGraphDataset()->num_node;
     _sanity_check_map = static_cast<IdType *>(
         device->AllocDataSpace(ctx, num_node * sizeof(IdType)));
-    CUDA_CALL(cudaMemset(_sanity_check_map, 0, sizeof(IdType) * num_node));
+    CUDA_CALL(cudaMemsetAsync(_sanity_check_map, 0, sizeof(IdType) * num_node, cu_stream));
+    device->StreamSync(ctx, stream);
   }
 }
 
