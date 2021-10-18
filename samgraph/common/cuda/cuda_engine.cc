@@ -303,7 +303,7 @@ void GPUEngine::ArchCheck() {
       CHECK_EQ(_sampler_ctx.device_id, _trainer_ctx.device_id);
       break;
     case kArch3:
-      // CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
+      CHECK_NE(_sampler_ctx.device_id, _trainer_ctx.device_id);
       CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
       break;
     case kArch4:
