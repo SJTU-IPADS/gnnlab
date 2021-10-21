@@ -88,9 +88,10 @@ __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
   size_t index = TILE_SIZE * blockIdx.x + threadIdx.y;
   const size_t last_index = min(TILE_SIZE * (blockIdx.x + 1), num_input);
 
-  size_t i =  blockIdx.x * blockDim.y + threadIdx.y;
-  assert(i < num_random_states);
-  curandState local_state = random_states[i];
+  size_t i =  blockIdx.x * blockDim.x * blockDim.y + threadIdx.x * blockDim.y + threadIdx.y;
+  // i is out of bound in num_random_states, so use a new curand
+  curandState local_state;
+  curand_init(i, 0, 0, &local_state);
 
   while (index < last_index) {
     const IdType rid = input[index];
@@ -124,7 +125,6 @@ __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
     }
     index += BLOCK_WARP;
   }
-  random_states[i] = local_state;
 }
 
 #endif
