@@ -15,12 +15,15 @@
 #include "cuda_function.h"
 #include "cuda_utils.h"
 
+#define NEW_ALGO
+
 namespace samgraph {
 namespace common {
 namespace cuda {
 
 namespace {
 
+#ifndef NEW_ALGO
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
                              const IdType *input, const size_t num_input,
@@ -71,6 +74,60 @@ __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
 
   random_states[i] = local_state;
 }
+
+#else
+
+template <size_t WARP_SIZE, size_t BLOCK_WARP, size_t TILE_SIZE>
+__global__ void sample_khop0(const IdType *indptr, const IdType *indices,
+                             const IdType *input, const size_t num_input,
+                             const size_t fanout, IdType *tmp_src,
+                             IdType *tmp_dst, curandState *random_states,
+                             size_t num_random_states) {
+  assert(WARP_SIZE == blockDim.x);
+  assert(BLOCK_WARP == blockDim.y);
+  size_t index = TILE_SIZE * blockIdx.x + threadIdx.y;
+  const size_t last_index = min(TILE_SIZE * (blockIdx.x + 1), num_input);
+
+  size_t i =  blockIdx.x * blockDim.y + threadIdx.y;
+  assert(i < num_random_states);
+  curandState local_state = random_states[i];
+
+  while (index < last_index) {
+    const IdType rid = input[index];
+    const IdType off = indptr[rid];
+    const IdType len = indptr[rid + 1] - indptr[rid];
+
+    if (len <= fanout) {
+      size_t j = threadIdx.x;
+      for (; j < len; j += WARP_SIZE) {
+        tmp_src[index * fanout + j] = rid;
+        tmp_dst[index * fanout + j] = indices[off + j];
+      }
+
+      for (; j < fanout; j += WARP_SIZE) {
+        tmp_src[index * fanout + j] = Constant::kEmptyKey;
+        tmp_dst[index * fanout + j] = Constant::kEmptyKey;
+      }
+    } else {
+      size_t j = threadIdx.x;
+      for (; j < fanout; j += WARP_SIZE) {
+        tmp_src[index * fanout + j] = rid;
+        tmp_dst[index * fanout + j] = indices[off + j];
+      }
+
+      for (; j < len; j += WARP_SIZE) {
+        size_t k = curand(&local_state) % (j + 1);
+        if (k < fanout) {
+          atomicExch(tmp_dst + index * fanout + k, indices[off + j]);
+        }
+      }
+    }
+    index += BLOCK_WARP;
+  }
+  random_states[i] = local_state;
+}
+
+#endif
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_edge(IdType *edge_src, size_t *item_prefix,
@@ -182,19 +239,30 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
+#ifndef NEW_ALGO
   sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
           indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
           random_states->GetStates(), random_states->NumStates());
   sampler_device->StreamSync(ctx, stream);
+#else
+  const int WARP_SIZE = 32;
+  const int BLOCK_WARP = 128 / WARP_SIZE;
+  const int TILE_SIZE = BLOCK_WARP * 16;
+  const dim3 block_t(WARP_SIZE, BLOCK_WARP);
+  const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
+  sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
+          indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+          random_states->GetStates(), random_states->NumStates());
+  sampler_device->StreamSync(ctx, stream);
+#endif
   double sample_time = t0.Passed();
 
   Timer t1;
   size_t *item_prefix = static_cast<size_t *>(
-      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * 2 * (grid.x + 1)));
-  size_t *const item_prefix_out = &item_prefix[grid.x + 1];
+      sampler_device->AllocWorkspace(ctx, sizeof(size_t) * (grid.x + 1)));
   LOG(DEBUG) << "GPUSample: cuda item_prefix malloc "
-             << ToReadableSize(sizeof(size_t) * 2 * (grid.x + 1));
+             << ToReadableSize(sizeof(size_t) * (grid.x + 1));
 
   count_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(tmp_src, item_prefix, num_input, fanout);
@@ -210,7 +278,7 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
 
   void *workspace = sampler_device->AllocWorkspace(ctx, workspace_bytes);
   CUDA_CALL(cub::DeviceScan::ExclusiveSum(workspace, workspace_bytes,
-                                          item_prefix, item_prefix_out, grid.x + 1,
+                                          item_prefix, item_prefix, grid.x + 1,
                                           cu_stream));
   sampler_device->StreamSync(ctx, stream);
   LOG(DEBUG) << "GPUSample: cuda workspace malloc "
@@ -218,7 +286,7 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
 
   compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src, out_dst,
-                                      num_out, item_prefix_out, num_input, fanout);
+                                      num_out, item_prefix, num_input, fanout);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t2.Passed();
 
