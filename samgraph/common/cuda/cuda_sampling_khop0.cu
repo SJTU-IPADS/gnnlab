@@ -104,7 +104,7 @@ __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
         tmp_src[index * fanout + j] = rid;
         tmp_dst[index * fanout + j] = indices[off + j];
       }
-
+      __syncwarp();
       for (; j < fanout; j += WARP_SIZE) {
         tmp_src[index * fanout + j] = Constant::kEmptyKey;
         tmp_dst[index * fanout + j] = Constant::kEmptyKey;
@@ -115,7 +115,7 @@ __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
         tmp_src[index * fanout + j] = rid;
         tmp_dst[index * fanout + j] = indices[off + j];
       }
-
+      __syncwarp();
       for (; j < len; j += WARP_SIZE) {
         size_t k = curand(&local_state) % (j + 1);
         if (k < fanout) {
