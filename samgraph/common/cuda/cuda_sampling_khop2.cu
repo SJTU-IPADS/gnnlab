@@ -78,26 +78,16 @@ constexpr int HASH_SHIFT = 7;
 constexpr int HASH_MASK  = ((1 << HASH_SHIFT) - 1);
 constexpr int HASHTABLE_SIZE = (1 << HASH_SHIFT);
 
-// struct HashItem {
-//   IdType key;
-//   IdType version_val;
-// };
-
-using HashItem = unsigned long long;
+struct HashItem {
+  IdType key_val;
+};
 
 __device__ IdType _HashtableInsertVersion(HashItem* hashtable, IdType key, IdType version) {
   IdType pos = (key & HASH_MASK);
   IdType offset = 1;
-  unsigned long long* uint64_hashtable = reinterpret_cast<unsigned long long*>(hashtable);
   while (true) {
-    unsigned long long old_val = uint64_hashtable[pos];
-    unsigned long long new_val = (((unsigned long long)version) << 32) + key;
-    if ((old_val >> 32) != version) {
-      unsigned long long out = atomicCAS(&uint64_hashtable[pos], old_val, new_val);
-      if (out == old_val || out == new_val) {
-        return pos;
-      }
-    } else if (old_val == new_val) {
+    IdType old = atomicCAS(&hashtable[pos].key_val, 0xffffffff, key);
+    if (old == 0xffffffff || old == key) {
       return pos;
     }
     pos = ((pos + offset) & HASH_MASK);
@@ -106,14 +96,7 @@ __device__ IdType _HashtableInsertVersion(HashItem* hashtable, IdType key, IdTyp
 }
 
 __device__ IdType _HashtableSwapAt(HashItem* hashtable, IdType pos, IdType val) {
-  unsigned long long * location = reinterpret_cast<unsigned long long*>(&hashtable[pos]);
-  unsigned long long new_val = 0xffffffff00000000 | val;
-  unsigned long long old_val = atomicExch(location, new_val);
-  if ((old_val >> 32) == 0xffffffff) {
-    return static_cast<IdType>(old_val);
-  } else {
-    return val;
-  }
+  return atomicExch(&hashtable[pos].key_val, val);
 }
 
 template <size_t WARP_SIZE, size_t BLOCK_WARP, size_t TILE_SIZE>
@@ -133,7 +116,9 @@ __global__ void sample_khop2(const IdType *indptr, IdType *indices,
 
   auto hashtable = shared_hashtable[threadIdx.y];
   for (int idx = threadIdx.x; idx < HASHTABLE_SIZE; idx += WARP_SIZE) {
-    hashtable[idx] = 0xffffffffffffffff;
+    hashtable[idx].key_val = 0xffffffff;
+    // hashtable[idx].version = 0xffffffff;
+    // hashtable[idx].flag = 0;
   }
 
   IdType i =  blockIdx.x * blockDim.y + threadIdx.y;
@@ -142,6 +127,7 @@ __global__ void sample_khop2(const IdType *indptr, IdType *indices,
 
   for (; index < TILE_SIZE * (blockIdx.x + 1); index += BLOCK_WARP) {
     if (index >= num_input) {
+      __syncthreads();
       __syncthreads();
       __syncthreads();
       continue;
@@ -162,18 +148,23 @@ __global__ void sample_khop2(const IdType *indptr, IdType *indices,
         tmp_dst[index * fanout + j] = Constant::kEmptyKey;
       }
       __syncthreads();
+      __syncthreads();
     } else {
-      IdType* rand_store = &tmp_src[index * fanout];
-      IdType* hash_pos = &tmp_dst[index * fanout];
+      IdType* hash_pos = &tmp_src[index * fanout];
       for (size_t j = threadIdx.x; j < fanout; j += WARP_SIZE) {
-        rand_store[j] = (curand(&local_state) % (len - j)) + j;
-        hash_pos[j] = _HashtableInsertVersion(hashtable, rand_store[j], out_row);
+        IdType rand = (curand(&local_state) % (len - j)) + j;
+        hash_pos[j] = _HashtableInsertVersion(hashtable, rand, out_row);
       }
       __syncthreads();
       for (size_t j = threadIdx.x; j < fanout; j += WARP_SIZE) {
-        IdType val = _HashtableSwapAt(hashtable, hash_pos[j], rand_store[j]);
-        tmp_src[index * fanout + j] = rid;
+        IdType val = _HashtableSwapAt(hashtable, hash_pos[j], j);
+        // tmp_src[index * fanout + j] = rid;
         tmp_dst[index * fanout + j] = indices[off + val];
+      }
+      __syncthreads();
+      for (size_t j = threadIdx.x; j < fanout; j += WARP_SIZE) {
+        hashtable[hash_pos[j]].key_val = 0xffffffff;
+        tmp_src[index * fanout + j] = rid;
       }
     }
     __syncthreads();
