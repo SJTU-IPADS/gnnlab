@@ -15,12 +15,14 @@
 #include "cuda_function.h"
 #include "cuda_utils.h"
 
+#define NEW_ALGO
+
 namespace samgraph {
 namespace common {
 namespace cuda {
 
 namespace {
-
+#ifndef NEW_ALGO
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void sample_khop2(const IdType *indptr, IdType *indices,
                              const IdType *input, const size_t num_input,
@@ -70,6 +72,116 @@ __global__ void sample_khop2(const IdType *indptr, IdType *indices,
 
   random_states[i] = local_state;
 }
+#else
+
+constexpr int HASH_SHIFT = 7;
+constexpr int HASH_MASK  = ((1 << HASH_SHIFT) - 1);
+constexpr int HASHTABLE_SIZE = (1 << HASH_SHIFT);
+
+// struct HashItem {
+//   IdType key;
+//   IdType version_val;
+// };
+
+using HashItem = unsigned long long;
+
+__device__ IdType _HashtableInsertVersion(HashItem* hashtable, IdType key, IdType version) {
+  IdType pos = (key & HASH_MASK);
+  IdType offset = 1;
+  unsigned long long* uint64_hashtable = reinterpret_cast<unsigned long long*>(hashtable);
+  while (true) {
+    unsigned long long old_val = uint64_hashtable[pos];
+    unsigned long long new_val = (((unsigned long long)version) << 32) + key;
+    if ((old_val >> 32) != version) {
+      unsigned long long out = atomicCAS(&uint64_hashtable[pos], old_val, new_val);
+      if (out == old_val || out == new_val) {
+        return pos;
+      }
+    } else if (old_val == new_val) {
+      return pos;
+    }
+    pos = ((pos + offset) & HASH_MASK);
+    offset += 1;
+  }
+}
+
+__device__ IdType _HashtableSwapAt(HashItem* hashtable, IdType pos, IdType val) {
+  unsigned long long * location = reinterpret_cast<unsigned long long*>(&hashtable[pos]);
+  unsigned long long new_val = 0xffffffff00000000 | val;
+  unsigned long long old_val = atomicExch(location, new_val);
+  if ((old_val >> 32) == 0xffffffff) {
+    return static_cast<IdType>(old_val);
+  } else {
+    return val;
+  }
+}
+
+template <size_t WARP_SIZE, size_t BLOCK_WARP, size_t TILE_SIZE>
+__global__ void sample_khop2(const IdType *indptr, IdType *indices,
+                             const IdType *input, const size_t num_input,
+                             const size_t fanout, IdType *tmp_src,
+                             IdType *tmp_dst, curandState *random_states,
+                             size_t num_random_states) {
+  assert(WARP_SIZE == blockDim.x);
+  assert(BLOCK_WARP == blockDim.y);
+  IdType index = TILE_SIZE * blockIdx.x + threadIdx.y;
+  const IdType last_index = min(TILE_SIZE * (blockIdx.x + 1), num_input);
+
+  IdType out_row = blockIdx.x * TILE_SIZE + threadIdx.y;
+
+  __shared__ HashItem shared_hashtable[BLOCK_WARP][HASHTABLE_SIZE];
+
+  auto hashtable = shared_hashtable[threadIdx.y];
+  for (int idx = threadIdx.x; idx < HASHTABLE_SIZE; idx += WARP_SIZE) {
+    hashtable[idx] = 0xffffffffffffffff;
+  }
+
+  IdType i =  blockIdx.x * blockDim.y + threadIdx.y;
+  assert(i < num_random_states);
+  curandState local_state = random_states[i];
+
+  for (; index < TILE_SIZE * (blockIdx.x + 1); index += BLOCK_WARP) {
+    if (index >= num_input) {
+      __syncthreads();
+      __syncthreads();
+      continue;
+    }
+    const IdType rid = input[index];
+    const IdType off = indptr[rid];
+    const IdType len = indptr[rid + 1] - indptr[rid];
+
+    if (len <= fanout) {
+      size_t j = threadIdx.x;
+      for (; j < len; j += WARP_SIZE) {
+        tmp_src[index * fanout + j] = rid;
+        tmp_dst[index * fanout + j] = indices[off + j];
+      }
+
+      for (; j < fanout; j += WARP_SIZE) {
+        tmp_src[index * fanout + j] = Constant::kEmptyKey;
+        tmp_dst[index * fanout + j] = Constant::kEmptyKey;
+      }
+      __syncthreads();
+    } else {
+      IdType* rand_store = &tmp_src[index * fanout];
+      IdType* hash_pos = &tmp_dst[index * fanout];
+      for (size_t j = threadIdx.x; j < fanout; j += WARP_SIZE) {
+        rand_store[j] = (curand(&local_state) % (len - j)) + j;
+        hash_pos[j] = _HashtableInsertVersion(hashtable, rand_store[j], out_row);
+      }
+      __syncthreads();
+      for (size_t j = threadIdx.x; j < fanout; j += WARP_SIZE) {
+        IdType val = _HashtableSwapAt(hashtable, hash_pos[j], rand_store[j]);
+        tmp_src[index * fanout + j] = rid;
+        tmp_dst[index * fanout + j] = indices[off + val];
+      }
+    }
+    __syncthreads();
+  }
+  random_states[i] = local_state;
+}
+
+#endif
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_edge(IdType *edge_src, size_t *item_prefix,
@@ -181,10 +293,22 @@ void GPUSampleKHop2(const IdType *indptr, IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
+#ifndef NEW_ALGO
   sample_khop2<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
           indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
           random_states->GetStates(), random_states->NumStates());
+#else
+  static_assert(sizeof(unsigned long long) == 8, "");
+  const int WARP_SIZE = 32;
+  const int BLOCK_WARP = 128 / WARP_SIZE;
+  const int TILE_SIZE = BLOCK_WARP * 16;
+  const dim3 block_t(WARP_SIZE, BLOCK_WARP);
+  const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
+  sample_khop2<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
+          indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+          random_states->GetStates(), random_states->NumStates());
+#endif
   sampler_device->StreamSync(ctx, stream);
   double sample_time = t0.Passed();
 
