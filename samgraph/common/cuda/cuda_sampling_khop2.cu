@@ -15,14 +15,14 @@
 #include "cuda_function.h"
 #include "cuda_utils.h"
 
-#define NEW_ALGO
+// #define DGL_PARALLEL_KHOP2
 
 namespace samgraph {
 namespace common {
 namespace cuda {
 
 namespace {
-#ifndef NEW_ALGO
+#ifndef DGL_PARALLEL_KHOP2
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void sample_khop2(const IdType *indptr, IdType *indices,
                              const IdType *input, const size_t num_input,
@@ -284,7 +284,7 @@ void GPUSampleKHop2(const IdType *indptr, IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
-#ifndef NEW_ALGO
+#ifndef DGL_PARALLEL_KHOP2
   sample_khop2<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
           indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
