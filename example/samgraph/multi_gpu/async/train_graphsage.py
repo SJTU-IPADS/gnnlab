@@ -52,7 +52,7 @@ class SAGE(nn.Module):
 
 
 def parse_args(default_run_config):
-    argparser = argparse.ArgumentParser("GCN Training")
+    argparser = argparse.ArgumentParser("GraphSage Training")
 
     add_common_arguments(argparser, default_run_config)
 
@@ -255,9 +255,13 @@ def run_train(worker_id, run_config):
 
     model = SAGE(in_feat, run_config['num_hidden'], num_class,
                  num_layer, F.relu, run_config['dropout'])
+    for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
+        param.data = cpu_param.data.clone()
     model = model.to(train_device)
     model_copy = SAGE(in_feat, run_config['num_hidden'], num_class,
                  num_layer, F.relu, run_config['dropout'])
+    for (param, cpu_param) in zip(model_copy.parameters(), global_cpu_model.parameters()):
+        param.data = cpu_param.data.clone()
     model_copy = model_copy.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()

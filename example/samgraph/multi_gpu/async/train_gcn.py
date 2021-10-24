@@ -247,9 +247,13 @@ def run_train(worker_id, run_config):
 
     model = GCN(in_feat, run_config['num_hidden'], num_class,
                 num_layer, F.relu, run_config['dropout'])
+    for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
+        param.data = cpu_param.data.clone()
     model = model.to(train_device)
     model_copy = GCN(in_feat, run_config['num_hidden'], num_class,
                  num_layer, F.relu, run_config['dropout'])
+    for (param, cpu_param) in zip(model_copy.parameters(), global_cpu_model.parameters()):
+        param.data = cpu_param.data.clone()
     model_copy = model_copy.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
