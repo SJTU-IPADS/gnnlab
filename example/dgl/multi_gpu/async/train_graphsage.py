@@ -7,7 +7,6 @@ import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 import dgl.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel
 import fastgraph
 import time
 import numpy as np
@@ -15,7 +14,9 @@ import math
 import sys
 from common_config import *
 from train_accuracy import Accuracy
+from threading import Lock
 
+global_lock = Lock()
 class SAGE(nn.Module):
     def __init__(self,
                  in_feats,
@@ -250,15 +251,20 @@ def run(worker_id, run_config):
     for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
         param.data = cpu_param.data.clone()
     model = model.to(train_device)
+    model_copy = SAGE(in_feats, run_config['num_hidden'], n_classes,
+                 run_config['num_layer'], F.relu, run_config['dropout'])
+    for (param, cpu_param) in zip(model_copy.parameters(), global_cpu_model.parameters()):
+        param.data = cpu_param.data.clone()
+    model_copy = model_copy.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(train_device)
     optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
-    cpu_optimizer = optim.Adam(global_cpu_model.parameters(), lr=run_config['lr'])
 
     num_epoch = run_config['num_epoch']
 
     model.train()
+    model_copy.train()
 
     epoch_sample_times = []
     epoch_graph_copy_times = []
@@ -311,17 +317,21 @@ def run(worker_id, run_config):
             t3 = time.time()
 
             # Compute loss and prediction
+            for (param, copy_param) in zip(model.parameters(), model_copy.parameters()):
+                copy_param.data = param.data.clone()
+
             batch_pred = model(blocks, batch_inputs)
             loss = loss_fcn(batch_pred, batch_labels)
             optimizer.zero_grad()
             loss.backward()
-            # optimizer.step()
+            optimizer.step()
 
-            for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
-                cpu_param.grad = param.grad.to('cpu')
-            cpu_optimizer.step()
-            for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
-                param.data = cpu_param.data.to(train_device).data
+            with global_lock:
+              for (param, copy_param, cpu_param) in zip(model.parameters(), model_copy.parameters(), global_cpu_model.parameters()):
+                  delta = param.data - copy_param.data
+                  param.data = cpu_param.data.to(train_device)
+                  param.data += delta
+                  cpu_param.data = param.data.to('cpu')
 
             if not run_config['pipelining']:
                 event_sync()
