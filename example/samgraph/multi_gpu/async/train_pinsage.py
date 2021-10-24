@@ -5,23 +5,69 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-from dgl.nn.pytorch import SAGEConv
+import dgl.function as fn
+from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
 import sys
 import os
 import datetime
-import train_accuracy
-from threading import Lock
 '''
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 os.environ["NCCL_DEBUG"] = "INFO"
 '''
 import samgraph.torch as sam
 from common_config import *
-
+from threading import Lock
 global_lock = Lock()
 
-class SAGE(nn.Module):
+"""
+  We have made the following modification(or say, simplification) on PinSAGE,
+  because we only want to focus on the core algorithm of PinSAGE:
+    1. we modify PinSAGE to make it be able to be trained on homogenous graph.
+    2. we use cross-entropy loss instead of max-margin ranking loss describe in the paper.
+"""
+
+
+class WeightedSAGEConv(nn.Module):
+    def __init__(self, input_dims, hidden_dims, output_dims, dropout, act=F.relu):
+        super().__init__()
+
+        self.act = act
+        self.Q = nn.Linear(input_dims, hidden_dims)
+        self.W = nn.Linear(input_dims + hidden_dims, output_dims)
+        self.reset_parameters()
+        self.dropout = nn.Dropout(dropout)
+
+    def reset_parameters(self):
+        gain = nn.init.calculate_gain('relu')
+        nn.init.xavier_uniform_(self.Q.weight, gain=gain)
+        nn.init.xavier_uniform_(self.W.weight, gain=gain)
+        nn.init.constant_(self.Q.bias, 0)
+        nn.init.constant_(self.W.bias, 0)
+
+    def forward(self, g, h, weights):
+        """
+        g : graph
+        h : node features
+        weights : scalar edge weights
+        """
+        h_src, h_dst = h
+        with g.local_scope():
+            g.srcdata['n'] = self.act(self.Q(self.dropout(h_src)))
+            g.edata['w'] = weights.float()
+            g.update_all(fn.u_mul_e('n', 'w', 'm'), fn.sum('m', 'n'))
+            g.update_all(fn.copy_e('w', 'm'), fn.sum('m', 'ws'))
+            n = g.dstdata['n']
+            ws = g.dstdata['ws'].unsqueeze(1).clamp(min=1)
+            z = self.act(self.W(self.dropout(torch.cat([n / ws, h_dst], 1))))
+            z_norm = z.norm(2, 1, keepdim=True)
+            z_norm = torch.where(
+                z_norm == 0, torch.tensor(1.).to(z_norm), z_norm)
+            z = z / z_norm
+            return z
+
+
+class PinSAGE(nn.Module):
     def __init__(self,
                  in_feats,
                  n_hidden,
@@ -34,36 +80,44 @@ class SAGE(nn.Module):
         self.n_hidden = n_hidden
         self.n_classes = n_classes
         self.layers = nn.ModuleList()
-        self.layers.append(SAGEConv(in_feats, n_hidden, 'mean'))
-        for _ in range(1, n_layers - 1):
-            self.layers.append(SAGEConv(n_hidden, n_hidden, 'mean'))
-        self.layers.append(SAGEConv(n_hidden, n_classes, 'mean'))
-        self.dropout = nn.Dropout(dropout)
-        self.activation = activation
 
-    def forward(self, blocks, x):
-        h = x
-        for l, (layer, block) in enumerate(zip(self.layers, blocks)):
-            h = layer(block, h)
-            if l != len(self.layers) - 1:
-                h = self.activation(h)
-                h = self.dropout(h)
+        self.layers.append(WeightedSAGEConv(
+            in_feats, n_hidden, n_hidden, dropout, activation))
+        for _ in range(1, n_layers - 1):
+            self.layers.append(WeightedSAGEConv(
+                n_hidden, n_hidden, n_hidden, dropout, activation))
+        self.layers.append(WeightedSAGEConv(
+            n_hidden, n_hidden, n_classes, dropout, activation))
+
+    def forward(self, blocks, h):
+        for layer, block in zip(self.layers, blocks):
+            h_dst = h[:block.number_of_nodes('DST/' + block.ntypes[0])]
+            h = layer(block, (h, h_dst), block.edata['weights'])
         return h
 
 
 def parse_args(default_run_config):
-    argparser = argparse.ArgumentParser("GCN Training")
+    argparser = argparse.ArgumentParser("PinSAGE Training")
 
     add_common_arguments(argparser, default_run_config)
 
-    argparser.add_argument('--fanout', nargs='+',
-                           type=int, default=default_run_config['fanout'])
-    argparser.add_argument('--lr', type=float,
-                           default=default_run_config['lr'])
+    argparser.add_argument('--random-walk-length', type=int,
+                           default=default_run_config['random_walk_length'])
+    argparser.add_argument('--random-walk-restart-prob',
+                           type=float, default=default_run_config['random_walk_restart_prob'])
+    argparser.add_argument('--num-random-walk', type=int,
+                           default=default_run_config['num_random_walk'])
+    argparser.add_argument('--num-neighbor', type=int,
+                           default=default_run_config['num_neighbor'])
+    argparser.add_argument('--num-layer', type=int,
+                           default=default_run_config['num_layer'])
+
+    argparser.add_argument(
+        '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
-    argparser.add_argument('--report-acc', type=int,
-                           default=0)
+    argparser.add_argument('--no-ddp', action='store_false', dest='use_ddp',
+                           default=default_run_config['use_ddp'])
 
     return vars(argparser.parse_args())
 
@@ -72,22 +126,28 @@ def get_run_config():
     run_config = {}
 
     run_config.update(get_default_common_config(run_mode=RunMode.FGNN))
-    run_config['sample_type'] = 'khop2'
+    run_config['sample_type'] = 'random_walk'
 
-    run_config['fanout'] = [25, 10]
+    run_config['random_walk_length'] = 3
+    run_config['random_walk_restart_prob'] = 0.5
+    run_config['num_random_walk'] = 4
+    run_config['num_neighbor'] = 5
+    run_config['num_layer'] = 3
+
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
+    run_config['use_ddp'] = True
 
     run_config.update(parse_args(run_config))
 
     process_common_config(run_config)
     assert(run_config['arch'] == 'arch5')
-    assert(run_config['sample_type'] != 'random_walk')
-
-    run_config['num_fanout'] = run_config['num_layer'] = len(
-        run_config['fanout'])
+    assert(run_config['sample_type'] == 'random_walk')
 
     print_run_config(run_config)
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
 
@@ -115,7 +175,6 @@ def run_sample(worker_id, run_config):
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
-
     if (worker_id == (num_worker - 1)):
         num_step = int(num_step - int(num_step /
                        num_worker) * worker_id)
@@ -138,17 +197,19 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     for epoch in range(num_epoch):
-        if run_config['pipeline']:
-            # epoch end barrier 1
+        if (run_config['pipeline']):
+            # epoch start barrier 1
             global_barrier.wait()
 
         tic = time.time()
         for step in range(num_step):
+            # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
+
         toc0 = time.time()
 
-        if not run_config['pipeline']:
+        if (not run_config['pipeline']):
             # epoch start barrier 2
             global_barrier.wait()
 
@@ -175,14 +236,15 @@ def run_sample(worker_id, run_config):
     print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
         worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
 
+    if worker_id == 0:
+        sam.report_step_average(epoch - 1, step - 1)
+
     # run end barrier
     global_barrier.wait()
 
     if worker_id == 0:
-        # sam.report_step_average(epoch - 1, step - 1)
         sam.report_init()
 
-    # print result
     if worker_id == 0:
         test_result = []
         test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
@@ -206,7 +268,7 @@ def run_sample(worker_id, run_config):
 def get_global_model(run_config):
     in_feat = sam.feat_dim()
     num_class = sam.num_class()
-    model = SAGE(in_feat, run_config['num_hidden'], num_class,
+    model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
                  run_config['num_layer'], F.relu, run_config['dropout'])
     model.share_memory() # gradients are allocated lazily, so they are not shared here
 
@@ -214,21 +276,11 @@ def get_global_model(run_config):
 
 def run_train(worker_id, run_config):
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-    # ctx= run_config['trainer_ctx'] # [worker_id]
     torch.set_num_threads(run_config['torch_thread_num'])
     ctx = run_config['train_workers'][worker_id]
     num_worker = run_config['num_train_worker']
     global_barrier = run_config['global_barrier']
     global_cpu_model = run_config['global_cpu_model']
-
-    if (run_config['report_acc'] != 0) and (worker_id == 0):
-        dgl_graph, valid_set, test_set, feat, label = \
-            train_accuracy.load_accuracy_data(run_config['dataset'], run_config['root_path'])
-        # use sample device to speedup the sampling
-        # XXX: why can not work while graph is hold on this GPU ?
-        acc_device = torch.device(run_config['sample_workers'][0])
-        accuracy = train_accuracy.Accuracy(dgl_graph, valid_set, test_set, feat, label,
-                            run_config['fanout'], run_config['batch_size'], acc_device)
 
     train_device = torch.device(ctx)
     print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
@@ -239,7 +291,7 @@ def run_train(worker_id, run_config):
     sam.wait_for_sampler_ready(global_barrier)
     sam.train_init(worker_id, ctx)
 
-    if num_worker > 1:
+    if (num_worker > 1) and (run_config['use_ddp']):
         dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='12345')
         world_size = num_worker
@@ -253,16 +305,17 @@ def run_train(worker_id, run_config):
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
 
-    model = SAGE(in_feat, run_config['num_hidden'], num_class,
-                 num_layer, F.relu, run_config['dropout'])
+    model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
+                    num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
-    model_copy = SAGE(in_feat, run_config['num_hidden'], num_class,
+    model_copy = PinSAGE(in_feat, run_config['num_hidden'], num_class,
                  num_layer, F.relu, run_config['dropout'])
     model_copy = model_copy.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(train_device)
-    optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
+    optimizer = optim.Adam(
+        model.parameters(), lr=run_config['lr'])
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -281,7 +334,6 @@ def run_train(worker_id, run_config):
     convert_times = []
     train_times = []
     total_times = []
-    total_steps = 0
 
     align_up_step = int(
         int((num_step + num_worker - 1) / num_worker) * num_worker)
@@ -291,32 +343,31 @@ def run_train(worker_id, run_config):
     print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
     run_start = time.time()
-    run_acc_total = 0.0
 
     for epoch in range(num_epoch):
         # epoch start barrier
         global_barrier.wait()
 
-        epoch_acc_time = 0.0
-
         tic = time.time()
         if run_config['pipeline'] or run_config['single_gpu']:
             need_steps = int(num_step / num_worker)
-            if worker_id < num_step % num_worker:
+            if (worker_id < num_step % num_worker):
                 need_steps += 1
             sam.extract_start(need_steps)
 
         for step in range(worker_id, align_up_step, num_worker):
-            if step < num_step:
+            if (step < num_step):
                 t0 = time.time()
                 if (not run_config['pipeline']) and (not run_config['single_gpu']):
                     sam.sample_once()
                 # sam.sample_once()
                 batch_key = sam.get_next_batch()
                 t1 = time.time()
-                blocks, batch_input, batch_label = sam.get_dgl_blocks(
+                blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(
                     batch_key, num_layer)
                 t2 = time.time()
+            else:
+                t0 = t1 = t2 = time.time()
 
             # Compute loss and prediction
             for (param, copy_param) in zip(model.parameters(), model_copy.parameters()):
@@ -338,7 +389,7 @@ def run_train(worker_id, run_config):
             # wait for the train finish then we can free the data safely
             event_sync()
 
-            if step + num_worker < num_step:
+            if (step + num_worker < num_step):
                 batch_input = None
                 batch_label = None
                 blocks = None
@@ -356,30 +407,27 @@ def run_train(worker_id, run_config):
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
 
+            feat_nbytes = sam.get_log_epoch_value(
+                epoch, sam.kLogEpochFeatureBytes)
+            miss_nbytes = sam.get_log_epoch_value(
+                epoch, sam.kLogEpochMissBytes)
+            epoch_cache_hit_rates.append(
+                (feat_nbytes - miss_nbytes) / feat_nbytes)
+
             copy_times.append(copy_time)
             convert_times.append(convert_time)
             train_times.append(train_time)
             total_times.append(total_time)
 
-            sam.report_step(epoch, step)
-            if (run_config['report_acc']) and \
-                    (step % run_config['report_acc'] == 0) and (worker_id == 0):
-                tt = time.time()
-                acc = accuracy.valid_acc(model, train_device)
-                acc_time = (time.time() - tt)
-                epoch_acc_time += acc_time
-                run_acc_total += acc_time
-                print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
-                    acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
-            total_steps += run_config['num_train_worker']
+            # sam.report_step(epoch, step)
 
         # sync the train workers
-        if num_worker > 1:
+        if (num_worker > 1) and (run_config['use_ddp']):
             torch.distributed.barrier()
 
         toc = time.time()
 
-        epoch_total_times_python.append(toc - tic - epoch_acc_time)
+        epoch_total_times_python.append(toc - tic)
 
         # epoch end barrier
         global_barrier.wait()
@@ -398,28 +446,15 @@ def run_train(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochTrainTime))
         epoch_train_total_times_profiler.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
-        if (run_config['report_acc'] != 0) and (worker_id == 0):
-            tt = time.time()
-            acc = accuracy.valid_acc(model, train_device)
-            acc_time = (time.time() - tt)
-            run_acc_total += acc_time
-            print('Valid Acc: {:.2f}% | Acc Time: {:.4f} | Total Step: {:d} | Time Cost: {:.2f}'.format(
-                acc * 100.0, acc_time, total_steps, (time.time() - run_start - run_acc_total)))
         if worker_id == 0:
             print('Epoch {:05d} | Epoch Time {:.4f} | Total Train Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
                 epoch, epoch_total_times_python[-1], epoch_train_total_times_profiler[-1], epoch_copy_times[-1]))
 
     # sync the train workers
-    if num_worker > 1:
+    if (num_worker > 1) and (run_config['use_ddp']):
         torch.distributed.barrier()
 
-    if (run_config['report_acc'] != 0) and (worker_id == 0):
-        tt = time.time()
-        acc = accuracy.test_acc(model, train_device)
-        acc_time = (time.time() - tt)
-        run_acc_total += acc_time
-        print('Test Acc: {:.2f}% | Acc Time: {:.4f} | Time Cost: {:.2f}'.format(acc * 100.0, acc_time, (time.time() - run_start - run_acc_total)))
-    print('[Train  Worker {:d}] Avg Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
+    print('[Train  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
@@ -430,6 +465,8 @@ def run_train(worker_id, run_config):
     global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
+        sam.report_step_average(num_epoch - 1, num_step - 1)
+        sam.report_init()
         test_result = []
         test_result.append(('epoch_time:copy_time',
                            np.mean(epoch_copy_times[1:])))
