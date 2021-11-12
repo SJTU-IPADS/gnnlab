@@ -37,6 +37,12 @@ void samgraph_config(const char **config_keys, const char **config_values,
     std::string v(config_values[i]);
     configs[k] = v;
   }
+  samgraph_config_from_map(configs);
+}
+
+void samgraph_config_from_map(std::unordered_map<std::string, std::string>& configs) {
+  using RC = RunConfig;
+  CHECK(!RC::is_configured);
 
   CHECK(configs.count("dataset_path"));
   CHECK(configs.count("_arch"));
