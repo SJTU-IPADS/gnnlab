@@ -331,7 +331,7 @@ def run_train(worker_id, run_config):
             train_times.append(train_time)
             total_times.append(total_time)
 
-            sam.report_step_average(epoch, step)
+            # sam.report_step_average(epoch, step)
 
         # sync the train workers
         if num_worker > 1:
@@ -375,6 +375,8 @@ def run_train(worker_id, run_config):
 
     # sampler print init and result
     global_barrier.wait()  # barrier for pretty print
+    sam.report_step_average(num_epoch - 1, num_step - 1)
+    sam.report_init()
 
     if worker_id == 0:
         test_result = []

@@ -166,7 +166,10 @@ def run(worker_id, run_config):
 
         for step in range(worker_id, num_step * num_worker, num_worker):
             t0 = time.time()
-            sam.sample_once()
+            if not run_config['pipeline']:
+              sam.sample_once()
+            elif epoch + step == worker_id:
+              sam.extract_start(0)
             batch_key = sam.get_next_batch()
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
@@ -203,7 +206,7 @@ def run(worker_id, run_config):
             train_times.append(train_time)
             total_times.append(total_time)
 
-            sam.report_step_average(epoch, step)
+            # sam.report_step_average(epoch, step)
 
         event_sync()
 
@@ -253,6 +256,8 @@ def run(worker_id, run_config):
     global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
+        sam.report_step_average(epoch, step)
+        sam.report_init()
         test_result = []
         test_result.append(
             ('epoch_time:sample_time', np.mean(epoch_sample_times[1:])))
