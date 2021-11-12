@@ -157,8 +157,8 @@ int main(int argc, char* argv[]) {
   std::vector<int> fanout = {25, 10};
 
   std::vector<double> expection_table(orig_graph->num_nodes, 0);
-  // size_t batch_size = 8000;
-  size_t batch_size = 1;
+  size_t batch_size = 8000;
+  // size_t batch_size = 1;
   for (size_t i = 0; i < orig_graph->num_train_set; i += batch_size) {
     procBatchTrainNode(expection_table.data(), orig_graph, i, std::min(i + batch_size, orig_graph->num_train_set), fanout);
     std::cout << "done " << i << "/" << orig_graph->num_train_set << "\n";

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 
 namespace samgraph {
 namespace common {
@@ -11,6 +12,8 @@ extern "C" {
 
 void samgraph_config(const char **config_keys, const char **config_values,
                      const size_t num_config_items);
+
+void samgraph_config_from_map(std::unordered_map<std::string, std::string>& configs);
 
 void samgraph_init();
 

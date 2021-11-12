@@ -174,6 +174,7 @@ def process_common_config(run_config):
             run_config['trainer_ctx'] = run_config['override_train_device']
     elif run_mode == RunMode.FGNN:
         run_config['omp_thread_num'] //= run_config['num_train_worker']
+        run_config['torch_thread_num'] = torch.get_num_threads() // run_config['num_train_worker']
         assert(
             'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
         assert(
