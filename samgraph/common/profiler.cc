@@ -466,10 +466,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "walk topk step1   %.4lf | walk topk step2   %.4lf\n"
         "        L3  walk topk step3  %.4lf | walk topk step4   %.4lf | "
         "walk topk step5   %.4lf\n"
-        "        L3  walk topk step6  %.4lf | walk topk step7   %.4lf | "
-        "walk topk step8   %.4lf\n"
-        "        L3  walk topk step9  %.4lf | walk topk step10  %.4lf | "
-        "walk topk step11  %.4lf\n"
+        "        L3  walk topk step6  %.4lf | walk topk step7   %.4lf\n"
         "        L3  remap unique     %.4lf | remap populate    %.4lf | "
         "remap mapnode     %.4lf | remap mapedge     %.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL3KHopSampleCooTime],
@@ -497,10 +494,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "walk topk step1     %.4lf | walk topk step2   %.4lf\n"
         "        L3  walk topk step3  %.4lf | walk topk step4    %.4lf | "
         "walk topk step5     %.4lf\n"
-        "        L3  walk topk step6  %.4lf | walk topk step7    %.4lf | "
-        "walk topk step8     %.4lf\n"
-        "        L3  walk topk step9  %.4lf | walk topk step10   %.4lf | "
-        "walk topk step11    %.4lf\n"
+        "        L3  walk topk step6  %.4lf | walk topk step7    %.4lf\n"
         "        L3  remap unique     %.4lf | remap populate     %.4lf | "
         "remap mapnode       %.4lf | remap mapedge     %.4lf\n"
         "        L3  cache get_index  %.4lf | cache copy_index   %.4lf | "
