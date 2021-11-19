@@ -81,10 +81,6 @@ enum LogStepItem {
   kLogL3RandomWalkTopKStep5Time,
   kLogL3RandomWalkTopKStep6Time,
   kLogL3RandomWalkTopKStep7Time,
-  kLogL3RandomWalkTopKStep8Time,
-  kLogL3RandomWalkTopKStep9Time,
-  kLogL3RandomWalkTopKStep10Time,
-  kLogL3RandomWalkTopKStep11Time,
   kLogL3RemapFillUniqueTime,
   kLogL3RemapPopulateTime,
   kLogL3RemapMapNodeTime,
@@ -141,7 +137,7 @@ struct LogData {
   F(kL3Event_Copy_CacheCopy_CombineMiss) \
   F(kL3Event_Copy_CacheCopy_CombineCache) \
   F(kL1Event_Convert) \
-  F(kL1Event_Train) 
+  F(kL1Event_Train)
 
 #define F(name) name,
 enum TraceItem {TRACE_TYPES( F ) kNumTraceItems };
