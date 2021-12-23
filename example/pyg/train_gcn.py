@@ -107,7 +107,7 @@ def parse_args(default_run_config):
 
 def get_run_config():
     default_run_config = {}
-    default_run_config['device'] = 'cuda:1'
+    default_run_config['device'] = 'cuda:0'
     default_run_config['dataset'] = 'reddit'
     # default_run_config['dataset'] = 'products'
     # default_run_config['dataset'] = 'papers100M'

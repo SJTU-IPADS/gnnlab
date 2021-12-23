@@ -74,6 +74,14 @@ def get_run_config():
 
     run_config.update(parse_args(run_config))
 
+    # run_config["override_device"] = True
+    # run_config["override_train_device"] = 'cuda:0'
+    # run_config["override_sample_device"] = 'cuda:1'
+    
+    # run_config["dataset"] = 'reddit'
+    # run_config["dataset"] = 'com-friendster'
+    # run_config["dataset"] = 'ppi'
+
     process_common_config(run_config)
     assert(run_config['sample_type'] != 'random_walk')
 

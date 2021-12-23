@@ -82,6 +82,7 @@ setup(
                 'samgraph/common/task_queue.cc',
                 'samgraph/common/workspace_pool.cc',
                 'samgraph/common/memory_queue.cc',
+                'samgraph/common/partition.cc',
                 'samgraph/common/cpu/cpu_device.cc',
                 'samgraph/common/cpu/cpu_engine.cc',
                 'samgraph/common/cpu/cpu_extraction.cc',
@@ -150,7 +151,8 @@ setup(
                         '-DSXN_REVISED',
                         # '-DPIPELINE',
                         # '-DSXN_NAIVE_HASHMAP',
-                        # '-O0',
+                        '-DPARTITION_TEST',
+                        '-O0',
                         '-Wall', '-fopenmp', '-march=native'],
                 'nvcc': ['-std=c++14',
                          '-g',
@@ -159,6 +161,7 @@ setup(
                          '-DSXN_REVISED',
                          #  '-DPIPELINE',
                          # '-DSXN_NAIVE_HASHMAP',
+                         "-DTHRUST_IGNORE_CUB_VERSION_CHECK",
                          '--compiler-options', "'-fPIC'",
                          '-gencode=arch=compute_35,code=sm_35',  # K40m
                          '-gencode=arch=compute_70,code=sm_70',  # V100

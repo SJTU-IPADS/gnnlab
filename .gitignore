@@ -127,3 +127,7 @@ compile_commands.json
 # tests
 tests/*.o
 tests/*.out
+
+
+# log
+example/auto_runner/run-logs/*

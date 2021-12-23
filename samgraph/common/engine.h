@@ -13,6 +13,7 @@
 #include "constant.h"
 #include "graph_pool.h"
 #include "run_config.h"
+#include "partition.h"
 
 namespace samgraph {
 namespace common {
@@ -92,6 +93,10 @@ class Engine {
   std::shared_ptr<GraphBatch> _graph_batch;
   // Current graph batch
   std::atomic_int _joined_thread_cnt;
+
+#ifdef PARTITION_TEST
+  std::unique_ptr<Partition> partition;
+#endif
 
   virtual void ArchCheck() = 0;
   virtual std::unordered_map<std::string, Context> GetGraphFileCtx() = 0;

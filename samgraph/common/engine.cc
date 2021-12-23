@@ -54,6 +54,7 @@ void Engine::Create() {
 }
 
 void Engine::LoadGraphDataset() {
+#ifndef PARTITION_TEST
   Timer t;
   // Load graph dataset from disk by mmap and copy the graph
   // topology data into the target CUDA device.
@@ -244,6 +245,37 @@ void Engine::LoadGraphDataset() {
   LOG(DEBUG) << "dataset(" << _dataset_path << ") has "
              << _dataset->num_node << " nodes, "
              << _dataset->num_edge << " edges ";
+#else
+  if(partition == nullptr) {
+    partition = std::make_unique<Partition>(_dataset_path, 4, 1);
+  }
+  _dataset = partition->GetNext();
+  auto ctx_map = GetGraphFileCtx();
+  if(!(ctx_map[Constant::kIndptrFile] == CPU())) {
+    _dataset->indptr = Tensor::CopyTo(_dataset->indptr, ctx_map[Constant::kIndptrFile]);
+  }
+  if(!(ctx_map[Constant::kIndicesFile] == CPU())) {
+    _dataset->indices = Tensor::CopyTo(_dataset->indices, ctx_map[Constant::kIndicesFile]);
+  }
+  if(RunConfig::option_empty_feat) {
+    _dataset->feat = Tensor::EmptyNoScale(
+          DataType::kF32, {_dataset->num_node, 1ULL << RunConfig::option_empty_feat},
+          CPU(), "dataset.feat");
+  }
+  else {
+    // TODO: copy feat to partition 
+    LOG(FATAL) << "not implement yet";
+  }
+  _dataset->prob_table = Tensor::Null();
+  _dataset->prob_prefix_table = Tensor::Null();
+  _dataset->alias_table = Tensor::Null();
+  _dataset->in_degrees = Tensor::Null();
+  _dataset->out_degrees = Tensor::Null();
+  _dataset->ranking_nodes = Tensor::Null();
+  _dataset->test_set = Tensor::Null();
+  _dataset->valid_set = Tensor::Null();
+
+#endif
 }
 
 bool Engine::IsAllThreadFinish(int total_thread_num) {
