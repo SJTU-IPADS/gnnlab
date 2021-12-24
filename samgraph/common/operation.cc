@@ -146,6 +146,11 @@ void samgraph_config(const char **config_keys, const char **config_values,
     RunConfig::presample_epoch = 0;
   }
 
+  if(configs.count("unified_memory") > 0 && configs["unified_memory"] == "True") {
+    RunConfig::unified_memory = true;
+    LOG(DEBUG) << "unified_memory=True";
+  }
+
   RC::LoadConfigFromEnv();
   LOG(INFO) << "Use " << RunConfig::sample_type << " sampling algorithm";
   RC::is_configured = true;

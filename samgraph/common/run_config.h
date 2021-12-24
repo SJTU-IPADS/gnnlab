@@ -65,6 +65,8 @@ struct RunConfig {
   static std::string          shared_meta_path;
   // clang-format on
 
+  static bool                 unified_memory;
+
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;
   }

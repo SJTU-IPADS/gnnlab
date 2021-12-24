@@ -356,6 +356,14 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       CHECK(0);
   }
 
+  if(RunConfig::unified_memory) {
+    for(auto &it :ret) {
+      if(it.second == _sampler_ctx) {
+        it.second.device_type = DeviceType::kGPU_UM;
+      }
+    }
+  }
+
   return ret;
 }
 

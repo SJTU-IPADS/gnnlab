@@ -56,6 +56,7 @@ def parse_args(default_run_config):
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
+    argparser.add_argument('--unified-memory', action='store_true')
 
     return vars(argparser.parse_args())
 
@@ -81,6 +82,7 @@ def get_run_config():
     # run_config["dataset"] = 'reddit'
     # run_config["dataset"] = 'com-friendster'
     # run_config["dataset"] = 'ppi'
+    # run_config["unified_memory"] = True
 
     process_common_config(run_config)
     assert(run_config['sample_type'] != 'random_walk')

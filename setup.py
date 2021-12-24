@@ -151,7 +151,7 @@ setup(
                         '-DSXN_REVISED',
                         # '-DPIPELINE',
                         # '-DSXN_NAIVE_HASHMAP',
-                        '-DPARTITION_TEST',
+                        # '-DPARTITION_TEST',
                         '-O0',
                         '-Wall', '-fopenmp', '-march=native'],
                 'nvcc': ['-std=c++14',

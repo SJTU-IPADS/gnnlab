@@ -5,6 +5,7 @@
 #include "../logging.h"
 #include "../workspace_pool.h"
 #include "cuda_common.h"
+#include "../run_config.h"
 
 namespace samgraph {
 namespace common {
@@ -25,7 +26,11 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   void *ret;
   CHECK_EQ(256 % alignment, 0U);
   CUDA_CALL(cudaSetDevice(ctx.device_id));
-  CUDA_CALL(cudaMalloc(&ret, nbytes));
+  if(ctx.device_type == kGPU) {
+    CUDA_CALL(cudaMalloc(&ret, nbytes));
+  } else {
+    CUDA_CALL(cudaMallocManaged(&ret, nbytes));
+  }
   // data space is only allocated during init phase, thread-safe
   _allocated_size_list[ctx.device_id] += nbytes; 
   return ret;
@@ -46,6 +51,12 @@ void GPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
   cudaStream_t cu_stream = static_cast<cudaStream_t>(stream);
   from = static_cast<const char *>(from) + from_offset;
   to = static_cast<char *>(to) + to_offset;
+  if(ctx_from.device_type == DeviceType::kGPU_UM) {
+    ctx_from.device_type = DeviceType::kGPU;
+  }
+  if(ctx_to.device_type == DeviceType::kGPU_UM) {
+    ctx_to.device_type = DeviceType::kGPU;
+  }
   if (ctx_from.device_type == kGPU && ctx_to.device_type == kGPU) {
     CUDA_CALL(cudaSetDevice(ctx_from.device_id));
     if (ctx_from.device_id == ctx_to.device_id) {
