@@ -66,6 +66,8 @@ struct RunConfig {
   // clang-format on
 
   static bool                 unified_memory;
+  static bool                 unified_memory_in_cpu;
+  static double               unified_memory_overscribe_factor;
 
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;

@@ -30,6 +30,27 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
     CUDA_CALL(cudaMalloc(&ret, nbytes));
   } else {
     CUDA_CALL(cudaMallocManaged(&ret, nbytes));
+    // advice gpu um
+    if(RunConfig::unified_memory_in_cpu) {
+      CUDA_CALL(cudaMemAdvise(ret, nbytes, 
+          cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
+      CUDA_CALL(cudaMemAdvise(ret, nbytes, 
+          cudaMemAdviseSetAccessedBy, ctx.device_id));
+    }
+    else if(RunConfig::unified_memory_overscribe_factor > 1) {
+      size_t device_nbyte = static_cast<size_t>(1.0 * nbytes / RunConfig::unified_memory_overscribe_factor);
+      size_t host_nbyte = nbytes - device_nbyte;
+      LOG(INFO) << "unified_memory_overscribe " << device_nbyte << " " << host_nbyte;
+      CUDA_CALL(cudaMemAdvise(ret, device_nbyte, 
+          cudaMemAdviseSetPreferredLocation, ctx.device_id));
+      CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
+          cudaMemAdviseSetAccessedBy, ctx.device_id));
+          
+      CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
+          cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
+      CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
+          cudaMemAdviseSetAccessedBy, ctx.device_id));
+    }
   }
   // data space is only allocated during init phase, thread-safe
   _allocated_size_list[ctx.device_id] += nbytes; 

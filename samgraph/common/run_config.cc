@@ -59,6 +59,8 @@ std::string          RunConfig::shared_meta_path               = "/shared_meta_d
 // clang-format on
 
 bool                 RunConfig::unified_memory                 = false;
+bool                 RunConfig::unified_memory_in_cpu          = false;
+double               RunConfig::unified_memory_overscribe_factor= 0;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {

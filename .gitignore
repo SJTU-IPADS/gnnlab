@@ -131,3 +131,5 @@ tests/*.out
 
 # log
 example/auto_runner/run-logs/*
+
+mem_eator/

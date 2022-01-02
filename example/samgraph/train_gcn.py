@@ -57,6 +57,9 @@ def parse_args(default_run_config):
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
     argparser.add_argument('--unified-memory', action='store_true')
+    argparser.add_argument('--unified-memory-in-cpu', action='store_true')
+    argparser.add_argument('--unified-memory-overscribe-factor', type=float,
+                            default=0)
 
     return vars(argparser.parse_args())
 

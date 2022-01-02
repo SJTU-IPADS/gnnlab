@@ -150,6 +150,16 @@ void samgraph_config(const char **config_keys, const char **config_values,
     RunConfig::unified_memory = true;
     LOG(DEBUG) << "unified_memory=True";
   }
+  if(configs.count("unified_memory_in_cpu") > 0 && configs["unified_memory_in_cpu"] == "True") {
+    RunConfig::unified_memory_in_cpu = true;
+    LOG(INFO) << "unified_memory_in_cpu=True";
+  }
+  if(configs.count("unified_memory_overscribe_factor") > 0) {
+    RunConfig::unified_memory_overscribe_factor = 
+        std::stod(configs["unified_memory_overscribe_factor"]);
+    LOG(INFO) << "unified_memory_overscribe_factor="
+              << RunConfig::unified_memory_overscribe_factor;
+  }
 
   RC::LoadConfigFromEnv();
   LOG(INFO) << "Use " << RunConfig::sample_type << " sampling algorithm";

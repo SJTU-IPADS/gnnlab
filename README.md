@@ -159,3 +159,17 @@ h_i^{(l+1)} = \sigma(b^{(l)} + \sum_{j\in\mathcal{N}(i)}\frac{1}{c_{ji}}h_j^{(l)
 $$
 
 
+# UM 
+
+## paperM100
+
+khop0
+
+|eator|factor|mem|time|
+|-|-|-|-|
+|20783MiB|0.9|28.68 GB|0.76|
+|23855MiB|1.28571|30.30 GB|1.44|
+|26927MiB|2.25|30.97 GB|2.42|
+|29999MiB|18|31.56 GB|3.82|
+|-|oo|in cpu|3.85|
+
