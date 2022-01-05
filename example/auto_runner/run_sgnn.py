@@ -494,80 +494,89 @@ def breakdown_test(log_folder, mock):
 
     log_table = LogTable(
         num_row=12,
-        num_col=5
+        num_col=8
     ).update_col_definition(
         col_id=0,
-        definition='epoch_time:sample_time'
+        definition='epoch_time:sample_total'
     ).update_col_definition(
         col_id=1,
-        definition='epoch_time:copy_time'
+        definition='sample_time'
     ).update_col_definition(
         col_id=2,
-        definition='cache_percentage'
+        definition='get_cache_miss_index_time'
     ).update_col_definition(
         col_id=3,
-        definition='cache_hit_rate'
+        definition='epoch_time:copy_time'
     ).update_col_definition(
         col_id=4,
+        definition='cache_percentage'
+    ).update_col_definition(
+        col_id=5,
+        definition='cache_hit_rate'
+    ).update_col_definition(
+        col_id=6,
         definition='epoch_time:train_total'
+    ).update_col_definition(
+        col_id=7,
+        definition='epoch_time:total'
     ).update_row_definition(
         row_id=0,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.gcn,
         dataset=Dataset.products
     ).update_row_definition(
         row_id=1,
-        col_range=[0, 4],
-        app=App.gcn,
-        dataset=Dataset.papers100M
-    ).update_row_definition(
-        row_id=2,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.gcn,
         dataset=Dataset.twitter
     ).update_row_definition(
+        row_id=2,
+        col_range=[0, 7],
+        app=App.gcn,
+        dataset=Dataset.papers100M
+    ).update_row_definition(
         row_id=3,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.gcn,
         dataset=Dataset.uk_2006_05
     ).update_row_definition(
         row_id=4,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.graphsage,
         dataset=Dataset.products
     ).update_row_definition(
         row_id=5,
-        col_range=[0, 4],
-        app=App.graphsage,
-        dataset=Dataset.papers100M
-    ).update_row_definition(
-        row_id=6,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.graphsage,
         dataset=Dataset.twitter
     ).update_row_definition(
+        row_id=6,
+        col_range=[0, 7],
+        app=App.graphsage,
+        dataset=Dataset.papers100M
+    ).update_row_definition(
         row_id=7,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.graphsage,
         dataset=Dataset.uk_2006_05
     ).update_row_definition(
         row_id=8,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.pinsage,
         dataset=Dataset.products
     ).update_row_definition(
         row_id=9,
-        col_range=[0, 4],
-        app=App.pinsage,
-        dataset=Dataset.papers100M
-    ).update_row_definition(
-        row_id=10,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.pinsage,
         dataset=Dataset.twitter
     ).update_row_definition(
+        row_id=10,
+        col_range=[0, 7],
+        app=App.pinsage,
+        dataset=Dataset.papers100M
+    ).update_row_definition(
         row_id=11,
-        col_range=[0, 4],
+        col_range=[0, 7],
         app=App.pinsage,
         dataset=Dataset.uk_2006_05
     ).create()
@@ -593,9 +602,6 @@ def breakdown_test(log_folder, mock):
     ).override(
         'cache_policy',
         ['degree']
-    ).override(
-        'cache_percentage',
-        [0.03]
     ).override(
         'num_worker',
         [1],
@@ -664,14 +670,17 @@ def breakdown_test(log_folder, mock):
     with open(os.path.join(log_dir, 'test_result.txt'), 'w', encoding='utf8') as f:
         for i in range(log_table.num_row):
             f.write(
-                '| {:} | {:}({:3.0f}%,{:3.0f}%) | {:} |\n'.format(
+                '| {:} = {:} + {:} | {:}({:3.0f}%,{:3.0f}%) | {:} | {:} |\n'.format(
                     log_table.data[i][0],
                     log_table.data[i][1],
-                    0 if log_table.data[i][2] == None else float(
-                        log_table.data[i][2]) * 100,
-                    0 if log_table.data[i][3] == None else float(
-                        log_table.data[i][3]) * 100,
-                    log_table.data[i][4]
+                    log_table.data[i][2],
+                    log_table.data[i][3],
+                    0 if log_table.data[i][4] == None else float(
+                        log_table.data[i][4]) * 100,
+                    0 if log_table.data[i][5] == None else float(
+                        log_table.data[i][5]) * 100,
+                    log_table.data[i][6],
+                    log_table.data[i][7]
                 ))
 
     toc = time.time()

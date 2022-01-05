@@ -29,7 +29,8 @@ void DoCacheFeatureCopy(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
 void DoCPULabelExtractAndCopy(TaskPtr task);
 
-void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task);
+void DoArch6GetCacheMissIndex(TaskPtr task);
+void DoArch6CacheFeatureCopy(TaskPtr task);
 
 typedef void (*ExtractFunction)(int);
 ExtractFunction GetArch5Loops();
