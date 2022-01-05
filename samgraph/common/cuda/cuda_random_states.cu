@@ -19,7 +19,7 @@ namespace {
 __global__ void init_random_states(curandState *states, size_t num,
                                    unsigned long seed) {
   size_t threadId = threadIdx.x + blockIdx.x * blockDim.x;
-  if (threadId <= num) {
+  if (threadId < num) {
     /** Using different seed & constant sequence 0 can reduce memory 
       * consumption by 800M
       * https://docs.nvidia.com/cuda/curand/device-api-overview.html#performance-notes

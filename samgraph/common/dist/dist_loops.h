@@ -34,6 +34,7 @@ void DoArch6CacheFeatureCopy(TaskPtr task);
 
 typedef void (*ExtractFunction)(int);
 ExtractFunction GetArch5Loops();
+std::vector<LoopFunction> GetArch6Loops();
 
 }  // namespace dist
 }  // namespace common

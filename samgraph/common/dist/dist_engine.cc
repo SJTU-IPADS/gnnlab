@@ -452,19 +452,29 @@ void DistEngine::Start() {
  * @param count: the total times to loop
  */
 void DistEngine::StartExtract(int count) {
-  ExtractFunction func;
   switch (RunConfig::run_arch) {
-    case kArch5:
+    case kArch5: {
+      ExtractFunction func;
       func = GetArch5Loops();
+      // Start background threads
+      _threads.push_back(new std::thread(func, count));
+      LOG(DEBUG) << "Started a extracting background threads.";
       break;
+    }
+    case kArch6: {
+      std::vector<LoopFunction> func;
+      func = GetArch6Loops();
+      for (size_t i = 0; i < func.size(); i++) {
+        _threads.push_back(new std::thread(func[i]));
+      }
+      LOG(DEBUG) << "Started " << func.size() << " background threads.";
+      break;
+    }
     default:
       // Not supported arch 0
       CHECK(0);
   }
 
-  // Start background threads
-  _threads.push_back(new std::thread(func, count));
-  LOG(DEBUG) << "Started a extracting background threads.";
 }
 
 void DistEngine::Shutdown() {
