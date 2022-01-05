@@ -214,16 +214,27 @@ namespace {
     LOG(DEBUG) << title << "cuda usage: sampler " << ", trainer " << ToReadableSize(get_cuda_used(Engine::Get()->GetTrainerCtx())) << " with pid " << getpid();
   }
 
-  TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name) {
+  TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name,
+      Context ctx = Context{kCPU, 0}, StreamHandle stream = nullptr) {
     LOG(DEBUG) << "TaskQueue ToTensor with name: " << name;
-    void *data = Device::Get(CPU())->AllocWorkspace(CPU(), nbytes);
-    CopyCPUToCPU(ptr, data, nbytes);
-    TensorPtr ret =
-        Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, CPU(), name);
+    void *data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+    if (ctx.device_type == kCPU) {
+      CopyCPUToCPU(ptr, data, nbytes);
+    } else if (ctx.device_type == kGPU) {
+      // TODO: copy data from CPU to GPU
+      Device::Get(ctx)->CopyDataFromTo(
+          ptr, 0, data, 0, nbytes, CPU(), ctx, stream);
+    } else {
+      LOG(FATAL) << "device not supported!";
+    }
+    TensorPt ret = Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, ctx, name);
     return ret;
   }
 
-  std::shared_ptr<Task> ParseData(std::shared_ptr<SharedData> shared_data) {
+  std::shared_ptr<Task> ParseData(std::shared_ptr<SharedData> shared_data,
+      Context trainer_ctx, StreamHandle trainer_copy_stream) {
+    // TODO: change and use it
+    auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
     log_mem_usage("before paseData  in taskqueue");
     auto trans_data = static_cast<const TransData*>(shared_data->Data());
     std::shared_ptr<Task> task = std::make_shared<Task>();
