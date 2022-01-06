@@ -227,15 +227,14 @@ namespace {
     } else {
       LOG(FATAL) << "device not supported!";
     }
-    TensorPt ret = Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, ctx, name);
+    TensorPtr ret = Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, ctx, name);
     return ret;
   }
 
-  std::shared_ptr<Task> ParseData(std::shared_ptr<SharedData> shared_data,
-      Context trainer_ctx, StreamHandle trainer_copy_stream) {
-    // TODO: change and use it
-    auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+  std::shared_ptr<Task> ParseData(std::shared_ptr<SharedData> shared_data) {
     log_mem_usage("before paseData  in taskqueue");
+    auto stream = dist::DistEngine::Get()->GetTrainerCopyStream();
+    auto ctx = dist::DistEngine::Get()->GetTrainerCtx();
     auto trans_data = static_cast<const TransData*>(shared_data->Data());
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
@@ -295,14 +294,17 @@ namespace {
       graph->num_edge = graph_data->num_edge;
       graph->row = ToTensor(graph_data->data,
           graph->num_edge * sizeof(IdType),
-          "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer));
+          "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer),
+          ctx, stream);
       graph->col = ToTensor(graph_data->data + graph->num_edge,
           graph->num_edge * sizeof(IdType),
-          "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer));
+          "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer),
+          ctx, stream);
       if (trans_data->have_data) {
         graph->data = ToTensor(graph_data->data + 2 * graph->num_edge,
             graph->num_edge * sizeof(IdType),
-            "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer));
+            "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer),
+            ctx, stream);
         graph_data = reinterpret_cast<const GraphData*>(
             graph_data->data + 3 * graph->num_edge);
       } else {
@@ -313,6 +315,8 @@ namespace {
       task->graphs[layer] = graph;
     }
     // log_mem_usage("after paseData  in taskqueue");
+    // sync stream
+    Device::Get(ctx)->StreamSync(ctx, stream);
     return task;
   }
 

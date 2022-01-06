@@ -313,6 +313,10 @@ void DoGraphCopy(TaskPtr task) {
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
+    if (graph->row->Ctx() == trainer_ctx) {
+      CHECK(graph->col->Ctx() == trainer_ctx) << "col ctx needs equal row in graph";
+      continue;
+    }
     auto train_row =
         Tensor::Empty(graph->row->Type(), graph->row->Shape(), trainer_ctx,
                       "train_graph.row_cuda_train_" +
