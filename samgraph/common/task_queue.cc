@@ -265,7 +265,8 @@ namespace {
 
         task->miss_cache_index.miss_dst_index =
             ToTensor(trans_data_data, trans_data->num_miss * sizeof(IdType),
-                     "mis_dst_index_" + std::to_string(task->key));
+                     "mis_dst_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += task->miss_cache_index.num_miss;
       }
 
@@ -273,12 +274,14 @@ namespace {
       if (num_cache > 0) {
         task->miss_cache_index.cache_src_index =
             ToTensor(trans_data_data, num_cache * sizeof(IdType),
-                     "cache_src_index_" + std::to_string(task->key));
+                     "cache_src_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += num_cache;
 
         task->miss_cache_index.cache_dst_index =
             ToTensor(trans_data_data, num_cache * sizeof(IdType),
-                     "cache_dst_index_" + std::to_string(task->key));
+                     "cache_dst_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += num_cache;
       }
     }
