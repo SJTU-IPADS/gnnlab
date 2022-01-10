@@ -221,7 +221,6 @@ namespace {
     if (ctx.device_type == kCPU) {
       CopyCPUToCPU(ptr, data, nbytes);
     } else if (ctx.device_type == kGPU) {
-      // TODO: copy data from CPU to GPU
       Device::Get(ctx)->CopyDataFromTo(
           ptr, 0, data, 0, nbytes, CPU(), ctx, stream);
     } else {
