@@ -214,17 +214,26 @@ namespace {
     LOG(DEBUG) << title << "cuda usage: sampler " << ", trainer " << ToReadableSize(get_cuda_used(Engine::Get()->GetTrainerCtx())) << " with pid " << getpid();
   }
 
-  TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name) {
+  TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name,
+      Context ctx = Context{kCPU, 0}, StreamHandle stream = nullptr) {
     LOG(DEBUG) << "TaskQueue ToTensor with name: " << name;
-    void *data = Device::Get(CPU())->AllocWorkspace(CPU(), nbytes);
-    CopyCPUToCPU(ptr, data, nbytes);
-    TensorPtr ret =
-        Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, CPU(), name);
+    void *data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+    if (ctx.device_type == kCPU) {
+      CopyCPUToCPU(ptr, data, nbytes);
+    } else if (ctx.device_type == kGPU) {
+      Device::Get(ctx)->CopyDataFromTo(
+          ptr, 0, data, 0, nbytes, CPU(), ctx, stream);
+    } else {
+      LOG(FATAL) << "device not supported!";
+    }
+    TensorPtr ret = Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, ctx, name);
     return ret;
   }
 
   std::shared_ptr<Task> ParseData(std::shared_ptr<SharedData> shared_data) {
     log_mem_usage("before paseData  in taskqueue");
+    auto stream = dist::DistEngine::Get()->GetTrainerCopyStream();
+    auto ctx = dist::DistEngine::Get()->GetTrainerCtx();
     auto trans_data = static_cast<const TransData*>(shared_data->Data());
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
@@ -255,7 +264,8 @@ namespace {
 
         task->miss_cache_index.miss_dst_index =
             ToTensor(trans_data_data, trans_data->num_miss * sizeof(IdType),
-                     "mis_dst_index_" + std::to_string(task->key));
+                     "mis_dst_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += task->miss_cache_index.num_miss;
       }
 
@@ -263,12 +273,14 @@ namespace {
       if (num_cache > 0) {
         task->miss_cache_index.cache_src_index =
             ToTensor(trans_data_data, num_cache * sizeof(IdType),
-                     "cache_src_index_" + std::to_string(task->key));
+                     "cache_src_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += num_cache;
 
         task->miss_cache_index.cache_dst_index =
             ToTensor(trans_data_data, num_cache * sizeof(IdType),
-                     "cache_dst_index_" + std::to_string(task->key));
+                     "cache_dst_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += num_cache;
       }
     }
@@ -284,14 +296,17 @@ namespace {
       graph->num_edge = graph_data->num_edge;
       graph->row = ToTensor(graph_data->data,
           graph->num_edge * sizeof(IdType),
-          "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer));
+          "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer),
+          ctx, stream);
       graph->col = ToTensor(graph_data->data + graph->num_edge,
           graph->num_edge * sizeof(IdType),
-          "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer));
+          "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer),
+          ctx, stream);
       if (trans_data->have_data) {
         graph->data = ToTensor(graph_data->data + 2 * graph->num_edge,
             graph->num_edge * sizeof(IdType),
-            "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer));
+            "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer),
+            ctx, stream);
         graph_data = reinterpret_cast<const GraphData*>(
             graph_data->data + 3 * graph->num_edge);
       } else {
@@ -302,6 +317,8 @@ namespace {
       task->graphs[layer] = graph;
     }
     // log_mem_usage("after paseData  in taskqueue");
+    // sync stream
+    Device::Get(ctx)->StreamSync(ctx, stream);
     return task;
   }
 
