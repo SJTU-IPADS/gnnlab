@@ -196,7 +196,9 @@ def run(worker_id, run_config):
 
     model.train()
 
+    epoch_sample_total_times = []
     epoch_sample_times = []
+    epoch_get_cache_miss_index_times = []
     epoch_copy_times = []
     epoch_convert_times = []
     epoch_train_times = []
@@ -284,8 +286,15 @@ def run(worker_id, run_config):
             epoch, sam.kLogEpochMissBytes)
         epoch_cache_hit_rates.append(
             (feat_nbytes - miss_nbytes) / feat_nbytes)
+        epoch_sample_total_times.append(
+            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
+        )
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
+        )
+        epoch_get_cache_miss_index_times.append(
+            sam.get_log_epoch_value(
+                epoch, sam.KLogEpochSampleGetCacheMissIndexTime)
         )
         epoch_copy_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
@@ -297,7 +306,7 @@ def run(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochTotalTime))
         if worker_id == 0:
             print('Epoch {:05d} | Epoch Time {:.4f} | Sample {:.4f} | Copy {:.4f} | Total Train(Profiler) {:.4f}'.format(
-                epoch, epoch_total_times_python[-1], epoch_sample_times[-1], epoch_copy_times[-1], epoch_train_total_times_profiler[-1]))
+                epoch, epoch_total_times_python[-1], epoch_sample_total_times[-1], epoch_copy_times[-1], epoch_train_total_times_profiler[-1]))
 
     # sync the train workers
     if num_worker > 1:
@@ -308,14 +317,17 @@ def run(worker_id, run_config):
     run_end = time.time()
 
     print('[Train  Worker {:d}] Avg Epoch {:.4f} | Sample {:.4f} | Copy {:.4f} | Train Total (Profiler) {:.4f}'.format(
-          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_sample_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_total_times_profiler[1:])))
+          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_sample_total_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_total_times_profiler[1:])))
 
     global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
         test_result = []
+        test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
+        test_result.append(('get_cache_miss_index_time', np.mean(
+            epoch_get_cache_miss_index_times[1:])))
         test_result.append(
-            ('epoch_time:sample_time', np.mean(epoch_sample_times[1:])))
+            ('epoch_time:sample_total', np.mean(epoch_sample_total_times[1:])))
         test_result.append(('epoch_time:copy_time',
                            np.mean(epoch_copy_times[1:])))
         test_result.append(('convert_time', np.mean(epoch_convert_times[1:])))
