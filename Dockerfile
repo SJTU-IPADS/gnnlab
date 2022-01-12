@@ -22,7 +22,7 @@ RUN conda create -n fgnn_env cmake cudnn==7.6.5 python==3.8 \
 #     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Make RUN commands use the new environment:
-SHELL ["conda", "run", "-n", "fgnn_env", "/bin/bash", "-c"]
+SHELL ["conda", "run", "--no-capture-output", "-n", "fgnn_env", "/bin/bash", "-c"]
 
 WORKDIR /app/source
 COPY . .
