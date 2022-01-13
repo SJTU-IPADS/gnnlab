@@ -40,7 +40,14 @@ RUN pushd ./dgl \
     && rm -rf build \
     && popd
 
-# install PyG [TODO]
+# install PyG
+# XXX: command "pip install torch-scatter -f https://data.pyg.org/whl/torch-1.7.0+cu101.html" fail
+#      use command "FORCE_CUDA=1 pip3 install --no-cache-dir --verbose torch-scatter==2.0.8" instead
+RUN FORCE_CUDA=1 pip3 install --no-cache-dir --verbose torch-scatter==2.0.8 \
+    && pip install torch-sparse -f https://data.pyg.org/whl/torch-1.7.0+cu101.html \
+    && pip install torch-geometric \
+    && pip install torch-cluster -f https://data.pyg.org/whl/torch-1.7.0+cu101.html \
+    && pip install torch-spline-conv -f https://data.pyg.org/whl/torch-1.7.0+cu101.html
 
 # install samgraph
 COPY . ./samgraph
