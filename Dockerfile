@@ -57,5 +57,6 @@ RUN pushd ./samgraph \
     && popd \
     && python setup.py install \
     && rm -rf build \
+    && rm -rf 3rdparty/dgl \
     && popd \
     && echo "ulimit -l unlimited" >> ~/.bashrc
