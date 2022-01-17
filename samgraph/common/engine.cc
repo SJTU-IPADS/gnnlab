@@ -9,6 +9,8 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <parallel/algorithm>
+#include <parallel/numeric>
 
 #include "common.h"
 #include "constant.h"
@@ -19,6 +21,7 @@
 #include "profiler.h"
 #include "run_config.h"
 #include "timer.h"
+#include "device.h"
 
 namespace samgraph {
 namespace common {
@@ -239,6 +242,75 @@ void Engine::LoadGraphDataset() {
     }
   }
 
+  if(RunConfig::unified_memory && 
+     !RunConfig::unified_memory_in_cpu &&
+     RunConfig::unified_memory_overscribe_factor > 1) {
+    Timer sort_um_tm;
+    switch (RunConfig::unified_memory_policy)
+    {
+    case UMPolicy::kDegree: {
+      // case 1: by degree
+      LOG(INFO) << "sort um dataset by Degree";
+      auto order = Tensor::FromMmap(
+        _dataset_path + Constant::kCacheByDegreeFile,
+        DataType::kI32, {meta[Constant::kMetaNumNode]}, 
+        CPU(), "order");
+      SortUMDatasetBy(static_cast<const IdType*>(order->Data()));
+      break;
+    }
+    case UMPolicy::kTrainset: {
+      // case 2: by train set, TODO
+      LOG(INFO) << "sort um dataset by Trainset";
+      char* is_trainset = static_cast<char*>(Device::Get(CPU())->AllocWorkspace(
+        CPU(), sizeof(char) * meta[Constant::kMetaNumNode], Constant::kAllocNoScale));
+      auto degree_order_ts = Tensor::FromMmap(
+        _dataset_path + Constant::kCacheByDegreeFile,
+        DataType::kI32, {meta[Constant::kMetaNumNode]},
+        CPU(), "order");
+      auto degree_order = static_cast<const IdType*>(degree_order_ts->Data());
+      IdType* order = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+        CPU(), sizeof(IdType) * meta[Constant::kMetaNumNode], Constant::kAllocScale));
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < meta[Constant::kMetaNumNode]; i++) {
+        order[i] = i;
+        is_trainset[i] = false;
+      }
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < meta[Constant::kMetaNumTrainSet]; i++) {
+        auto trainset = static_cast<const IdType*>(_dataset->train_set->Data());
+        is_trainset[trainset[i]] = true;
+      }
+      __gnu_parallel::sort(order, order + meta[Constant::kMetaNumNode], [&](IdType x, IdType y){
+        return std::pair<IdType, IdType>{!is_trainset[x], degree_order[x]}
+          < std::pair<IdType, IdType>{!is_trainset[y], degree_order[y]};
+      });
+      SortUMDatasetBy(order);
+      Device::Get(CPU())->FreeWorkspace(CPU(), is_trainset);
+      Device::Get(CPU())->FreeWorkspace(CPU(), order);
+      break;
+    }
+    case UMPolicy::kRandom: {
+      LOG(INFO) << "sort um dataset by Random";
+      auto order = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+        CPU(), sizeof(IdType) * meta[Constant::kMetaNumNode], Constant::kAllocNoScale));
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < meta[Constant::kMetaNumNode]; i++) {
+        order[i] = i;
+      }
+      std::random_device rd;
+      std::mt19937 g(rd());
+      std::shuffle(order, order + meta[Constant::kMetaNumNode], g);
+      SortUMDatasetBy(order);
+      Device::Get(CPU())->FreeWorkspace(CPU(), order);
+      break;
+    }
+    // ...
+    default:
+      break;
+    }
+    LOG(INFO) << "sort um dataset " << sort_um_tm.Passed() << "secs";
+  } 
+
   double loading_time = t.Passed();
   LOG(INFO) << "SamGraph loaded dataset(" << _dataset_path << ") successfully ("
             << loading_time << " secs)";
@@ -276,6 +348,84 @@ void Engine::LoadGraphDataset() {
   _dataset->valid_set = Tensor::Null();
 
 #endif
+}
+
+void Engine::SortUMDatasetBy(const IdType* order) {
+  size_t num_nodes = _dataset->indptr->Shape()[0] - 1;
+  size_t indptr_nbytes = 
+    _dataset->indptr->Shape()[0] * GetDataTypeBytes(_dataset->indptr->Type());
+  size_t indices_nbytes = 
+    _dataset->indices->Shape()[0] * GetDataTypeBytes(_dataset->indices->Type());
+  IdType* nodeIdold2new = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), num_nodes * GetDataTypeBytes(DataType::kI32), Constant::kAllocNoScale));
+  IdType* tmp_indptr = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), indptr_nbytes, Constant::kAllocNoScale));
+  IdType* tmp_indices = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), indices_nbytes, Constant::kAllocNoScale));
+  IdType* new_indptr = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), indptr_nbytes, Constant::kAllocNoScale));
+  IdType* new_indices = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), indices_nbytes, Constant::kAllocNoScale));
+  
+  Device::Get(_dataset->indptr->Ctx())->CopyDataFromTo(
+    _dataset->indptr->Data(), 0, tmp_indptr, 0, indptr_nbytes, 
+    _dataset->indptr->Ctx(), CPU());
+  Device::Get(_dataset->indices->Ctx())->CopyDataFromTo(
+    _dataset->indices->Data(), 0, tmp_indices, 0, indices_nbytes,
+    _dataset->indices->Ctx(), CPU());
+
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+  for(IdType i = 0; i < num_nodes; i++) {
+    nodeIdold2new[order[i]] = i;
+  }
+
+  new_indptr[0] = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) 
+  for(IdType i = 1; i <= num_nodes; i++) {
+    IdType v = order[i-1];
+    CHECK(v >= 0 && v < num_nodes);
+    new_indptr[v+1] = tmp_indptr[i] - tmp_indptr[i-1];
+  }
+  __gnu_parallel::partial_sum(
+    new_indptr, new_indptr + _dataset->indptr->Shape()[0], new_indptr, std::plus<IdType>());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+  for(IdType i = 0; i < num_nodes; i++) {
+    IdType v = order[i];
+    IdType old_off = tmp_indptr[i];
+    IdType new_off = new_indptr[v];
+    size_t edge_len = new_indptr[v+1] - new_indptr[v];
+    CHECK(edge_len == tmp_indptr[i+1] - tmp_indptr[i]);
+    for(IdType j = 0; j < edge_len; j++) {
+      IdType u = tmp_indices[old_off + j];
+      new_indices[new_off + j] = nodeIdold2new[u];
+    }
+  }
+
+
+  if(_dataset->prob_table->Data() != nullptr) {
+    assert(false);
+    // IdType* tmp_prob_table = Device::Get(CPU())->AllocWorkspace(
+    //   CPU(), num_nodes * GetDataTypeBytes(_dataset->prob_table->Type()), Constant::kAllocNoScale);
+  }
+  if(_dataset->alias_table->Data() != nullptr) {
+    assert(false);
+  }
+  if(_dataset->prob_prefix_table->Data() != nullptr) {
+    assert(false);
+  }
+  
+  Device::Get(_dataset->indptr->Ctx())->CopyDataFromTo(
+    new_indptr, 0, _dataset->indptr->MutableData(), 0, indptr_nbytes,
+    CPU(), _dataset->indptr->Ctx());
+  Device::Get(_dataset->indices->Ctx())->CopyDataFromTo(
+    new_indices, 0, _dataset->indices->MutableData(), 0, indices_nbytes,
+    CPU(), _dataset->indices->Ctx());
+
+  // free tensor
+  for(auto data : {nodeIdold2new, tmp_indptr, tmp_indices, new_indptr, new_indices}) {
+    Device::Get(CPU())->FreeWorkspace(CPU(), data);
+  }
+
 }
 
 bool Engine::IsAllThreadFinish(int total_thread_num) {

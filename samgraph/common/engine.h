@@ -102,6 +102,7 @@ class Engine {
   virtual std::unordered_map<std::string, Context> GetGraphFileCtx() = 0;
 
   void LoadGraphDataset();
+  void SortUMDatasetBy(const IdType* order);
   bool IsAllThreadFinish(int total_thread_num);
 
   volatile int inner_counter = 0;

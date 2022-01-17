@@ -60,7 +60,8 @@ std::string          RunConfig::shared_meta_path               = "/shared_meta_d
 
 bool                 RunConfig::unified_memory                 = false;
 bool                 RunConfig::unified_memory_in_cpu          = false;
-double               RunConfig::unified_memory_overscribe_factor= 0;
+double               RunConfig::unified_memory_overscribe_factor = 0;
+UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kRandom;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {

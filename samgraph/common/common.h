@@ -74,6 +74,12 @@ enum CachePolicy {
   kCacheByRandom,
 };
 
+enum class UMPolicy {
+  kDegree = 0,
+  kTrainset,
+  kRandom,
+};
+
 struct Context {
   DeviceType device_type;
   int device_id;
