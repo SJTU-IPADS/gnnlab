@@ -242,6 +242,10 @@ void Engine::LoadGraphDataset() {
     }
   }
 
+  LOG(INFO) << "unified_memory: " << RunConfig::unified_memory << " | "
+            << "unified_memory_in_cpu: " << RunConfig::unified_memory_in_cpu << " | "
+            << "unified_memory_overscribe_factor: " << RunConfig::unified_memory_overscribe_factor << " | "
+            << "unified_memory_policy: " << static_cast<int>(RunConfig::unified_memory_policy);
   if(RunConfig::unified_memory && 
      !RunConfig::unified_memory_in_cpu &&
      RunConfig::unified_memory_overscribe_factor > 1) {
@@ -259,7 +263,7 @@ void Engine::LoadGraphDataset() {
       break;
     }
     case UMPolicy::kTrainset: {
-      // case 2: by train set, TODO
+      // case 2: by train set
       LOG(INFO) << "sort um dataset by Trainset";
       char* is_trainset = static_cast<char*>(Device::Get(CPU())->AllocWorkspace(
         CPU(), sizeof(char) * meta[Constant::kMetaNumNode], Constant::kAllocNoScale));
@@ -290,6 +294,7 @@ void Engine::LoadGraphDataset() {
       break;
     }
     case UMPolicy::kRandom: {
+      // case 3: by random
       LOG(INFO) << "sort um dataset by Random";
       auto order = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
         CPU(), sizeof(IdType) * meta[Constant::kMetaNumNode], Constant::kAllocNoScale));
@@ -403,15 +408,15 @@ void Engine::SortUMDatasetBy(const IdType* order) {
 
 
   if(_dataset->prob_table->Data() != nullptr) {
-    assert(false);
+    CHECK(false);
     // IdType* tmp_prob_table = Device::Get(CPU())->AllocWorkspace(
     //   CPU(), num_nodes * GetDataTypeBytes(_dataset->prob_table->Type()), Constant::kAllocNoScale);
   }
   if(_dataset->alias_table->Data() != nullptr) {
-    assert(false);
+    CHECK(false);
   }
   if(_dataset->prob_prefix_table->Data() != nullptr) {
-    assert(false);
+    CHECK(false);
   }
   
   Device::Get(_dataset->indptr->Ctx())->CopyDataFromTo(

@@ -173,12 +173,12 @@ khop0
 
 |available gpu mem|factor|sampler mem usage|sample time|
 |-|-|-|-|
-|-|-|-|0.77(not use um, sample by gpu)|
-|11727MiB|0.9|28.68 GB|0.76|
-|8655MiB|1.28571|30.30 GB|1.44|
-|5583MiB|2.25|30.97 GB|2.42|
-|2511MiB|18|31.56 GB|3.82|
-|-|-|-|3.85(um in cpu)|
+|-|-|-|0.75(not use um, sample by gpu)|
+|11727MiB|0.9|28.68 GB|0.77|
+|8655MiB|1.38|29.93 GB|1.61|
+|5583MiB|2.57|30.81 GB|2.59|
+|2511MiB|18|31.56 GB|3.71|
+|-|-|-|3.76(um in cpu)|
 |-|-|-|11.42(sample by cpu)|
 
 
@@ -186,20 +186,21 @@ khop0, store graph in UM, advice by degree
 
 |available gpu mem|factor|sampler mem usage|sample time|
 |-|-|-|-|
-|-|-|-|0.77(not use um, sample by gpu)|
-|11727 MB|0.94|28.68 GB|0.91|
-|8655 MB|1.38|29.96 GB|0.96|
-|5583 MB|2.57|30.83 GB|1.39|
-|2511 MB|18.0|31.59 GB|2.98|
-|-|-|-|3.85(um in cpu)|
+|-|-|-|0.75(not use um, sample by gpu)|
+|11727 MB|0.94|28.68 GB|0.75|
+|8655 MB|1.38|29.96 GB|0.86|
+|5583 MB|2.57|30.83 GB|1.28|
+|2511 MB|18.0|31.59 GB|2.89|
+|-|-|-|3.77(um in cpu)|
 |-|-|-|11.42(sample by cpu)|
 
 khop0, advice by trainset
 
 |available gpu mem|factor|sampler mem usage|sample time|
 |-|-|-|-|
-|11727 MB|0.94|28.61 GB|0.77|
-|8655 MB|1.38|29.89 GB|1.38|
+|-|-|-|0.75(not use um, sample by gpu)|
+|11727 MB|0.94|28.61 GB|0.75|
+|8655 MB|1.38|29.89 GB|1.37|
 |5583 MB|2.57|30.77 GB|2.31|
-|2511 MB|18.0|31.58 GB|3.46|
+|2511 MB|18.0|31.58 GB|3.48|
 |-|-|-|3.77(um in cpu)|

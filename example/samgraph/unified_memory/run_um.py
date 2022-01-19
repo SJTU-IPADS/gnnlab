@@ -18,17 +18,22 @@ from test_cases import *
 #         OCP_MEM   : str(i * 1024 ** 3),
 #         DATA_SET  : 'papers100M',
 #         SAMPLER   : 'gpu',
-#         UM        : '1',
+#         UM        : '0',
 #         UM_IN_CPU : '0',
 #         UM_FACTOR : str(9 / (29.5 - i))
-#     } for i in [26]
+#     } for i in [0]
 # ]
 
-cases = um_test_normal_cases # + um_test_graph_in_cpu
+cases = um_test_gpu_not_use_um + um_test_normal_cases + um_test_graph_in_cpu 
+# cases = um_test_graph_in_gpu
 
 def um_test_env(case:dict):
     env = dict(os.environ)
-    return {**env, **case}
+    comm_env = {
+        'CUDA_DEVICE_ORDER'    : 'PCI_BUS_ID',
+        'CUDA_VISIBLE_DEVICES' : '1, 2'
+    }
+    return {**env, **comm_env, **case}
 
 def mem_eator(size):
     return subprocess.Popen(

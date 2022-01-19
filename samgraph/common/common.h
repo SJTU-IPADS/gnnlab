@@ -78,6 +78,7 @@ enum class UMPolicy {
   kDegree = 0,
   kTrainset,
   kRandom,
+  kDefault,
 };
 
 struct Context {
