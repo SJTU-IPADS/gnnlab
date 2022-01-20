@@ -161,13 +161,13 @@ $$
 
 # UM 
 
-## paperM100
 
 `factor` is the estimation of $\frac{graph\_size}{gpu\_mem\_size}$
 
 - if `factor <= 1`, the graph is stored in gpu
 - otherwise, $\frac{(factor-1)}{factor} * graph\_size$ equal to #bytes in cpu, $\frac{1}{factor}*graph\_size$ equal to #bytes in gpu
 
+## paperM100
 
 khop0
 
@@ -179,28 +179,44 @@ khop0
 |5583MiB|2.57|30.81 GB|2.59|
 |2511MiB|18|31.56 GB|3.71|
 |-|-|-|3.76(um in cpu)|
-|-|-|-|11.42(sample by cpu)|
+|-|-|-|14.42(sample by cpu)|
 
 
 khop0, store graph in UM, advice by degree
 
 |available gpu mem|factor|sampler mem usage|sample time|
 |-|-|-|-|
-|-|-|-|0.75(not use um, sample by gpu)|
-|11727 MB|0.94|28.68 GB|0.75|
-|8655 MB|1.38|29.96 GB|0.86|
-|5583 MB|2.57|30.83 GB|1.28|
-|2511 MB|18.0|31.59 GB|2.89|
-|-|-|-|3.77(um in cpu)|
-|-|-|-|11.42(sample by cpu)|
+|-|-|-|0.77(not use um, sample by gpu)|
+|11727 MB|0.94|28.68 GB|0.76|
+|8655 MB|1.38|29.96 GB|0.77|
+|5583 MB|2.57|30.83 GB|1.14|
+|2511 MB|18.0|31.59 GB|2.75|
+|-|-|-|3.37(um in cpu)|
+|-|-|-|14.42(sample by cpu)|
 
 khop0, advice by trainset
 
 |available gpu mem|factor|sampler mem usage|sample time|
 |-|-|-|-|
-|-|-|-|0.75(not use um, sample by gpu)|
-|11727 MB|0.94|28.61 GB|0.75|
-|8655 MB|1.38|29.89 GB|1.37|
-|5583 MB|2.57|30.77 GB|2.31|
-|2511 MB|18.0|31.58 GB|3.48|
-|-|-|-|3.77(um in cpu)|
+|-|-|-|0.76(not use um, sample by gpu)|
+|11727 MB|0.94|28.61 GB|0.76|
+|8655 MB|1.38|29.89 GB|1.09|
+|5583 MB|2.57|30.77 GB|1.38|
+|2511 MB|18.0|31.58 GB|2.11|
+|-|-|-|2.89(um in cpu)|
+
+## friendster
+
+khop0, default
+
+|available gpu mem|factor|sampler mem usage|sample time|
+|-|-|-|-|
+|-|-|-|2.02(not use um, sample by gpu)|
+|18895 MB|0.97|28.98 GB|2.01|
+|14799 MB|1.28|29.98 GB|3.15|
+|10703 MB|1.88|30.61 GB|7.08|
+|6607 MB|3.56|31.12 GB|13.61|
+|2511 MB|32.0|31.73 GB|20.50|
+|-|-|-|21.37(um in cpu)|
+
+khop0, advice by degree

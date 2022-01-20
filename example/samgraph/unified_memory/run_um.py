@@ -12,20 +12,26 @@ from test_cases import *
 #            GPU            CPU
 # papers100M ~7G ~800M(UM)  ~3G   ~9.5G(UM)
 # reddit     ~1G ~800M(UM)  ~3.2G ~3.7G(UM)
+# friendster ~16G
 
 # cases = [
 #     {
 #         OCP_MEM   : str(i * 1024 ** 3),
-#         DATA_SET  : 'papers100M',
+#         DATA_SET  : 'com-friendster',
 #         SAMPLER   : 'gpu',
-#         UM        : '0',
+#         UM        : '1',
 #         UM_IN_CPU : '0',
-#         UM_FACTOR : str(9 / (29.5 - i))
-#     } for i in [0]
-# ]
+#         UM_FACTOR : str(16 / (29.5 - i))
+#     } for i in [13, 17, 21, 25, 29]
+# ][:1]
 
-cases = um_test_gpu_not_use_um + um_test_normal_cases + um_test_graph_in_cpu 
-# cases = um_test_graph_in_gpu
+# cases = Papers100M.um_test_gpu_not_use_um + Papers100M.um_test_normal_cases + Papers100M.um_test_graph_in_cpu + Papers100M.um_test_cpu 
+# cases = Papers100M.um_test_normal_cases + Papers100M.um_test_graph_in_cpu
+# cases = Papers100M.um_test_cpu #+ Papers100M.um_test_graph_in_cpu
+# cases = Papers100M.um_test_normal_cases[-1:]
+
+cases = Friendster.um_test_gpu_not_use_um + Friendster.um_test_normal_cases + Friendster.um_test_graph_in_cpu 
+# cases = Friendster.um_test_cpu
 
 def um_test_env(case:dict):
     env = dict(os.environ)

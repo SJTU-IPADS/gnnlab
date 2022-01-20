@@ -78,6 +78,7 @@ enum class UMPolicy {
   kDegree = 0,
   kTrainset,
   kRandom,
+  kPreSample,
   kDefault,
 };
 
@@ -112,6 +113,7 @@ class Tensor {
   void ReplaceData(void* data);
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
+  std::string Name() const { return _name; }
 
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
