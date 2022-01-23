@@ -32,6 +32,18 @@ class Partition {
 };
 
 
+class DisjointPartition {
+ public:
+  DisjointPartition(const Dataset& dataset, IdType partition_num);
+  std::pair<IdType, IdType> GetNewNodeId(IdType nodeId) const;
+
+ private:
+  TensorPtr _nodeId_map; // nodeId -> {partitionId, nodeId in partition}
+  std::vector<std::unique_ptr<Dataset>> _partitions;
+
+  void Check();
+};
+
 }
 };
 

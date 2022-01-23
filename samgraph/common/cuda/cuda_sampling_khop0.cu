@@ -12,6 +12,7 @@
 #include "../logging.h"
 #include "../profiler.h"
 #include "../timer.h"
+#include "../partition.h"
 #include "cuda_function.h"
 #include "cuda_utils.h"
 
@@ -303,6 +304,22 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
                              compact_edge_time);
 
   LOG(DEBUG) << "GPUSample: succeed ";
+}
+
+(const IdType *indptr, const IdType *indices,
+                    const IdType *input, const size_t num_input,
+                    const size_t fanout, IdType *out_src, IdType *out_dst,
+                    size_t *num_out, Context ctx, StreamHandle stream,
+                    GPURandomStates *random_states, uint64_t task_key) 
+
+void GPUPartitionSampleKHop0(
+  const DisjointPartition &patition,
+  const IdType *input, const size_t num_input, const size_t fanout,
+  IdType *out_src, IdType *out_dst, size_t *num_out,
+  Context ctx, StreamHandle stream,
+  GPURandomStates *random_status, uint64_t task_key
+) {
+  
 }
 
 }  // namespace cuda

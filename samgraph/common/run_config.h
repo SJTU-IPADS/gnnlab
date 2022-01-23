@@ -71,6 +71,8 @@ struct RunConfig {
   static double               unified_memory_overscribe_factor;
   static UMPolicy             unified_memory_policy;
 
+  static bool                 partition;
+
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;
   }

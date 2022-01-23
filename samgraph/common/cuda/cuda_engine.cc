@@ -422,13 +422,20 @@ void GPUEngine::ArchCheck() {
 std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
   std::unordered_map<std::string, Context> ret;
 
-  ret[Constant::kIndptrFile] = _sampler_ctx;
-  ret[Constant::kIndicesFile] = _sampler_ctx;
+  auto sampler_ctx = _sampler_ctx;
+  if(RunConfig::unified_memory) {
+    sampler_ctx.device_type = DeviceType::kGPU_UM;
+  } else if(RunConfig::partition) {
+    sampler_ctx = CPU();
+  }
+
+  ret[Constant::kIndptrFile] = sampler_ctx;
+  ret[Constant::kIndicesFile] = sampler_ctx;
   ret[Constant::kTrainSetFile] = CPU();
   ret[Constant::kTestSetFile] = CPU();
   ret[Constant::kValidSetFile] = CPU();
-  ret[Constant::kProbTableFile] = _sampler_ctx;
-  ret[Constant::kAliasTableFile] = _sampler_ctx;
+  ret[Constant::kProbTableFile] = sampler_ctx;
+  ret[Constant::kAliasTableFile] = sampler_ctx;
   ret[Constant::kInDegreeFile] = MMAP();
   ret[Constant::kOutDegreeFile] = MMAP();
   ret[Constant::kCacheByDegreeFile] = MMAP();
@@ -439,8 +446,8 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
 
   switch (RunConfig::run_arch) {
     case kArch1:
-      ret[Constant::kFeatFile] = _sampler_ctx;
-      ret[Constant::kLabelFile] = _sampler_ctx;
+      ret[Constant::kFeatFile] = sampler_ctx;
+      ret[Constant::kLabelFile] = sampler_ctx;
       break;
     case kArch2:
     case kArch3:
@@ -455,14 +462,6 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       break;
     default:
       CHECK(0);
-  }
-
-  if(RunConfig::unified_memory) {
-    for(auto &it :ret) {
-      if(it.second == _sampler_ctx) {
-        it.second.device_type = DeviceType::kGPU_UM;
-      }
-    }
   }
 
   return ret;

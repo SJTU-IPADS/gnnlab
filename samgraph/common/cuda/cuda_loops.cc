@@ -114,52 +114,79 @@ void DoGPUSample(TaskPtr task) {
     // Sample a compact coo graph
     switch (RunConfig::sample_type) {
       case kKHop0:
-        GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
-        if(RunConfig::unified_memory_check && GPUEngine::Get()->GetUMChecker() != nullptr) {
-          auto checker = GPUEngine::Get()->GetUMChecker();
-          GPUSampleKHop0(checker->GetRawIndptr(), checker->GetRawIndices(), 
-                         input_chk, num_input, fanout, out_src_chk,
-                         out_dst_chk, num_out_chk, sampler_ctx, sample_stream,
-                         random_states, task->key);
-          checker->Check(out_src, out_dst, num_out, out_src_chk, out_dst_chk, num_out_chk, sampler_ctx);
+        if(!RunConfig::partition) {
+          GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
+                        out_dst, num_out, sampler_ctx, sample_stream,
+                        random_states, task->key);
+          if(RunConfig::unified_memory_check && GPUEngine::Get()->GetUMChecker() != nullptr) {
+            auto checker = GPUEngine::Get()->GetUMChecker();
+            GPUSampleKHop0(checker->GetRawIndptr(), checker->GetRawIndices(), 
+                          input_chk, num_input, fanout, out_src_chk,
+                          out_dst_chk, num_out_chk, sampler_ctx, sample_stream,
+                          random_states, task->key);
+            checker->Check(out_src, out_dst, num_out, out_src_chk, out_dst_chk, num_out_chk, sampler_ctx);
+        } else {
+            
         }
         break;
       case kKHop1:
-        GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+        if(!RunConfig::partition) {
+          GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
+                        out_dst, num_out, sampler_ctx, sample_stream,
+                        random_states, task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kWeightedKHop:
-        GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
-                              num_input, fanout, out_src, out_dst, num_out,
-                              sampler_ctx, sample_stream, random_states,
-                              task->key);
+        if(!RunConfig::partition) {
+          GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
+                                num_input, fanout, out_src, out_dst, num_out,
+                                sampler_ctx, sample_stream, random_states,
+                                task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kRandomWalk:
         CHECK_EQ(fanout, RunConfig::num_neighbor);
-        GPUSampleRandomWalk(
-            indptr, indices, input, num_input, RunConfig::random_walk_length,
-            RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
-            RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
-            frequency_hashmap, sampler_ctx, sample_stream, random_states,
-            task->key);
+        if(!RunConfig::partition) {
+          GPUSampleRandomWalk(
+              indptr, indices, input, num_input, RunConfig::random_walk_length,
+              RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
+              RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
+              frequency_hashmap, sampler_ctx, sample_stream, random_states,
+              task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kWeightedKHopPrefix:
-        GPUSampleWeightedKHopPrefix(indptr, indices, prob_prefix_table, input,
-                              num_input, fanout, out_src, out_dst, num_out,
-                              sampler_ctx, sample_stream, random_states,
-                              task->key);
+        if(!RunConfig::partition) {
+          GPUSampleWeightedKHopPrefix(indptr, indices, prob_prefix_table, input,
+                                num_input, fanout, out_src, out_dst, num_out,
+                                sampler_ctx, sample_stream, random_states,
+                                task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kKHop2:
-        GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+        if(!RunConfig::partition) {
+          GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
+                        out_dst, num_out, sampler_ctx, sample_stream,
+                        random_states, task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kWeightedKHopHashDedup:
-        GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
-        num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
+        if(!RunConfig::partition) {
+          GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
+          num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       default:
         CHECK(0);

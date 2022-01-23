@@ -12,6 +12,8 @@
 #include "partition.h"
 #include "logging.h"
 #include "timer.h"
+#include "device.h"
+#include "run_config.h"
 
 namespace samgraph {
 namespace common {
@@ -254,6 +256,80 @@ double Partition::Score(const Dataset& dataset,
   // std::mt19937 gen(2021);
   // std::uniform_real_distribution<> dist(0, 1);
   // return dist(gen);
+}
+
+DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_num) {
+  _nodeId_map = Tensor::EmptyNoScale(
+    DataType::kI64, {dataset.num_node}, CPU(), "nodeId_map");
+  auto nodeId_map_ptr = static_cast<Id64Type*>(_nodeId_map->MutableData());
+
+  auto indptr = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), dataset.indptr->NumBytes(), Constant::kAllocNoScale));
+  auto indices = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), dataset.indices->NumBytes(), Constant::kAllocNoScale));
+  Device::Get(dataset.indptr->Ctx())->CopyDataFromTo(
+    dataset.indptr->Data(), 0, indptr, 0, dataset.indptr->NumBytes(), 
+    dataset.indptr->Ctx(), CPU());
+  Device::Get(dataset.indices->Ctx())->CopyDataFromTo(
+    dataset.indices->Data(), 0, indices, 0, dataset.indices->NumBytes(),
+    dataset.indices->Ctx(), CPU());
+
+  IdType per_partition_node_num = dataset.num_node / partition_num;
+  for(IdType i = 0, p = 0; i < dataset.num_node && p < partition_num; p++) {
+    IdType cur_node_num = per_partition_node_num + (p < dataset.num_node % partition_num);
+    auto partition = std::make_unique<Dataset>();
+    size_t cur_indptr_size = 1;
+    size_t cur_indices_size = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType j = 0; j < cur_node_num; j++) {
+      IdType k = i + j;
+      auto cur_nodeId_map = reinterpret_cast<IdType*>(&nodeId_map_ptr[k]);
+      cur_nodeId_map[0] = p;
+      cur_nodeId_map[1] = j;
+      size_t edge_len = indptr[k+1] - indptr[k];
+      cur_indptr_size += 1;
+      cur_indices_size += edge_len;
+    }
+    partition->indptr = Tensor::EmptyNoScale(
+      DataType::kI32, {cur_indptr_size}, CPU(), "indptr");
+    partition->indices = Tensor::EmptyNoScale(
+      DataType::kI32, {cur_indices_size}, CPU(), "indices");
+    auto cur_indptr = static_cast<IdType*>(partition->indptr->MutableData());
+    auto cur_indices = static_cast<IdType*>(partition->indices->MutableData());
+    cur_indptr[0] = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType j = 0; j < cur_node_num; j++) {
+      IdType k = i + j;
+      size_t edge_len = indptr[k+1] - indptr[k];
+      cur_indptr[j+1] = cur_indptr[j] + edge_len;
+      size_t old_off = indptr[k];
+      size_t new_off = cur_indptr[j];
+      for(IdType l = 0; l < edge_len; l++) {
+        cur_indices[new_off + l] = indices[old_off + l];
+      }
+    }
+    i += cur_node_num;
+    _partitions.emplace_back(std::move(partition));
+  }
+
+  CHECK(dataset.alias_table == nullptr || dataset.alias_table->Data() == nullptr);
+  CHECK(dataset.prob_table == nullptr || dataset.prob_table->Data() == nullptr);
+  CHECK(dataset.prob_prefix_table == nullptr || dataset.prob_prefix_table->Data() == nullptr);
+
+  Check();
+
+  Device::Get(CPU())->FreeWorkspace(CPU(), indptr);
+  Device::Get(CPU())->FreeWorkspace(CPU(), indices);
+}
+
+std::pair<IdType, IdType> DisjointPartition::GetNewNodeId(IdType nodeId ) const {
+  auto nodeId_map_ptr = static_cast<const Id64Type*>(_nodeId_map->Data());
+  auto cur_nodeId_map = reinterpret_cast<const IdType*>(&nodeId_map_ptr[nodeId]);
+  return {cur_nodeId_map[0], cur_nodeId_map[1]};
+}
+
+void DisjointPartition::Check() {
+
 }
 
 }
