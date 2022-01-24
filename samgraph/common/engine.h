@@ -29,6 +29,7 @@ class Engine {
   size_t NumEpoch() { return _num_epoch; }
   size_t NumStep() { return _num_step; }
   size_t NumLocalStep() { return _num_local_step; }
+  size_t GetBatchSize() { return _batch_size; }
 
   inline uint64_t GetBatchKey(uint64_t epoch, uint64_t step) {
     return epoch * _num_step + step;

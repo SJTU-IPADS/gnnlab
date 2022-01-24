@@ -67,6 +67,8 @@ class GPUEngine : public Engine {
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;
+  
+  void SortUMDatasetBy(const IdType* order);
 };
 
 }  // namespace cuda

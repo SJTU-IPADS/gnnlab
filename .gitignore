@@ -133,3 +133,5 @@ tests/*.out
 example/auto_runner/run-logs/*
 
 mem_eator/
+
+*.bin

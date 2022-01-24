@@ -127,6 +127,7 @@ setup(
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
                 'samgraph/common/cuda/pre_sampler.cc',
+                'samgraph/common/cuda/um_pre_sampler.cc',
                 'samgraph/common/dist/dist_engine.cc',
                 'samgraph/common/dist/dist_loops.cc',
                 'samgraph/common/dist/dist_loops_arch5.cc',

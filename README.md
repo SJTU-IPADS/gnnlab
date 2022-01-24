@@ -205,6 +205,14 @@ khop0, advice by trainset
 |2511 MB|18.0|31.58 GB|2.11|
 |-|-|-|2.89(um in cpu)|
 
+khop0, arch0
+
+adivce by presample,14.03
+advice by degree 14.37
+advice by default 14.48
+... random 14.50
+... trainset 14.51
+
 ## friendster
 
 khop0, default
@@ -218,5 +226,28 @@ khop0, default
 |6607 MB|3.56|31.12 GB|13.61|
 |2511 MB|32.0|31.73 GB|20.50|
 |-|-|-|21.37(um in cpu)|
+|-|-|-|112.09(sample by cpu)|
 
 khop0, advice by degree
+
+|available gpu mem|factor|sampler mem usage|sample time|
+|-|-|-|-|
+|-|-|-|2.01(not use um, sample by gpu)|
+|18895 MB|0.97|28.98 GB|2.01|
+|14799 MB|1.28|29.98 GB|3.05|
+|10703 MB|1.88|30.61 GB|5.29|
+|6607 MB|3.56|31.12 GB|10.29|
+|2511 MB|32.0|31.73 GB|19.31|
+|-|-|-|20.82(um in cpu)|
+
+khop0, advice by trainset
+
+|available gpu mem|factor|sampler mem usage|sample time|
+|-|-|-|-|
+|-|-|-|2.01(not use um, sample by gpu)|
+|18895 MB|0.97|28.98 GB|2.01|
+|14799 MB|1.28|29.98 GB|3.69|
+|10703 MB|1.88|30.61 GB|8.70|
+|6607 MB|3.56|31.12 GB|14.82|
+|2511 MB|32.0|31.73 GB|20.49|
+|-|-|-|21.29(um in cpu)|
