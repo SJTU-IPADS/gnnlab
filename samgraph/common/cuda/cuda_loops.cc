@@ -88,6 +88,21 @@ void DoGPUSample(TaskPtr task) {
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
     size_t num_samples;
 
+    IdType *out_src_chk, *out_dst_chk, *input_chk;
+    size_t *num_out_chk;
+    if(RunConfig::unified_memory_check && GPUEngine::Get()->GetUMChecker() != nullptr) {
+      LOG(INFO) << "create check input tensor";
+      input_chk = static_cast<IdType*>(Device::Get(cur_input->Ctx())->AllocWorkspace(
+        cur_input->Ctx(), num_input * sizeof(IdType)));
+      GPUEngine::Get()->GetUMChecker()->CvtInputNodeId(input, input_chk, num_input, cur_input->Ctx());
+      out_src_chk = static_cast<IdType*>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+      out_dst_chk = static_cast<IdType*>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+      num_out_chk = static_cast<size_t *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    }
+
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
     LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
@@ -102,6 +117,14 @@ void DoGPUSample(TaskPtr task) {
         GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
                        out_dst, num_out, sampler_ctx, sample_stream,
                        random_states, task->key);
+        if(RunConfig::unified_memory_check && GPUEngine::Get()->GetUMChecker() != nullptr) {
+          auto checker = GPUEngine::Get()->GetUMChecker();
+          GPUSampleKHop0(checker->GetRawIndptr(), checker->GetRawIndices(), 
+                         input_chk, num_input, fanout, out_src_chk,
+                         out_dst_chk, num_out_chk, sampler_ctx, sample_stream,
+                         random_states, task->key);
+          checker->Check(out_src, out_dst, num_out, out_src_chk, out_dst_chk, num_out_chk, sampler_ctx);
+        }
         break;
       case kKHop1:
         GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
@@ -217,6 +240,11 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
+    if(RunConfig::unified_memory_check && GPUEngine::Get()->GetUMChecker() != nullptr) {
+      sampler_device->FreeWorkspace(sampler_ctx, out_dst_chk);
+      sampler_device->FreeWorkspace(sampler_ctx, out_src_chk);
+      Device::Get(cur_input->Ctx())->FreeWorkspace(cur_input->Ctx(), input_chk);
+    }
     if (i == (int)last_layer_idx) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
                                    layer_time);

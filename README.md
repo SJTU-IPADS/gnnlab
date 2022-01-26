@@ -161,7 +161,6 @@ $$
 
 # UM 
 
-
 `factor` is the estimation of $\frac{graph\_size}{gpu\_mem\_size}$
 
 - if `factor <= 1`, the graph is stored in gpu
@@ -204,6 +203,18 @@ khop0, advice by trainset
 |5583 MB|2.57|30.77 GB|1.38|
 |2511 MB|18.0|31.58 GB|2.11|
 |-|-|-|2.89(um in cpu)|
+
+khop0, advice by presample
+
+|available gpu mem|factor|sampler mem usage|sample time|
+|-|-|-|-|
+|-|-|-|0.67(not use um, sample by gpu, sorted)|
+|-|-|-|0.75(not use um, sample by gpu, not sorted)|
+|11727 MB|0.94|28.61 GB|0.67(sorted)|
+|11727 MB|0.94|28.61 GB|0.75|
+|8655 MB|1.38|29.89 GB|0.69|
+|5583 MB|2.57|30.77 GB|0.68|
+|2511 MB|18.0|31.58 GB|1.58|
 
 khop0, arch0
 
@@ -251,3 +262,15 @@ khop0, advice by trainset
 |6607 MB|3.56|31.12 GB|14.82|
 |2511 MB|32.0|31.73 GB|20.49|
 |-|-|-|21.29(um in cpu)|
+
+khop0, advice by presample
+
+|available gpu mem|factor|sampler mem usage|sample time|
+|-|-|-|-|
+|-|-|-|1.98(not use um, sample by gpu)|
+|18895 MB|0.97|28.98 GB|1.99|
+|14799 MB|1.28|29.98 GB|2.94|
+|10703 MB|1.88|30.61 GB|4.96|
+|6607 MB|3.56|31.12 GB|9.63|
+|2511 MB|32.0|31.73 GB|19.12|
+|-|-|-|20.73(um in cpu)|

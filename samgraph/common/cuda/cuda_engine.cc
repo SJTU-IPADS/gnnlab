@@ -183,23 +183,23 @@ void GPUEngine::Init() {
             << "unified_memory_in_cpu: " << RunConfig::unified_memory_in_cpu << " | "
             << "unified_memory_overscribe_factor: " << RunConfig::unified_memory_overscribe_factor << " | "
             << "unified_memory_policy: " << static_cast<int>(RunConfig::unified_memory_policy);
-  // if(RunConfig::unified_memory &&
-  //   (RunConfig::unified_memory_in_cpu || RunConfig::unified_memory_overscribe_factor > 1)
-  // ) {
-  if(true) {
+  if(RunConfig::unified_memory &&
+    (RunConfig::unified_memory_in_cpu || RunConfig::unified_memory_overscribe_factor > 1)
+  ) {
     Timer sort_um_tm;
     size_t num_nodes = _dataset->indptr->Shape()[0] - 1;
     size_t num_trainset = _dataset->train_set->Shape()[0];
+    TensorPtr order;
+    _um_checker = nullptr;
     switch (RunConfig::unified_memory_policy)
     {
     case UMPolicy::kDegree: {
       // case 1: by degree
       LOG(INFO) << "sort um dataset by Degree";
-      auto order = Tensor::FromMmap(
+      order = Tensor::FromMmap(
         _dataset_path + Constant::kCacheByDegreeFile,
         DataType::kI32, {num_nodes}, 
         CPU(), "order");
-      SortUMDatasetBy(static_cast<const IdType*>(order->Data()));
       break;
     }
     case UMPolicy::kTrainset: {
@@ -212,11 +212,11 @@ void GPUEngine::Init() {
         DataType::kI32, {num_nodes},
         CPU(), "order");
       auto degree_order = static_cast<const IdType*>(degree_order_ts->Data());
-      IdType* order = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
-        CPU(), sizeof(IdType) * num_nodes, Constant::kAllocScale));
+      order = Tensor::EmptyNoScale(DataType::kI32, {num_nodes}, CPU(), "");
+      auto order_ptr = static_cast<IdType*>(order->MutableData());
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
       for(IdType i = 0; i < num_nodes; i++) {
-        order[i] = i;
+        order_ptr[i] = i;
         is_trainset[i] = false;
       }
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
@@ -224,42 +224,50 @@ void GPUEngine::Init() {
         auto trainset = static_cast<const IdType*>(_dataset->train_set->Data());
         is_trainset[trainset[i]] = true;
       }
-      __gnu_parallel::sort(order, order + num_nodes, [&](IdType x, IdType y){
+      __gnu_parallel::sort(order_ptr, order_ptr + num_nodes, [&](IdType x, IdType y){
         return std::pair<IdType, IdType>{!is_trainset[x], degree_order[x]}
           < std::pair<IdType, IdType>{!is_trainset[y], degree_order[y]};
       });
-      SortUMDatasetBy(order);
       Device::Get(CPU())->FreeWorkspace(CPU(), is_trainset);
-      Device::Get(CPU())->FreeWorkspace(CPU(), order);
       break;
     }
     case UMPolicy::kRandom: {
       // case 3: by random
       LOG(INFO) << "sort um dataset by Random";
-      auto order = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
-        CPU(), sizeof(IdType) * num_nodes, Constant::kAllocNoScale));
+      order = Tensor::EmptyNoScale(DataType::kI32, {num_nodes}, CPU(), "order");
+      auto order_ptr = static_cast<IdType*>(order->MutableData());
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
       for(IdType i = 0; i < num_nodes; i++) {
-        order[i] = i;
+        order_ptr[i] = i;
       }
       std::random_device rd;
       std::mt19937 g(rd());
-      std::shuffle(order, order + num_nodes, g);
-      SortUMDatasetBy(order);
-      Device::Get(CPU())->FreeWorkspace(CPU(), order);
+      std::shuffle(order_ptr, order_ptr + num_nodes, g);
       break;
     }
     case UMPolicy::kPreSample: {
       LOG(INFO) << "sort um dataset by PreSample";
       auto sampler = cuda::UMPreSampler(num_nodes, _num_step);
       sampler.DoPreSample();
-      auto order = sampler.GetRankNode();
-      SortUMDatasetBy(static_cast<const IdType*>(order->Data()));
+      order = sampler.GetRankNode();
       break;
     }
     // ...
     default:
+      order = Tensor::EmptyNoScale(DataType::kI32, {num_nodes}, CPU(), "");
+      auto order_ptr = static_cast<IdType*>(order->MutableData());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < num_nodes; i++) {
+        order_ptr[i] = i;
+      }
       break;
+    }
+    if(RunConfig::unified_memory_check) {
+      LOG(INFO) << "check um sample: init checker";
+      _um_checker = new UMChecker(*_dataset, order);
+    }
+    if(RunConfig::unified_memory_policy != UMPolicy::kDefault) {
+      SortUMDatasetBy(static_cast<const IdType*>(order->Data()));
     }
     LOG(INFO) << "sort um dataset " << sort_um_tm.Passed() << "secs";
   } 
@@ -341,6 +349,10 @@ void GPUEngine::Shutdown() {
 
   if (_frequency_hashmap != nullptr) {
     delete _frequency_hashmap;
+  }
+
+  if(_um_checker != nullptr) {
+    delete _um_checker;
   }
 
   _dataset = nullptr;
