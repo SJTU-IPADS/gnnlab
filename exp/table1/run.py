@@ -1,13 +1,13 @@
 import argparse
 import datetime
-import time
 import os
 
 from common import *
 from common.runner2 import *
-from log_table_def import get_dgl_logtable, get_sgnn_logtable
+from logtable_def import get_dgl_logtable, get_sgnn_logtable
 
 MOCK = False
+RERUN_TESTS = False
 NUM_EPOCH = 3
 TIMESTAMP = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -17,15 +17,22 @@ DGL_APP_DIR = os.path.join(HERE, '../../example/dgl/multi_gpu')
 SGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph')
 
 OUTPUT_DIR = os.path.join(HERE, f'output_{TIMESTAMP}')
-DGL_LOG_DIR = os.path.join(OUTPUT_DIR, 'logs_dgl')
-SGNN_LOG_DIR = os.path.join(OUTPUT_DIR, 'logs_sgnn')
-OUT_FILE = os.path.join(OUTPUT_DIR, 'table1.dat')
+def DGL_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_dgl')
+def SGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_sgnn')
+def OUT_FILE(): return os.path.join(OUTPUT_DIR, 'table1.dat')
 
 
 def global_config(args):
-    global NUM_EPOCH, MOCK
+    global NUM_EPOCH, MOCK, RERUN_TESTS
     MOCK = args.mock
     NUM_EPOCH = args.num_epoch
+    RERUN_TESTS = args.rerun_tests
+
+    if RERUN_TESTS:
+        out_dir = find_recent_outdir(HERE, 'output_')
+        if out_dir:
+            global OUTPUT_DIR
+            OUTPUT_DIR = os.path.join(HERE, out_dir)
 
     os.system(f'mkdir -p {OUTPUT_DIR}')
 
@@ -61,12 +68,11 @@ def dgl_motivation_test():
         #     ['validate_configs']
     ).run(
         appdir=DGL_APP_DIR,
-        logdir=DGL_LOG_DIR,
+        logdir=DGL_LOG_DIR(),
         mock=MOCK
     ).parse_logs(
         logtable=logtable,
-        logdir=DGL_LOG_DIR,
-        mock=MOCK
+        logdir=DGL_LOG_DIR()
     )
 
     return configs, logtable
@@ -113,12 +119,11 @@ def sgnn_motivation_test():
         #         ['validate_configs']
     ).run(
         appdir=SGNN_APP_DIR,
-        logdir=SGNN_LOG_DIR,
+        logdir=SGNN_LOG_DIR(),
         mock=MOCK
     ).parse_logs(
         logtable=logtable,
-        logdir=SGNN_LOG_DIR,
-        mock=MOCK
+        logdir=SGNN_LOG_DIR()
     )
 
     return configs, logtable
@@ -126,7 +131,7 @@ def sgnn_motivation_test():
 
 def run_table1_tests():
     table_format = '{:<23s} {:>8s} {:>8s} {:>6s} {:>6s}    # {:s}\n'
-    with open(OUT_FILE, 'w') as f:
+    with open(OUT_FILE(), 'w') as f:
         f.write(table_format.format('GNN Systems',
                 'Sample', 'Extract', 'Train', 'Total', ''))
 
@@ -150,8 +155,10 @@ def run_table1_tests():
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("Table 1 Runner")
-    argparser.add_argument('--num-epoch', type=int, default=3)
-    argparser.add_argument('--mock', action='store_true', default=False)
+    argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH)
+    argparser.add_argument('--mock', action='store_true', default=MOCK)
+    argparser.add_argument(
+        '--rerun-tests', action='store_true', default=RERUN_TESTS)
     args = argparser.parse_args()
 
     global_config(args)

@@ -8,6 +8,20 @@ from tqdm import tqdm
 
 from . import *
 
+# find the most recent output dir
+
+
+def find_recent_outdir(parent, prefix):
+    folders = os.listdir(parent)
+    folders = [folder for folder in folders if folder.startswith(prefix)]
+
+    if len(folders) == 0:
+        return None
+
+    folders.sort()
+
+    return folders[-1]
+
 
 class LogTable:
     def __init__(self, num_row, num_col, **kwargs):
@@ -17,7 +31,7 @@ class LogTable:
             col definition is a metric, like sampling_time, copy_time in logfile
         '''
         tmp_col_0 = [{} for _ in range(num_col)]
-        tmp_col_1 = [None for _ in range(num_col)]
+        tmp_col_1 = ['OOM/X' for _ in range(num_col)]
 
         self.num_row = num_row
         self.num_col = num_col
@@ -27,6 +41,7 @@ class LogTable:
             tmp_col_0) for _ in range(num_row)]
         self.col_definitions = [None for _ in range(num_col)]
         self.data = [copy.deepcopy(tmp_col_1) for _ in range(num_row)]
+        self.data_configs = [copy.deepcopy(tmp_col_0) for _ in range(num_row)]
         self.data_refs = [set() for _ in range(num_row)]
 
         self.is_finalized = False
@@ -139,21 +154,23 @@ class RunConfig:
     def parse_log(self, config_pattern=r'config:(.+)=(.+)\n', result_pattern=r'test_result:(.+)=(.+)\n'):
 
         if not self.is_log_parsed:
+            try:
+                with open(self.std_out_log, 'r', encoding='utf8') as f:
+                    for line in f:
+                        m1 = re.match(config_pattern, line)
+                        m2 = re.match(result_pattern, line)
 
-            with open(self.std_out_log, 'r', encoding='utf8') as f:
-                for line in f:
-                    m1 = re.match(config_pattern, line)
-                    m2 = re.match(result_pattern, line)
+                        if m1:
+                            key = m1.group(1)
+                            value = m1.group(2)
+                            self.full_configs[key] = value
 
-                    if m1:
-                        key = m1.group(1)
-                        value = m1.group(2)
-                        self.full_configs[key] = value
-
-                    if m2:
-                        key = m2.group(1)
-                        value = m2.group(2)
-                        self.test_results[key] = value
+                        if m2:
+                            key = m2.group(1)
+                            value = m2.group(2)
+                            self.test_results[key] = value
+            except:
+                pass
 
             self.is_log_parsed = True
 
@@ -391,10 +408,8 @@ class ConfigList:
         self.write_run_status(logdir, mock)
         return self
 
-    def parse_logs(self, logtable, logdir, left_wrap=' ', right_wrap=' ', sep=' ', mock=False):
+    def parse_logs(self, logtable, logdir, left_wrap=' ', right_wrap=' ', sep=' '):
         assert(logtable.is_finalized)
-        if mock:
-            return
         with open(os.path.join(logdir, 'test_result.txt'), 'w', encoding='utf8') as f:
             for i in range(logtable.num_row):
                 for j in range(logtable.num_col):
@@ -408,12 +423,12 @@ class ConfigList:
                     conf.parse_log()
 
                     logtable.data[i][j] = conf.test_results[col_def]
-
-                    f.write('{:}{:}{:}{:}'.format('' if j == 0 else sep,
-                                                  left_wrap, logtable.data[i][j], right_wrap))
+                    logtable.data_config[i][j] = conf.configs
                     logtable.data_refs[i].add(
                         os.sep.join(os.path.normpath(conf.std_out_log).split(os.sep)[-2:]))
 
+                    f.write('{:}{:}{:}{:}'.format('' if j == 0 else sep,
+                                                  left_wrap, logtable.data[i][j], right_wrap))
                 f.write('  # {:s}\n'.format(' '.join(logtable.data_refs[i])))
 
         return self
@@ -432,6 +447,7 @@ class ConfigList:
                 conf.parse_log()
 
                 logtable.data[i][j] = conf.test_results[col_def]
+                logtable.data_config[i][j] = conf.configs
                 logtable.data_refs[i].add(conf.std_out_log)
 
         return self
