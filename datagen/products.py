@@ -14,15 +14,15 @@ OUTPUT_DATA_DIR = '/graph-learning/samgraph/products'
 def download_data():
     print('Download data...')
     if not os.path.exists(f'{RAW_DATA_DIR}/products.zip'):
-        os.system(
-            f'wget {DOWNLOAD_URL} -O {RAW_DATA_DIR}/products.zip')
+        assert(os.system(
+            f'wget {DOWNLOAD_URL} -O {RAW_DATA_DIR}/products.zip') == 0)
     else:
         print('Already downloaded.')
 
     print('Unzip data...')
     if not os.path.exists(f'{PRODUCTS_RAW_DATA_DIR}/unzipped'):
-        os.system(f'cd {RAW_DATA_DIR}; unzip {RAW_DATA_DIR}/products.zip')
-        os.system(f'touch {PRODUCTS_RAW_DATA_DIR}/unzipped')
+        assert(os.system(f'cd {RAW_DATA_DIR}; unzip {RAW_DATA_DIR}/products.zip') == 0)
+        assert(os.system(f'touch {PRODUCTS_RAW_DATA_DIR}/unzipped') == 0)
     else:
         print('Already unzipped...')
 
@@ -79,8 +79,8 @@ def write_meta():
 
 
 if __name__ == '__main__':
-    os.system(f'mkdir -p {PRODUCTS_RAW_DATA_DIR}')
-    os.system(f'mkdir -p {OUTPUT_DATA_DIR}')
+    assert(os.system(f'mkdir -p {PRODUCTS_RAW_DATA_DIR}'))
+    assert(os.system(f'mkdir -p {OUTPUT_DATA_DIR}') == 0)
 
     download_data()
     convert_data()
