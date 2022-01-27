@@ -31,7 +31,7 @@ class LogTable:
             col definition is a metric, like sampling_time, copy_time in logfile
         '''
         tmp_col_0 = [{} for _ in range(num_col)]
-        tmp_col_1 = ['OOM/X' for _ in range(num_col)]
+        tmp_col_1 = [None for _ in range(num_col)]
 
         self.num_row = num_row
         self.num_col = num_col
@@ -96,7 +96,7 @@ class RunConfig:
 
         self.is_log_parsed = False
         self.full_configs = defaultdict(lambda: None)
-        self.test_results = defaultdict(lambda: None)
+        self.test_results = defaultdict(lambda: 'OOM/X')
 
         self.status = RunStatus.NotOk
 
@@ -342,7 +342,6 @@ class ConfigList:
         return self
 
     def write_configs_book(self, logdir, mock=False):
-        os.system('mkdir -p {}'.format(logdir))
         if mock:
             print(f'Test Group: {self.name}')
             for i, conf in enumerate(self.conf_list):
@@ -350,6 +349,7 @@ class ConfigList:
                 for k, v in conf.configs.items():
                     print(f'  {k}: {v}')
         else:
+            os.system('mkdir -p {}'.format(logdir))
             with open(os.path.join(logdir, 'configs_book.txt'), 'w', encoding='utf8') as f:
                 f.write(f'Test Group: {self.name}' + '\n')
                 for i, conf in enumerate(self.conf_list):
@@ -423,13 +423,14 @@ class ConfigList:
                     conf.parse_log()
 
                     logtable.data[i][j] = conf.test_results[col_def]
-                    logtable.data_config[i][j] = conf.configs
+                    logtable.data_configs[i][j] = conf.full_configs
                     logtable.data_refs[i].add(
                         os.sep.join(os.path.normpath(conf.std_out_log).split(os.sep)[-2:]))
 
                     f.write('{:}{:}{:}{:}'.format('' if j == 0 else sep,
-                                                  left_wrap, logtable.data[i][j], right_wrap))
-                f.write('  # {:s}\n'.format(' '.join(logtable.data_refs[i])))
+                                                    left_wrap, logtable.data[i][j], right_wrap))
+                f.write('  # {:s}\n'.format(
+                    ' '.join(logtable.data_refs[i])))
 
         return self
 
@@ -447,7 +448,7 @@ class ConfigList:
                 conf.parse_log()
 
                 logtable.data[i][j] = conf.test_results[col_def]
-                logtable.data_config[i][j] = conf.configs
+                logtable.data_configs[i][j] = conf.full_configs
                 logtable.data_refs[i].add(conf.std_out_log)
 
         return self
