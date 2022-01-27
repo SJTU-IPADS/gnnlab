@@ -204,7 +204,7 @@ def get_sgnn_logtable():
 def get_fgnn_logtable():
     return LogTable(
         num_row=12,
-        num_col=3
+        num_col=2
     ).update_col_definition(
         col_id=0,
         definition='pipeline_train_epoch_time'

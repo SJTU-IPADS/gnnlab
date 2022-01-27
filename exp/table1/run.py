@@ -17,6 +17,7 @@ DGL_APP_DIR = os.path.join(HERE, '../../example/dgl/multi_gpu')
 SGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph')
 
 OUTPUT_DIR = os.path.join(HERE, f'output_{TIMESTAMP}')
+OUTPUT_DIR_SHORT = f'output_{TIMESTAMP}'
 def DGL_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_dgl')
 def SGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_sgnn')
 def OUT_FILE(): return os.path.join(OUTPUT_DIR, 'table1.dat')
@@ -31,10 +32,9 @@ def global_config(args):
     if RERUN_TESTS:
         out_dir = find_recent_outdir(HERE, 'output_')
         if out_dir:
-            global OUTPUT_DIR
+            global OUTPUT_DIR, OUTPUT_DIR_SHORT
             OUTPUT_DIR = os.path.join(HERE, out_dir)
-
-    os.system(f'mkdir -p {OUTPUT_DIR}')
+            OUTPUT_DIR_SHORT = out_dir
 
 
 def dgl_motivation_test():
@@ -113,7 +113,7 @@ def sgnn_motivation_test():
         'arch',
         'arch0',
         'cache_percentage',
-        [0.21, 0]
+        [0.20, 0] # 0.21
         # ).override(
         #         'BOOL_validate_configs',
         #         ['validate_configs']
@@ -130,14 +130,14 @@ def sgnn_motivation_test():
 
 
 def run_table1_tests():
+    os.system(f'mkdir -p {OUTPUT_DIR}')
     table_format = '{:<23s} {:>8s} {:>8s} {:>6s} {:>6s}    # {:s}\n'
     with open(OUT_FILE(), 'w') as f:
         f.write(table_format.format('GNN Systems',
                 'Sample', 'Extract', 'Train', 'Total', ''))
 
-        # Run dgl motivation tests
         print(
-            f'Running tests for table 1. The output directory is {OUTPUT_DIR}')
+            f'Running tests for table 1({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_motivation_test()
         _, sgnn_logtable = sgnn_motivation_test()
 

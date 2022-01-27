@@ -63,7 +63,7 @@ def get_sgnn_logtable():
         row_id=1,
         col_range=[0, 5],
         arch='arch0',
-        cache_percentage=0.21
+        cache_percentage=0.20
     ).update_row_definition(
         row_id=2,
         col_range=[0, 5],

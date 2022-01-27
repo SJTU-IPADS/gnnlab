@@ -8,7 +8,7 @@ from logtable_def import *
 
 MOCK = False
 RERUN_TESTS = False
-NUM_EPOCH = 1
+NUM_EPOCH = 3
 TIMESTAMP = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -21,15 +21,16 @@ SGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/sgnn')
 FGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/multi_gpu')
 
 OUTPUT_DIR = os.path.join(HERE, f'output_{TIMESTAMP}')
+OUTPUT_DIR_SHORT = f'output_{TIMESTAMP}'
 def DGL_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_dgl')
 def DGL_PINSAGE_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_dgl_pinsage')
 def PYG_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_pyg')
 def SGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_sgnn')
-def FGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'log_fgnn')
+def FGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_fgnn')
 
 
 def OUT_FILE(): return os.path.join(OUTPUT_DIR, 'table4.dat')
-
+def OUT_FILE_FULL(): return os.path.join(OUTPUT_DIR, 'table4-full.dat')
 
 CONFIG_NAME_FORMAT = '{:25s}'
 
@@ -43,10 +44,9 @@ def global_config(args):
     if RERUN_TESTS:
         out_dir = find_recent_outdir(HERE, 'output_')
         if out_dir:
-            global OUTPUT_DIR
+            global OUTPUT_DIR, OUTPUT_DIR_SHORT
             OUTPUT_DIR = os.path.join(HERE, out_dir)
-
-    os.system(f'mkdir -p {OUTPUT_DIR}')
+            OUTPUT_DIR_SHORT = out_dir
 
 
 def dgl_overall_test():
@@ -65,7 +65,7 @@ def dgl_overall_test():
         [NUM_EPOCH]
     ).override(
         'devices',
-        ['0 1'],
+        ['0 1 2 3 4 5 6 7'],
     ).override(
         'BOOL_use_gpu_sampling',
         ['use_gpu_sampling']
@@ -141,7 +141,7 @@ def pyg_overall_test():
         [40],
     ).override(
         'devices',
-        ['0 1']
+        ['0 1 2 3 4 5 6 7']
         # ).override(
         #         'BOOL_validate_configs',
         #         ['validate_configs']
@@ -364,45 +364,62 @@ def fgnn_overall_test():
 
 
 def run_table4_tests():
-    table_format = '{:<10s} {:>6s} {:>6s} {:>6s} {:>6s} {:>6s}    # {:s}\n'
-    with open(OUT_FILE(), 'w') as f:
-        f.write(table_format.format('GNN Models',
-                'Dataset', 'DGL', 'PyG', 'SGNN', 'FGNN', ''))
+    os.system(f'mkdir -p {OUTPUT_DIR}')
 
-        # Run dgl motivation tests
+    table_format = '{:<16s} {:<8s} {:>6s} {:>6s} {:>6s} {:>10s}\n'
+    table_format_full = '{:<16s} {:<8s} {:>6s} {:>6s} {:>6s} {:>10s}    # {:s}\n'
+    with open(OUT_FILE(), 'w') as f1, open(OUT_FILE_FULL(), 'w') as f2:
+        f1.write(table_format.format('GNN Models',
+                'Dataset', 'DGL', 'PyG', 'SGNN', 'FGNN'))
+        f2.write(table_format_full.format('GNN Models',
+                'Dataset', 'DGL', 'PyG', 'SGNN', 'FGNN', ' '))
+
         print(
-            f'Running tests for table 1. The output directory is {OUTPUT_DIR}')
+            f'Running tests for table 4({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_overall_test()
         _, dgl_pinsage_logtable = dgl_pinsage_overall_test()
         _, pyg_logtable = pyg_overall_test()
         _, sgnn_logtable = sgnn_overall_test()
         _, fgnn_logtable = fgnn_overall_test()
 
+
         print('Parsing logs...')
-        num_models = 3
+        num_datasets = 4
         for m_idx, model in enumerate(['GCN', 'GraphSAGE', 'PinSAGE']):
             for d_idx, dataset in enumerate(['PR', 'TW', 'PA', 'UK']):
                 data_refs = [
-                    ' '.join(dgl_logtable.data_refs[m_idx * num_models + d_idx] if model !=
+                    ' '.join(dgl_logtable.data_refs[m_idx * num_datasets + d_idx] if model !=
                              'PinSAGE' else dgl_pinsage_logtable.data_refs[d_idx]),
                     '' if model == 'PinSAGE' else ' '.join(
-                        pyg_logtable.data_refs[m_idx * num_models + d_idx]),
+                        pyg_logtable.data_refs[m_idx * num_datasets + d_idx]),
                     ' '.join(
-                        sgnn_logtable.data_refs[m_idx * num_models + d_idx]),
+                        sgnn_logtable.data_refs[m_idx * num_datasets + d_idx]),
                     ' '.join(
-                        fgnn_logtable.data_refs[m_idx * num_models + d_idx])
+                        fgnn_logtable.data_refs[m_idx * num_datasets + d_idx])
                 ]
 
-                f.write(table_format.format(
+                f1.write(table_format.format(
                     model,
                     dataset,
-                    str(dgl_logtable.data[m_idx * num_models + d_idx][0]) if model != 'PinSAGE' else str(
+                    str(dgl_logtable.data[m_idx * num_datasets + d_idx][0]) if model != 'PinSAGE' else str(
                         dgl_pinsage_logtable.data[d_idx][0]),
                     'X' if model == 'PinSAGE' else str(
-                        pyg_logtable.data[m_idx * num_models + d_idx][0]),
-                    str(sgnn_logtable.data[m_idx * num_models + d_idx][0]),
-                    '{:s}({:d}S)'.format(str(fgnn_logtable.data[m_idx * num_models + d_idx][0]),
-                                         fgnn_logtable.data_configs[m_idx * num_models + d_idx]['num_sample_worker']),
+                        pyg_logtable.data[m_idx * num_datasets + d_idx][0]),
+                    str(sgnn_logtable.data[m_idx * num_datasets + d_idx][0]),
+                    '{:s}({:s}S)'.format(str(fgnn_logtable.data[m_idx * num_datasets + d_idx][0]),
+                                         fgnn_logtable.data_configs[m_idx * num_datasets + d_idx][0]['num_sample_worker'])
+                ))
+
+                f2.write(table_format_full.format(
+                    model,
+                    dataset,
+                    str(dgl_logtable.data[m_idx * num_datasets + d_idx][0]) if model != 'PinSAGE' else str(
+                        dgl_pinsage_logtable.data[d_idx][0]),
+                    'X' if model == 'PinSAGE' else str(
+                        pyg_logtable.data[m_idx * num_datasets + d_idx][0]),
+                    str(sgnn_logtable.data[m_idx * num_datasets + d_idx][0]),
+                    '{:s}({:s}S)'.format(str(fgnn_logtable.data[m_idx * num_datasets + d_idx][0]),
+                                         fgnn_logtable.data_configs[m_idx * num_datasets + d_idx][0]['num_sample_worker']),
                     ' '.join(data_refs)
                 ))
 
@@ -410,7 +427,7 @@ def run_table4_tests():
 
 
 if __name__ == '__main__':
-    argparser = argparse.ArgumentParser("Table 1 Runner")
+    argparser = argparse.ArgumentParser("Table 4 Tests Runner")
     argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH)
     argparser.add_argument('--mock', action='store_true', default=MOCK)
     argparser.add_argument(
