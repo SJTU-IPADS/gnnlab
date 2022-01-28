@@ -331,7 +331,7 @@ def run_train(worker_id, run_config):
             train_times.append(train_time)
             total_times.append(total_time)
 
-            sam.report_step_average(epoch, step)
+            # sam.report_step_average(epoch, step)
 
         # sync the train workers
         if num_worker > 1:
@@ -377,6 +377,8 @@ def run_train(worker_id, run_config):
     global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
+        sam.report_step_average(epoch - 1, step - 1)
+        sam.report_init()
         test_result = []
         test_result.append(('epoch_time:copy_time',
                            np.mean(epoch_copy_times[1:])))
@@ -397,7 +399,7 @@ def run_train(worker_id, run_config):
         test_result.append(('init:internal:trainer', sam.get_log_init_value(sam.kLogInitL2InternalState)))
         test_result.append(('init:cache:trainer', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
         for k, v in test_result:
-            print('test_result:{:}={:.2f}'.format(k, v))
+            print('test_result:{:}={:.4f}'.format(k, v))
 
         # sam.dump_trace()
 
