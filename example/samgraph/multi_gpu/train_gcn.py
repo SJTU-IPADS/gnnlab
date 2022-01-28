@@ -258,6 +258,8 @@ def run_train(worker_id, run_config):
     epoch_train_total_times_profiler = []
     epoch_pipeline_train_total_times_python = []
     epoch_cache_hit_rates = []
+    epoch_miss_nbytes = []
+    epoch_feat_nbytes = []
 
     copy_times = []
     convert_times = []
@@ -348,6 +350,8 @@ def run_train(worker_id, run_config):
             epoch, sam.kLogEpochFeatureBytes)
         miss_nbytes = sam.get_log_epoch_value(
             epoch, sam.kLogEpochMissBytes)
+        epoch_miss_nbytes.append(miss_nbytes)
+        epoch_feat_nbytes.append(feat_nbytes)
         epoch_cache_hit_rates.append(
             (feat_nbytes - miss_nbytes) / feat_nbytes)
         epoch_copy_times.append(
@@ -390,6 +394,12 @@ def run_train(worker_id, run_config):
             ('cache_percentage', run_config['cache_percentage']))
         test_result.append(('cache_hit_rate', np.mean(
             epoch_cache_hit_rates[1:])))
+        test_result.append(('epoch_feat_nbytes', np.mean(epoch_feat_nbytes[1:])))
+        test_result.append(('batch_feat_nbytes', np.mean(epoch_feat_nbytes[1:])/(align_up_step/num_worker)))
+        test_result.append(('epoch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])))
+        test_result.append(('batch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])/(align_up_step/num_worker)))
+        test_result.append(('batch_copy_time', np.mean(epoch_copy_times[1:])/(align_up_step/num_worker)))
+        test_result.append(('batch_train_time', np.mean(epoch_train_total_times_profiler[1:])/(align_up_step/num_worker)))
         if run_config['pipeline']:
             test_result.append(
                 ('pipeline_train_epoch_time', np.mean(epoch_total_times_python[1:])))
