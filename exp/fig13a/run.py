@@ -23,8 +23,8 @@ def FGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_fgnn')
 
 GNUPLOT_FILE = os.path.join(HERE, 'scale-gcn.plt')
 def OUT_DATA_FILE(): return os.path.join(OUTPUT_DIR, 'fig13a.res')
-def OUT_FIGURE_FILE1(): return os.path.join(OUTPUT_DIR, 'fig13a.eps')
-def OUT_FIGURE_FILE2(): return os.path.join(OUTPUT_DIR, 'fig13a.pdf')
+def OUT_DATA_FILE_FULL(): return os.path.join(OUTPUT_DIR, 'fig13a-full.res')
+def OUT_FIGURE_FILE(): return os.path.join(OUTPUT_DIR, 'fig13a.eps')
 
 
 def global_config(args):
@@ -163,10 +163,13 @@ def fgnn_scalability_test():
 
 def run_fig13a_tests():
     os.system(f'mkdir -p {OUTPUT_DIR}')
-    table_format = '{:}\t{:}\t{:}\t{:}\t{:}\t#{:}\n'
-    with open(OUT_DATA_FILE(), 'w') as f:
-        f.write(table_format.format('GPUs',
-                'DGL', '1S', '2S', '3S', ''))
+    table_format = '{:}\t{:}\t{:}\t{:}\t{:}\n'
+    table_format_full = '{:}\t{:}\t{:}\t{:}\t{:}\t#{:}\n'
+    with open(OUT_DATA_FILE(), 'w') as f1, open(OUT_DATA_FILE_FULL(), 'w') as f2:
+        f1.write(table_format.format('"GPUs"',
+                                     '"DGL"', '"1S"', '"2S"', '"3S"'))
+        f2.write(table_format_full.format('"GPUs"',
+                '"DGL"', '"1S"', '"2S"', '"3S"', '""'))
 
         print(f'Running tests for fig 13a({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_scalability_test()
@@ -192,16 +195,16 @@ def run_fig13a_tests():
             data_refs[i - 13 + 3] += list(fgnn_logtable.data_refs[i])
 
         for i in range(8):
-            f.write(table_format.format(str(gpus[i]), str(dgl_data[i]), str(
+            f1.write(table_format.format(str(gpus[i]), str(dgl_data[i]), str(
+                fgnn_1s_data[i]), str(fgnn_2s_data[i]), str(fgnn_3s_data[i])))
+            f2.write(table_format.format(str(gpus[i]), str(dgl_data[i]), str(
                 fgnn_1s_data[i]), str(fgnn_2s_data[i]), str(fgnn_3s_data[i]), ' '.join(data_refs[i])))
 
-        print('Ploting...')
-        os.system(
-            f'gnuplot -e "outfile=\'{OUT_FIGURE_FILE1()}\';resfile=\'{OUT_DATA_FILE()}\'" {GNUPLOT_FILE}')
-        os.system(
-            f'gnuplot -e "outfile=\'{OUT_FIGURE_FILE2()}\';resfile=\'{OUT_DATA_FILE()}\'" {GNUPLOT_FILE}')
+    print('Ploting...')
+    os.system(
+        f'gnuplot -e "outfile=\'{OUT_FIGURE_FILE()}\';resfile=\'{OUT_DATA_FILE()}\'" {GNUPLOT_FILE}')
 
-        print('Done')
+    print('Done')
 
 
 if __name__ == '__main__':
