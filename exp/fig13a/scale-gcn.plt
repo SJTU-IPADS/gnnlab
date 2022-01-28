@@ -25,7 +25,7 @@ set bmargin 2.5
 
 ### Key
 set key inside right Right top enhanced nobox 
-set key samplen 1.5 spacing 1.5 height 0.2 font ',13' noopaque #maxrow 3 #at 7.8, 15
+set key samplen 1.5 spacing 1.5 height 0.2 font ',11' noopaque #maxrow 3 #at 7.8, 15
 
 
 ### X-axis

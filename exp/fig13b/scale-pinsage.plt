@@ -18,7 +18,7 @@ set tics font ",14" scale 0.5
 
 ### Key
 set key inside right Right top enhanced nobox 
-set key samplen 1.5 spacing 1.5 height 0.2 font ',13' noopaque #at 7.8, 6
+set key samplen 1.5 spacing 1.5 height 0.2 font ',11' noopaque #at 7.8, 6
 
 
 ### X-axis
