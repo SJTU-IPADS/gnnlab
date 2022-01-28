@@ -96,7 +96,7 @@ class RunConfig:
 
         self.is_log_parsed = False
         self.full_configs = defaultdict(lambda: None)
-        self.test_results = defaultdict(lambda: 'OOM/X')
+        self.test_results = defaultdict(lambda: 'X')
 
         self.status = RunStatus.NotOk
 

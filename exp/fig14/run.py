@@ -157,7 +157,7 @@ def run_fig14_tests():
     os.system(f'mkdir -p {OUTPUT_DIR}')
     table_format = '{:}\t{:}\t{:}\t{:}\t{:}\t# {:}\n'
     with open(OUT_DATA_FILE(), 'w') as f:
-        print(f'Running tests for fig 13a({OUTPUT_DIR_SHORT})...')
+        print(f'Running tests for fig 14({OUTPUT_DIR_SHORT})...')
         _, fgnn_logtable = fgnn_scalability_breakdown_test()
 
         print('Parsing logs...')
@@ -193,7 +193,7 @@ def run_fig14_tests():
 
 
 if __name__ == '__main__':
-    argparser = argparse.ArgumentParser("Fig 13b Tests Runner")
+    argparser = argparse.ArgumentParser("Fig 14 Tests Runner")
     argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH)
     argparser.add_argument('--mock', action='store_true', default=MOCK)
     argparser.add_argument(

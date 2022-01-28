@@ -159,7 +159,7 @@ def run_fig13b_tests():
         f2.write(table_format_full.format('"GPUs"',
                                           '"DGL"', '"1S"', '"2S"', '"3S"', '""'))
 
-        print(f'Running tests for fig 13a({OUTPUT_DIR_SHORT})...')
+        print(f'Running tests for fig 13b({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_scalability_test()
         _, fgnn_logtable = fgnn_scalability_test()
 
