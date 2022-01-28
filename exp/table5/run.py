@@ -285,12 +285,20 @@ def run_table5_tests():
 
     table_header_format = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^6s}   {:^8s}   {:^6s} | {:^29s}   {:^23s}   {:^6s}\n'
     table_content_format = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^6s}   {:^8s}   {:^6s} | {:^5s} = {:^5s} + {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s}\n'
+    table_content_format_full = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^6s}   {:^8s}   {:^6s} | {:^5s} = {:^5s} + {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s} # {:s}\n'
     with open(OUT_FILE(), 'w') as f1, open(OUT_FILE_FULL(), 'w') as f2:
         f1.write('{:s}\n {:^8s} | {:^26s} | {:^26s} | {:^61s} \n{:s}\n'.format(
             dotline, '', 'DGL', 'PyG', 'FGNN', dotline))
         f1.write(table_header_format.format('GNN',
                                             'DS', 'Sample', 'Extract', 'Train', 'Sample', 'Extract', 'Train', 'Sample = S + M + C', 'Extract (Ratio, Hit%)', 'Train'))
         f1.write(dotline + '\n')
+
+
+        f2.write('{:s}\n {:^8s} | {:^26s} | {:^26s} | {:^61s} \n{:s}\n'.format(
+            dotline, '', 'DGL', 'PyG', 'FGNN', dotline))
+        f2.write(table_header_format.format('GNN',
+                                            'DS', 'Sample', 'Extract', 'Train', 'Sample', 'Extract', 'Train', 'Sample = S + M + C', 'Extract (Ratio, Hit%)', 'Train'))
+        f2.write(dotline + '\n')
         print(
             f'Running tests for table 5({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_breakdown_test()
@@ -310,6 +318,15 @@ def run_table5_tests():
                     ['X', 'X', 'X']] * (num_models * num_datasets)
                 fgnn_data = fgnn_logtable.data
 
+                data_refs = [
+                    ' '.join(dgl_logtable.data_refs[m_idx * num_datasets + d_idx] if model !=
+                             'PSG' else dgl_pinsage_logtable.data_refs[d_idx]),
+                    '' if model == 'PSG' else ' '.join(
+                        pyg_logtable.data_refs[m_idx * num_datasets + d_idx]),
+                    ' '.join(
+                        fgnn_logtable.data_refs[m_idx * num_datasets + d_idx])
+                ]
+
                 f1.write(table_content_format.format(
                     model,
                     dataset,
@@ -319,7 +336,19 @@ def run_table5_tests():
                     fgnn_data[idx][3], fgnn_data[idx][4], fgnn_data[idx][5],
                     fgnn_data[idx][6], fgnn_data[idx][7],
                 ))
+
+                f2.write(table_content_format_full.format(
+                    model,
+                    dataset,
+                    dgl_data[idx][0], dgl_data[idx][1], dgl_data[idx][2],
+                    pyg_data[idx][0], pyg_data[idx][1], pyg_data[idx][2],
+                    fgnn_data[idx][0], fgnn_data[idx][1], fgnn_data[idx][2],
+                    fgnn_data[idx][3], fgnn_data[idx][4], fgnn_data[idx][5],
+                    fgnn_data[idx][6], fgnn_data[idx][7],
+                    ' '.join(data_refs)
+                ))
             f1.write(dotline + '\n')
+            f2.write(dotline + '\n')
 
         print('Done')
 

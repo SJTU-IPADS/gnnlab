@@ -180,19 +180,19 @@ class ConfigList:
         self.name = name
         self.conf_list = [
             RunConfig(app=App.gcn,       dataset=Dataset.products),
+            RunConfig(app=App.gcn,       dataset=Dataset.twitter),
             RunConfig(app=App.gcn,       dataset=Dataset.papers100M),
             RunConfig(app=App.gcn,       dataset=Dataset.uk_2006_05),
-            RunConfig(app=App.gcn,       dataset=Dataset.twitter),
 
             RunConfig(app=App.graphsage, dataset=Dataset.products),
+            RunConfig(app=App.graphsage, dataset=Dataset.twitter),
             RunConfig(app=App.graphsage, dataset=Dataset.papers100M),
             RunConfig(app=App.graphsage, dataset=Dataset.uk_2006_05),
-            RunConfig(app=App.graphsage, dataset=Dataset.twitter),
 
             RunConfig(app=App.pinsage,   dataset=Dataset.products),
+            RunConfig(app=App.pinsage,   dataset=Dataset.twitter),
             RunConfig(app=App.pinsage,   dataset=Dataset.papers100M),
             RunConfig(app=App.pinsage,   dataset=Dataset.uk_2006_05),
-            RunConfig(app=App.pinsage,   dataset=Dataset.twitter)
         ]
         self.fail_count = 0
 
