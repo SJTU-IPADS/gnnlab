@@ -66,11 +66,11 @@ def get_dgl_pinsage_logtable():
     ).update_row_definition(
         row_id=1,
         col_range=[0, 0],
-        dataset=Dataset.papers100M
+        dataset=Dataset.twitter
     ).update_row_definition(
         row_id=2,
         col_range=[0, 0],
-        dataset=Dataset.twitter
+        dataset=Dataset.papers100M
     ).update_row_definition(
         row_id=3,
         col_range=[0, 0],
