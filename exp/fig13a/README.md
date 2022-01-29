@@ -59,7 +59,7 @@ optional arguments:
 > tree output_2022-01-29_20-10-39 -L 1
 output_2022-01-29_20-10-39
 ├── fig13a.eps             # Output figure
-├── fig13a-full.res        # Output data with data source
+├── fig13a-full.res        # Output data with comments
 ├── fig13a.res             # Output data
 ├── logs_dgl
 └── logs_fgnn

@@ -50,7 +50,7 @@ Default dataset path is `/graph-learning/samgraph/{dataset name}`.  `/graph-lear
 
 ## Disk Space Requirement
 
-To store all the four datasets, your disk should have at least **128GB** of free space.
+To store all the four datasets, your disk should have at least **128GB** of free space and some extra temporal spaces to store raw files.
 
 ```
 > du -h --max-depth 1 /graph-learning/samgraph
@@ -59,6 +59,15 @@ To store all the four datasets, your disk should have at least **128GB** of free
 74G     /graph-learning/samgraph/papers100M
 18G     /graph-learning/samgraph/twitter
 128G    /graph-learning/samgraph
+```
+
+```
+> du --max-depth=1 -h /graph-learning/data-raw
+23G     /graph-learning/data-raw/uk-2006-05
+1.4G    /graph-learning/data-raw/products
+14G     /graph-learning/data-raw/twitter
+57G     /graph-learning/data-raw/papers100M-bin
+152G    /graph-learning/data-raw
 ```
 
 

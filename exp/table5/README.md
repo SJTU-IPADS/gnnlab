@@ -64,7 +64,7 @@ output_2022-01-29_18-54-46
 ├── logs_fgnn
 ├── logs_pyg
 ├── table5.dat               # output table data
-└── table5-full.dat          # output table data with data source
+└── table5-full.dat          # output table data with comments
 
 4 directories, 2 files
 ```

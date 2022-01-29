@@ -66,7 +66,7 @@ output_2022-01-29_18-17-21
 ├── logs_pyg
 ├── logs_sgnn
 ├── table4.dat                # output table data
-└── table4-full.dat           # output table data with data source
+└── table4-full.dat           # output table data with comments
 
 5 directories, 2 files
 ```
