@@ -50,7 +50,7 @@ Default dataset path is `/graph-learning/samgraph/{dataset name}`.  `/graph-lear
 
 ## Disk Space Requirement
 
-To store all the four datasets, your disk should have at least **128GB** of free space and some extra temporal spaces to store raw files.
+To store all the four datasets, your disk should have at least **128GB** of free space.
 
 ```
 > du -h --max-depth 1 /graph-learning/samgraph
@@ -59,15 +59,6 @@ To store all the four datasets, your disk should have at least **128GB** of free
 74G     /graph-learning/samgraph/papers100M
 18G     /graph-learning/samgraph/twitter
 128G    /graph-learning/samgraph
-```
-
-```
-> du --max-depth=1 -h /graph-learning/data-raw
-23G     /graph-learning/data-raw/uk-2006-05
-1.4G    /graph-learning/data-raw/products
-14G     /graph-learning/data-raw/twitter
-57G     /graph-learning/data-raw/papers100M-bin
-152G    /graph-learning/data-raw
 ```
 
 
@@ -164,12 +155,19 @@ The degree-based cache policy uses the out-degree as cache rank. The ranking onl
 ```sh
 cd samgraph/utility/data-process/build
 
-make cache-by-degree -j
+make cache-by-degree cache-by-random  -j
 
+# degree-based cache policy
 ./cache-by-degree -g products
 ./cache-by-degree -g papers100M
 ./cache-by-degree -g twitter
 ./cache-by-degree -g uk-2006-05
+
+# random cache policy
+./cache-by-random -g products
+./cache-by-random -g papers100M
+./cache-by-random -g twitter
+./cache-by-random -g uk-2006-05
 ```
 
 
@@ -206,10 +204,10 @@ cd samgraph/utility/data-process/build
 
 make create-prob-prefix-table -j
 
-./create-prob-prefix-table -g products -P default
-./create-prob-prefix-table -g papers100M -P default
-./create-prob-prefix-table -g twitter -P default
-./create-prob-prefix-table -g uk-2006-05 -P default
+./create-prob-prefix-table -g products
+./create-prob-prefix-table -g papers100M
+./create-prob-prefix-table -g twitter
+./create-prob-prefix-table -g uk-2006-05
 ```
 
 
