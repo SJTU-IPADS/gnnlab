@@ -2,9 +2,10 @@ from __future__ import division
 import argparse
 import datetime
 import os
+import sys
 
-from common import *
-from common.runner2 import *
+sys.path.append(os.path.join(os.getcwd(), '../common'))
+from runner_helper2 import *
 from logtable_def import *
 
 MOCK = False

@@ -6,9 +6,31 @@ from typing import Tuple
 from collections import defaultdict
 from tqdm import tqdm
 
-from . import *
 
-# find the most recent output dir
+class App(Enum):
+    gcn = 0
+    graphsage = 1
+    pinsage = 2
+
+    def __str__(self):
+        return self.name
+
+
+class Dataset(Enum):
+    products = 0
+    papers100M = 1
+    uk_2006_05 = 2
+    twitter = 3
+
+    def __str__(self):
+        if self is Dataset.uk_2006_05:
+            return 'uk-2006-05'
+        return self.name
+
+
+"""
+    find the most recent output dir
+"""
 
 
 def find_recent_outdir(parent, prefix):
@@ -428,7 +450,7 @@ class ConfigList:
                         os.sep.join(os.path.normpath(conf.std_out_log).split(os.sep)[-2:]))
 
                     f.write('{:}{:}{:}{:}'.format('' if j == 0 else sep,
-                                                    left_wrap, logtable.data[i][j], right_wrap))
+                                                  left_wrap, logtable.data[i][j], right_wrap))
                 f.write('  # {:s}\n'.format(
                     ' '.join(logtable.data_refs[i])))
 

@@ -1,6 +1,8 @@
-from common import *
-from common.runner2 import *
+import os
+import sys
 
+sys.path.append(os.path.join(os.getcwd(), '../common'))
+from runner_helper2 import *
 
 def get_dgl_logtable():
     return LogTable(
