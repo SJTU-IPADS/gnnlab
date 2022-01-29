@@ -307,7 +307,7 @@ def run_in_list(conf_list : list, mock=False, durable_log=True, callback = None)
 class ConfigList:
   def __init__(self):
     self.conf_list = [
-      RunConfig(App.gcn,       Dataset.reddit,     cache_policy=CachePolicy.cache_by_degree,    cache_percent=1.0,  pipeline=True, max_copying_jobs=2),
+      RunConfig(App.gcn,       Dataset.products,     cache_policy=CachePolicy.cache_by_degree,    cache_percent=1.0,  pipeline=True, max_copying_jobs=2),
     ]
 
   def select(self, key, val_indicator):
