@@ -24,7 +24,7 @@ std::shared_ptr<utility::DegreeInfo> degree_info;
 #define F(name) name,
 enum WeightPolicy {WEIGHT_POLICY_TYPES( F ) kNumItems };
 #undef F
-WeightPolicy weight_policy = kDefault;
+WeightPolicy weight_policy = kSrcSuffix;
 
 #define F(name) {#name,name},
 std::unordered_map<std::string, WeightPolicy> policy_str_to_int = {
