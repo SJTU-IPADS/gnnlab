@@ -26,7 +26,7 @@ python ${sam_dir}/train_graphsage.py --dataset products --cache-percentage 1.0 -
 
 # parse data
 touch acc_one.res
-echo "system\tdataset\tbatch_size\ttime\tacc" >> acc_one.res
+echo -e "system\tdataset\tbatch_size\ttime\tacc" >> acc_one.res
 python ./parse_acc.py -f ${log_dir}/dgl_papers.log --system dgl --dataset papers --batch-size 8000 >> acc_one.res
 python ./parse_acc.py -f ${log_dir}/sam_papers.log --system fgnn --dataset papers --batch-size 8000 >> acc_one.res
 
