@@ -433,6 +433,7 @@ class ConfigList:
 
     def parse_logs(self, logtable, logdir, left_wrap=' ', right_wrap=' ', sep=' '):
         assert(logtable.is_finalized)
+        os.system('mkdir -p {}'.format(logdir))
         with open(os.path.join(logdir, 'test_result.txt'), 'w', encoding='utf8') as f:
             for i in range(logtable.num_row):
                 for j in range(logtable.num_col):
