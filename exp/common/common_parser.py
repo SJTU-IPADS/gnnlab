@@ -40,7 +40,7 @@ def grep_from(fname, pattern, line_ctx=[0,0]):
     lines = f.readlines()
     ret_lines = []
     if len(lines) == 0:
-      return
+      return ret_lines
     for i in range(len(lines)):
       if p.match(lines[i]):
         ret_lines += lines[max(0, i - line_ctx[0]):min(len(lines), i + line_ctx[1] + 1)]
@@ -102,7 +102,6 @@ class BenchInstance:
           if val[0] == "'":
             val = val[1:-1]
           self.vals[key] = val
-      self.vals['dataset'] = self.vals['dataset_path'].split('/')[-1]
     else:
       config_str_list = grep_from(fname, "^config:.*", [0, 0])
       for cur_str in config_str_list:
@@ -117,6 +116,7 @@ class BenchInstance:
     self.vals['pipeline'] = cfg.pipeline
     self.vals['async_train'] = cfg.async_train
     self.vals['seq_num'] = getattr(cfg, 'seq_num', None)
+    self.vals['dataset'] = str(cfg.dataset)
   
   def get_optimal(self):
     optimal_cfg = copy.deepcopy(self.cfg)
@@ -164,15 +164,13 @@ class BenchInstance:
   def prepare_epoch_eval(self, cfg):
     self.vals['epoch_time'] = math.nan
     fname = cfg.get_log_fname() + '.log'
-    init_str_list = exclude_from(grep_from(fname, "^test_result:.*", [0, 0]), "^test_result:init:.*")
-    if len(init_str_list) == 0:
-      return
+    epoch_rst_list = exclude_from(grep_from(fname, "^test_result:.*", [0, 0]), "^test_result:init:.*")
     self.vals['pipeline_train_epoch_time'] = NaN
     self.vals['pipeline_train_epoch_time'] = NaN
     self.vals['epoch_time:sample_total']   = NaN
     self.vals['epoch_time:copy_time']      = NaN
     self.vals['epoch_time:train_total']    = NaN
-    for line in init_str_list:
+    for line in epoch_rst_list:
       m2 = re.match(r'test_result:(.+)=(.+)\n', line)
       if m2:
         key = m2.group(1)
