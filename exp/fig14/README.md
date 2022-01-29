@@ -57,8 +57,8 @@ optional arguments:
 ```sh
 > tree output_2022-01-29_21-30-39/ -L 1
 output_2022-01-29_21-30-39/
-├── fig14.eps
-├── fig14.res
+├── fig14.eps      # Output figure
+├── fig14.res      # Output data
 └── logs_fgnn
 
 1 directory, 2 files
