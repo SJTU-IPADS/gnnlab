@@ -177,6 +177,7 @@ Now we have:
 ```sh
 /graph-learning/samgraph/papers100M
 ├── cache_by_degree.bin   # new added
+├── cache_by_random.bin   # new added
 ├── feat.bin
 ├── indices64.bin
 ├── indices.bin
