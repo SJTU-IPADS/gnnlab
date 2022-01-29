@@ -75,7 +75,7 @@ class App(Enum):
 class SampleType(Enum):
   kKHop0 = 0
   kKHop1 = 1
-  kWeightedKHop = 2
+  kWeightedKHop = 2 # should be deprecated
   kRandomWalk = 3
   kWeightedKHopPrefix = 4
   kKHop2 = 5
@@ -95,21 +95,13 @@ class SampleType(Enum):
     return name_list[self.value]
 
 class Dataset(Enum):
-  reddit = 0
   products = 1
   papers100M = 2
-  friendster = 3
-  papers100M_300 = 4
   uk_2006_05 = 5
   twitter = 6
-  sk_2005 = 7
   def __str__(self):
-    if self is Dataset.friendster:
-      return 'com-friendster'
-    elif self is Dataset.uk_2006_05:
+    if self is Dataset.uk_2006_05:
       return 'uk-2006-05'
-    elif self is Dataset.sk_2005:
-      return 'sk-2005'
     return self.name
 
 class RunConfig:
