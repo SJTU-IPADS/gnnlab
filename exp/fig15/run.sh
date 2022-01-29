@@ -3,7 +3,7 @@ dgl_dir=../../example/dgl/multi_gpu/
 sam_dir=../../example/samgraph/multi_gpu/
 
 TIME_STAMPS=$(date "+%Y-%m-%d_%H-%M-%S")
-log_dir=./run_logs/acc_test/one/${TIME_STAMPS}
+log_dir=./run-logs/acc_test/one/${TIME_STAMPS}
 
 # TODO: need change these configs
 dgl_devices="0 1 2 3 4 5 6 7"

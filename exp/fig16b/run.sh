@@ -1,42 +1,41 @@
 #!/bin/bash 
-log_dir=./run_logs/single/2022-01-30_00-45-28/
-# dgl_dir=../../example/dgl/
-# dgl_sgnn_dir=../../example/samgraph/sgnn_dgl/
-# sam_dir=../../example/samgraph/multi_gpu/
-# 
-# TIME_STAMPS=$(date "+%Y-%m-%d_%H-%M-%S")
-# log_dir=./run_logs/single/${TIME_STAMPS}
-# num_epoch=3
-# 
-# mkdir -p $log_dir
-# 
-# #dgl
-# 
-# python ${dgl_dir}/train_gcn.py --dataset products --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GCN_PR_single.log
-# python ${dgl_dir}/train_gcn.py --dataset papers100M --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GCN_PA_single.log
-# python ${dgl_dir}/train_gcn.py --dataset twitter --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GCN_TW_single.log
-# 
-# python ${dgl_dir}/train_graphsage.py --dataset products --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GraphSAGE_PR_single.log
-# python ${dgl_dir}/train_graphsage.py --dataset papers100M --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GraphSAGE_PA_single.log
-# python ${dgl_dir}/train_graphsage.py --dataset twitter --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GraphSAGE_TW_single.log
-# 
-# python ${dgl_sgnn_dir}/train_pinsage.py --dataset products --pipeline --num-epoch ${num_epoch} --num-worker 1 2>&1 | tee ${log_dir}/dgl_PinSAGE_PR_single.log
-# python ${dgl_sgnn_dir}/train_pinsage.py --dataset papers100M --pipeline --num-epoch ${num_epoch} --num-worker 1 2>&1 | tee ${log_dir}/dgl_PinSAGE_PA_single.log
-# python ${dgl_sgnn_dir}/train_pinsage.py --dataset twitter --pipeline --num-epoch ${num_epoch} --num-worker 1 2>&1 | tee ${log_dir}/dgl_PinSAGE_TW_single.log
-# 
-# 
-# # fgnn
-# python ${sam_dir}/train_gcn.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_GCN_PR_single.log
-# python ${sam_dir}/train_gcn.py --dataset papers100M --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.03 2>&1 | tee ${log_dir}/sam_GCN_PA_single.log
-# python ${sam_dir}/train_gcn.py --dataset twitter --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.04 2>&1 | tee ${log_dir}/sam_GCN_TW_single.log
-# 
-# python ${sam_dir}/train_graphsage.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_GraphSAGE_PR_single.log
-# python ${sam_dir}/train_graphsage.py --dataset papers100M --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.09 2>&1 | tee ${log_dir}/sam_GraphSAGE_PA_single.log
-# python ${sam_dir}/train_graphsage.py --dataset twitter --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.15 2>&1 | tee ${log_dir}/sam_GraphSAGE_TW_single.log
-# 
-# python ${sam_dir}/train_pinsage.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_PinSAGE_PR_single.log
-# python ${sam_dir}/train_pinsage.py --dataset papers100M --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.06 2>&1 | tee ${log_dir}/sam_PinSAGE_PA_single.log
-# python ${sam_dir}/train_pinsage.py --dataset twitter --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.05 2>&1 | tee ${log_dir}/sam_PinSAGE_TW_single.log
+dgl_dir=../../example/dgl/
+dgl_sgnn_dir=../../example/samgraph/sgnn_dgl/
+sam_dir=../../example/samgraph/multi_gpu/
+
+TIME_STAMPS=$(date "+%Y-%m-%d_%H-%M-%S")
+log_dir=./run-logs/single/${TIME_STAMPS}
+num_epoch=10
+
+mkdir -p $log_dir
+
+#dgl
+
+python ${dgl_dir}/train_gcn.py --dataset products --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GCN_PR_single.log
+python ${dgl_dir}/train_gcn.py --dataset papers100M --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GCN_PA_single.log
+python ${dgl_dir}/train_gcn.py --dataset twitter --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GCN_TW_single.log
+
+python ${dgl_dir}/train_graphsage.py --dataset products --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GraphSAGE_PR_single.log
+python ${dgl_dir}/train_graphsage.py --dataset papers100M --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GraphSAGE_PA_single.log
+python ${dgl_dir}/train_graphsage.py --dataset twitter --pipelining --num-epoch ${num_epoch} --use-gpu-sampling 2>&1 | tee ${log_dir}/dgl_GraphSAGE_TW_single.log
+
+python ${dgl_sgnn_dir}/train_pinsage.py --dataset products --pipeline --num-epoch ${num_epoch} --num-worker 1 2>&1 | tee ${log_dir}/dgl_PinSAGE_PR_single.log
+python ${dgl_sgnn_dir}/train_pinsage.py --dataset papers100M --pipeline --num-epoch ${num_epoch} --num-worker 1 2>&1 | tee ${log_dir}/dgl_PinSAGE_PA_single.log
+python ${dgl_sgnn_dir}/train_pinsage.py --dataset twitter --pipeline --num-epoch ${num_epoch} --num-worker 1 2>&1 | tee ${log_dir}/dgl_PinSAGE_TW_single.log
+
+
+# fgnn
+python ${sam_dir}/train_gcn.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_GCN_PR_single.log
+python ${sam_dir}/train_gcn.py --dataset papers100M --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.03 2>&1 | tee ${log_dir}/sam_GCN_PA_single.log
+python ${sam_dir}/train_gcn.py --dataset twitter --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.04 2>&1 | tee ${log_dir}/sam_GCN_TW_single.log
+
+python ${sam_dir}/train_graphsage.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_GraphSAGE_PR_single.log
+python ${sam_dir}/train_graphsage.py --dataset papers100M --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.09 2>&1 | tee ${log_dir}/sam_GraphSAGE_PA_single.log
+python ${sam_dir}/train_graphsage.py --dataset twitter --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.15 2>&1 | tee ${log_dir}/sam_GraphSAGE_TW_single.log
+
+python ${sam_dir}/train_pinsage.py --dataset products --single-gpu --num-epoch ${num_epoch} --cache-percentage 1.0 2>&1 | tee ${log_dir}/sam_PinSAGE_PR_single.log
+python ${sam_dir}/train_pinsage.py --dataset papers100M --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.06 2>&1 | tee ${log_dir}/sam_PinSAGE_PA_single.log
+python ${sam_dir}/train_pinsage.py --dataset twitter --single-gpu --num-epoch ${num_epoch} --cache-percentage 0.05 2>&1 | tee ${log_dir}/sam_PinSAGE_TW_single.log
 
 
 # parse data

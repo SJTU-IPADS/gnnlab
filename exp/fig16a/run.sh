@@ -3,7 +3,7 @@ sam_dir=../../example/samgraph/multi_gpu/
 switcher_dir=../../example/samgraph/balance_switcher/
 
 TIME_STAMPS=$(date "+%Y-%m-%d_%H-%M-%S")
-log_dir=./run_logs/switch/${TIME_STAMPS}
+log_dir=./run-logs/switch/${TIME_STAMPS}
 num_epoch=10
 
 mkdir -p $log_dir
