@@ -53,49 +53,42 @@ optional arguments:
 
 ## Output Example
 
-`python run.py` will create a new folder(e.g. `output_2022-01-29_14-04-31`) as result.
+`python run.py` will create a new folder(e.g. `output_2022-01-29_18-17-21`) as result.
 
 `python run.py --rerun-tests`  does not create a new folder and reuse the last created folder.
 
 ```sh
-> tree output_2022-01-29_14-04-31
-output_2022-01-29_14-04-31
-├── logs_dgl                   # log folder for dgl test cases
-│   ├── configs_book.txt       # detail configurations for each test cases
-│   ├── run_status.txt
-│   ├── test0.err.log
-│   ├── test0.log
-│   ├── test1.err.log
-│   ├── test1.log
-│   └── test_result.txt
-├── logs_sgnn                  # log folder for dgl test cases
-│   ├── configs_book.txt
-│   ├── run_status.txt
-│   ├── test0.err.log
-│   ├── test0.log
-│   ├── test1.err.log
-│   ├── test1.log
-│   ├── test2.err.log
-│   ├── test2.log
-│   ├── test3.err.log
-│   ├── test3.log
-│   └── test_result.txt
-└── table1.dat				  # output table data
+> tree -L 1 output_2022-01-29_18-17-21
+output_2022-01-29_18-17-21
+├── logs_dgl
+├── logs_dgl_pinsage
+├── logs_fgnn
+├── logs_pyg
+├── logs_sgnn
+├── table4.dat                # output table data
+└── table4-full.dat           # output table data with data source
+
+5 directories, 2 files
 ```
 
 
 
 ```sh
-> cat output_2022-01-29_14-04-31/table1.dat
-GNN Systems               Sample  Extract  Train  Total    #
-DGL                         5.24    11.94   4.00  21.64    # logs_dgl/test1.log
- w/ GPU-base Sampling       1.21    18.48   4.04  23.81    # logs_dgl/test0.log
-SGNN                        2.90     5.64   4.02  12.56    # logs_sgnn/test3.log
- w/ GPU-base Caching        2.85     1.81   4.00   8.66    # logs_sgnn/test2.log
- w/ GPU-base Sampling       0.71     5.53   4.06  10.36    # logs_sgnn/test1.log
- w/ Both                    0.70     3.64   3.94   8.33    # logs_sgnn/test0.log
+> cat output_2022-01-29_18-17-21/table4.dat
+GNN Models       Dataset     DGL    PyG   SGNN       FGNN
+GCN              PR         1.18  11.28   0.23   0.33(3S)
+GCN              TW         3.40  11.48   1.35   0.41(2S)
+GCN              PA         4.07  14.58   2.75   0.86(2S)
+GCN              UK            X  13.30      X   1.20(2S)
+GraphSAGE        PR         0.71   7.45   0.07   0.11(4S)
+GraphSAGE        TW         1.63   7.50   0.32   0.17(2S)
+GraphSAGE        PA         2.17   8.64   0.95   0.28(2S)
+GraphSAGE        UK            X   8.95   1.59   0.51(1S)
+PinSAGE          PR         0.80      X   0.31   0.40(1S)
+PinSAGE          TW         2.01      X   0.81   0.51(1S)
+PinSAGE          PA         2.56      X   1.72   1.03(1S)
+PinSAGE          UK            X      X      X   1.43(1S)
 ```
-
 
 
 

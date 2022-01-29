@@ -3,9 +3,6 @@
 reset
 set output outfile
 
-print outfile
-print resfile
-
 set terminal postscript "Helvetica,16" eps enhance color dl 2
 set pointsize 1
 set size 0.4,0.4

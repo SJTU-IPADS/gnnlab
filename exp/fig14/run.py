@@ -1,3 +1,4 @@
+from logtable_def import *
 from runner_helper2 import *
 import argparse
 import datetime
@@ -7,7 +8,6 @@ import os
 import sys
 
 sys.path.append(os.path.join(os.getcwd(), '../common'))
-from logtable_def import *
 
 MOCK = False
 RERUN_TESTS = False

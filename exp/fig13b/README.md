@@ -11,7 +11,8 @@ The goal of this experiment is to show the scalability performance of DGL and FG
 
 - Paper's configurations: **8x16GB** NVIDIA V100 GPUs, **2x24** cores Intel 8163 CPU
 - For other hardware configurations, you may need to modify the ①Number of GPU. ②Number of CPU threads ③Number of vertex (in percentage, 0<=pct. <=1) to be cached.
-  - **FGNN:**  Modify  `L63(#CPU threads), L73-L145(#GPU, #Cache percentage)` in `run.py`.
+  - **DGL:** Modify `L61(#GPU)` in `run.py`.
+  - **FGNN:**  Modify  `L99(#CPU threads), L104-L139(#GPU, #Cache percentage)` in `run.py`.
 
 
 
@@ -50,47 +51,35 @@ optional arguments:
 
 ## Output Example
 
-`python run.py` will create a new folder(e.g. `output_2022-01-29_14-04-31`) as result.
+`python run.py` will create a new folder(e.g. `output_2022-01-29_20-45-14`) as result.
 
 `python run.py --rerun-tests`  does not create a new folder and reuse the last created folder.
 
 ```sh
-> tree output_2022-01-29_14-04-31
-output_2022-01-29_14-04-31
-├── logs_dgl                   # log folder for dgl test cases
-│   ├── configs_book.txt       # detail configurations for each test cases
-│   ├── run_status.txt
-│   ├── test0.err.log
-│   ├── test0.log
-│   ├── test1.err.log
-│   ├── test1.log
-│   └── test_result.txt
-├── logs_sgnn                  # log folder for dgl test cases
-│   ├── configs_book.txt
-│   ├── run_status.txt
-│   ├── test0.err.log
-│   ├── test0.log
-│   ├── test1.err.log
-│   ├── test1.log
-│   ├── test2.err.log
-│   ├── test2.log
-│   ├── test3.err.log
-│   ├── test3.log
-│   └── test_result.txt
-└── table1.dat				  # output table data
+> tree output_2022-01-29_20-45-14 -L 1
+output_2022-01-29_20-45-14
+├── fig13b.eps           # Output figure
+├── fig13b-full.res      # Output data with data source
+├── fig13b.res           # Output data
+├── logs_dgl
+└── logs_fgnn
+
+2 directories, 3 files
 ```
 
 
 
 ```sh
-> cat output_2022-01-29_14-04-31/table1.dat
-GNN Systems               Sample  Extract  Train  Total    #
-DGL                         5.24    11.94   4.00  21.64    # logs_dgl/test1.log
- w/ GPU-base Sampling       1.21    18.48   4.04  23.81    # logs_dgl/test0.log
-SGNN                        2.90     5.64   4.02  12.56    # logs_sgnn/test3.log
- w/ GPU-base Caching        2.85     1.81   4.00   8.66    # logs_sgnn/test2.log
- w/ GPU-base Sampling       0.71     5.53   4.06  10.36    # logs_sgnn/test1.log
- w/ Both                    0.70     3.64   3.94   8.33    # logs_sgnn/test0.log
+> cat output_2022-01-29_20-45-14/fig13b.res
+"GPUs"  "DGL"   "1S"    "2S"    "3S"
+1       13.14   -       -       -
+2       6.92    6.25    -       -
+3       4.90    3.22    6.22    -
+4       3.89    2.21    3.26    6.34
+5       3.31    1.66    2.21    3.29
+6       3.03    1.38    1.67    2.26
+7       2.81    1.18    1.39    1.65
+8       2.57    1.02    1.17    1.37
 ```
 
 

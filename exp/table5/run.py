@@ -10,7 +10,7 @@ from logtable_def import *
 
 MOCK = False
 RERUN_TESTS = False
-NUM_EPOCH = 1
+NUM_EPOCH = 3
 TIMESTAMP = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 HERE = os.path.abspath(os.path.dirname(__file__))

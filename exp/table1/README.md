@@ -58,13 +58,13 @@ optional arguments:
 
 ## Output Example
 
-`python run.py` will create a new folder(e.g. `output_2022-01-29_14-04-31`) as result.
+`python run.py` will create a new folder(e.g. `output_2022-01-29_17-19-44`) as result.
 
 `python run.py --rerun-tests`  does not create a new folder and reuse the last created folder.
 
 ```sh
-> tree output_2022-01-29_14-04-31
-output_2022-01-29_14-04-31
+> tree output_2022-01-29_17-19-44
+output_2022-01-29_17-19-44
 ├── logs_dgl                   # log folder for dgl test cases
 │   ├── configs_book.txt       # detail configurations for each test cases
 │   ├── run_status.txt
@@ -91,14 +91,14 @@ output_2022-01-29_14-04-31
 
 
 ```sh
-> cat output_2022-01-29_14-04-31/table1.dat
+> cat output_2022-01-29_17-19-44/table1.dat
 GNN Systems               Sample  Extract  Train  Total    #
-DGL                         5.24    11.94   4.00  21.64    # logs_dgl/test1.log
- w/ GPU-base Sampling       1.21    18.48   4.04  23.81    # logs_dgl/test0.log
-SGNN                        2.90     5.64   4.02  12.56    # logs_sgnn/test3.log
- w/ GPU-base Caching        2.85     1.81   4.00   8.66    # logs_sgnn/test2.log
- w/ GPU-base Sampling       0.71     5.53   4.06  10.36    # logs_sgnn/test1.log
- w/ Both                    0.70     3.64   3.94   8.33    # logs_sgnn/test0.log
+DGL                         4.40    13.63   4.10  22.51    # logs_dgl/test1.log
+ w/ GPU-base Sampling       1.28    13.61   4.12  19.08    # logs_dgl/test0.log
+SGNN                        3.26     5.96   4.14  13.37    # logs_sgnn/test3.log
+ w/ GPU-base Caching        3.05     1.95   4.07   8.99    # logs_sgnn/test2.log
+ w/ GPU-base Sampling       0.72     5.88   4.07  10.70    # logs_sgnn/test1.log
+ w/ Both                    0.72     3.90   3.98   8.61    # logs_sgnn/test0.log
 ```
 
 

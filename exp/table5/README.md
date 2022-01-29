@@ -52,47 +52,47 @@ optional arguments:
 
 ## Output Example
 
-`python run.py` will create a new folder(e.g. `output_2022-01-29_14-04-31`) as result.
+`python run.py` will create a new folder(e.g. `output_2022-01-29_18-54-46`) as result.
 
 `python run.py --rerun-tests`  does not create a new folder and reuse the last created folder.
 
 ```sh
-> tree output_2022-01-29_14-04-31
-output_2022-01-29_14-04-31
-├── logs_dgl                   # log folder for dgl test cases
-│   ├── configs_book.txt       # detail configurations for each test cases
-│   ├── run_status.txt
-│   ├── test0.err.log
-│   ├── test0.log
-│   ├── test1.err.log
-│   ├── test1.log
-│   └── test_result.txt
-├── logs_sgnn                  # log folder for dgl test cases
-│   ├── configs_book.txt
-│   ├── run_status.txt
-│   ├── test0.err.log
-│   ├── test0.log
-│   ├── test1.err.log
-│   ├── test1.log
-│   ├── test2.err.log
-│   ├── test2.log
-│   ├── test3.err.log
-│   ├── test3.log
-│   └── test_result.txt
-└── table1.dat				  # output table data
+> tree output_2022-01-29_18-54-46 -L 1
+output_2022-01-29_18-54-46
+├── logs_dgl
+├── logs_dgl_pinsage
+├── logs_fgnn
+├── logs_pyg
+├── table5.dat               # output table data
+└── table5-full.dat          # output table data with data source
+
+4 directories, 2 files
 ```
 
 
 
 ```sh
-> cat output_2022-01-29_14-04-31/table1.dat
-GNN Systems               Sample  Extract  Train  Total    #
-DGL                         5.24    11.94   4.00  21.64    # logs_dgl/test1.log
- w/ GPU-base Sampling       1.21    18.48   4.04  23.81    # logs_dgl/test0.log
-SGNN                        2.90     5.64   4.02  12.56    # logs_sgnn/test3.log
- w/ GPU-base Caching        2.85     1.81   4.00   8.66    # logs_sgnn/test2.log
- w/ GPU-base Sampling       0.71     5.53   4.06  10.36    # logs_sgnn/test1.log
- w/ Both                    0.70     3.64   3.94   8.33    # logs_sgnn/test0.log
+> cat output_2022-01-29_18-54-46/table5.dat
+--------------------------------------------------------------------------------------------------------------------------------------
+          |            DGL             |            PyG             |                             FGNN
+--------------------------------------------------------------------------------------------------------------------------------------
+ GNN | DS | Sample   Extract    Train  | Sample   Extract    Train  |      Sample = S + M + C          Extract (Ratio, Hit%)    Train
+--------------------------------------------------------------------------------------------------------------------------------------
+ GCN | PR |  0.37      3.48      1.28  |  6.28      3.70      2.28  | 0.40  = 0.30  + 0.01  + 0.09      0.16   (1.00%, 1.00%)    1.23
+ GCN | TW |  0.76     11.71      1.55  | 10.44     11.97      2.60  | 0.38  = 0.26  + 0.03  + 0.08      0.82   (0.25%, 0.89%)    1.55
+ GCN | PA |  1.28     13.31      4.16  |  8.97     14.30      6.53  | 1.00  = 0.70  + 0.11  + 0.19      0.49   (0.21%, 0.99%)    3.93
+ GCN | UK |     X         X         X  | 14.93     20.68      4.98  | 0.57  = 0.38  + 0.04  + 0.15      2.75   (0.14%, 0.70%)    3.09
+--------------------------------------------------------------------------------------------------------------------------------------
+ GSG | PR |  0.14      2.38      0.24  |  3.12      2.45      0.24  | 0.21  = 0.15  + 0.01  + 0.05      0.10   (1.00%, 1.00%)    0.26
+ GSG | TW |  0.38      5.87      0.46  |  7.54      6.11      0.35  | 0.16  = 0.11  + 0.02  + 0.04      0.49   (0.32%, 0.89%)    0.44
+ GSG | PA |  0.56      7.50      1.31  |  3.98      8.10      0.93  | 0.46  = 0.31  + 0.06  + 0.09      0.28   (0.25%, 0.99%)    1.14
+ GSG | UK |     X         X         X  | 11.86     10.73      0.87  | 0.26  = 0.18  + 0.02  + 0.07      1.39   (0.18%, 0.72%)    1.04
+--------------------------------------------------------------------------------------------------------------------------------------
+ PSG | PR |  0.17      1.90      1.83  |   X         X         X    | 0.21  = 0.16  + 0.01  + 0.04      0.08   (1.00%, 1.00%)    1.79
+ PSG | TW |  0.23      6.06      2.67  |   X         X         X    | 0.28  = 0.21  + 0.02  + 0.05      0.61   (0.26%, 0.86%)    2.57
+ PSG | PA |  0.53      6.12      6.30  |   X         X         X    | 0.62  = 0.47  + 0.05  + 0.10      0.33   (0.22%, 0.97%)    6.22
+ PSG | UK |     X         X         X  |   X         X         X    | 0.67  = 0.49  + 0.03  + 0.14      2.99   (0.13%, 0.57%)    7.12
+--------------------------------------------------------------------------------------------------------------------------------------
 ```
 
 
