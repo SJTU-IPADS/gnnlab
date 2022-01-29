@@ -1,0 +1,86 @@
+diff --git a/cmake/modules/CUDA.cmake b/cmake/modules/CUDA.cmake
+index 0a159ceb..1c6e6ffa 100644
+--- a/cmake/modules/CUDA.cmake
++++ b/cmake/modules/CUDA.cmake
+@@ -64,7 +64,7 @@ set(CUDA_gpu_detect_output "")
+       # The line below prevents CMake from inserting a variable with line
+       # breaks in the cache
+       message(STATUS "Found CUDA arch ${__nvcc_out}")
+-      string(REGEX MATCH "([1-9].[0-9])" __nvcc_out "${__nvcc_out}")
++      # string(REGEX MATCH "([1-9].[0-9])" __nvcc_out "${__nvcc_out}")
+       string(REPLACE "2.1" "2.1(2.0)" __nvcc_out "${__nvcc_out}")
+       set(CUDA_gpu_detect_output ${__nvcc_out} CACHE INTERNAL "Returned GPU architetures from mshadow_detect_gpus tool" FORCE)
+     else()
+diff --git a/python/dgl/heterograph_index.py b/python/dgl/heterograph_index.py
+index 03246e8b..7e665164 100644
+--- a/python/dgl/heterograph_index.py
++++ b/python/dgl/heterograph_index.py
+@@ -1139,6 +1139,38 @@ def create_unitgraph_from_csr(num_ntypes, num_src, num_dst, indptr, indices, edg
+         F.to_dgl_nd(indptr), F.to_dgl_nd(indices), F.to_dgl_nd(edge_ids),
+         formats, transpose)
+ 
++def create_unitgraph_from_csc(num_ntypes, num_src, num_dst, indptr, indices, edge_ids,
++                              formats):
++    """Create a unitgraph graph index from CSC format
++
++    Parameters
++    ----------
++    num_ntypes : int
++        Number of node types (must be 1 or 2).
++    num_src : int
++        Number of nodes in the src type.
++    num_dst : int
++        Number of nodes in the dst type.
++    indptr : utils.Index
++        CSR indptr.
++    indices : utils.Index
++        CSR indices.
++    edge_ids : utils.Index
++        Edge shuffle id.
++    formats : str
++        Restrict the storage formats allowed for the unit graph.
++
++    Returns
++    -------
++    HeteroGraphIndex
++    """
++    if isinstance(formats, str):
++        formats = [formats]
++    return _CAPI_DGLHeteroCreateUnitGraphFromCSC(
++        int(num_ntypes), int(num_src), int(num_dst),
++        F.to_dgl_nd(indptr), F.to_dgl_nd(indices), F.to_dgl_nd(edge_ids),
++        formats)
++
+ def create_heterograph_from_relations(metagraph, rel_graphs, num_nodes_per_type):
+     """Create a heterograph from metagraph and graphs of every relation.
+ 
+diff --git a/src/graph/heterograph_capi.cc b/src/graph/heterograph_capi.cc
+index 9f774789..547e06c8 100644
+--- a/src/graph/heterograph_capi.cc
++++ b/src/graph/heterograph_capi.cc
+@@ -68,6 +68,25 @@ DGL_REGISTER_GLOBAL("heterograph_index._CAPI_DGLHeteroCreateUnitGraphFromCSR")
+     }
+   });
+ 
++DGL_REGISTER_GLOBAL("heterograph_index._CAPI_DGLHeteroCreateUnitGraphFromCSC")
++.set_body([] (DGLArgs args, DGLRetValue* rv) {
++    int64_t nvtypes = args[0];
++    int64_t num_src = args[1];
++    int64_t num_dst = args[2];
++    IdArray indptr = args[3];
++    IdArray indices = args[4];
++    IdArray edge_ids = args[5];
++    List<Value> formats = args[6];
++    std::vector<SparseFormat> formats_vec;
++    for (Value val : formats) {
++      std::string fmt = val->data;
++      formats_vec.push_back(ParseSparseFormat(fmt));
++    }
++    auto code = SparseFormatsToCode(formats_vec);
++    auto hgptr = CreateFromCSC(nvtypes, num_src, num_dst, indptr, indices, edge_ids, code);
++    *rv = HeteroGraphRef(hgptr);
++  });
++
+ DGL_REGISTER_GLOBAL("heterograph_index._CAPI_DGLHeteroCreateHeteroGraph")
+ .set_body([] (DGLArgs args, DGLRetValue* rv) {
+     GraphRef meta_graph = args[0];

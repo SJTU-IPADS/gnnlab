@@ -24,7 +24,7 @@ std::shared_ptr<utility::DegreeInfo> degree_info;
 #define F(name) name,
 enum WeightPolicy {WEIGHT_POLICY_TYPES( F ) kNumItems };
 #undef F
-WeightPolicy weight_policy = kDefault;
+WeightPolicy weight_policy = kSrcSuffix;
 
 #define F(name) {#name,name},
 std::unordered_map<std::string, WeightPolicy> policy_str_to_int = {
@@ -117,7 +117,7 @@ void CreateProbPrefixTable(const uint32_t *indptr, const uint32_t *indices,
 }  // namespace
 
 int main(int argc, char *argv[]) {
-  std::string policy_str;
+  std::string policy_str = "kSrcSuffix";
   utility::Options::CustomOption("-P,--policy", policy_str);
   utility::Options::InitOptions("Graph property");
   OPTIONS_PARSE(argc, argv);

@@ -124,6 +124,7 @@ def run():
     epoch_total_times_profiler = [0 for i in range(num_epoch)]
     epoch_total_times_python = []
     epoch_cache_hit_rates = []
+    epoch_miss_nbytes = []
 
     # sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
@@ -207,7 +208,7 @@ def run():
             # ))
 
             # sam.report_step_average(epoch, step)
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
             cur_step_key += 1
 
         toc = time.time()
@@ -215,6 +216,7 @@ def run():
             epoch, sam.kLogEpochFeatureBytes)
         miss_nbytes = sam.get_log_epoch_value(
             epoch, sam.kLogEpochMissBytes)
+        epoch_miss_nbytes.append(miss_nbytes)
         epoch_cache_hit_rates.append(
             (feat_nbytes - miss_nbytes) / feat_nbytes)
         epoch_sample_times.append(
@@ -256,8 +258,11 @@ def run():
         epoch_cache_hit_rates[1:])))
     test_result.append(
         ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
+    test_result.append(('epoch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])))
+    test_result.append(('batch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])/num_step))
+    test_result.append(('batch_copy_time', np.mean(epoch_copy_times[1:])/num_step))
     for k, v in test_result:
-        print('test_result:{:}={:.2f}'.format(k, v))
+        print('test_result:{:}={:.4f}'.format(k, v))
 
     sam.report_init()
 

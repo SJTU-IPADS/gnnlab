@@ -26,7 +26,7 @@ namespace common {
 template <typename T, T N>
 struct MQ_MetaData;
 
-constexpr size_t mq_size = 200;
+constexpr size_t mq_size = 170;
 
 using QueueMetaData = MQ_MetaData<size_t, mq_size>;
 
