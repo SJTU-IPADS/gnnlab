@@ -191,29 +191,21 @@ Now we have:
 
 Since the original datasets have no edge weights, we need to manually generate the edge weights.
 
-`-p` means the policy that we use to generate the edge weight.
-
-- `-p default` means randomly generating the edge weights.
-- `-p kSrcSuffix` means using the src vertex id's suffix as the edge weights.
-
-
-
-We use the `kSrcSuffix` policy in our experiments
 
 ```sh
 cd samgraph/utility/data-process/build
 
 make create-prob-prefix-table -j
 
-./create-prob-prefix-table -g products -p kSrcSuffix
-./create-prob-prefix-table -g papers100M -p kSrcSuffix
-./create-prob-prefix-table -g twitter -p kSrcSuffix
-./create-prob-prefix-table -g uk-2006-05 -p kSrcSuffix
+./create-prob-prefix-table -g products -P default
+./create-prob-prefix-table -g papers100M -P default
+./create-prob-prefix-table -g twitter -P default
+./create-prob-prefix-table -g uk-2006-05 -P default
 ```
 
 
 
-Now we have
+Now we have:
 
 ```sh
 /graph-learning/samgraph/papers100M
@@ -225,6 +217,7 @@ Now we have
 ├── indptr.bin
 ├── label.bin
 ├── meta.txt
+├── prob_prefix_table.bin   #new added
 ├── test_set64.bin
 ├── test_set.bin
 ├── train_set64.bin
@@ -232,4 +225,3 @@ Now we have
 └── valid_set64.bin
 └── valid_set.bin
 ```
-
