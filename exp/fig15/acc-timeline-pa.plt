@@ -1,4 +1,4 @@
-outputfname = "acc-timeline-pa.eps"
+outputfname = "fig15b.eps"
 dat_file='acc_one.res'
 
 # col numbers
