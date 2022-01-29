@@ -212,7 +212,7 @@ class Profiler {
   std::vector<size_t> _similarity;
   std::vector<int> _epoch_last_visit;
   std::vector<int> _epoch_cur_visit;
-  std::vector<size_t> _epoch_similarity;
+  std::vector<double> _epoch_similarity;
 };
 
 }  // namespace common
