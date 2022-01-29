@@ -1,11 +1,12 @@
+from email import message
+from logtable_def import get_dgl_logtable, get_sgnn_logtable
+from runner_helper2 import *
 import argparse
 import datetime
 import os
 import sys
 
 sys.path.append(os.path.join(os.getcwd(), '../common'))
-from runner_helper2 import *
-from logtable_def import get_dgl_logtable, get_sgnn_logtable
 
 MOCK = False
 RERUN_TESTS = False
@@ -114,7 +115,7 @@ def sgnn_motivation_test():
         'arch',
         'arch0',
         'cache_percentage',
-        [0.20, 0] # 0.21
+        [0.20, 0]  # 0.21
         # ).override(
         #         'BOOL_validate_configs',
         #         ['validate_configs']
@@ -156,10 +157,12 @@ def run_table1_tests():
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("Table 1 Runner")
-    argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH)
-    argparser.add_argument('--mock', action='store_true', default=MOCK)
+    argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH,
+                           help='Number of epochs to run per test case')
+    argparser.add_argument('--mock', action='store_true', default=MOCK,
+                           help='Show the run command for each test case but not actually run it')
     argparser.add_argument(
-        '--rerun-tests', action='store_true', default=RERUN_TESTS)
+        '--rerun-tests', action='store_true', default=RERUN_TESTS, help='Rerun the most recently tests')
     args = argparser.parse_args()
 
     global_config(args)
