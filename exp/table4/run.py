@@ -107,7 +107,7 @@ def dgl_pinsage_overall_test():
         ['pipeline']
     ).override(
         'num_worker',
-        [2],
+        [8],
         # ).override(
         #     'BOOL_validate_configs',
         #     ['validate_configs']
@@ -178,7 +178,7 @@ def sgnn_overall_test():
         ['random_walk']
     ).override(
         'num_epoch',
-        [10]
+        [NUM_EPOCH]
     ).override(
         'omp-thread-num',
         [40]
@@ -429,10 +429,12 @@ def run_table4_tests():
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("Table 4 Tests Runner")
-    argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH)
-    argparser.add_argument('--mock', action='store_true', default=MOCK)
+    argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH,
+                           help='Number of epochs to run per test case')
+    argparser.add_argument('--mock', action='store_true', default=MOCK,
+                           help='Show the run command for each test case but not actually run it')
     argparser.add_argument(
-        '--rerun-tests', action='store_true', default=RERUN_TESTS)
+        '--rerun-tests', action='store_true', default=RERUN_TESTS, help='Rerun the most recently tests')
     args = argparser.parse_args()
 
     global_config(args)

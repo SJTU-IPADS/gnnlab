@@ -198,10 +198,12 @@ def run_fig13b_tests():
 
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("Fig 13b Tests Runner")
-    argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH)
-    argparser.add_argument('--mock', action='store_true', default=MOCK)
+    argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH,
+                           help='Number of epochs to run per test case')
+    argparser.add_argument('--mock', action='store_true', default=MOCK,
+                           help='Show the run command for each test case but not actually run it')
     argparser.add_argument(
-        '--rerun-tests', action='store_true', default=RERUN_TESTS)
+        '--rerun-tests', action='store_true', default=RERUN_TESTS, help='Rerun the most recently tests')
     args = argparser.parse_args()
 
     global_config(args)

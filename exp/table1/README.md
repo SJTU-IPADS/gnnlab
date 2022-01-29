@@ -1,18 +1,25 @@
 # Table 1: Motivation Test
 
-The goal of this experiment is to show the speedup performance and the memory contention of the optimizations(i.e. GPU sampling and GPU caching) for the sample-based GNN training.
+The goal of this experiment is to show the speedup performance and the memory contention of the two optimizations(i.e. GPU sampling and GPU caching) for the sample-based GNN training.
 
-`run.py` is the runner script for table1 while `logtable_def.py` define log parsing rules for table1.
+- `run.py` is the runner script.
+- `logtable_def.py` defines log parsing rules.
 
 
 
 ## Hardware Requirements
 
 - Paper's configurations: Two 16GB NVIDIA V100 GPUs
-- For other hardware configurations, you may need to modify the cache percentage (0.2 means caching the features for the 20% vertex out of total).
-  -  Modify `L112, L117` in `run.py` and `L68, L78` in `logtable_def.py`
-  -  `arch0` means SGNN w/CPU sampling(default cache pct. is 0.2) while `arch2` means SGNN w/GPU sampling(default cache pct. is  0.07)
-  -  Cache percentage 0 means not utilizing the cache mechanism.
+- For other hardware configurations, you may need to modify the cache percentage (0.2 means caching the features for the 20% vertex out of total) and the number of CPU working threads.
+  - Cache percentage
+    - **SGNN**: Modify `L116, L121` in `run.py` and `L68, L78` in `logtable_def.py`
+    - `arch0` means SGNN w/CPU sampling(default cache pct. is 0.2) while `arch2` means SGNN w/GPU sampling(default cache pct. is  0.07)
+    - Cache percentage 0 means not utilizing the cache mechanism.
+
+  - GPU working threads
+    - **DGL**: Modify `L58` in `run.py`
+    - **SGNN**: Modify `L105` in `run.py`
+
 
 
 
@@ -25,11 +32,11 @@ The goal of this experiment is to show the speedup performance and the memory co
 
 
 
-There are serveral command line arguments:
+There are several command line arguments:
 
 - `--num-epoch`: Number of epochs to run per test case.  The default value is set to 3 for fast run. In the paper, we set it to 10.
 - `--mock`: Show the run command for each test case but not actually run it
-- `--rerun-tests` Rerun the most recently tests. Sometimes not all the test cases run successfully(e.g. cache percentage is too large and leads to OOM). You can adjust the configurations and rerun the tests agains. The `--rerun-tests` option only reruns those failed test cases.
+- `--rerun-tests` Rerun the most recently tests. Sometimes not all the test cases run successfully(e.g. cache percentage is too large and leads to OOM). You can adjust the configurations and rerun the tests again. The `--rerun-tests` option only reruns those failed test cases.
 
 
 

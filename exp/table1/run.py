@@ -99,7 +99,10 @@ def sgnn_motivation_test():
         ['5 10 15']
     ).override(
         'BOOL_pipeline',
-        ['no_pipeline']
+        ['no_pipeline'],
+    ).override(
+        'omp_thread_num',
+        [40]
     ).override(
         'arch',
         ['arch0', 'arch2']
