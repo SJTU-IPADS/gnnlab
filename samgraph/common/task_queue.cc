@@ -10,6 +10,11 @@
 namespace samgraph {
 namespace common {
 
+namespace {
+// TODO: hardcode mq bucket size
+size_t mq_nbytes = 50 * 1024 * 1024;
+} // namespace
+
 TaskQueue::TaskQueue(size_t max_len) { _max_len = max_len; }
 
 void TaskQueue::AddTask(std::shared_ptr<Task> task) {
@@ -136,6 +141,8 @@ namespace {
     }
     size_t data_size = sizeof(TransData) + GetDataBytes(task);
     LOG(DEBUG) << "ToData transform data size: " << ToReadableSize(data_size);
+    // TODO: hardcode
+    CHECK_LE(data_size, mq_nbytes);
 
     TransData* ptr = static_cast<TransData*>(shared_ptr);
     ptr->have_data = have_data;
@@ -346,7 +353,8 @@ namespace {
 } // namespace
 
 MessageTaskQueue::MessageTaskQueue(size_t max_len) : TaskQueue(max_len) {
-  size_t mq_nbytes = GetMaxMQSize();
+  // size_t mq_nbytes = GetMaxMQSize();
+  // TODO: hardcode here to speedup the init time of FGNN
   _mq = std::make_shared<MemoryQueue>(mq_nbytes);
 }
 
