@@ -340,7 +340,7 @@ def run_train(worker_id, run_config):
             train_times.append(train_time)
             total_times.append(total_time)
 
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
             if (run_config['report_acc']) and \
                     (step % run_config['report_acc'] == 0) and (worker_id == 0):
                 tt = time.time()

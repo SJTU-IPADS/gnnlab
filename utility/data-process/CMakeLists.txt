@@ -45,6 +45,11 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_fake_optimal.cc
     ${COMMON_SOURCE}
 )
+add_executable(
+    cache-by-random
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_random.cc
+    ${COMMON_SOURCE}
+)
 
 add_executable(
     degree-info
