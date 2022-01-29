@@ -50,35 +50,45 @@ optional arguments:
 
 ## Output Example
 
-`python run.py` will create a new folder(e.g. `output_2022-01-29_20-45-14`) as result.
+`python run.py` will create a new folder(e.g. `output_2022-01-29_21-30-39/`) as result.
 
 `python run.py --rerun-tests`  does not create a new folder and reuse the last created folder.
 
 ```sh
-> tree output_2022-01-29_20-45-14 -L 1
-output_2022-01-29_20-45-14
-├── fig13b.eps           # Output figure
-├── fig13b-full.res      # Output data with data source
-├── fig13b.res           # Output data
-├── logs_dgl
+> tree output_2022-01-29_21-30-39/ -L 1
+output_2022-01-29_21-30-39/
+├── fig14.eps
+├── fig14.res
 └── logs_fgnn
 
-2 directories, 3 files
+1 directory, 2 files
 ```
 
 
 
 ```sh
-> cat output_2022-01-29_20-45-14/fig13b.res
-"GPUs"  "DGL"   "1S"    "2S"    "3S"
-1       13.14   -       -       -
-2       6.92    6.25    -       -
-3       4.90    3.22    6.22    -
-4       3.89    2.21    3.26    6.34
-5       3.31    1.66    2.21    3.29
-6       3.03    1.38    1.67    2.26
-7       2.81    1.18    1.39    1.65
-8       2.57    1.02    1.17    1.37
+> cat output_2022-01-29_21-30-39/fig14.res
+" " ? ? ? ?
+"1S 1T" 1.01    0.50    4.03    4.11    # logs_fgnn/test18.log logs_fgnn/test0.log
+"1S 2T" 1.00    0.35    1.99    2.20    # logs_fgnn/test1.log logs_fgnn/test19.log
+"1S 3T" 1.00    0.24    1.37    1.47    # logs_fgnn/test2.log logs_fgnn/test20.log
+"1S 4T" 1.00    0.18    1.00    1.13    # logs_fgnn/test3.log logs_fgnn/test21.log
+"1S 5T" 1.00    0.16    0.86    1.08    # logs_fgnn/test4.log logs_fgnn/test22.log
+"1S 6T" 1.02    0.15    0.70    1.06    # logs_fgnn/test5.log logs_fgnn/test23.log
+"1S 7T" 1.00    0.12    0.61    1.06    # logs_fgnn/test6.log logs_fgnn/test24.log
+" " ? ? ? ?
+"2S 1T" 0.52    0.50    3.98    4.12    # logs_fgnn/test7.log logs_fgnn/test25.log
+"2S 2T" 0.52    0.34    2.01    2.14    # logs_fgnn/test26.log logs_fgnn/test8.log
+"2S 3T" 0.52    0.24    1.34    1.48    # logs_fgnn/test27.log logs_fgnn/test9.log
+"2S 4T" 0.54    0.20    1.12    1.13    # logs_fgnn/test28.log logs_fgnn/test10.log
+"2S 5T" 0.51    0.16    0.85    0.94    # logs_fgnn/test29.log logs_fgnn/test11.log
+"2S 6T" 0.53    0.14    0.70    0.80    # logs_fgnn/test30.log logs_fgnn/test12.log
+" " ? ? ? ?
+"3S 1T" 0.35    0.48    4.04    4.13    # logs_fgnn/test31.log logs_fgnn/test13.log
+"3S 2T" 0.39    0.34    2.02    2.15    # logs_fgnn/test14.log logs_fgnn/test32.log
+"3S 3T" 0.35    0.24    1.34    1.47    # logs_fgnn/test33.log logs_fgnn/test15.log
+"3S 4T" 0.36    0.19    1.03    1.11    # logs_fgnn/test16.log logs_fgnn/test34.log
+"3S 5T" 0.35    0.16    0.83    0.93    # logs_fgnn/test17.log logs_fgnn/test35.log
 ```
 
 
