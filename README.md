@@ -79,7 +79,7 @@ We use conda to manage our python environment.
     ```
 
 
-2. Download the FGNN source code, install DGL(See [`3rdparty/README.md`](3rdparty/README.md)) and fastgraph in the source. FGNN uses DGL as the training backend. The package "fastgraph" is used to load dataset for DGL and PyG in experiments.
+2. Download the FGNN source code, install DGL(See [`3rdparty/readme.md`](3rdparty/readme.md)) and fastgraph in the source. FGNN uses DGL as the training backend. The package "fastgraph" is used to load dataset for DGL and PyG in experiments.
 
     ```bash
     # Download FGNN source code
@@ -164,7 +164,7 @@ After reboot you can see:
 
 **AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided. We have already downloaded and processed the dataset(`/graph-learning/samgraph`)**.
 
-See [`fgnn-artifacts/datagen/README.md`]((datagen/README.md)).
+See [`fgnn-artifacts/datagen/README.md`](datagen/README.md).
 
 
 
