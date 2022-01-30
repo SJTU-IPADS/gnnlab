@@ -16,7 +16,7 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
 │   ├── pyg
 │   │   ├── multi_gpu           # PyG models
 │   ├── samgraph
-│   │   ├── balance_switcher
+│   │   ├── balance_switcher    # FGNN Dynamic Switch
 │   │   ├── multi_gpu           # FGNN models
 │   │   ├── sgnn                # SGNN models
 │   │   ├── sgnn_dgl            # DGL PinSAGE models(SGNN simulated)
