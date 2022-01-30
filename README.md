@@ -77,6 +77,11 @@ We use conda to manage our python environment.
     conda install cudnn
     
     ```
+    Install gnuplot for experiments:
+    ```bash
+    # Ubuntu
+    sudo apt install gnuplot
+    ```
 
 
 2. Download the FGNN source code, install DGL(See [`3rdparty/readme.md`](3rdparty/readme.md)) and fastgraph in the source. FGNN uses DGL as the training backend. The package "fastgraph" is used to load dataset for DGL and PyG in experiments.
