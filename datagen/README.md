@@ -158,10 +158,10 @@ Now we have:
 
 ## 3. Generate Cache Rank Table
 
-The degree-based cache policy uses the out-degree as cache rank. The ranking only needs to be preprocessed once. The cache rank table is a sorted vertex-id list by their out-degree.
+The degree-based cache policy uses the out-degree as cache rank. The ranking only needs to be preprocessed once. The cache rank table is a vertex-id list sorted by their out-degree.
 
 ```sh
-cd samgraph/utility/data-process/build
+cd ${PROJECT_ROOT}/utility/data-process/build
 
 make cache-by-degree cache-by-random  -j
 
@@ -209,7 +209,7 @@ Since the original datasets have no edge weights, we need to manually generate t
 
 
 ```sh
-cd samgraph/utility/data-process/build
+cd ${PROJECT_ROOT}/utility/data-process/build
 
 make create-prob-prefix-table -j
 
