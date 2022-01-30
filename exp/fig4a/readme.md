@@ -26,6 +26,9 @@ There are serveral command line arguments for `runner.py`:
 - `-m`, `--mock`: Show the run command for each test case but not actually run it
 - `-i`, `--interactive`: run these tests with output printed to terminal, rather than redirec to log directory.
 
+The number of epochs to run is set to 3 for fast reproduce. You may change line containing `.override('epoch', [3])` to change the numer of epochs.
+
+
 ## Output Example
 
 `python runner.py` will redirect all logs to `run-logs` directory.
