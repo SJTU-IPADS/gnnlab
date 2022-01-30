@@ -11,6 +11,7 @@
 #include "../engine.h"
 #include "../graph_pool.h"
 #include "../task_queue.h"
+#include "../partition.h"
 #include "cuda_cache_manager.h"
 #include "cuda_common.h"
 #include "cuda_frequency_hashmap.h"
@@ -40,6 +41,7 @@ class GPUEngine : public Engine {
   GPUDynamicCacheManager* GetDynamicCacheManager() { return _dynamic_cache_manager; }
   FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
   UMChecker* GetUMChecker() { return _um_checker; }
+  const DisjointPartition& GetPartition() const { return *_partition; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
@@ -68,6 +70,7 @@ class GPUEngine : public Engine {
   FrequencyHashmap* _frequency_hashmap;
 
   UMChecker* _um_checker;
+  DisjointPartition* _partition;
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;

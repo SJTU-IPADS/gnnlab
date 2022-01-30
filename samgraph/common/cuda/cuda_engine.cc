@@ -72,6 +72,10 @@ void GPUEngine::Init() {
   LoadGraphDataset();
   double time_load_graph_dataset = tl.Passed();
   LOG_MEM_USAGE(INFO, "after load dataset");
+  if(RunConfig::partition) {
+    _partition = new DisjointPartition(
+      *_dataset, RunConfig::partition_num, _sampler_ctx);
+  }
 
   // Create CUDA streams
   Timer t_create_stream;
@@ -361,6 +365,10 @@ void GPUEngine::Shutdown() {
   _cache_manager = nullptr;
   _random_states = nullptr;
   _frequency_hashmap = nullptr;
+
+  if (_partition != nullptr) {
+    delete _partition;
+  }
 
   _threads.clear();
   _joined_thread_cnt = 0;

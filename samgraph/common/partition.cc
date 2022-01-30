@@ -258,10 +258,11 @@ double Partition::Score(const Dataset& dataset,
   // return dist(gen);
 }
 
-DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_num) {
-  _nodeId_map = Tensor::EmptyNoScale(
+DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_num, Context sampler_ctx) {
+  LOG(INFO) << "make " << partition_num << " dataset partition";
+  auto nodeId_map = Tensor::EmptyNoScale(
     DataType::kI64, {dataset.num_node}, CPU(), "nodeId_map");
-  auto nodeId_map_ptr = static_cast<Id64Type*>(_nodeId_map->MutableData());
+  auto nodeId_map_ptr = static_cast<Id64Type*>(nodeId_map->MutableData());
 
   auto indptr = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
     CPU(), dataset.indptr->NumBytes(), Constant::kAllocNoScale));
@@ -278,6 +279,8 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
   for(IdType i = 0, p = 0; i < dataset.num_node && p < partition_num; p++) {
     IdType cur_node_num = per_partition_node_num + (p < dataset.num_node % partition_num);
     auto partition = std::make_unique<Dataset>();
+    auto nodeId_rmap = Tensor::Empty(DataType::kI32, {cur_node_num}, CPU(), "");
+    auto nodeId_rmap_ptr = static_cast<IdType*>(nodeId_rmap->MutableData());
     size_t cur_indptr_size = 1;
     size_t cur_indices_size = 0;
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
@@ -286,6 +289,7 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
       auto cur_nodeId_map = reinterpret_cast<IdType*>(&nodeId_map_ptr[k]);
       cur_nodeId_map[0] = p;
       cur_nodeId_map[1] = j;
+      nodeId_rmap_ptr[j] = k;
       size_t edge_len = indptr[k+1] - indptr[k];
       cur_indptr_size += 1;
       cur_indices_size += edge_len;
@@ -310,8 +314,10 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
     }
     i += cur_node_num;
     _partitions.emplace_back(std::move(partition));
+    _nodeId_rmap.push_back(Tensor::CopyTo(nodeId_rmap, sampler_ctx));
   }
 
+  _nodeId_map = Tensor::CopyTo(nodeId_map, sampler_ctx);
   CHECK(dataset.alias_table == nullptr || dataset.alias_table->Data() == nullptr);
   CHECK(dataset.prob_table == nullptr || dataset.prob_table->Data() == nullptr);
   CHECK(dataset.prob_prefix_table == nullptr || dataset.prob_prefix_table->Data() == nullptr);
@@ -326,6 +332,31 @@ std::pair<IdType, IdType> DisjointPartition::GetNewNodeId(IdType nodeId ) const 
   auto nodeId_map_ptr = static_cast<const Id64Type*>(_nodeId_map->Data());
   auto cur_nodeId_map = reinterpret_cast<const IdType*>(&nodeId_map_ptr[nodeId]);
   return {cur_nodeId_map[0], cur_nodeId_map[1]};
+}
+
+std::pair<size_t, size_t> DisjointPartition::GetMaxPartitionSize() const {
+  return std::accumulate(_partitions.begin(), _partitions.end(), std::pair<size_t, size_t>{0, 0}, 
+    [](std::pair<size_t, size_t> init, const std::unique_ptr<Dataset> &ds) {
+      init.first = std::max(init.first, ds->indptr->Shape()[0]);
+      init.second = std::max(init.second, ds->indices->Shape()[0]);
+      return init;
+  });
+}
+
+const Dataset& DisjointPartition::Get(IdType partitionId) const {
+  return *_partitions[partitionId].get();
+}
+
+const Id64Type* DisjointPartition::GetNodeIdMap() const {
+  return static_cast<const Id64Type*>(_nodeId_map->Data());
+}
+
+const IdType* DisjointPartition::GetNodeIdRMap(IdType partitionId) const {
+  return static_cast<const IdType*>(_nodeId_rmap[partitionId]->Data());
+}
+
+size_t DisjointPartition::Size() const {
+  return _partitions.size();
 }
 
 void DisjointPartition::Check() {

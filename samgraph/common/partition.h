@@ -34,11 +34,16 @@ class Partition {
 
 class DisjointPartition {
  public:
-  DisjointPartition(const Dataset& dataset, IdType partition_num);
+  DisjointPartition(const Dataset& dataset, IdType partition_num, Context sampler_ctx);
   std::pair<IdType, IdType> GetNewNodeId(IdType nodeId) const;
-
+  std::pair<size_t, size_t> GetMaxPartitionSize() const;
+  const Dataset& Get(IdType partitionId) const;
+  const Id64Type* GetNodeIdMap() const;
+  const IdType* GetNodeIdRMap(IdType partitionId) const;
+  size_t Size() const;
  private:
   TensorPtr _nodeId_map; // nodeId -> {partitionId, nodeId in partition}
+  std::vector<TensorPtr> _nodeId_rmap; // nodeId in partition -> nodeId
   std::vector<std::unique_ptr<Dataset>> _partitions;
 
   void Check();

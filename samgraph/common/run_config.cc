@@ -64,7 +64,8 @@ bool                 RunConfig::unified_memory_check           = true;
 double               RunConfig::unified_memory_overscribe_factor = 0;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kPreSample;
 
-bool                 RunConfig::partition                      = false;
+bool                 RunConfig::partition                      = true;
+int                  RunConfig::partition_num                  = 4;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {

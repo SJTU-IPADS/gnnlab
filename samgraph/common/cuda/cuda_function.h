@@ -2,6 +2,7 @@
 #define SAMGRAPH_CUDA_FUNCTION_H
 
 #include "../common.h"
+#include "../partition.h"
 #include "cuda_frequency_hashmap.h"
 #include "cuda_hashtable.h"
 #include "cuda_random_states.h"
@@ -92,6 +93,14 @@ void GetMissCacheIndex(
     size_t *num_output_miss, IdType *output_cache_src_index,
     IdType *output_cache_dst_index, size_t *num_output_cache,
     const IdType *nodes, const size_t num_nodes, StreamHandle stream);
+
+void GPUPartitionSampleKHop0(
+  const DisjointPartition &partition,
+  const IdType *input, const size_t num_input, const size_t fanout,
+  IdType *out_src, IdType *out_dst, size_t *num_out,
+  Context ctx, StreamHandle stream,
+  GPURandomStates *random_states, uint64_t task_key); 
+
 
 }  // namespace cuda
 }  // namespace common

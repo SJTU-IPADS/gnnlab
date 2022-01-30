@@ -126,7 +126,10 @@ void DoGPUSample(TaskPtr task) {
                           random_states, task->key);
             checker->Check(out_src, out_dst, num_out, out_src_chk, out_dst_chk, num_out_chk, sampler_ctx);
         } else {
-            
+          GPUPartitionSampleKHop0(
+            GPUEngine::Get()->GetPartition(), 
+            input, num_input, fanout, out_src, out_dst, num_out,
+            sampler_ctx, sample_stream, random_states, task->key);
         }
         break;
       case kKHop1:

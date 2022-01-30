@@ -27,8 +27,9 @@ from test_cases import *
 
 # cases = Papers100M.um_test_gpu_not_use_um + Papers100M.um_test_normal_cases + Papers100M.um_test_graph_in_cpu
 # cases = Papers100M.um_test_normal_cases + Papers100M.um_test_graph_in_cpu
-# cases = Papers100M.um_test_gpu_not_use_um # + Papers100M.um_test_graph_in_gpu
-cases = Papers100M.um_test_graph_in_cpu
+# cases = Papers100M.um_test_cpu #+ Papers100M.um_test_graph_in_cpu
+# cases = Papers100M.um_test_normal_cases[-1:]
+cases = Papers100M.um_test_gpu_not_use_um
 
 # cases = Friendster.um_test_gpu_not_use_um + Friendster.um_test_normal_cases + Friendster.um_test_graph_in_cpu 
 # cases = Friendster.um_test_cpu
