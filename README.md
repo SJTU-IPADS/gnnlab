@@ -164,11 +164,11 @@ After reboot you can see:
 
 **AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided. We have already downloaded and processed the dataset(`/graph-learning/samgraph`)**.
 
-See [`fgnn-artifacts/datagen/README.md`](datagen/README.md).
+See [`datagen/README.md`](datagen/README.md).
 
 
 
 
 ## Experiments
 
-See [`fgnn-artifacts/exp/README.md`](exp/README.md).
+See [`exp/README.md`](exp/README.md).
