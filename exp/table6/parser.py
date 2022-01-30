@@ -31,4 +31,5 @@ if __name__ == '__main__':
       'init:load_dataset:copy' : 'Load graph topology',
       'init:cache' : 'Load feature cache',
       'init:presample' : 'Pre-sampling for PreSC#1'}, axis=0)
-    print(table)
+  with open('table6.dat', 'w') as f:
+    print(table, file=f)
