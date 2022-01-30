@@ -146,22 +146,22 @@ DGL CPU sampling requires cro-processing communications.FGNN global queue requir
 
 Add the following content to `/etc/security/limits.conf` and then `reboot`:
 
-    ```bash
-    * soft nofile 65535         # for DGL CPU sampling
-    * hard nofile 65535         # for DGL CPU sampling
-    * soft memlock 200000000    # for FGNN global queue
-    * hard memlock 200000000    # for FGNN global queue
-    ```
+```bash
+* soft nofile 65535         # for DGL CPU sampling
+* hard nofile 65535         # for DGL CPU sampling
+* soft memlock 200000000    # for FGNN global queue
+* hard memlock 200000000    # for FGNN global queue
+```
 
 After reboot you can see:
 
-    ```bash
-    > ulimit -n
-    65535
-    
-    > ulimit -l
-    200000000
-    ```
+```bash
+> ulimit -n
+65535
+
+> ulimit -l
+200000000
+```
 
 
 
