@@ -269,6 +269,9 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     case kArch5:
       _shuffler = new DistShuffler(_dataset->train_set,
           _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
+      if (_shuffler->NumStep() > mq_size) {
+        LOG(FATAL) << "Num step exceeds max length of memory queue. Please increase `mq_size` and re-compile!";
+      }
       break;
     case kArch6:
       CHECK_EQ(RunConfig::num_sample_worker, RunConfig::num_train_worker);
