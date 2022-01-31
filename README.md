@@ -1,6 +1,9 @@
-# FGNN
+# FGNN: A Factored System For Sample-based GNN Training Over GPUs
 
 FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs.
+FGNN adopts a factored design for multiple GPUs, where each GPU is dedicated to the task of graph sampling or model training.
+It accelerates both tasks by eliminating GPU memory contention.
+Furthermore, FGNN embodies a new pre-sampling based caching policy (PreSC) that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
 [TOC]
 
@@ -144,7 +147,29 @@ See [`datagen/README.md`](datagen/README.md).
 
 
 
+## Quickstart Example
+
+```bash
+cd fgnn-artifacts/example/samgraph/multi_gpu
+
+python train_gcn.py --dataset papers100M --num-train-worker 1 --num-sample-worker 1 --pipeline --cache-policy pre_sample --cache-percentage 0.1 --num-epoch 10 --batch-size 8000
+```
+
+
 
 ## Experiments
 
 See [`exp/README.md`](exp/README.md).
+
+
+
+## License
+
+FGNN is released under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html).
+
+
+
+
+## Academic and Conference Papers
+
+[**EuroSys**] FGNN: A Factored System for Sample-based GNN Training over GPUs. Jianbang Yang, Dahai Tang, Xiaoniu Song, Lei Wang, Qiang Yin, Rong Chen, Wenyuan Yu, Jingren Zhou. Proceedings of the 17th European Conference on Computer Systems, Rennes, France, April, 2022.
