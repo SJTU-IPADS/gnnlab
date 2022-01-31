@@ -1,9 +1,6 @@
 # FGNN: A Factored System For Sample-based GNN Training Over GPUs
 
-FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs.
-FGNN adopts a factored design for multiple GPUs, where each GPU is dedicated to the task of graph sampling or model training.
-It accelerates both tasks by eliminating GPU memory contention.
-Furthermore, FGNN embodies a new pre-sampling based caching policy (PreSC) that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
+FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
 [TOC]
 
@@ -43,7 +40,9 @@ Furthermore, FGNN embodies a new pre-sampling based caching policy (PreSC) that 
 
 ## Installation
 
-**We have already setup a out-of-the-box environment for AE reviewers. AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided.**
+**We have already created accounts and setup out-of-the-box environments for AE reviewers. AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided.**
+
+**The AE machine and account information can be found in the AE appendix and the AE website comments.**
 
 ### Software Version
 
@@ -52,10 +51,10 @@ Furthermore, FGNN embodies a new pre-sampling based caching policy (PreSC) that 
 - CUDA v10.1
 - DGL V0.7.1
 - PyG v2.0.1
-- GCC&G++ 7
+- gcc-7 && g++-7
 - CMake >= 3.14
 
-### GCC-7 And CUDA10.1 Environment
+### gcc-7 And CUDA10.1 Environment
 
 1. Install CUDA 10.1. FGNN is built on CUDA 10.1. Follow the instructions in https://developer.nvidia.com/cuda-10.1-download-archive-base to install CUDA 10.1. Make sure that `/usr/local/cuda` is linked to `/usr/local/cuda-10.1`.
 
