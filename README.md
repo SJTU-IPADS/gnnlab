@@ -74,8 +74,8 @@ We use conda to manage our python environment.
     ```bash
     conda create -n fgnn_env python==3.8 pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=10.1 -c pytorch -y
     conda activate fgnn_env
-    conda install cudnn
-    
+    conda install cudnn numpy scipy networkx pandas cmake # System cmake is too old to build DGL
+
     ```
     Install gnuplot for experiments:
     ```bash
@@ -91,32 +91,15 @@ We use conda to manage our python environment.
     git clone --recursive https://github.com/SJTU-IPADS/fgnn-artifacts.git
     
     # Install DGL
-    conda install cmake #(Optinal) Sometimes the system cmake is too old to build DGL
-    
-    pushd fgnn-artifacts/3rdparty/dgl
-    
-    git apply ../dgl.patch # patching for dataset loading
-    
-    export CUDNN_LIBRARY=$CONDA_PREFIX/lib
-    export CUDNN_LIBRARY_PATH=$CONDA_PREFIX/lib
-    export CUDNN_ROOT=$CONDA_PREFIX
-    export CUDNN_INCLUDE_DIR=$CONDA_PREFIX/include
-    export CUDNN_INCLUDE_PATH=$CONDA_PREFIX/include
-    cmake -S . -B build -DUSE_CUDA=ON -DBUILD_TORCH=ON -DCMAKE_BUILD_TYPE=Release
-    pushd build
-    make -j
-    popd build
-    
-    pushd python
-    python setup.py install
-    popd
-    popd
-    
-    
+    ./fgnn-artifacts/3rdparty/dgl_install.sh
+
     # Install fastgraph
     pushd fgnn-artifacts/utility/fastgraph
     python setup.py install
     popd
+
+    # Install PyG for experiments
+    ./fgnn-artifacts/3rdparty/pyg_install.sh
     ```
 
     
@@ -126,18 +109,6 @@ We use conda to manage our python environment.
     ```bash
     cd fgnn-artifacts
     ./build.sh
-    ```
-
-
-
-4. Install PyG for experiments
-
-    ```bash
-    FORCE_CUDA=1 pip install --no-cache-dir --verbose torch-scatter==2.0.8 \
-    && pip install torch-sparse==0.6.12 -f https://data.pyg.org/whl/torch-1.7.0+cu101.html \
-    && pip install torch-geometric==2.0.1 \
-    && pip install torch-cluster==1.5.9 -f https://data.pyg.org/whl/torch-1.7.0+cu101.html \
-    && pip install torch-spline-conv==1.2.1 -f https://data.pyg.org/whl/torch-1.7.0+cu101.html
     ```
 
 ### Setting ulimit
