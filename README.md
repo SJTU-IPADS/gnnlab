@@ -2,7 +2,19 @@
 
 FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
-[TOC]
+- [FGNN](#fgnn-a-factored-system-for-sample-based-gnn-training-over-gpus)
+  - [Project Structure](#project-structure)
+  - [Paper's Hardware Configuration](#papers-hardware-configuration)
+  - [Installation](#installation)
+    - [Software Version](#software-version)
+    - [gcc-7 And CUDA10.1 Environment](#gcc-7-and-cuda101-environment)
+    - [FGNN, DGL and PyG Environment](#fgnn-dgl-and-pyg-environment)
+    - [Setting ulimit](#setting-ulimit)
+  - [Dataset Preprocessing](#dataset-preprocessing)
+  - [Quickstart Example](#quickstart-example)
+  - [Experiments](#experiments)
+  - [License](#license)
+  - [Academic and Conference Papers](#academic-and-conference-papers)
 
 
 ## Project Structure
