@@ -3,7 +3,7 @@ run_list_2=table1.run table4.run table5.run fig13a.run fig13b.run fig14.run
 run_list_3=fig15.run fig16a.run fig16b.run
 clean_list_1=$(patsubst %.run,%.clean,$(run_list_1))
 
-all: $(run_list_1) $(run_list_2)
+all: $(run_list_1) $(run_list_2) $(run_list_3)
 
 # target looks like "fig4a.run", and "$(patsubst %.run,%,$@)" gives "fig4a"
 $(run_list_1):
