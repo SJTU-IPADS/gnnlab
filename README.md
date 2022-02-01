@@ -1,8 +1,20 @@
-# FGNN
+# FGNN: A Factored System For Sample-based GNN Training Over GPUs
 
-FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs.
+FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
-[TOC]
+- [FGNN](#fgnn-a-factored-system-for-sample-based-gnn-training-over-gpus)
+  - [Project Structure](#project-structure)
+  - [Paper's Hardware Configuration](#papers-hardware-configuration)
+  - [Installation](#installation)
+    - [Software Version](#software-version)
+    - [gcc-7 And CUDA10.1 Environment](#gcc-7-and-cuda101-environment)
+    - [FGNN, DGL and PyG Environment](#fgnn-dgl-and-pyg-environment)
+    - [Setting ulimit](#setting-ulimit)
+  - [Dataset Preprocessing](#dataset-preprocessing)
+  - [Quickstart Example](#quickstart-example)
+  - [Experiments](#experiments)
+  - [License](#license)
+  - [Academic and Conference Papers](#academic-and-conference-papers)
 
 
 ## Project Structure
@@ -40,7 +52,9 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
 
 ## Installation
 
-**We have already setup a out-of-the-box environment for AE reviewers. AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided.**
+**We have already created accounts and setup out-of-the-box environments for AE reviewers. AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided.**
+
+**The AE machine and account information can be found in the AE appendix and the AE website comments.**
 
 ### Software Version
 
@@ -49,10 +63,10 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
 - CUDA v10.1
 - DGL V0.7.1
 - PyG v2.0.1
-- GCC&G++ 7
+- gcc-7 && g++-7
 - CMake >= 3.14
 
-### GCC-7 And CUDA10.1 Environment
+### gcc-7 And CUDA10.1 Environment
 
 1. Install CUDA 10.1. FGNN is built on CUDA 10.1. Follow the instructions in https://developer.nvidia.com/cuda-10.1-download-archive-base to install CUDA 10.1. Make sure that `/usr/local/cuda` is linked to `/usr/local/cuda-10.1`.
 
@@ -144,7 +158,29 @@ See [`datagen/README.md`](datagen/README.md).
 
 
 
+## Quickstart Example
+
+```bash
+cd fgnn-artifacts/example/samgraph/multi_gpu
+
+python train_gcn.py --dataset papers100M --num-train-worker 1 --num-sample-worker 1 --pipeline --cache-policy pre_sample --cache-percentage 0.1 --num-epoch 10 --batch-size 8000
+```
+
+
 
 ## Experiments
 
 See [`exp/README.md`](exp/README.md).
+
+
+
+## License
+
+FGNN is released under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0.html).
+
+
+
+
+## Academic and Conference Papers
+
+[**EuroSys**] FGNN: A Factored System for Sample-based GNN Training over GPUs. Jianbang Yang, Dahai Tang, Xiaoniu Song, Lei Wang, Qiang Yin, Rong Chen, Wenyuan Yu, Jingren Zhou. Proceedings of the 17th European Conference on Computer Systems, Rennes, France, April, 2022.
