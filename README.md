@@ -2,7 +2,7 @@
 
 FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
-- [FGNN](#fgnn-a-factored-system-for-sample-based-gnn-training-over-gpus)
+- [FGNN: A Factored System For Sample-based GNN Training Over GPUs](#fgnn-a-factored-system-for-sample-based-gnn-training-over-gpus)
   - [Project Structure](#project-structure)
   - [Paper's Hardware Configuration](#papers-hardware-configuration)
   - [Installation](#installation)
@@ -88,7 +88,7 @@ We use conda to manage our python environment.
     ```bash
     conda create -n fgnn_env python==3.8 pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=10.1 -c pytorch -y
     conda activate fgnn_env
-    conda install cudnn numpy scipy networkx tqdm pandas cmake -y # System cmake is too old to build DGL
+    conda install cudnn numpy scipy networkx tqdm pandas ninja cmake -y # System cmake is too old to build DGL
 
     ```
     Install gnuplot for experiments:
