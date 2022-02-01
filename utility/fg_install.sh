@@ -2,6 +2,6 @@
 
 HERE="$(dirname $(readlink -f $0))"
 
-pushd "$HERE"
+pushd "$HERE/fastgraph"
 python setup.py install
 popd

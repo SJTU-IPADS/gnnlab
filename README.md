@@ -109,7 +109,7 @@ We use conda to manage our python environment.
     ./fgnn-artifacts/3rdparty/dgl_install.sh
 
     # Install fastgraph
-    ./fgnn-artifacts/utility/fastgraph/fastgraph_install.sh
+    ./fgnn-artifacts/utility/fg_install.sh
 
     # Install PyG for experiments
     ./fgnn-artifacts/3rdparty/pyg_install.sh
