@@ -88,7 +88,7 @@ We use conda to manage our python environment.
     ```bash
     conda create -n fgnn_env python==3.8 pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=10.1 -c pytorch -y
     conda activate fgnn_env
-    conda install cudnn numpy scipy networkx pandas cmake # System cmake is too old to build DGL
+    conda install cudnn numpy scipy networkx tqdm pandas cmake -y # System cmake is too old to build DGL
 
     ```
     Install gnuplot for experiments:
