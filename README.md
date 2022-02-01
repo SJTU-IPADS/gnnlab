@@ -58,6 +58,7 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
 
 ### Software Version
 
+- Ubuntu 18.04 or Ubuntu 20.04
 - Python v3.8
 - PyTorch v1.7.1
 - CUDA v10.1
