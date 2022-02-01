@@ -86,7 +86,7 @@ sudo chmod -R 777 /graph-learning
 Download the dataset and convert them into binary format:
 
 ```bash
-cd ${PROJECT_ROOT}/datagen
+cd fgnn-artifacts/datagen
 
 python products.py
 python papers100M.py
@@ -118,7 +118,7 @@ Now we have:
 In step1, the vertex IDs are encoded as uint32. However, PyG requires the vertex ID to be uint64. We need to generate a uint64 version for every dataset.
 
 ```
-cd ${PROJECT_ROOT}/utility/data-process
+cd fgnn-artifacts/utility/data-process
 
 mkdir build
 cd build
@@ -161,7 +161,7 @@ Now we have:
 The degree-based cache policy uses the out-degree as cache rank. The ranking only needs to be preprocessed once. The cache rank table is a vertex-id list sorted by their out-degree.
 
 ```bash
-cd ${PROJECT_ROOT}/utility/data-process/build
+cd fgnn-artifacts/utility/data-process/build
 
 make cache-by-degree cache-by-random  -j
 
@@ -209,7 +209,7 @@ Since the original datasets have no edge weights, we need to manually generate t
 
 
 ```bash
-cd ${PROJECT_ROOT}/utility/data-process/build
+cd fgnn-artifacts/utility/data-process/build
 
 make create-prob-prefix-table -j
 

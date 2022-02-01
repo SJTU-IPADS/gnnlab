@@ -7,11 +7,12 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
   - [Paper's Hardware Configuration](#papers-hardware-configuration)
   - [Installation](#installation)
     - [Software Version](#software-version)
-    - [gcc-7 And CUDA10.1 Environment](#gcc-7-and-cuda101-environment)
-    - [FGNN, DGL and PyG Environment](#fgnn-dgl-and-pyg-environment)
-    - [Setting ulimit](#setting-ulimit)
+    - [Install CUDA10.1](#install-cuda101)
+    - [Install GCC-7](#install-gcc-7)
+    - [Install GNN Training Systems](#install-gnn-training-systems)
+    - [Change ULIMIT](#change-ulimit)
   - [Dataset Preprocessing](#dataset-preprocessing)
-  - [Quickstart Example](#quickstart-example)
+  - [QuickStart: Use FGNN to train GNN models](#quickstart-use-fgnn-to-train-gnn-models)
   - [Experiments](#experiments)
   - [License](#license)
   - [Academic and Conference Papers](#academic-and-conference-papers)
@@ -42,36 +43,38 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
 
 
 ## Paper's Hardware Configuration
-- 8x16GB NVIDIA V100 GPUs
-- 2x24 cores Intel Xeon Platinum CPUs
+- 8 * NVIDIA V100 GPUs(16GB of memory each)
+- 2 * Intel Xeon Platinum 8163 CPUs(24 cores each)
 - 512GB RAM
 
-**In the AE environment we provided,  each V100 GPU has 32GB memory.**
+**In the AE machine we provided,  each V100 GPU has 32GB memory.**
 
 
 
 ## Installation
 
-**We have already created accounts and setup out-of-the-box environments for AE reviewers. AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided.**
+**We have prepared an out-of-the-box environment (with all preprocessed datasets) for the AE reviewers. AE reviewers do not need to perform the following steps if they choose to run the experiments on the machine we provide.**
 
-**The AE machine and account information can be found in the AE appendix and the AE website comments.**
+**The AE machine IP and account information can be found in the AE appendix.**
 
 ### Software Version
 
 - Ubuntu 18.04 or Ubuntu 20.04
+- gcc-7, g++-7
+- CMake >= 3.14
+- CUDA v10.1
 - Python v3.8
 - PyTorch v1.7.1
-- CUDA v10.1
 - DGL V0.7.1
 - PyG v2.0.1
-- gcc-7 && g++-7
-- CMake >= 3.14
 
-### gcc-7 And CUDA10.1 Environment
+### Install CUDA10.1
 
-1. Install CUDA 10.1. FGNN is built on CUDA 10.1. Follow the instructions in https://developer.nvidia.com/cuda-10.1-download-archive-base to install CUDA 10.1. Make sure that `/usr/local/cuda` is linked to `/usr/local/cuda-10.1`.
+FGNN is built on CUDA 10.1. Follow the instructions in https://developer.nvidia.com/cuda-10.1-download-archive-base to install CUDA 10.1, and make sure that `/usr/local/cuda` is linked to `/usr/local/cuda-10.1`.
 
-2. CUDA10.1 requires GCC version<=7. Make sure that `gcc` is linked to `gcc-7` and `g++` is linked to `g++-7`. 
+### Install GCC-7
+
+CUDA10.1 requires GCC(version<=7). Hence, make sure that `gcc` is linked to `gcc-7`, and `g++` is linked to `g++-7`. 
 
     ```bash
     # Ubuntu
@@ -80,55 +83,54 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
     ```
 
 
-### FGNN, DGL and PyG Environment
+### Install GNN Training Systems
 
 We use conda to manage our python environment.
 
-1. Install Python=3.8, cudatoolkit=10.1, and Pytorch=1.7.1 environment from conda: 
+1. We use conda to manage our python environment.
 
     ```bash
     conda create -n fgnn_env python==3.8 pytorch==1.7.1 torchvision==0.8.2 torchaudio==0.7.2 cudatoolkit=10.1 -c pytorch -y
     conda activate fgnn_env
     conda install cudnn numpy scipy networkx tqdm pandas ninja cmake -y # System cmake is too old to build DGL
-
-    ```
-    Install gnuplot for experiments:
-    ```bash
-    # Ubuntu
-    sudo apt install gnuplot
+    sudo apt install gnuplot # Install gnuplot for experiments:
     ```
 
 
-2. Download the FGNN source code, install DGL(See [`3rdparty/readme.md`](3rdparty/readme.md)) and fastgraph in the source. FGNN uses DGL as the training backend. The package "fastgraph" is used to load dataset for DGL and PyG in experiments.
+2. Download GNN systems.
 
     ```bash
     # Download FGNN source code
     git clone --recursive https://github.com/SJTU-IPADS/fgnn-artifacts.git
+    ```
 
+3. Install DGL, PyG, and FastGraph. The package FastGraph is used to load datasets for GNN systems in all experiments.
+
+    ```bash
     # Install DGL
     ./fgnn-artifacts/3rdparty/dgl_install.sh
 
     # Install fastgraph
     ./fgnn-artifacts/utility/fg_install.sh
 
-    # Install PyG for experiments
+    # Install PyG
     ./fgnn-artifacts/3rdparty/pyg_install.sh
     ```
 
     
 
-3. Install FGNN(Samgraph):
+4. Install FGNN (also called SamGraph) and SGNN.
    
     ```bash
     cd fgnn-artifacts
     ./build.sh
     ```
 
-### Setting ulimit
-DGL CPU sampling requires cro-processing communications.FGNN global queue requires memlock to enable fast memcpy between host memory and GPU memory. So we have to set the user limit.
+### Change ULIMIT
+Both DGL and FGNN need to use a lot of system resources. DGL CPU sampling requires cro-processing communications while FGNN's global queue requires memlock(pin) memory to enable faster memcpy between host memory and GPU memory. Hence we have to set the user limit.
 
 
-Add the following content to `/etc/security/limits.conf` and then `reboot`:
+Append the following content to `/etc/security/limits.conf` and then `reboot`:
 
 ```bash
 * soft nofile 65535         # for DGL CPU sampling
@@ -151,25 +153,31 @@ After reboot you can see:
 
 ## Dataset Preprocessing
 
-**AE reviewers don't need to perform the following steps if AE reviewers choose to run the experiments on the machine we provided. We have already downloaded and processed the dataset(`/graph-learning/samgraph`)**.
+**AE reviewers do not need to perform the following steps if they choose to run the experiments on the machine we provided. We have already downloaded and preprocessed the dataset in `/graph-learning/samgraph`**.
 
-See [`datagen/README.md`](datagen/README.md).
+See [`datagen/README.md`](datagen/README.md) to preprocess the dataset.
 
 
 
-## Quickstart Example
+## QuickStart: Use FGNN to train GNN models
+
+FGNN is compiled into Python library. We have written several GNN models using FGNN’s APIs. These models are in `fgnn-artifacts/example` and are easy to run as following:
 
 ```bash
-cd fgnn-artifacts/example/samgraph/multi_gpu
+cd fgnn-artifacts/example
 
-python train_gcn.py --dataset papers100M --num-train-worker 1 --num-sample-worker 1 --pipeline --cache-policy pre_sample --cache-percentage 0.1 --num-epoch 10 --batch-size 8000
+python samgraph/multi_gpu/train_gcn.py --dataset papers100M --num-train-worker 1 --num-sample-worker 1 --pipeline --cache-policy pre_sample --cache-percentage 0.1 --num-epoch 10 --batch-size 8000
 ```
 
 
 
 ## Experiments
 
-See [`exp/README.md`](exp/README.md).
+Our experiments have been automated by scripts (`run.py`). Each figure or table in our paper is treated as one experiment and is associated with a subdirectory in `fgnn-artifacts/exp`. The script will automatically run the experiment, save the logs into files, and parse the output data from the files.
+
+Note that running all experiments may take several hours. This [table](exp/README.md#expected-running-time) lists the expected running time for each experiment.
+
+See [`exp/README.md`](exp/README.md) to find out how to conduct the experiments.
 
 
 

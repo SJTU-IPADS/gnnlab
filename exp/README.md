@@ -1,42 +1,83 @@
 # Experiments
 
 - [Experiments](#experiments)
+  - [Overview](#overview)
   - [Paper's Hardware Configurations](#papers-hardware-configurations)
-  - [AE Environment](#ae-environment)
+  - [AE Machine Configuration](#ae-machine-configuration)
+  - [Run A Single Experiment](#run-a-single-experiment)
   - [Run All Experiments](#run-all-experiments)
-  - [Run One Experiment](#run-one-experiment)
-  - [Experiment Example Output](#experiment-example-output)
-  - [Clean Run Logs](#clean-run-logs)
+  - [Example output.](#example-output)
+  - [Expected Running Time](#expected-running-time)
+  - [Clean Experiment Logs](#clean-experiment-logs)
   - [FAQ](#faq)
 
+
+## Overview
+Our experiments have been automated by scripts (`run.py`). Each figure or table in our paper is treated as one experiment and is associated with a subdirectory in `fgnn-artifacts/exp`. The script will automatically run the experiment, save the logs into files, and parse the output data from the files.
+
+```bash
+> tree -L 2 fgnn-artifacts/exp
+fgnn-artifacts/exp
+├── fig4a
+├── fig4b
+├── ...
+├── table1
+│   ├── README.md
+│   ├── run.py
+├── ...
+├── Makefile
+```
 ## Paper's Hardware Configurations
-- 2 * 24 cores Intel Xeon Platinum 8163 CPUs
-- 512GB RAM
-- 8 * 16GB NVIDIA Tesla V100 GPUs
-
-**Note: If you don't have the same hardware environments, you should go into subdirectories(i.e. figXX or tableXX), follow the instructions to modify some script configurations, and then run the experiment**
-
-
-
-## AE Environment
-- 2 * 24 cores Intel Xeon Platinum 8163 CPUs
-
+- 8 * NVIDIA V100 GPUs(16GB of memory each)
+- 2 * Intel Xeon Platinum 8163 CPUs(24 cores each)
 - 512GB RAM
 
-- 8 * 32GB NVIDIA Tesla V100 GPUs
+**Note: If you don't have the same hardware environments, you need go into subdirectories(i.e. `figXX` or `tableXX`), follow the instructions to modify some script configurations(e.g. smaller cache ratio), and then run the experiment**
 
-  
+
+## AE Machine Configuration
+- 8 * NVIDIA V100 GPUs(32GB of memory each)
+- 2 * Intel Xeon Platinum 8163 CPUs(24 cores each)
+- 512GB RAM
+
+
+## Run A Single Experiment
+
+The following commands are used to run a certain experiment(e.g. table1).
+
+```bash
+cd fgnn-artifacts/exp
+make table1.run
+```
+
+Moreover, the user can also goto a subdirectory (e.g., `fgnn-artifacts/exp/table1`) and then follow the instruction (`README.md`) to run the experiment.
 
 
 ## Run All Experiments
 
-Running all the experiments will take hours. 
-We don't recommend running  all the experiments at one time.
-
+The following commands are used to run all experiments. Note that running all experiments may take several hours. This [table](exp/README.md#expected-running-time) lists the expected running time for each experiment.
 
 ```bash
+cd fgnn-artifacts/exp
 make all
 ```
+
+## Example output.
+
+The experiment output files are in the subdirectories(`figXX/run-logs` or `figXX/output_XX`). The output files include log files for each testcase, parsed data, and eps-format figures.
+
+```bash
+> cat output_2022-01-29_17-19-44/table1.dat
+GNN Systems               Sample  Extract  Train  Total    #
+DGL                         4.40    13.63   4.10  22.51    # logs_dgl/test1.log
+ w/ GPU-base Sampling       1.28    13.61   4.12  19.08    # logs_dgl/test0.log
+SGNN                        3.26     5.96   4.14  13.37    # logs_sgnn/test3.log
+ w/ GPU-base Caching        3.05     1.95   4.07   8.99    # logs_sgnn/test2.log
+ w/ GPU-base Sampling       0.72     5.88   4.07  10.70    # logs_sgnn/test1.log
+ w/ Both                    0.72     3.90   3.98   8.61    # logs_sgnn/test0.log
+```
+
+## Expected Running Time
 
 | Experiment | Number of Test Cases | Expected Run Time |
 |:----------:|:--------------------:|:-----------------:|
@@ -61,22 +102,7 @@ make all
 |   Table5   |       32 tests       |      35 mins      |
 |   Table6   |        4 tests       |       5 mins      |
 
-
-## Run One Experiment
-
-`make figXX.run`(e.g. `make fig4a.run`) or `make  tableXX.run` (e.g. `make table1.run`)
-
-or `cd figXX/tableXX` and follow the instruction to run the experiment.
-
-**Each experiment takes about 10-60 minutes.**
-
-## Experiment Example Output
-
-The experiment output files are in the subdirectories(`figXX/run-logs` or `figXX/output_XXXXXXX`).
-
-
-
-## Clean Run Logs
+## Clean Experiment Logs
 
 ```bash
 make clean
@@ -88,7 +114,7 @@ make clean
 
 **The paper reported OOM in some test cases(UK dataset). However those test cases run successfully in AE environment.**
 
-In the FGNN, all tests were run in 16GB V100 machine. In the AE environment, each GPU has 32GB RAM. All 16GB V100 machines have been occupied.
+In the FGNN, all tests were run in 16GB V100 machine. In the AE machine, each GPU has 32GB of memory because All 16GB V100 machines have been occupied.
 
 
 
