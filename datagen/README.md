@@ -6,7 +6,7 @@ This guide shows how to get the original datasets and convert them into the form
 
 Default dataset path is `/graph-learning/samgraph/{dataset name}`.  `/graph-learning/samgraph/` is the default dataset root.
 
-```sh
+```bash
 > tree -L 2 /graph-learning
 /graph-learning
 ├── data-raw                    # original downloaded dataset  
@@ -25,7 +25,7 @@ Default dataset path is `/graph-learning/samgraph/{dataset name}`.  `/graph-lear
 
 
 
-```sh
+```bash
 > tree /graph-learning/samgraph/papers100M
 /graph-learning/samgraph/papers100M
 ├── cache_by_degree.bin      # vertexid sorted by cache rank(Higher rank, higher oppotunity to be cached)
@@ -75,7 +75,7 @@ To store all the four datasets, your disk should have at least **128GB** of free
 
 Create the dataset directory:
 
-```sh
+```bash
 sudo mkdir -p /graph-learning/samgraph
 sudo mkdir -p /graph-learning/data-raw
 sudo chmod -R 777 /graph-learning
@@ -85,8 +85,8 @@ sudo chmod -R 777 /graph-learning
 
 Download the dataset and convert them into binary format:
 
-```sh
-cd samgraph/datagen
+```bash
+cd ${PROJECT_ROOT}/datagen
 
 python products.py
 python papers100M.py
@@ -98,7 +98,7 @@ bash uk-2006-05.sh
 
 Now we have:
 
-```sh
+```bash
 > tree /graph-learning/samgraph/papers100M
 /graph-learning/samgraph/papers100M
 ├── feat.bin
@@ -118,7 +118,7 @@ Now we have:
 In step1, the vertex IDs are encoded as uint32. However, PyG requires the vertex ID to be uint64. We need to generate a uint64 version for every dataset.
 
 ```
-cd samgraph/utility/data-process
+cd ${PROJECT_ROOT}/utility/data-process
 
 mkdir build
 cd build
@@ -136,7 +136,7 @@ make 32to64 -j
 
 Now we have:
 
-```sh
+```bash
 > tree /graph-learning/samgraph/papers100M
 /graph-learning/samgraph/papers100M
 ├── feat.bin
@@ -160,7 +160,7 @@ Now we have:
 
 The degree-based cache policy uses the out-degree as cache rank. The ranking only needs to be preprocessed once. The cache rank table is a vertex-id list sorted by their out-degree.
 
-```sh
+```bash
 cd ${PROJECT_ROOT}/utility/data-process/build
 
 make cache-by-degree cache-by-random  -j
@@ -182,7 +182,7 @@ make cache-by-degree cache-by-random  -j
 
 Now we have:
 
-```sh
+```bash
 /graph-learning/samgraph/papers100M
 ├── cache_by_degree.bin   # new added
 ├── cache_by_random.bin   # new added
@@ -208,7 +208,7 @@ Now we have:
 Since the original datasets have no edge weights, we need to manually generate the edge weights.
 
 
-```sh
+```bash
 cd ${PROJECT_ROOT}/utility/data-process/build
 
 make create-prob-prefix-table -j
@@ -223,7 +223,7 @@ make create-prob-prefix-table -j
 
 Now we have:
 
-```sh
+```bash
 /graph-learning/samgraph/papers100M
 ├── cache_by_degree.bin
 ├── feat.bin
