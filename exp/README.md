@@ -1,6 +1,6 @@
 # Experiments
 
-## Default Hardware Configurations
+## Paper's Hardware Configurations
 - 2 * 24 cores Intel Xeon Platinum 8163 CPUs
 - 512GB RAM
 - 8 * 16GB NVIDIA Tesla V100 GPUs
@@ -25,7 +25,7 @@ Running all the experiments will take hours.
 We don't recommend running  all the experiments at one time.
 
 
-```sh
+```bash
 make all
 ```
 
@@ -37,7 +37,7 @@ make all
 
 or `cd figXX/tableXX` and follow the instruction to run the experiment.
 
-
+**Each experiment takes about 10-60 minutes.**
 
 ## Experiment Output
 
@@ -47,7 +47,7 @@ The experiment output files are in the subdirectories(`figXX/run-logs` or `figXX
 
 ## Clean Run Logs
 
-```sh
+```bash
 make clean
 ```
 
