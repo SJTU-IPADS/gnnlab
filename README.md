@@ -70,7 +70,7 @@ FGNN (previously named SamGraph) is a factored system for sample-based GNN train
 
 1. Install CUDA 10.1. FGNN is built on CUDA 10.1. Follow the instructions in https://developer.nvidia.com/cuda-10.1-download-archive-base to install CUDA 10.1. Make sure that `/usr/local/cuda` is linked to `/usr/local/cuda-10.1`.
 
-2. CUDA10.1 requires GCC version<=7. Make sure that 'gcc' is linked to 'gcc-7' and 'g++' is linked to 'g++-7'. 
+2. CUDA10.1 requires GCC version<=7. Make sure that `gcc` is linked to `gcc-7` and `g++` is linked to `g++-7`. 
 
     ```bash
     # Ubuntu
