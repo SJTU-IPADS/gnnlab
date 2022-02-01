@@ -1,6 +1,6 @@
 # FGNN: A Factored System For Sample-based GNN Training Over GPUs
 
-FGNN (previously named SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
+FGNN (also called SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
 - [FGNN: A Factored System For Sample-based GNN Training Over GPUs](#fgnn-a-factored-system-for-sample-based-gnn-training-over-gpus)
   - [Project Structure](#project-structure)
@@ -110,11 +110,11 @@ We use conda to manage our python environment.
     # Install DGL
     ./fgnn-artifacts/3rdparty/dgl_install.sh
 
-    # Install fastgraph
-    ./fgnn-artifacts/utility/fg_install.sh
-
     # Install PyG
     ./fgnn-artifacts/3rdparty/pyg_install.sh
+
+    # Install fastgraph
+    ./fgnn-artifacts/utility/fg_install.sh
     ```
 
     
@@ -155,7 +155,7 @@ After reboot you can see:
 
 **AE reviewers do not need to perform the following steps if they choose to run the experiments on the machine we provided. We have already downloaded and preprocessed the dataset in `/graph-learning/samgraph`**.
 
-See [`datagen/README.md`](datagen/README.md) to preprocess the dataset.
+See [`datagen/README.md`](datagen/README.md) to find out how to preprocess datasets.
 
 
 

@@ -32,7 +32,7 @@ fgnn-artifacts/exp
 - 2 * Intel Xeon Platinum 8163 CPUs(24 cores each)
 - 512GB RAM
 
-**Note: If you don't have the same hardware environments, you need go into subdirectories(i.e. `figXX` or `tableXX`), follow the instructions to modify some script configurations(e.g. smaller cache ratio), and then run the experiment**
+**Note: If you have a different hardware environment, you need to goto the subdirectories(i.e. `figXX` or `tableXX`), follow the instructions to modify some script configurations(e.g. smaller cache ratio), and then run the experiment**
 
 
 ## AE Machine Configuration
