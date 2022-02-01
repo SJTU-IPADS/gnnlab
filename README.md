@@ -103,7 +103,7 @@ We use conda to manage our python environment.
 
     ```bash
     # Download FGNN source code
-    git clone --branch ae-stable --recursive https://github.com/SJTU-IPADS/fgnn-artifacts.git
+    git clone --recursive https://github.com/SJTU-IPADS/fgnn-artifacts.git
 
     # Install DGL
     ./fgnn-artifacts/3rdparty/dgl_install.sh
