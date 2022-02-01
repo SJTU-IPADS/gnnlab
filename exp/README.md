@@ -1,5 +1,14 @@
 # Experiments
 
+- [Experiments](#experiments)
+  - [Paper's Hardware Configurations](#papers-hardware-configurations)
+  - [AE Environment](#ae-environment)
+  - [Run All Experiments](#run-all-experiments)
+  - [Run One Experiment](#run-one-experiment)
+  - [Experiment Example Output](#experiment-example-output)
+  - [Clean Run Logs](#clean-run-logs)
+  - [FAQ](#faq)
+
 ## Paper's Hardware Configurations
 - 2 * 24 cores Intel Xeon Platinum 8163 CPUs
 - 512GB RAM
@@ -42,14 +51,14 @@ make all
 |    Fig12   |       33 tests       |      30 mins      |
 |   Fig13a   |       26 tests       |      25 mins      |
 |   Fig13b   |       33 tests       |      30 mins      |
-|    Fig14   |       36 tests       |      37 mins      |
+|    Fig14   |       36 tests       |      40 mins      |
 |    Fig15   |        4 tests       |      30 mins      |
 |   Fig16a   |       14 tests       |      20 mins      |
 |   Fig16b   |       18 tests       |      25 mins      |
-|   Table1   |       12 tests       |       7 mins      |
+|   Table1   |       12 tests       |      10 mins      |
 |   Table2   |       12 tests       |      15 mins      |
-|   Table4   |       44 tests       |      44 mins      |
-|   Table5   |       32 tests       |      36 mins      |
+|   Table4   |       44 tests       |      45 mins      |
+|   Table5   |       32 tests       |      35 mins      |
 |   Table6   |        4 tests       |       5 mins      |
 
 
@@ -61,7 +70,7 @@ or `cd figXX/tableXX` and follow the instruction to run the experiment.
 
 **Each experiment takes about 10-60 minutes.**
 
-## Experiment Output
+## Experiment Example Output
 
 The experiment output files are in the subdirectories(`figXX/run-logs` or `figXX/output_XXXXXXX`).
 
@@ -77,13 +86,13 @@ make clean
 
 ## FAQ
 
-####  The paper reported OOM in some test cases(UK dataset). However those test cases run successfully  in AE environment.
+**The paper reported OOM in some test cases(UK dataset). However those test cases run successfully in AE environment.**
 
 In the FGNN, all tests were run in 16GB V100 machine. In the AE environment, each GPU has 32GB RAM. All 16GB V100 machines have been occupied.
 
 
 
-#### AE data mismatch the paper data.
+**AE data mismatch the paper data.**
 
 - Check if someone else is running the test at the same time. Use `nvidia-smi` and `htop` command.
 - **Do not run `nvidia-smi` command during the tests. `nvidia-smi` command harm the performance severely.**
