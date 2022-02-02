@@ -8,6 +8,7 @@
 #include <cstring>
 #include <algorithm>
 #include <cassert>
+#include <parallel/numeric>
 
 #include "partition.h"
 #include "logging.h"
@@ -278,12 +279,13 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
   IdType per_partition_node_num = dataset.num_node / partition_num;
   for(IdType i = 0, p = 0; i < dataset.num_node && p < partition_num; p++) {
     IdType cur_node_num = per_partition_node_num + (p < dataset.num_node % partition_num);
+    LOG(INFO) << "partition cur_node_num " << cur_node_num;
     auto partition = std::make_unique<Dataset>();
     auto nodeId_rmap = Tensor::Empty(DataType::kI32, {cur_node_num}, CPU(), "");
     auto nodeId_rmap_ptr = static_cast<IdType*>(nodeId_rmap->MutableData());
     size_t cur_indptr_size = 1;
     size_t cur_indices_size = 0;
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+:cur_indptr_size) reduction(+:cur_indices_size)
     for(IdType j = 0; j < cur_node_num; j++) {
       IdType k = i + j;
       auto cur_nodeId_map = reinterpret_cast<IdType*>(&nodeId_map_ptr[k]);
@@ -294,13 +296,24 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
       cur_indptr_size += 1;
       cur_indices_size += edge_len;
     }
+    LOG(INFO) << "subgraph size " << cur_indptr_size << " " << cur_indices_size;
     partition->indptr = Tensor::EmptyNoScale(
       DataType::kI32, {cur_indptr_size}, CPU(), "indptr");
     partition->indices = Tensor::EmptyNoScale(
       DataType::kI32, {cur_indices_size}, CPU(), "indices");
     auto cur_indptr = static_cast<IdType*>(partition->indptr->MutableData());
     auto cur_indices = static_cast<IdType*>(partition->indices->MutableData());
-    cur_indptr[0] = 0;
+    IdType tmp_indptr[cur_indptr_size];
+    tmp_indptr[0] = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType j = 0; j < cur_node_num; j++) {
+      IdType k = i + j;
+      size_t edge_len = indptr[k+1] - indptr[k];
+      tmp_indptr[j + 1] = edge_len;
+    }
+    __gnu_parallel::partial_sum(tmp_indptr, tmp_indptr + cur_indptr_size, 
+      cur_indptr);
+    CHECK(cur_indptr[cur_node_num] == cur_indices_size);
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for(IdType j = 0; j < cur_node_num; j++) {
       IdType k = i + j;
@@ -322,7 +335,7 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
   CHECK(dataset.prob_table == nullptr || dataset.prob_table->Data() == nullptr);
   CHECK(dataset.prob_prefix_table == nullptr || dataset.prob_prefix_table->Data() == nullptr);
 
-  Check();
+  Check(dataset);
 
   Device::Get(CPU())->FreeWorkspace(CPU(), indptr);
   Device::Get(CPU())->FreeWorkspace(CPU(), indices);
@@ -359,8 +372,30 @@ size_t DisjointPartition::Size() const {
   return _partitions.size();
 }
 
-void DisjointPartition::Check() {
-
+void DisjointPartition::Check(const Dataset &dataset) {
+  // auto tmp = static_cast<const IdType*>(dataset.indptr->Data());
+  // CHECK(tmp[dataset.indptr->Shape()[0]-1] == dataset.num_edge);
+  size_t total_nodes = 0, total_edges = 0;
+  for(auto& dataset : _partitions) {
+    const IdType* indptr = static_cast<const IdType*>(dataset->indptr->Data());
+    const IdType* indices = static_cast<const IdType*>(dataset->indices->Data());
+    const size_t num_nodes = dataset->indptr->Shape()[0] - 1;
+    const size_t num_edges = dataset->indices->Shape()[0];
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(int i = 0; i < num_nodes; i++) {
+      if(i == 0) {
+        CHECK(indptr[i] == 0);
+        CHECK(indptr[num_nodes] == num_edges);
+      }
+      CHECK(indptr[i + 1] >= indptr[i]);
+    }
+    total_nodes += num_nodes;
+    total_edges += num_edges;
+  }
+  CHECK(dataset.num_edge == total_edges);
+  CHECK(dataset.num_node == total_nodes);
+  CHECK(dataset.indptr->Shape()[0] - 1 == total_nodes);
+  CHECK(dataset.indices->Shape()[0] == total_edges);
 }
 
 }

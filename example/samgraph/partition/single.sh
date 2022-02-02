@@ -18,7 +18,7 @@ fi
 log_file=${log_path}gcn_${dataset}_`date +%m-%d#%H-%M-%S`.log
 
 cmd="python example/samgraph/train_gcn.py \
-    --empty-feat 4 -ll info \
+    --empty-feat 4 -ll debug \
     --cache-policy degree \
     --sample-type ${sample_type} \
     --dataset  ${dataset}"
