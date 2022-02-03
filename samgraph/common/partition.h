@@ -46,7 +46,7 @@ class DisjointPartition {
   std::vector<TensorPtr> _nodeId_rmap; // nodeId in partition -> nodeId
   std::vector<std::unique_ptr<Dataset>> _partitions;
 
-  void Check(const Dataset &dataset);
+  void Check(const Dataset &dataset, const IdType* h_indptr, const IdType* h_indices);
 };
 
 }

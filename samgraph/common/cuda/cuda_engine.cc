@@ -73,8 +73,15 @@ void GPUEngine::Init() {
   double time_load_graph_dataset = tl.Passed();
   LOG_MEM_USAGE(INFO, "after load dataset");
   if(RunConfig::partition) {
+    LOG(INFO) << "partition";
+    Timer t0;
     _partition = new DisjointPartition(
       *_dataset, RunConfig::partition_num, _sampler_ctx);
+    if(RunConfig::partition_check) {
+      _sampling_checker = new SamplingChecker(*_dataset, _sampler_ctx);
+    }
+    double partition_time = t0.Passed();
+    LOG(INFO) << "partition dataset time " << partition_time << " sec";
   }
 
   // Create CUDA streams
@@ -194,7 +201,7 @@ void GPUEngine::Init() {
     size_t num_nodes = _dataset->indptr->Shape()[0] - 1;
     size_t num_trainset = _dataset->train_set->Shape()[0];
     TensorPtr order;
-    _um_checker = nullptr;
+    _sampling_checker = nullptr;
     switch (RunConfig::unified_memory_policy)
     {
     case UMPolicy::kDegree: {
@@ -268,7 +275,7 @@ void GPUEngine::Init() {
     }
     if(RunConfig::unified_memory_check) {
       LOG(INFO) << "check um sample: init checker";
-      _um_checker = new UMChecker(*_dataset, order);
+      _sampling_checker = new UMChecker(*_dataset, order, _dataset->indptr->Ctx());
     }
     if(RunConfig::unified_memory_policy != UMPolicy::kDefault) {
       SortUMDatasetBy(static_cast<const IdType*>(order->Data()));
@@ -355,8 +362,8 @@ void GPUEngine::Shutdown() {
     delete _frequency_hashmap;
   }
 
-  if(_um_checker != nullptr) {
-    delete _um_checker;
+  if(_sampling_checker != nullptr) {
+    delete _sampling_checker;
   }
 
   _dataset = nullptr;

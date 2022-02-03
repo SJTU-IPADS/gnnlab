@@ -318,7 +318,6 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
     for(IdType j = 0; j < cur_node_num; j++) {
       IdType k = i + j;
       size_t edge_len = indptr[k+1] - indptr[k];
-      cur_indptr[j+1] = cur_indptr[j] + edge_len;
       size_t old_off = indptr[k];
       size_t new_off = cur_indptr[j];
       for(IdType l = 0; l < edge_len; l++) {
@@ -335,7 +334,7 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
   CHECK(dataset.prob_table == nullptr || dataset.prob_table->Data() == nullptr);
   CHECK(dataset.prob_prefix_table == nullptr || dataset.prob_prefix_table->Data() == nullptr);
 
-  Check(dataset);
+  Check(dataset, indptr, indices);
 
   Device::Get(CPU())->FreeWorkspace(CPU(), indptr);
   Device::Get(CPU())->FreeWorkspace(CPU(), indices);
@@ -372,11 +371,12 @@ size_t DisjointPartition::Size() const {
   return _partitions.size();
 }
 
-void DisjointPartition::Check(const Dataset &dataset) {
+void DisjointPartition::Check(const Dataset &dataset, const IdType* h_indptr, const IdType* h_indices) {
   // auto tmp = static_cast<const IdType*>(dataset.indptr->Data());
   // CHECK(tmp[dataset.indptr->Shape()[0]-1] == dataset.num_edge);
   size_t total_nodes = 0, total_edges = 0;
-  for(auto& dataset : _partitions) {
+  for(int p = 0; p < _partitions.size(); p++) {
+    auto& dataset = _partitions[p];
     const IdType* indptr = static_cast<const IdType*>(dataset->indptr->Data());
     const IdType* indices = static_cast<const IdType*>(dataset->indices->Data());
     const size_t num_nodes = dataset->indptr->Shape()[0] - 1;
@@ -388,6 +388,23 @@ void DisjointPartition::Check(const Dataset &dataset) {
         CHECK(indptr[num_nodes] == num_edges);
       }
       CHECK(indptr[i + 1] >= indptr[i]);
+    }
+    TensorPtr nodeId_rmap = Tensor::Empty(DataType::kI32, 
+      {_nodeId_rmap[p]->Shape()[0]}, CPU(), "");
+    Device::Get(_nodeId_rmap[p]->Ctx())->CopyDataFromTo(
+      _nodeId_rmap[p]->Data(), 0, nodeId_rmap->MutableData(), 0, 
+      _nodeId_rmap[p]->NumBytes(), _nodeId_rmap[p]->Ctx(), CPU());
+    auto nodeId_rmap_ptr = static_cast<const IdType*>(nodeId_rmap->Data());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < num_nodes; i++) {
+      IdType new_off = indptr[i];
+      IdType v = nodeId_rmap_ptr[i];
+      IdType old_off = h_indptr[v];
+      IdType len = indptr[i + 1] - indptr[i];
+      CHECK(len == h_indptr[v + 1] - h_indptr[v]);
+      for(IdType j = 0; j < len; j++) {
+        CHECK(indices[new_off + j] == h_indices[old_off + j]);
+      }
     }
     total_nodes += num_nodes;
     total_edges += num_edges;

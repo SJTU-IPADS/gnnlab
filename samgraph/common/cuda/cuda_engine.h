@@ -18,7 +18,7 @@
 #include "cuda_hashtable.h"
 #include "cuda_random_states.h"
 #include "cuda_shuffler.h"
-#include "um_checker.h"
+#include "sampling_checker.h"
 
 namespace samgraph {
 namespace common {
@@ -40,7 +40,7 @@ class GPUEngine : public Engine {
   GPUCacheManager* GetCacheManager() { return _cache_manager; }
   GPUDynamicCacheManager* GetDynamicCacheManager() { return _dynamic_cache_manager; }
   FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
-  UMChecker* GetUMChecker() { return _um_checker; }
+  SamplingChecker* GetSamplingChecker() { return _sampling_checker; }
   const DisjointPartition& GetPartition() const { return *_partition; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
@@ -69,7 +69,7 @@ class GPUEngine : public Engine {
   // Frequency hashmap
   FrequencyHashmap* _frequency_hashmap;
 
-  UMChecker* _um_checker;
+  SamplingChecker* _sampling_checker;
   DisjointPartition* _partition;
 
   void ArchCheck() override;

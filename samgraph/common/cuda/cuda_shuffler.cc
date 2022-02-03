@@ -75,7 +75,7 @@ void GPUShuffler::ReShuffle(StreamHandle stream) {
   auto seed = std::chrono::system_clock::now().time_since_epoch().count();
   void *data = _data->MutableData();
 
-  auto g = std::default_random_engine(seed);
+  auto g = std::default_random_engine(2022);
 
   for (size_t i = _num_data - 1; i > 0; i--) {
     std::uniform_int_distribution<size_t> d(0, i);

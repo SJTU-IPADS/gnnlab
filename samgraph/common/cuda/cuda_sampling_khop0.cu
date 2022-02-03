@@ -13,6 +13,7 @@
 #include "../profiler.h"
 #include "../timer.h"
 #include "../partition.h"
+#include "../run_config.h"
 #include "cuda_function.h"
 #include "cuda_utils.h"
 
@@ -131,6 +132,56 @@ __global__ void sample_khop0(const IdType *indptr, const IdType *indices,
 #endif
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+__global__ void partition_check_sample_khop0(
+  const IdType *indptr, const IdType *indices,
+  const IdType *input, const size_t num_input,
+  const size_t fanout, IdType *tmp_src,
+  IdType *tmp_dst, curandState *random_states,
+  size_t num_random_states
+) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+  curandState local_state;
+
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += BLOCK_SIZE) {
+    curand_init(2022, 0, 0, &local_state);  
+    if (index < num_input) {
+      const IdType rid = input[index];
+      const IdType off = indptr[rid];
+      const IdType len = indptr[rid + 1] - indptr[rid];
+      if (len <= fanout) {
+        size_t j = 0;
+        for (; j < len; ++j) {
+          tmp_src[index * fanout + j] = rid;
+          tmp_dst[index * fanout + j] = indices[off + j];
+        }
+
+        for (; j < fanout; ++j) {
+          tmp_src[index * fanout + j] = Constant::kEmptyKey;
+          tmp_dst[index * fanout + j] = Constant::kEmptyKey;
+        }
+      } else {
+        for (size_t j = 0; j < fanout; ++j) {
+          tmp_src[index * fanout + j] = rid;
+          tmp_dst[index * fanout + j] = indices[off + j];
+        }
+
+        for (size_t j = fanout; j < len; ++j) {
+          size_t k = curand(&local_state) % (j + 1);
+          if (k < fanout) {
+            tmp_dst[index * fanout + k] = indices[off + j];
+          }
+        }
+      }
+    }
+  }
+}
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE>
 __global__ void count_edge(IdType *edge_src, size_t *item_prefix,
                            const size_t num_input, const size_t fanout) {
   assert(BLOCK_SIZE == blockDim.x);
@@ -240,23 +291,34 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
+  if(!RunConfig::partition_check) {
 #ifndef NEW_ALGO
-  sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>(
-          indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
-          random_states->GetStates(), random_states->NumStates());
-  sampler_device->StreamSync(ctx, stream);
+    sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+        <<<grid, block, 0, cu_stream>>>(
+            indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+            random_states->GetStates(), random_states->NumStates());
+    sampler_device->StreamSync(ctx, stream);
 #else
-  const int WARP_SIZE = 32;
-  const int BLOCK_WARP = 128 / WARP_SIZE;
-  const int TILE_SIZE = BLOCK_WARP * 16;
-  const dim3 block_t(WARP_SIZE, BLOCK_WARP);
-  const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
-  sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
-          indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
-          random_states->GetStates(), random_states->NumStates());
-  sampler_device->StreamSync(ctx, stream);
+    const int WARP_SIZE = 32;
+    const int BLOCK_WARP = 128 / WARP_SIZE;
+    const int TILE_SIZE = BLOCK_WARP * 16;
+    const dim3 block_t(WARP_SIZE, BLOCK_WARP);
+    const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
+    sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
+            indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+            random_states->GetStates(), random_states->NumStates());
+    sampler_device->StreamSync(ctx, stream);
 #endif
+  } else {
+    const size_t num_tiles = (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
+    const dim3 gird(num_tiles);
+    const dim3 block(Constant::kCudaBlockSize);
+    partition_check_sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+      <<<grid, block, 0, cu_stream>>>(
+        indptr, indices, input, num_input, fanout, tmp_src, tmp_dst, 
+        random_states->GetStates(), random_states->NumStates());
+    sampler_device->StreamSync(ctx, stream);
+  }
   double sample_time = t0.Passed();
 
   Timer t1;
@@ -285,6 +347,12 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
   sampler_device->StreamSync(ctx, stream);
   LOG(DEBUG) << "GPUSample: cuda workspace malloc "
              << ToReadableSize(workspace_bytes);
+  if(RunConfig::partition_check) {
+    size_t total_edge;
+    sampler_device->CopyDataFromTo(item_prefix_out + grid.x, 0, &total_edge, 0, 
+      sizeof(size_t), ctx, CPU());
+    LOG(INFO) << __func__ << " total edge " << total_edge;
+  }
 
   compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(tmp_src, tmp_dst, out_src, out_dst,
@@ -314,9 +382,6 @@ __global__ void count_partition_input(
 ) {
   size_t block_start = blockIdx.x * TILE_SIZE;
   size_t block_end = block_start + TILE_SIZE;
-  // if(threadIdx.x == 0 && partition_node_pos == nullptr) {
-  //   printf("%s: blkIdx %d [%lld %lld]\n", __func__, blockIdx.x, block_start, block_end);
-  // }
   if(partition_node_pos == nullptr) {
     for(size_t i = block_start + threadIdx.x; i < block_end && i < num_input; i += blockDim.x) {
       IdType v = input[i];
@@ -347,9 +412,6 @@ __global__ void create_partition_input(
 ) {
   size_t block_start = blockIdx.x * TILE_SIZE;
   size_t block_end = block_start + TILE_SIZE;
-  // if(threadIdx.x == 0) {
-  //   printf("%s: blkIdx %d [%lld %lld]\n", __func__,blockIdx.x, block_start, block_end);
-  // }
   for(size_t i = block_start + threadIdx.x; i < block_end && i < num_input; i += blockDim.x) {
     IdType v = input[i];
     auto cur_nodeId_map = reinterpret_cast<const IdType*>(&nodeId_map[v]);
@@ -369,7 +431,8 @@ __global__ void partition_sample_khop0(
   const IdType* input, const size_t num_input, 
   const IdType* nodeId_rmap, const IdType* node_pos_map,
   const size_t fanout, IdType* tmp_src, IdType* tmp_dst,
-  curandState *random_states, size_t num_random_states
+  curandState *random_states, size_t num_random_states,
+  bool partition_check = false
 ) {
   size_t block_start = blockIdx.x * TILE_SIZE;
   size_t blocke_end = block_start + TILE_SIZE;
@@ -378,6 +441,9 @@ __global__ void partition_sample_khop0(
   curand_init(i, 0, 0, &local_state);  
 
   for(size_t idx = block_start + threadIdx.x; idx < blocke_end && idx < num_input; idx += blockDim.x) {
+    if(partition_check) {
+      curand_init(2022, 0, 0, &local_state);
+    }
     IdType rid = input[idx];
     IdType off = indptr[rid];
     IdType len = indptr[rid + 1] - indptr[rid];
@@ -414,7 +480,7 @@ void GPUPartitionSampleKHop0(
   Context ctx, StreamHandle stream,
   GPURandomStates *random_states, uint64_t task_key
 ) {
-  LOG(DEBUG) << __func__ << " with " << num_input << " input, fanout: " << fanout;
+  LOG(DEBUG) << __func__ << " with " << num_input << " input, fanout " << fanout;
   auto sample_device = Device::Get(ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
@@ -444,21 +510,25 @@ void GPUPartitionSampleKHop0(
              << ToReadableSize(2 * sizeof(IdType) * num_input * partition.Size());
   count_partition_input<Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(input, num_input, 
     partition.GetNodeIdMap(), partition.Size(), tmp_partition_node_pos, nullptr, nullptr);
+
+  sample_device->StreamSync(ctx, cu_stream); // remove sync
+  
   void* d_tmp_storage = nullptr;
   size_t tmp_storage_size = 0;
-  cub::DeviceScan::InclusiveSum(d_tmp_storage, tmp_storage_size, 
+  CUDA_CALL(cub::DeviceScan::InclusiveSum(d_tmp_storage, tmp_storage_size, 
     tmp_partition_node_pos, tmp_partition_node_pos + num_input * partition.Size(),
-    num_input, cu_stream);
+    num_input, cu_stream));
   sample_device->StreamSync(ctx, cu_stream);
   d_tmp_storage = sample_device->AllocWorkspace(ctx, tmp_storage_size);
   for(int i = 0; i < partition.Size(); i++) {
     /// cub device scan
     size_t offset = i * num_input;
-    cub::DeviceScan::InclusiveSum(d_tmp_storage, tmp_storage_size, 
+    CUDA_CALL(cub::DeviceScan::InclusiveSum(d_tmp_storage, tmp_storage_size, 
       tmp_partition_node_pos + offset, 
       tmp_partition_node_pos + offset + num_input * partition.Size(),
-      num_input, cu_stream);
+      num_input, cu_stream));
   }
+  sample_device->StreamSync(ctx, cu_stream); // remove sync
   IdType* partition_node_pos = static_cast<IdType*>(
     sample_device->AllocWorkspace(ctx, sizeof(IdType) * num_input));
   IdType* d_partition_input_size = static_cast<IdType*>(
@@ -470,6 +540,7 @@ void GPUPartitionSampleKHop0(
   count_partition_input<Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(input, num_input,
     partition.GetNodeIdMap(), partition.Size(), tmp_partition_node_pos + num_input * partition.Size(), 
     partition_node_pos, d_partition_input_size);
+  sample_device->StreamSync(ctx, cu_stream); // remove sync
   sample_device->CopyDataFromTo(
     d_partition_input_size, 0, h_partition_input_size, 0, 
     sizeof(IdType) * partition.Size(), ctx, CPU(), cu_stream);
@@ -497,8 +568,8 @@ void GPUPartitionSampleKHop0(
     input, num_input, partition.GetNodeIdMap(), partition_node_pos, 
     d_partition_offset, partition_input, partition_node_pos_rmap);
   sample_device->StreamSync(ctx, cu_stream);
-  LOG(DEBUG) << "create partition done";
-#if 1
+  LOG(DEBUG) << "create partition input done";
+#if 0
   // check 
   IdType tmp_pos[num_input];
   sample_device->CopyDataFromTo(partition_node_pos_rmap, 0, tmp_pos, 0, 
@@ -511,6 +582,7 @@ void GPUPartitionSampleKHop0(
     }
     pos_check[pos] = 1;
   }
+  LOG(DEBUG) << "check position mapping done";
 #endif
   auto Load = [&](IdType partitionId, IdType* indptr, IdType* indices, cudaStream_t load_stream) {
     auto &dataset = partition.Get(partitionId);
@@ -545,12 +617,13 @@ void GPUPartitionSampleKHop0(
       size_t num_tiles = (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
       const dim3 grid(num_tiles);
       const dim3 block(Constant::kCudaBlockSize);
-      LOG(DEBUG) << "|--sampleId " << sampleId << " num_input " << h_partition_input_size[sampleId];
+      LOG(DEBUG) << "|--sampleId " << sampleId << " num_input " << num_input;
       partition_sample_khop0<Constant::kCudaTileSize><<<grid, block, 0, sample_streams[i]>>>(
         indptr_buf[sampleId], indices_buf[sampleId],
-        partition_input + offset, h_partition_input_size[sampleId], 
+        partition_input + offset, num_input, 
         partition.GetNodeIdRMap(p), partition_node_pos_rmap + offset, 
-        fanout, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates());
+        fanout, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates(), 
+        RunConfig::partition_check);
       sampleId = (sampleId + 1) % 2;
     } 
   }
@@ -576,6 +649,12 @@ void GPUPartitionSampleKHop0(
     item_prefix, item_prefix_out,
     grid.x + 1, cu_stream));
   sample_device->StreamSync(ctx, cu_stream);
+  if(RunConfig::partition_check) {
+    size_t total_edge;
+    sample_device->CopyDataFromTo(item_prefix_out + grid.x, 0, &total_edge, 0, 
+      sizeof(size_t), ctx, CPU());
+    LOG(INFO) << __func__ << " total edge " << total_edge;
+  }
 
   compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
     <<<grid, block, 0, cu_stream>>>(
