@@ -535,7 +535,6 @@ void GPUPartitionSampleKHop0(
     sample_device->AllocWorkspace(ctx, sizeof(IdType) * partition.Size()));
   IdType* h_partition_input_size = static_cast<IdType*>(
     Device::Get(CPU())->AllocWorkspace(CPU(), sizeof(IdType) * partition.Size()));
-  LOG(INFO) << __func__ << " " << __LINE__;
   sample_device->StreamSync(ctx, cu_stream);
   count_partition_input<Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(input, num_input,
     partition.GetNodeIdMap(), partition.Size(), tmp_partition_node_pos + num_input * partition.Size(), 
@@ -665,13 +664,15 @@ void GPUPartitionSampleKHop0(
   // free workspace
   Device::Get(CPU())->FreeWorkspace(CPU(), h_partition_input_size);
   sample_device->FreeWorkspace(ctx, d_tmp_storage);
+  sample_device->FreeWorkspace(ctx, item_prefix);
+  sample_device->FreeWorkspace(ctx, workspace);
   for(auto ts : {
     tmp_src, tmp_dst, 
     indptr_buf[0], indptr_buf[1], 
     indices_buf[0], indices_buf[1],
     tmp_partition_node_pos, partition_node_pos,
     partition_input, partition_node_pos_rmap,
-    d_partition_input_size, d_partition_offset}
+    d_partition_input_size, d_partition_offset }
   ) {
     sample_device->FreeWorkspace(ctx, ts);
   }

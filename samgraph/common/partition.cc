@@ -303,7 +303,10 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
       DataType::kI32, {cur_indices_size}, CPU(), "indices");
     auto cur_indptr = static_cast<IdType*>(partition->indptr->MutableData());
     auto cur_indices = static_cast<IdType*>(partition->indices->MutableData());
-    IdType tmp_indptr[cur_indptr_size];
+    // IdType tmp_indptr[cur_indptr_size];
+    TensorPtr tmp_indptr_ts = Tensor::Empty(
+      DataType::kI32, {cur_indptr_size}, CPU(), "");
+    auto tmp_indptr = static_cast<IdType*>(tmp_indptr_ts->MutableData());
     tmp_indptr[0] = 0;
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for(IdType j = 0; j < cur_node_num; j++) {

@@ -1,8 +1,8 @@
 log_path=./run_logs/
 
-# dataset=com-friendster
+dataset=com-friendster
 # dataset=papers100M
-dataset=reddit
+# dataset=reddit
 
 sample_type=khop0
 sampler=gpu
@@ -18,7 +18,7 @@ fi
 log_file=${log_path}gcn_${dataset}_`date +%m-%d#%H-%M-%S`.log
 
 cmd="python example/samgraph/train_gcn.py \
-    --empty-feat 4 -ll debug \
+    --empty-feat 4 -ll info \
     --cache-policy degree \
     --sample-type ${sample_type} \
     --dataset  ${dataset}"

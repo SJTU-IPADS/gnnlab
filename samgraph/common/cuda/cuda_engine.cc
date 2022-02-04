@@ -79,9 +79,13 @@ void GPUEngine::Init() {
       *_dataset, RunConfig::partition_num, _sampler_ctx);
     if(RunConfig::partition_check) {
       _sampling_checker = new SamplingChecker(*_dataset, _sampler_ctx);
+    } else {
+      _sampling_checker = nullptr;
     }
     double partition_time = t0.Passed();
     LOG(INFO) << "partition dataset time " << partition_time << " sec";
+  } else {
+    _partition = nullptr;
   }
 
   // Create CUDA streams
@@ -361,10 +365,16 @@ void GPUEngine::Shutdown() {
   if (_frequency_hashmap != nullptr) {
     delete _frequency_hashmap;
   }
-
+  LOG(INFO) << __func__;
   if(_sampling_checker != nullptr) {
     delete _sampling_checker;
   }
+  LOG(INFO) << __func__;
+
+  if (_partition != nullptr) {
+    delete _partition;
+  }
+  LOG(INFO) << __func__;
 
   _dataset = nullptr;
   _shuffler = nullptr;
@@ -372,10 +382,8 @@ void GPUEngine::Shutdown() {
   _cache_manager = nullptr;
   _random_states = nullptr;
   _frequency_hashmap = nullptr;
-
-  if (_partition != nullptr) {
-    delete _partition;
-  }
+  _sampling_checker = nullptr;
+  _partition = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;
