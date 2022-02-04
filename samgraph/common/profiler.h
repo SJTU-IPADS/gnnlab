@@ -95,6 +95,8 @@ enum LogStepItem {
   kLogL3CacheCopyMissTime,
   kLogL3CacheCombineMissTime,
   kLogL3CacheCombineCacheTime,
+  kLogL3KHopPartitionSampleLoadTime,
+  kLogL3KHopPartitionSampleTime,
   // Number of items
   kNumLogStepItems
 };

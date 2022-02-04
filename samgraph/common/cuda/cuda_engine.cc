@@ -84,8 +84,10 @@ void GPUEngine::Init() {
     }
     double partition_time = t0.Passed();
     LOG(INFO) << "partition dataset time " << partition_time << " sec";
+    LOG_MEM_USAGE(INFO, "after partition dataset");
   } else {
     _partition = nullptr;
+    _sampling_checker = nullptr;
   }
 
   // Create CUDA streams
@@ -280,6 +282,8 @@ void GPUEngine::Init() {
     if(RunConfig::unified_memory_check) {
       LOG(INFO) << "check um sample: init checker";
       _sampling_checker = new UMChecker(*_dataset, order, _dataset->indptr->Ctx());
+    } else {
+      _sampling_checker = nullptr;
     }
     if(RunConfig::unified_memory_policy != UMPolicy::kDefault) {
       SortUMDatasetBy(static_cast<const IdType*>(order->Data()));

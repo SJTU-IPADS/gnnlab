@@ -279,7 +279,7 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
   IdType per_partition_node_num = dataset.num_node / partition_num;
   for(IdType i = 0, p = 0; i < dataset.num_node && p < partition_num; p++) {
     IdType cur_node_num = per_partition_node_num + (p < dataset.num_node % partition_num);
-    LOG(INFO) << "partition cur_node_num " << cur_node_num;
+    LOG(DEBUG) << "partition cur_node_num " << cur_node_num;
     auto partition = std::make_unique<Dataset>();
     auto nodeId_rmap = Tensor::Empty(DataType::kI32, {cur_node_num}, CPU(), "");
     auto nodeId_rmap_ptr = static_cast<IdType*>(nodeId_rmap->MutableData());
@@ -296,7 +296,7 @@ DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_nu
       cur_indptr_size += 1;
       cur_indices_size += edge_len;
     }
-    LOG(INFO) << "subgraph size " << cur_indptr_size << " " << cur_indices_size;
+    LOG(DEBUG) << "subgraph size " << cur_indptr_size << " " << cur_indices_size;
     partition->indptr = Tensor::EmptyNoScale(
       DataType::kI32, {cur_indptr_size}, CPU(), "indptr");
     partition->indices = Tensor::EmptyNoScale(

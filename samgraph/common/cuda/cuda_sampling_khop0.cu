@@ -501,6 +501,7 @@ void GPUPartitionSampleKHop0(
              << ToReadableSize(max_buf_size.second * sizeof(IdType)) << ")";
 
   // before sampling, partition input
+  Timer t0;
   size_t num_tiles = (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize; 
   dim3 grid(num_tiles);
   dim3 block(Constant::kCudaBlockSize);
@@ -511,8 +512,6 @@ void GPUPartitionSampleKHop0(
   count_partition_input<Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(input, num_input, 
     partition.GetNodeIdMap(), partition.Size(), tmp_partition_node_pos, nullptr, nullptr);
 
-  sample_device->StreamSync(ctx, cu_stream); // remove sync
-  
   void* d_tmp_storage = nullptr;
   size_t tmp_storage_size = 0;
   CUDA_CALL(cub::DeviceScan::InclusiveSum(d_tmp_storage, tmp_storage_size, 
@@ -528,7 +527,6 @@ void GPUPartitionSampleKHop0(
       tmp_partition_node_pos + offset + num_input * partition.Size(),
       num_input, cu_stream));
   }
-  sample_device->StreamSync(ctx, cu_stream); // remove sync
   IdType* partition_node_pos = static_cast<IdType*>(
     sample_device->AllocWorkspace(ctx, sizeof(IdType) * num_input));
   IdType* d_partition_input_size = static_cast<IdType*>(
@@ -539,7 +537,6 @@ void GPUPartitionSampleKHop0(
   count_partition_input<Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(input, num_input,
     partition.GetNodeIdMap(), partition.Size(), tmp_partition_node_pos + num_input * partition.Size(), 
     partition_node_pos, d_partition_input_size);
-  sample_device->StreamSync(ctx, cu_stream); // remove sync
   sample_device->CopyDataFromTo(
     d_partition_input_size, 0, h_partition_input_size, 0, 
     sizeof(IdType) * partition.Size(), ctx, CPU(), cu_stream);
@@ -549,6 +546,7 @@ void GPUPartitionSampleKHop0(
                   [](const std::string& init, const IdType first) -> std::string {
                     return init + " " + std::to_string(first);
                 });
+  LOG(DEBUG) << "count partition input time " << t0.Passed();
   IdType h_partition_offset[partition.Size()];
   h_partition_offset[0] = 0;
   for(int i = 1; i < partition.Size(); i++) {
@@ -568,6 +566,7 @@ void GPUPartitionSampleKHop0(
     d_partition_offset, partition_input, partition_node_pos_rmap);
   sample_device->StreamSync(ctx, cu_stream);
   LOG(DEBUG) << "create partition input done";
+  LOG(DEBUG) << "create partition input time " << t0.Passed();
 #if 0
   // check 
   IdType tmp_pos[num_input];
@@ -589,27 +588,37 @@ void GPUPartitionSampleKHop0(
     cudaMemcpyAsync(indices, dataset.indices->Data(), dataset.indices->NumBytes(), cudaMemcpyHostToDevice, load_stream);
   };
   
+  Timer t1;
   cudaStream_t load_streams[partition.Size()];
   cudaStream_t sample_streams[partition.Size() + 1];
   for(IdType i = 0; i < partition.Size(); i++) {
     load_streams[i] = static_cast<cudaStream_t>(sample_device->CreateStream(ctx));
     sample_streams[i + 1] = static_cast<cudaStream_t>(sample_device->CreateStream(ctx));
   }
+  LOG(DEBUG) << "create stream time " << t1.Passed();
   sample_device->StreamSync(ctx, cu_stream);
   IdType loadId = 0, sampleId = 0;
   LOG(DEBUG) << "start partition sampling ...";
+  Timer t2;
+  double partition_load_time = 0;
+  double partition_sample_time = 0;
+#if 0
   for(IdType i = 0; i < partition.Size() + 1; i++) {
     LOG(DEBUG) << "pipeline: " << i;
     if(i < partition.Size()) {
       if(i >= 2) {
+        Timer t;
         sample_device->StreamSync(ctx, static_cast<StreamHandle>(sample_streams[i-1]));
+        partition_sample_time += t.Passed();
       }
       LOG(DEBUG) << "|--loadId " << loadId;
       Load(i, indptr_buf[loadId], indices_buf[loadId], load_streams[i]);
       loadId = (loadId + 1) % 2;
     }
     if(i >= 1 && i < partition.Size() + 1) {
+      Timer t;
       sample_device->StreamSync(ctx, static_cast<StreamHandle>(load_streams[i-1]));
+      partition_load_time += t.Passed();
       IdType p = i - 1;
       IdType offset = h_partition_offset[p];
       size_t num_input = h_partition_input_size[p];
@@ -626,9 +635,37 @@ void GPUPartitionSampleKHop0(
       sampleId = (sampleId + 1) % 2;
     } 
   }
+  Timer t;
   sample_device->StreamSync(ctx, sample_streams[partition.Size()]);
+  partition_sample_time += t.Passed();
+#else 
+  for(IdType i = 0; i < partition.Size(); i++) {
+    Timer t0;
+    Load(i, indptr_buf[0], indices_buf[0], cu_stream);
+    sample_device->StreamSync(ctx, cu_stream);
+    partition_load_time += t0.Passed();
+    IdType offset = h_partition_offset[i];
+    size_t num_input = h_partition_input_size[i];
+    size_t num_tiles = (num_input + Constant::kCudaTileSize + 1) / Constant::kCudaTileSize;
+    const dim3 grid(num_tiles);
+    const dim3 block(Constant::kCudaBlockSize);
+    Timer t1;
+    partition_sample_khop0<Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
+      indptr_buf[0], indices_buf[0],
+      partition_input + offset, num_input, 
+      partition.GetNodeIdRMap(i), partition_node_pos_rmap + offset, 
+      fanout, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates(), 
+      RunConfig::partition_check);
+    sample_device->StreamSync(ctx, cu_stream);
+    partition_sample_time += t1.Passed();
+  }
+  sample_device->StreamSync(ctx, cu_stream);
+#endif
   LOG(DEBUG) << "sampling done, start compact ...";
+  double sample_time = t2.Passed();
+  LOG(DEBUG) << "sampling time " << sample_time;
   // compact
+  Timer t3;
   size_t* item_prefix = static_cast<size_t*>(
     sample_device->AllocWorkspace(ctx, sizeof(size_t) * 2 * (grid.x + 1)));
   size_t* item_prefix_out = &item_prefix[grid.x + 1];
@@ -660,8 +697,10 @@ void GPUPartitionSampleKHop0(
       tmp_src, tmp_dst, out_src, out_dst, num_out,
       item_prefix_out, num_input, fanout);
   sample_device->StreamSync(ctx, stream);
+  LOG(DEBUG) << "compact edge time " << t3.Passed();
 
   // free workspace
+  Timer t4;
   Device::Get(CPU())->FreeWorkspace(CPU(), h_partition_input_size);
   sample_device->FreeWorkspace(ctx, d_tmp_storage);
   sample_device->FreeWorkspace(ctx, item_prefix);
@@ -680,6 +719,13 @@ void GPUPartitionSampleKHop0(
     sample_device->FreeStream(ctx, load_streams[i]);
     sample_device->FreeStream(ctx, sample_streams[i+1]);
   }
+  LOG(INFO) << "free workspace time " << t4.Passed();
+  LOG(INFO) << __func__ << " time " << t0.Passed();
+
+  LOG(INFO) << "load_time " << partition_load_time << " sample_time " << partition_sample_time;
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCooTime, sample_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopPartitionSampleLoadTime, partition_load_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopPartitionSampleTime, partition_sample_time);
 }
 
 }  // namespace cuda

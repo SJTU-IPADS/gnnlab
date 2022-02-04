@@ -145,6 +145,9 @@ def run():
     # total_times   = [0 for i in range(num_epoch * num_step)]
     # num_nodes     = [0 for i in range(num_epoch * num_step)]
     num_samples = [0 for i in range(num_epoch * num_step)]
+    sample_kernel_times = [0 for i in range(num_epoch * num_step)]
+    partition_load_times = [0 for i in range(num_epoch * num_step)]
+    partition_sample_times = [0 for i in range(num_epoch * num_step)]
 
     cur_step_key = 0
     for epoch in range(num_epoch):
@@ -191,6 +194,9 @@ def run():
 
             # sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
             # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
+            sample_kernel_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime)
+            partition_load_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopPartitionSampleLoadTime)
+            partition_sample_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopPartitionSampleTime)
             convert_time = t2 - t1
             train_time = t3 - t2
             total_time = t3 - t0
@@ -209,6 +215,9 @@ def run():
             # convert_times [cur_step_key] = convert_time
             # train_times   [cur_step_key] = train_time
             # total_times   [cur_step_key] = total_time
+            sample_kernel_times[cur_step_key] = sample_kernel_time
+            partition_load_times[cur_step_key] = partition_load_time
+            partition_sample_times[cur_step_key] = partition_sample_time
 
             # num_samples.append(num_sample)
             # num_nodes     [cur_step_key] = num_node
@@ -269,8 +278,11 @@ def run():
         epoch_cache_hit_rates[1:])))
     test_result.append(
         ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
+    test_result.append(('sample_kernel_time', np.mean(sample_kernel_times)))
+    test_result.append(('partition_load_time', np.mean(partition_load_times)))
+    test_result.append(('partition_sample_time', np.mean(partition_sample_times)))
     for k, v in test_result:
-        print('test_result:{:}={:.2f}'.format(k, v))
+        print('test_result:{:}={:.4f}'.format(k, v))
 
     sam.report_init()
 
