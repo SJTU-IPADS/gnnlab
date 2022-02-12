@@ -1,8 +1,10 @@
-# FGNN: A Factored System For Sample-based GNN Training Over GPUs
+# Artifact Evaluation for FGNN [EuroSys'22]
+
+This repository contains scripts and instructions for reproducing the experiments in our EuroSys '22 paper "FGNN: A Factored System For Sample-based GNN Training Over GPUs".
 
 FGNN (also called SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
-- [FGNN: A Factored System For Sample-based GNN Training Over GPUs](#fgnn-a-factored-system-for-sample-based-gnn-training-over-gpus)
+## Table of Contents
   - [Project Structure](#project-structure)
   - [Paper's Hardware Configuration](#papers-hardware-configuration)
   - [Installation](#installation)
@@ -43,8 +45,8 @@ FGNN (also called SamGraph) is a factored system for sample-based GNN training o
 
 
 ## Paper's Hardware Configuration
-- 8 * NVIDIA V100 GPUs(16GB of memory each)
-- 2 * Intel Xeon Platinum 8163 CPUs(24 cores each)
+- 8 * NVIDIA V100 GPUs (16GB of memory each)
+- 2 * Intel Xeon Platinum 8163 CPUs (24 cores each)
 - 512GB RAM
 
 **In the AE machine we provided,  each V100 GPU has 32GB memory.**
@@ -74,7 +76,7 @@ FGNN is built on CUDA 10.1. Follow the instructions in https://developer.nvidia.
 
 ### Install GCC-7
 
-CUDA10.1 requires GCC(version<=7). Hence, make sure that `gcc` is linked to `gcc-7`, and `g++` is linked to `g++-7`. 
+CUDA10.1 requires GCC (version<=7). Hence, make sure that `gcc` is linked to `gcc-7`, and `g++` is linked to `g++-7`. 
 
     ```bash
     # Ubuntu
