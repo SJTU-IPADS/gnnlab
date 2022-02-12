@@ -1,6 +1,4 @@
-## Artifact Evaluation for FGNN [EuroSys'22]
-
-This repository contains scripts and instructions for reproducing the experiments in our EuroSys '22 paper "FGNN: A Factored System for Sample-based GNN Training over GPUs".
+# Experiments
 
 ### Table of Contents 
   - [Overview](#overview)
