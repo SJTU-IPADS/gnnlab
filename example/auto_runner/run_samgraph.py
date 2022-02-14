@@ -62,12 +62,12 @@ def breakdown_test(log_folder=None, mock=False):
         row_id=1,
         col_range=[0, 9],
         app=App.gcn,
-        dataset=Dataset.papers100M
+        dataset=Dataset.twitter
     ).update_row_definition(
         row_id=2,
         col_range=[0, 9],
         app=App.gcn,
-        dataset=Dataset.twitter
+        dataset=Dataset.papers100M
     ).update_row_definition(
         row_id=3,
         col_range=[0, 9],
@@ -82,12 +82,12 @@ def breakdown_test(log_folder=None, mock=False):
         row_id=5,
         col_range=[0, 9],
         app=App.graphsage,
-        dataset=Dataset.papers100M
+        dataset=Dataset.twitter
     ).update_row_definition(
         row_id=6,
         col_range=[0, 9],
         app=App.graphsage,
-        dataset=Dataset.twitter
+        dataset=Dataset.papers100M
     ).update_row_definition(
         row_id=7,
         col_range=[0, 9],
@@ -102,12 +102,12 @@ def breakdown_test(log_folder=None, mock=False):
         row_id=9,
         col_range=[0, 9],
         app=App.pinsage,
-        dataset=Dataset.papers100M
+        dataset=Dataset.twitter
     ).update_row_definition(
         row_id=10,
         col_range=[0, 9],
         app=App.pinsage,
-        dataset=Dataset.twitter
+        dataset=Dataset.papers100M
     ).update_row_definition(
         row_id=11,
         col_range=[0, 9],
@@ -272,12 +272,12 @@ def overall_test(log_folder=None, mock=False):
         row_id=1,
         col_range=[0, 1],
         app=App.gcn,
-        dataset=Dataset.papers100M
+        dataset=Dataset.twitter
     ).update_row_definition(
         row_id=2,
         col_range=[0, 1],
         app=App.gcn,
-        dataset=Dataset.twitter
+        dataset=Dataset.papers100M
     ).update_row_definition(
         row_id=3,
         col_range=[0, 1],
@@ -292,13 +292,13 @@ def overall_test(log_folder=None, mock=False):
         row_id=5,
         col_range=[0, 1],
         app=App.graphsage,
-        dataset=Dataset.papers100M,
+        dataset=Dataset.twitter,
         num_sample_worker=2
     ).update_row_definition(
         row_id=6,
         col_range=[0, 1],
         app=App.graphsage,
-        dataset=Dataset.twitter,
+        dataset=Dataset.papers100M,
         num_sample_worker=2
     ).update_row_definition(
         row_id=7,
@@ -315,12 +315,12 @@ def overall_test(log_folder=None, mock=False):
         row_id=9,
         col_range=[0, 1],
         app=App.pinsage,
-        dataset=Dataset.papers100M
+        dataset=Dataset.twitter
     ).update_row_definition(
         row_id=10,
         col_range=[0, 1],
         app=App.pinsage,
-        dataset=Dataset.twitter
+        dataset=Dataset.papers100M
     ).update_row_definition(
         row_id=11,
         col_range=[0, 1],
@@ -373,7 +373,7 @@ def overall_test(log_folder=None, mock=False):
     ).multi_combo_multi_override(
         'and',
         {'app': [App.gcn], 'dataset': [Dataset.twitter]},
-        {'cache_percentage': 0.22, 'num_sample_worker': 2,  'num_train_worker': 6}
+        {'cache_percentage': 0.18, 'num_sample_worker': 2,  'num_train_worker': 6}
     ).multi_combo_multi_override(
         'and',
         {'app': [App.gcn], 'dataset': [Dataset.uk_2006_05]},
@@ -387,21 +387,21 @@ def overall_test(log_folder=None, mock=False):
         {'app': [App.graphsage], 'dataset': [Dataset.papers100M]},
         [
             {'cache_percentage': 0.24, 'num_sample_worker': 2,  'num_train_worker': 6},
-            {'cache_percentage': 0.24, 'num_sample_worker': 3,  'num_train_worker': 5}
+            # {'cache_percentage': 0.24, 'num_sample_worker': 3,  'num_train_worker': 5}
         ]
     ).multi_combo_multi_override_list(
         'and',
         {'app': [App.graphsage], 'dataset': [Dataset.twitter]},
         [
             {'cache_percentage': 0.31, 'num_sample_worker': 2,  'num_train_worker': 6},
-            {'cache_percentage': 0.31, 'num_sample_worker': 3,  'num_train_worker': 5}
+            # {'cache_percentage': 0.31, 'num_sample_worker': 3,  'num_train_worker': 5}
         ]
     ).multi_combo_multi_override_list(
         'and',
         {'app': [App.graphsage], 'dataset': [Dataset.uk_2006_05]},
         [
             {'cache_percentage': 0.16, 'num_sample_worker': 1,  'num_train_worker': 7},
-            {'cache_percentage': 0.16, 'num_sample_worker': 2,  'num_train_worker': 6},
+            # {'cache_percentage': 0.16, 'num_sample_worker': 2,  'num_train_worker': 6},
         ]
     ).multi_combo_multi_override(
         'and',
@@ -414,7 +414,7 @@ def overall_test(log_folder=None, mock=False):
     ).multi_combo_multi_override(
         'and',
         {'app': [App.pinsage], 'dataset': [Dataset.twitter]},
-        {'cache_percentage': 0.25, 'num_sample_worker': 1,  'num_train_worker': 7}
+        {'cache_percentage': 0.23, 'num_sample_worker': 1,  'num_train_worker': 7}
     ).multi_combo_multi_override(
         'and',
         {'app': [App.pinsage], 'dataset': [Dataset.uk_2006_05]},
@@ -758,6 +758,174 @@ def gcn_scalability_test(log_folder, mock):
 
     print('Samgraph GCN scalability test uses {:.4f} secs'.format(toc - tic))
 
+def gcn_twitter_scalability_test(log_folder, mock):
+    tic = time.time()
+
+    if log_folder:
+        log_dir = os.path.join(os.path.join(here, f'run-logs/{log_folder}'))
+    else:
+        log_dir = os.path.join(
+            here, f'run-logs/logs_samgraph_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+
+    log_table = LogTable(
+        num_row=18,
+        num_col=1
+    ).update_col_definition(
+        col_id=0,
+        definition='pipeline_train_epoch_time'
+    ).update_row_definition(
+        row_id=0,
+        col_range=[0, 0],
+        num_sample_worker=1,
+        num_train_worker=1
+    ).update_row_definition(
+        row_id=1,
+        col_range=[0, 0],
+        num_sample_worker=1,
+        num_train_worker=2
+    ).update_row_definition(
+        row_id=2,
+        col_range=[0, 0],
+        num_sample_worker=1,
+        num_train_worker=3
+    ).update_row_definition(
+        row_id=3,
+        col_range=[0, 0],
+        num_sample_worker=1,
+        num_train_worker=4
+    ).update_row_definition(
+        row_id=4,
+        col_range=[0, 0],
+        num_sample_worker=1,
+        num_train_worker=5
+    ).update_row_definition(
+        row_id=5,
+        col_range=[0, 0],
+        num_sample_worker=1,
+        num_train_worker=6
+    ).update_row_definition(
+        row_id=6,
+        col_range=[0, 0],
+        num_sample_worker=1,
+        num_train_worker=7
+    ).update_row_definition(
+        row_id=7,
+        col_range=[0, 0],
+        num_sample_worker=2,
+        num_train_worker=1
+    ).update_row_definition(
+        row_id=8,
+        col_range=[0, 0],
+        num_sample_worker=2,
+        num_train_worker=2
+    ).update_row_definition(
+        row_id=9,
+        col_range=[0, 0],
+        num_sample_worker=2,
+        num_train_worker=3
+    ).update_row_definition(
+        row_id=10,
+        col_range=[0, 0],
+        num_sample_worker=2,
+        num_train_worker=4
+    ).update_row_definition(
+        row_id=11,
+        col_range=[0, 0],
+        num_sample_worker=2,
+        num_train_worker=5
+    ).update_row_definition(
+        row_id=12,
+        col_range=[0, 0],
+        num_sample_worker=2,
+        num_train_worker=6
+    ).update_row_definition(
+        row_id=13,
+        col_range=[0, 0],
+        num_sample_worker=3,
+        num_train_worker=1
+    ).update_row_definition(
+        row_id=14,
+        col_range=[0, 0],
+        num_sample_worker=3,
+        num_train_worker=2
+    ).update_row_definition(
+        row_id=15,
+        col_range=[0, 0],
+        num_sample_worker=3,
+        num_train_worker=3
+    ).update_row_definition(
+        row_id=16,
+        col_range=[0, 0],
+        num_sample_worker=3,
+        num_train_worker=4
+    ).update_row_definition(
+        row_id=17,
+        col_range=[0, 0],
+        num_sample_worker=3,
+        num_train_worker=5
+    ).create()
+
+    ConfigList(
+        test_group_name='Samgraph GCN Twitter scalability test'
+    ).select(
+        'app',
+        [App.gcn]
+    ).select(
+        'dataset',
+        [Dataset.twitter]
+    ).override(
+        'sample_type',
+        ['khop2']
+    ).override(
+        'num_epoch',
+        [10]
+    ).override(
+        'omp-thread-num',
+        [40]
+    ).combo(
+        'app',
+        [App.gcn],
+        'fanout',
+        ['5 10 15']
+    ).multi_combo_multi_override_list(
+        'and',
+        {'app' : [App.gcn]},
+        [
+            {'num_sample_worker': 1, 'num_train_worker': 1, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 1, 'num_train_worker': 2, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 1, 'num_train_worker': 3, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 1, 'num_train_worker': 4, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 1, 'num_train_worker': 5, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 1, 'num_train_worker': 6, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 1, 'num_train_worker': 7, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 2, 'num_train_worker': 1, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 2, 'num_train_worker': 2, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 2, 'num_train_worker': 3, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.18},
+            {'num_sample_worker': 2, 'num_train_worker': 4, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 2, 'num_train_worker': 5, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.19},
+            {'num_sample_worker': 2, 'num_train_worker': 6, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.18},
+            {'num_sample_worker': 3, 'num_train_worker': 1, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 3, 'num_train_worker': 2, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 3, 'num_train_worker': 3, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 3, 'num_train_worker': 4, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.20},
+            {'num_sample_worker': 3, 'num_train_worker': 5, 'BOOL_pipeline': 'pipeline', 'cache_percentage': 0.19},
+        ]
+    ).run(
+        appdir=app_dir,
+        logdir=log_dir,
+        mock=mock
+    ).parse_logs(
+        logtable=log_table,
+        logdir=log_dir,
+        left_wrap='',
+        right_wrap='',
+        sep='\t'
+    )
+
+    toc = time.time()
+
+    print('Samgraph GCN Twitter scalability test uses {:.4f} secs'.format(toc - tic))
+
 def pinsage_scalability_test(log_folder, mock):
     tic = time.time()
 
@@ -1081,7 +1249,8 @@ if __name__ == '__main__':
     argparser.add_argument('-m', '--mock', action='store_true', default=False)
     args = argparser.parse_args()
 
-    # breakdown_test(args.log_folder, args.mock)
+    breakdown_test(args.log_folder, args.mock)
     # overall_test(args.log_folder, args.mock)
     # gcn_scalability_test(args.log_folder, args.mock)
-    pinsage_scalability_test(args.log_folder, args.mock)
+    # gcn_twitter_scalability_test(args.log_folder, args.mock)
+    # pinsage_scalability_test(args.log_folder, args.mock)
