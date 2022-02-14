@@ -67,6 +67,7 @@ set arrow   2   from 40, 56  to 40, 60 nohead lt 2 lw 3 lc rgb "#000000" back
 set label   3   "40s"   center at 40,  63 font ",13" tc rgb   "#000000"  front
 
 plot cmd_filter_dat_by_policy("dgl",  "papers")      using col_time:col_acc            w l lw 3  lc "#c00000" title "DGL" \
+    ,cmd_filter_dat_by_policy("sgnn", "papers")      using col_time:col_acc            w l lw 3  lc "#ff9900" title "SGNN" \
     ,cmd_filter_dat_by_policy("fgnn", "papers")      using col_time:col_acc            w l lw 3  lc "#008800" title "FGNN/2S" \
 
 
@@ -91,9 +92,13 @@ set ytics format ""
 set arrow   1   from split_location, 56 to end_location,56   nohead lt 2 lw 3 dashtype(3,2) lc rgb "#000000" back
 set label   2   "56%" left at end_location+20,56               font ",13" tc rgb   "#000000"  front
 
-set arrow   3   from 280, 56 to 280,60 nohead lt 2 lw 3 lc rgb "#000000" back
-set label   4   "280s"  center at 280,  63 font ",13" tc rgb   "#000000"  front
+set arrow   3   from 120, 56 to 120,60 nohead lt 2 lw 3 lc rgb "#000000" back
+set label   4   "120s"  center at 120,  63 font ",13" tc rgb   "#000000"  front
 
- 
+set arrow   5   from 280, 56 to 280,60 nohead lt 2 lw 3 lc rgb "#000000" back
+set label   6   "280s"  center at 280,  63 font ",13" tc rgb   "#000000"  front
+
+
 plot cmd_filter_dat_by_policy("dgl",  "papers")      using col_time:col_acc            w l lw 3  lc "#c00000" title "DGL" \
+    ,cmd_filter_dat_by_policy("sgnn", "papers")      using col_time:col_acc            w l lw 3  lc "#ff9900" title "SGNN" \
     ,cmd_filter_dat_by_policy("fgnn", "papers")      using col_time:col_acc            w l lw 3  lc "#008800" title "FGNN (2S 6T)" \

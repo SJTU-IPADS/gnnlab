@@ -7,8 +7,8 @@ def parse_args():
     argparser = argparse.ArgumentParser('Acc Timeline Parser')
     argparser.add_argument('-f', '--file', type=str,
             help='the log file path to parse')
-    argparser.add_argument('--system', choices=['dgl', 'fgnn'],
-            type=str, help='the system name of this test, like dgl/fgnn')
+    argparser.add_argument('--system', choices=['dgl', 'fgnn', 'sgnn'],
+            type=str, help='the system name of this test, like dgl/fgnn/sgnn')
     argparser.add_argument('--dataset', choices=['papers', 'products'],
             type=str, help='the dataset of this test')
     argparser.add_argument('--batch-size', type=int,
