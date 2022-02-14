@@ -788,6 +788,98 @@ def gcn_scalability_test(log_folder, mock):
     print('SGNN GCN Scalability test uses {:.4f} secs'.format(toc - tic))
 
 
+def gcn_twitter_scalability_test(log_folder, mock):
+    tic = time.time()
+
+    if log_folder:
+        log_dir = os.path.join(os.path.join(here, f'run-logs/{log_folder}'))
+    else:
+        log_dir = os.path.join(
+            here, f'run-logs/logs_sgnn_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+
+    log_table = LogTable(
+        num_row=8,
+        num_col=1
+    ).update_col_definition(
+        col_id=0,
+        definition='epoch_time:total'
+    ).update_row_definition(
+        row_id=0,
+        col_range=[0, 0],
+        num_worker=1,
+    ).update_row_definition(
+        row_id=1,
+        col_range=[0, 0],
+        num_worker=2,
+    ).update_row_definition(
+        row_id=2,
+        col_range=[0, 0],
+        num_worker=3,
+    ).update_row_definition(
+        row_id=3,
+        col_range=[0, 0],
+        num_worker=4,
+    ).update_row_definition(
+        row_id=4,
+        col_range=[0, 0],
+        num_worker=5,
+    ).update_row_definition(
+        row_id=5,
+        col_range=[0, 0],
+        num_worker=6,
+    ).update_row_definition(
+        row_id=6,
+        col_range=[0, 0],
+        num_worker=7,
+    ).update_row_definition(
+        row_id=7,
+        col_range=[0, 0],
+        num_worker=8,
+
+    ).create()
+
+    ConfigList(
+        test_group_name='SGNN GCN Twitter scalability test'
+    ).select(
+        'app',
+        [App.gcn]
+    ).select(
+        'dataset',
+        [Dataset.twitter]
+    ).override(
+        'num_epoch',
+        [10]
+    ).override(
+        'cache_policy',
+        ['degree']
+    ).override(
+        'cache_percentage',
+        [0.01]
+    ).override(
+        'num_worker',
+        [1, 2, 3, 4, 5, 6, 7, 8],
+    ).override(
+        'BOOL_pipeline',
+        ['no_pipeline']
+        # ).override(
+        #     'BOOL_validate_configs',
+        #     ['validate_configs']
+    ).run(
+        appdir=app_dir,
+        logdir=log_dir,
+        mock=mock
+    ).parse_logs(
+        logtable=log_table,
+        logdir=log_dir,
+        left_wrap='',
+        right_wrap='',
+        sep='\t'
+    )
+
+    toc = time.time()
+    print('SGNN GCN Twitter Scalability test uses {:.4f} secs'.format(toc - tic))
+
+
 def pinsage_scalability_test(log_folder, mock):
     tic = time.time()
 
@@ -899,5 +991,6 @@ if __name__ == '__main__':
     # overall_pipeline_test(args.log_folder, args.mock)
     # overall_no_pipeline_test(args.log_folder, args.mock)
     # gcn_scalability_test(args.log_folder, args.mock)
+    gcn_twitter_scalability_test(args.log_folder, args.mock)
     # pinsage_scalability_test(args.log_folder, args.mock)
-    breakdown_test(args.log_folder, args.mock)
+    # breakdown_test(args.log_folder, args.mock)
