@@ -425,6 +425,7 @@ __global__ void create_partition_input(
   }
 }
 
+#ifndef NEW_ALGO
 template<size_t TILE_SIZE>
 __global__ void partition_sample_khop0(
   const IdType* indptr, const IdType* indices,
@@ -472,6 +473,61 @@ __global__ void partition_sample_khop0(
     }
   }
 }
+#else 
+template<size_t WARP_SIZE, size_t BLOCK_WARP, size_t TILE_SIZE>
+__global__ void partition_sample_khop0(
+  const IdType* indptr, const IdType* indices,
+  const IdType* input, const size_t num_input, 
+  const IdType* nodeId_rmap, const IdType* node_pos_map,
+  const size_t fanout, IdType* tmp_src, IdType* tmp_dst,
+  curandState *random_states, size_t num_random_states,
+  bool partition_check = false
+) {
+  assert(WARP_SIZE == blockDim.x);
+  assert(BLOCK_WARP == blockDim.y);
+  size_t seed = blockDim.x * blockIdx.x * blockDim.y + threadIdx.x * blockDim.y + threadIdx.y;
+  curandState local_state;
+  curand_init(2022, 0, 0, &local_state);
+  
+  size_t idx = TILE_SIZE * blockIdx.x + threadIdx.y;
+  size_t last = min(TILE_SIZE * (blockIdx.x + 1), num_input);
+
+  while(idx < last) {
+    IdType rid = input[idx];
+    IdType off = indptr[rid];
+    IdType len = indptr[rid + 1] - indptr[rid];
+    IdType pos = node_pos_map[idx];
+    if(len <= fanout) {
+      size_t j = threadIdx.x;
+      for(; j < len; j += WARP_SIZE) {
+        tmp_src[pos * fanout + j] = nodeId_rmap[rid];
+        tmp_dst[pos * fanout + j] = indices[off + j];
+      }
+      __syncwarp();
+      for(; j < fanout; j += WARP_SIZE) {
+        tmp_src[pos * fanout + j] = Constant::kEmptyKey;
+        tmp_dst[pos * fanout + j] = Constant::kEmptyKey;
+      }
+    } else {
+      size_t j = threadIdx.x;
+      for(; j < fanout; j += WARP_SIZE) {
+        tmp_src[pos * fanout + j] = nodeId_rmap[rid];
+        tmp_dst[pos * fanout + j] = indices[off + j];
+      }
+      __syncwarp();
+      for(; j < len; j += WARP_SIZE) {
+        size_t k = curand(&local_state) % (j + 1);
+        if(k < fanout) {
+          atomicExch(tmp_dst + pos * fanout + k, indices[off + j]);
+        }
+      }
+    }
+    idx += BLOCK_WARP;
+  }
+}
+
+
+#endif
 
 void GPUPartitionSampleKHop0(
   const DisjointPartition &partition,
@@ -622,16 +678,32 @@ void GPUPartitionSampleKHop0(
       IdType p = i - 1;
       IdType offset = h_partition_offset[p];
       size_t num_input = h_partition_input_size[p];
+      LOG(DEBUG) << "|--sampleId " << sampleId << " num_input " << num_input;
+#ifndef NEW_ALGO
       size_t num_tiles = (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
       const dim3 grid(num_tiles);
       const dim3 block(Constant::kCudaBlockSize);
-      LOG(DEBUG) << "|--sampleId " << sampleId << " num_input " << num_input;
       partition_sample_khop0<Constant::kCudaTileSize><<<grid, block, 0, sample_streams[i]>>>(
         indptr_buf[sampleId], indices_buf[sampleId],
         partition_input + offset, num_input, 
         partition.GetNodeIdRMap(p), partition_node_pos_rmap + offset, 
         fanout, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates(), 
         RunConfig::partition_check);
+#else
+      CHECK(!RunConfig::partition_check);
+      const int WARP_SIZE = 32;
+      const int BLOCK_WARP = Constant::kCudaBlockSize / WARP_SIZE;
+      const int TILE_SIZE = BLOCK_WARP;
+      const int num_tiles = (num_input + TILE_SIZE - 1) / TILE_SIZE;
+      const dim3 grid(num_tiles);
+      const dim3 block(WARP_SIZE, BLOCK_WARP);
+      partition_sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE><<<grid, block, 0, sample_streams[i]>>>(
+        indptr_buf[sampleId], indices_buf[sampleId],
+        partition_input + offset, num_input, 
+        partition.GetNodeIdRMap(p), partition_node_pos_rmap + offset, 
+        fanout, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates(), 
+        false);
+#endif
       sampleId = (sampleId + 1) % 2;
     } 
   }
@@ -646,16 +718,32 @@ void GPUPartitionSampleKHop0(
     partition_load_time += t0.Passed();
     IdType offset = h_partition_offset[i];
     size_t num_input = h_partition_input_size[i];
+    Timer t1;
+#ifndef NEW_ALGO
     size_t num_tiles = (num_input + Constant::kCudaTileSize + 1) / Constant::kCudaTileSize;
     const dim3 grid(num_tiles);
     const dim3 block(Constant::kCudaBlockSize);
-    Timer t1;
     partition_sample_khop0<Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
       indptr_buf[0], indices_buf[0],
       partition_input + offset, num_input, 
       partition.GetNodeIdRMap(i), partition_node_pos_rmap + offset, 
       fanout, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates(), 
       RunConfig::partition_check);
+#else 
+    CHECK(!RunConfig::partition_check);
+    const int WARP_SIZE = 32;
+    const int BLOCK_WARP = Constant::kCudaBlockSize / WARP_SIZE;
+    const int TILE_SIZE = BLOCK_WARP;
+    const int num_tiles = (num_input + TILE_SIZE - 1) / TILE_SIZE;
+    const dim3 grid(num_tiles);
+    const dim3 block(WARP_SIZE, BLOCK_WARP);
+    partition_sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE><<<grid, block, 0, cu_stream>>>(
+      indptr_buf[0], indices_buf[0],
+      partition_input + offset, num_input, 
+      partition.GetNodeIdRMap(i), partition_node_pos_rmap + offset, 
+      fanout, tmp_src, tmp_dst, random_states->GetStates(), random_states->NumStates(), 
+      false);
+#endif
     sample_device->StreamSync(ctx, cu_stream);
     partition_sample_time += t1.Passed();
   }
