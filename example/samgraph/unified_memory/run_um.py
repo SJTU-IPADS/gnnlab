@@ -29,10 +29,12 @@ from test_cases import *
 # cases = Papers100M.um_test_normal_cases + Papers100M.um_test_graph_in_cpu
 # cases = Papers100M.um_test_cpu #+ Papers100M.um_test_graph_in_cpu
 # cases = Papers100M.um_test_normal_cases[-1:]
-cases = Papers100M.um_test_gpu_not_use_um
+# cases = Papers100M.um_test_graph_in_cpu
 
 # cases = Friendster.um_test_gpu_not_use_um + Friendster.um_test_normal_cases + Friendster.um_test_graph_in_cpu 
 # cases = Friendster.um_test_cpu
+
+cases = Papers100M.um_test_graph_in_gpu + Friendster.um_test_graph_in_gpu
 
 def um_test_env(case:dict):
     env = dict(os.environ)
@@ -60,7 +62,7 @@ if __name__ == '__main__':
         subprocess.run(args=[
             'bash',
             'example/samgraph/unified_memory/single.sh',
-            # '-log'
+            '-log'
         ], env=um_test_env(case))
 
         eator.kill()

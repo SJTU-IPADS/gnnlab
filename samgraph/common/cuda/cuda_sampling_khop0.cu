@@ -659,6 +659,7 @@ void GPUPartitionSampleKHop0(
   double partition_load_time = 0;
   double partition_sample_time = 0;
 #if 0
+  LOG(INFO) << "overlap sample & load";
   for(IdType i = 0; i < partition.Size() + 1; i++) {
     LOG(DEBUG) << "pipeline: " << i;
     if(i < partition.Size()) {

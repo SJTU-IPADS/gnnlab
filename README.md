@@ -187,6 +187,7 @@ khop0, store graph in UM, advice by degree
 |-|-|-|-|
 |-|-|-|0.77(not use um, sample by gpu)|
 |11727 MB|0.94|28.68 GB|0.76|
+|11727 MB|0.94|28.68 GB|0.77 (sorted)|
 |8655 MB|1.38|29.96 GB|0.77|
 |5583 MB|2.57|30.83 GB|1.14|
 |2511 MB|18.0|31.59 GB|2.75|
@@ -199,6 +200,7 @@ khop0, advice by trainset
 |-|-|-|-|
 |-|-|-|0.76(not use um, sample by gpu)|
 |11727 MB|0.94|28.61 GB|0.76|
+|11727 MB|0.94|28.61 GB|0.75 (sorted)|
 |8655 MB|1.38|29.89 GB|1.09|
 |5583 MB|2.57|30.77 GB|1.38|
 |2511 MB|18.0|31.58 GB|2.11|
@@ -215,6 +217,8 @@ khop0, advice by presample
 |8655 MB|1.38|29.89 GB|0.69|
 |5583 MB|2.57|30.77 GB|0.68|
 |2511 MB|18.0|31.58 GB|1.58|
+
+um in cpu 1.5878
 
 khop0, arch0
 
@@ -245,6 +249,7 @@ khop0, advice by degree
 |-|-|-|-|
 |-|-|-|2.01(not use um, sample by gpu)|
 |18895 MB|0.97|28.98 GB|2.01|
+|18895 MB|0.97|28.98 GB|1.99(sorted)|
 |14799 MB|1.28|29.98 GB|3.05|
 |10703 MB|1.88|30.61 GB|5.29|
 |6607 MB|3.56|31.12 GB|10.29|
@@ -257,6 +262,7 @@ khop0, advice by trainset
 |-|-|-|-|
 |-|-|-|2.01(not use um, sample by gpu)|
 |18895 MB|0.97|28.98 GB|2.01|
+|18895 MB|0.97|28.98 GB|2.01 (sorted)|
 |14799 MB|1.28|29.98 GB|3.69|
 |10703 MB|1.88|30.61 GB|8.70|
 |6607 MB|3.56|31.12 GB|14.82|
@@ -269,6 +275,7 @@ khop0, advice by presample
 |-|-|-|-|
 |-|-|-|1.98(not use um, sample by gpu)|
 |18895 MB|0.97|28.98 GB|1.99|
+|18895 MB|0.97|28.98 GB|1.99 (sorted)|
 |14799 MB|1.28|29.98 GB|2.94|
 |10703 MB|1.88|30.61 GB|4.96|
 |6607 MB|3.56|31.12 GB|9.63|

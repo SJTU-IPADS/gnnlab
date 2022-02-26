@@ -200,9 +200,7 @@ void GPUEngine::Init() {
             << "unified_memory_in_cpu: " << RunConfig::unified_memory_in_cpu << " | "
             << "unified_memory_overscribe_factor: " << RunConfig::unified_memory_overscribe_factor << " | "
             << "unified_memory_policy: " << static_cast<int>(RunConfig::unified_memory_policy);
-  if(RunConfig::unified_memory &&
-    (RunConfig::unified_memory_in_cpu || RunConfig::unified_memory_overscribe_factor > 1)
-  ) {
+  if(RunConfig::unified_memory) {
     Timer sort_um_tm;
     size_t num_nodes = _dataset->indptr->Shape()[0] - 1;
     size_t num_trainset = _dataset->train_set->Shape()[0];

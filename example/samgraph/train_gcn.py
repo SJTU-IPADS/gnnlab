@@ -138,7 +138,7 @@ def run():
     epoch_total_times_python = []
     epoch_cache_hit_rates = []
 
-    # sample_times  = [0 for i in range(num_epoch * num_step)]
+    sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
     # convert_times = [0 for i in range(num_epoch * num_step)]
     # train_times   = [0 for i in range(num_epoch * num_step)]
@@ -192,7 +192,7 @@ def run():
             sam.trace_step_end_now(
                 epoch * num_step + step, sam.kL0Event_Train_Step)
 
-            # sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
+            sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
             # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
             sample_kernel_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime)
             partition_load_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopPartitionSampleLoadTime)
@@ -210,7 +210,7 @@ def run():
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime,   train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime,   total_time)
 
-            # sample_times  [cur_step_key] = sample_time
+            sample_times  [cur_step_key] = sample_time
             # copy_times    [cur_step_key] = copy_time
             # convert_times [cur_step_key] = convert_time
             # train_times   [cur_step_key] = train_time
@@ -278,6 +278,7 @@ def run():
         epoch_cache_hit_rates[1:])))
     test_result.append(
         ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
+    test_result.append(('step_sample_time', np.mean(sample_times)))
     test_result.append(('sample_kernel_time', np.mean(sample_kernel_times)))
     test_result.append(('partition_load_time', np.mean(partition_load_times)))
     test_result.append(('partition_sample_time', np.mean(partition_sample_times)))
