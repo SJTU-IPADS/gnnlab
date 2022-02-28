@@ -29,6 +29,7 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   if(ctx.device_type == kGPU) {
     CUDA_CALL(cudaMalloc(&ret, nbytes));
   } else {
+    LOG(INFO) << "alloc unified memory " << nbytes;
     CUDA_CALL(cudaMallocManaged(&ret, nbytes));
     // advice gpu um
     if(RunConfig::unified_memory_in_cpu) {
