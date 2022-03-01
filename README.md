@@ -151,6 +151,16 @@ After reboot you can see:
 200000000
 ```
 
+### Docker Support
+We provide a Dockerfile to build the experiment image. The file is in the root directory of this repository. Users can use the following command to create a Docker environment.
+```bash
+docker build -t fgnn .
+```
+Then users can run tests in Docker.
+```bash
+docker run --rm -v $HOST_VOLUMN:/graph-learning -it fgnn bash
+```
+**Make sure that Docker can support CUDA while building images. Here is a [reference](https://stackoverflow.com/questions/59691207) to solve Docker building images with CUDA support.**
 
 
 ## Dataset Preprocessing
