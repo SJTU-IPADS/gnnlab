@@ -32,6 +32,17 @@ class Partition {
 };
 
 
+class PaGraphPartition {
+ public:
+  PaGraphPartition(const Dataset& dataset, IdType partition_num, IdType hop_num, Context sampler_ctx);
+ private:
+  IdType _hop_num;
+  std::unique_ptr<Dataset> _gpu_partition;
+  std::vector<std::unique_ptr<Dataset>> _partitions;
+
+  std::vector<IdType> GetNeighbor(const Dataset& dataset, IdType vertex);
+};
+
 class DisjointPartition {
  public:
   DisjointPartition(const Dataset& dataset, IdType partition_num, Context sampler_ctx);

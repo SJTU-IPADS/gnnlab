@@ -58,15 +58,16 @@ int                  RunConfig::omp_thread_num                 = 40;
 std::string          RunConfig::shared_meta_path               = "/shared_meta_data";
 // clang-format on
 
-bool                 RunConfig::unified_memory                 = true;
+bool                 RunConfig::unified_memory                 = false;
 bool                 RunConfig::unified_memory_in_cpu          = false;
 bool                 RunConfig::unified_memory_check           = false;
 double               RunConfig::unified_memory_overscribe_factor = 0;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kPreSample;
 
-bool                 RunConfig::partition                      = false;
-int                  RunConfig::partition_num                  = 32;
+bool                 RunConfig::partition                      = true;
+int                  RunConfig::partition_num                  = 4;
 bool                 RunConfig::partition_check                = false;
+PartitionType        RunConfig::partition_type                 = PartitionType::PaGraph;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {

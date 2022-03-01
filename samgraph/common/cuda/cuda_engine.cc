@@ -72,22 +72,27 @@ void GPUEngine::Init() {
   LoadGraphDataset();
   double time_load_graph_dataset = tl.Passed();
   LOG_MEM_USAGE(INFO, "after load dataset");
+
+  _dispartition = nullptr;
+  _papartition = nullptr;
+  _sampling_checker = nullptr;
   if(RunConfig::partition) {
-    LOG(INFO) << "partition";
     Timer t0;
-    _partition = new DisjointPartition(
-      *_dataset, RunConfig::partition_num, _sampler_ctx);
+    if(RunConfig::partition_type == PartitionType::Disjoint) {
+      LOG(INFO) << "disjoint partition";
+      _dispartition = new DisjointPartition(
+        *_dataset, RunConfig::partition_num, _sampler_ctx);
+    } else if(RunConfig::partition_type == PartitionType::PaGraph) {
+      LOG(INFO) << "pagraph partition";
+      _papartition = new PaGraphPartition(*_dataset, 
+        RunConfig::partition_num, 3, _sampler_ctx);
+    }
     if(RunConfig::partition_check) {
       _sampling_checker = new SamplingChecker(*_dataset, _sampler_ctx);
-    } else {
-      _sampling_checker = nullptr;
     }
     double partition_time = t0.Passed();
     LOG(INFO) << "partition dataset time " << partition_time << " sec";
     LOG_MEM_USAGE(INFO, "after partition dataset");
-  } else {
-    _partition = nullptr;
-    _sampling_checker = nullptr;
   }
 
   // Create CUDA streams
@@ -373,10 +378,13 @@ void GPUEngine::Shutdown() {
   }
   LOG(INFO) << __func__;
 
-  if (_partition != nullptr) {
-    delete _partition;
+  if (_dispartition != nullptr) {
+    delete _dispartition;
   }
   LOG(INFO) << __func__;
+  if(_papartition != nullptr) {
+    delete _papartition;
+  }
 
   _dataset = nullptr;
   _shuffler = nullptr;
@@ -385,7 +393,7 @@ void GPUEngine::Shutdown() {
   _random_states = nullptr;
   _frequency_hashmap = nullptr;
   _sampling_checker = nullptr;
-  _partition = nullptr;
+  _dispartition = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;

@@ -82,6 +82,11 @@ enum class UMPolicy {
   kDefault,
 };
 
+enum class PartitionType {
+  Disjoint = 0,
+  PaGraph,
+};
+
 struct Context {
   DeviceType device_type;
   int device_id;

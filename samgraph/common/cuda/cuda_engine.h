@@ -41,7 +41,7 @@ class GPUEngine : public Engine {
   GPUDynamicCacheManager* GetDynamicCacheManager() { return _dynamic_cache_manager; }
   FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
   SamplingChecker* GetSamplingChecker() { return _sampling_checker; }
-  const DisjointPartition& GetPartition() const { return *_partition; }
+  const DisjointPartition& GetPartition() const { return *_dispartition; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
@@ -70,7 +70,8 @@ class GPUEngine : public Engine {
   FrequencyHashmap* _frequency_hashmap;
 
   SamplingChecker* _sampling_checker;
-  DisjointPartition* _partition;
+  DisjointPartition* _dispartition;
+  PaGraphPartition* _papartition;
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;

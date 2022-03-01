@@ -74,6 +74,7 @@ struct RunConfig {
   static bool                 partition;
   static int                  partition_num;
   static bool                 partition_check;
+  static PartitionType        partition_type;
 
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;
