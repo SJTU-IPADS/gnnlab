@@ -6,7 +6,7 @@ COPY ./docker/.condarc /root/.condarc
 COPY ./docker/pip.conf /root/.pip/pip.conf
 
 # apt software
-RUN apt-get update && apt-get install -y wget\
+RUN apt-get update && apt-get install -y wget gnuplot git\
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -30,33 +30,20 @@ RUN conda create -n fgnn_env cmake cudnn==7.6.5 python==3.8 \
 # Make RUN commands use the new environment:
 SHELL ["conda", "run", "--no-capture-output", "-n", "fgnn_env", "/bin/bash", "-c"]
 
-# install dgl
 WORKDIR /app/source
-COPY ./3rdparty/dgl ./dgl
-RUN pushd ./dgl \
-    && bash build_with_cudnn.sh \
-    && pip install numpy>=1.14.0 scipy>=1.1.0 networkx>=2.1 requests>=2.19.0 \
-    && bash install.sh \
-    && rm -rf build \
-    && popd
+COPY . ./fgnn
+# install dgl
+RUN pip install 'numpy>=1.14.0' 'scipy>=1.1.0' 'networkx>=2.1' 'requests>=2.19.0' \
+    && bash ./fgnn/3rdparty/dgl_install.sh
+# install fastgraph
+RUN bash ./fgnn/utility/fg_install.sh
+# install pyg
+RUN bash ./fgnn/3rdparty/pyg_install.sh
 
-# install PyG
-# XXX: command "pip install torch-scatter -f https://data.pyg.org/whl/torch-1.7.0+cu101.html" fail
-#      use command "FORCE_CUDA=1 pip3 install --no-cache-dir --verbose torch-scatter==2.0.8" instead
-RUN FORCE_CUDA=1 pip3 install --no-cache-dir --verbose torch-scatter==2.0.8 \
-    && pip install torch-sparse==0.6.12 -f https://data.pyg.org/whl/torch-1.7.0+cu101.html \
-    && pip install torch-geometric==2.0.1 \
-    && pip install torch-cluster==1.5.9 -f https://data.pyg.org/whl/torch-1.7.0+cu101.html \
-    && pip install torch-spline-conv==1.2.1 -f https://data.pyg.org/whl/torch-1.7.0+cu101.html
-
-# install samgraph
-COPY . ./samgraph
-RUN pushd ./samgraph \
-    && pushd utility/fastgraph \
-    && python setup.py install \
-    && popd \
-    && python setup.py install \
+# install fgnn
+RUN pushd ./fgnn \
+    && bash ./build.sh \
     && rm -rf build \
-    && rm -rf 3rdparty/dgl \
+    && rm -rf 3rdparty/dgl/build \
     && popd \
     && echo "ulimit -l unlimited" >> ~/.bashrc
