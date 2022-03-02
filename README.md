@@ -153,14 +153,28 @@ After reboot you can see:
 ```
 
 ### Docker Support
-We provide a Dockerfile to build the experiment image. The file is in the root directory of this repository. Users can use the following command to create a Docker environment.
-```bash
-docker build -t fgnn .
-```
+We provide two methods to get the Docker image.
+
+1. Build the image from Dockerfile
+
+    We provide a Dockerfile to build the experiment image. The file is in the root directory of this repository. Users can use the following command to create a Docker environment.
+    ```bash
+    docker build -t gnnlab/fgnn:v1.0 .
+    ```
+
+2. Pull the image from Docker Hub (about 4.24GB)
+    ```
+    docker pull gnnlab/fgnn:v1.0
+    # We only test this image in the platform with all V100 GPUs
+    # If users meet some running problems on other GPUs, we provide all tools needed in the image to re-build DGL, FGNN and PyG.
+    ```
+
+
 Then users can run tests in Docker.
 ```bash
-docker run --rm -v $HOST_VOLUMN:/graph-learning -it fgnn bash
+docker run --ulimit memlock=-1 --rm --gpus all -v $HOST_VOLUMN:/graph-learning -it gnnlab/fgnn:v1.0 bash
 ```
+
 **Make sure that Docker can support CUDA while building images. Here is a [reference](https://stackoverflow.com/questions/59691207) to solve Docker building images with CUDA support.**
 
 
