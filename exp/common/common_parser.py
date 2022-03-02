@@ -201,7 +201,7 @@ class BenchInstance:
       self.vals['epoch_time'] = self.vals['pipeline_train_epoch_time']
       self.vals['train_process_time'] = self.vals['pipeline_train_epoch_time']
     else:
-      if 'epoch_time:sample_total' not in self.vals:
+      if self.vals['epoch_time:sample_total'] is NaN and 'epoch_time:sample_time' in self.vals:
         self.vals['epoch_time:sample_total'] = self.vals['epoch_time:sample_time']
       self.vals['epoch_time'] = self.vals['epoch_time:sample_total'] + self.vals['epoch_time:copy_time'] + self.vals['epoch_time:train_total']
       self.vals['train_process_time'] = self.vals['epoch_time:copy_time'] + self.vals['epoch_time:train_total']
