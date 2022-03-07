@@ -86,6 +86,7 @@ void GPUEngine::Init() {
       LOG(INFO) << "pagraph partition";
       _papartition = new PaGraphPartition(*_dataset, 
         RunConfig::partition_num, 3, _sampler_ctx);
+      _dataset = _papartition->GetNextPartition(_sampler_ctx);
     }
     if(RunConfig::partition_check) {
       _sampling_checker = new SamplingChecker(*_dataset, _sampler_ctx);
@@ -113,6 +114,8 @@ void GPUEngine::Init() {
                                               RunConfig::num_worker);
     _num_step = _shuffler->NumStep();
     _num_local_step = _shuffler->NumLocalStep();
+  } else if (RunConfig::partition && RunConfig::partition_type == PartitionType::PaGraph) {
+    
   } else {
     _shuffler =
         new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);

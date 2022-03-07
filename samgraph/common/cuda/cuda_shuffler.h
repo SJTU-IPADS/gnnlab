@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "../common.h"
+#include "../partition.h"
 
 namespace samgraph {
 namespace common {
@@ -44,6 +45,30 @@ class GPUShuffler : public Shuffler {
   IdType *_sanity_check_map;
 
   void ReShuffle(StreamHandle stream = nullptr);
+};
+
+class PartitionShuffler : public Shuffler {
+ public:
+  PartitionShuffler(PaGraphPartition&partition, 
+    size_t num_epoch, size_t batch_size, bool drop_last);
+
+  TensorPtr GetBatch(StreamHandle stream = nullptr) override;
+  uint64_t Epoch() override { return _cur_epoch; }
+  uint64_t Step() override { return _cur_step; } 
+
+  size_t NumEpoch() override { return _num_epoch; }
+  size_t NumStep() override { return _num_step; }
+
+  void Reset() override;
+ private:
+  bool _drop_last;
+  uint64_t _cur_epoch;
+  uint64_t _cur_step;
+
+  size_t _num_epoch;
+  size_t _num_step;
+
+  std::vector<std::unique_ptr<Shuffler>> _shufflers;
 };
 
 }  // namespace cuda

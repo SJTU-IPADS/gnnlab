@@ -118,7 +118,7 @@ void DoGPUSample(TaskPtr task) {
     // Sample a compact coo graph
     switch (RunConfig::sample_type) {
       case kKHop0:
-        if(!RunConfig::partition) {
+        if(!RunConfig::partition || RunConfig::partition && RunConfig::partition_type == PartitionType::PaGraph) {
           GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
                         out_dst, num_out, sampler_ctx, sample_stream,
                         random_states, task->key);
@@ -734,11 +734,17 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto input_nodes = task->input_nodes;
   auto output_nodes = task->output_nodes;
 
-  auto feat = dataset->feat;
+  // auto feat = dataset->feat;
+  TensorPtr feat;
+  if(RunConfig::partition && RunConfig::partition_type == PartitionType::PaGraph) {
+    feat = GPUEngine::Get()->GetPaPartition().GetFeat();
+  } else {
+    feat = dataset->feat;
+  }
   auto label = dataset->label;
 
-  auto feat_dim = dataset->feat->Shape()[1];
-  auto feat_type = dataset->feat->Type();
+  auto feat_dim = feat->Shape()[1];
+  auto feat_type = feat->Type();
   auto label_type = dataset->label->Type();
 
   auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
@@ -759,14 +765,22 @@ void DoCPUFeatureExtract(TaskPtr task) {
              << ToReadableSize(task->output_label->NumBytes());
 
   auto feat_dst = task->input_feat->MutableData();
-  auto feat_src = dataset->feat->Data();
+  auto feat_src = feat->Data();
 
   if (RunConfig::option_empty_feat != 0) {
     cpu::CPUMockExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
                         feat_type);
   } else {
-    cpu::CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
-                    feat_type);
+    if(RunConfig::partition && RunConfig::partition_type == PartitionType::PaGraph) {
+      // CHECK(false);
+      LOG(INFO) << __func__;
+      auto input_ts = GPUEngine::Get()->GetPaPartition().GetGlobalNodeId(input_data, num_input);
+      auto input = static_cast<const IdType*>(input_ts->Data());
+      cpu::CPUExtract(feat_dst, feat_src, input, num_input, feat_dim, feat_type);
+    } else {
+      cpu::CPUExtract(feat_dst, feat_src, input_data, num_input, feat_dim,
+                      feat_type);
+    }
   }
 
   auto label_dst = task->output_label->MutableData();

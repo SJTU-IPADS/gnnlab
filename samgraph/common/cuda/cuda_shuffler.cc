@@ -139,6 +139,20 @@ TensorPtr GPUShuffler::GetBatch(StreamHandle stream) {
   return tensor;
 }
 
+PartitionShuffler::PartitionShuffler(PaGraphPartition &partition, 
+  size_t num_epoch, size_t batch_size, bool drop_last) {
+  
+    
+}
+
+TensorPtr PartitionShuffler::GetBatch(StreamHandle stream) {
+
+}
+
+void PartitionShuffler::Reset() {
+  
+}
+
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph

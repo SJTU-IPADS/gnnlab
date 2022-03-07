@@ -11,6 +11,8 @@
 #include <parallel/numeric>
 #include <parallel/algorithm>
 #include <parallel_hashmap/phmap.h>
+#include <thread>
+#include <chrono>
 
 #include "partition.h"
 #include "logging.h"
@@ -262,13 +264,14 @@ double Partition::Score(const Dataset& dataset,
 }
 
 PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num, IdType hop_num, Context sampler_ctx) 
-: _hop_num(hop_num) {
+: _hop_num(hop_num), _feat(dataset.feat), _loaded_partition(-1) {
   CHECK(_hop_num >= 1);
   LOG(INFO) << "make " << partition_num << " pgraph dataset partition, with " << _hop_num << " hop";
   IdType* partition_nodes[partition_num];
-  IdType partition_nodes_size[partition_num];
+  IdType partition_nodes_num[partition_num];
   IdType* partition_trainsets[partition_num];
-  IdType partition_trainsets_size[partition_num];
+  IdType partition_trainsets_num[partition_num];
+  // IdType* has_edge[partition_num] 
   for(int i = 0; i < partition_num; i++) {
     partition_nodes[i] = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
       CPU(), sizeof(IdType) * dataset.num_node, Constant::kAllocNoScale));
@@ -276,8 +279,8 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
       CPU(), sizeof(IdType) * dataset.num_node, Constant::kAllocNoScale));
   }
   for(IdType p = 0; p < partition_num; p++) {
-    partition_nodes_size[p] = 0;
-    partition_trainsets_size[p] = 0;
+    partition_nodes_num[p] = 0;
+    partition_trainsets_num[p] = 0;
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for(IdType i = 0; i < dataset.num_node; i++) {
       partition_nodes[p][i] = 0;
@@ -285,125 +288,314 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
     }
   }
 
-  // auto neighbors_ts = Tensor::Empty(DataType::kF32, 
-  //   {dataset.num_node * RunConfig::omp_thread_num}, CPU(), "");
-  // IdType* neighbors = static_cast<IdType*>(neighbors_ts->MutableData());
-
+#if 0
   const double avg_tv = 1.0 * dataset.train_set->Shape()[0] / partition_num;
-  auto score = [&](IdType p, std::vector<IdType> &neighbor) -> double {
-    IdType comm_node = 0;
-    for(auto v : neighbor) {
+  auto score = [&](IdType p, IdType* neighbor, IdType neighbor_num) -> double {
+    double comm_node = 0;
+    // for(auto v : neighbor) {
+    for(IdType i = 0; i < neighbor_num; i++) {
+      IdType v = neighbor[i];
       comm_node += partition_trainsets[p][v];
     } 
-    double balance = (avg_tv - partition_trainsets_size[p]) / (1 + partition_nodes_size[p]);
+    double balance = (avg_tv - partition_trainsets_num[p]) / (1 + partition_nodes_num[p]);
     return 1.0 * comm_node * balance;
   };
 
   int progress = 0;
   const IdType* trainset = static_cast<const IdType*>(dataset.train_set->Data());
   LOG(INFO) << "start partition ...";
-  double get_neighbor_time = 0, score_time = 0,set_union_time = 0;;
-  for(IdType i = 0; i < dataset.train_set->Shape()[0];) {
-    int cur_progress = 1000.0 * i / dataset.train_set->Shape()[0];
-    // LOG(INFO) << "progress " << i ;
-    if(cur_progress > progress) {
-      progress = cur_progress;
-      std::cout << "partition ... "<< progress / 10  << "." << progress % 10 << " %," 
-                << " get_neighbor_time " << get_neighbor_time  
-                << " score_time " << score_time
-                << " set_union_time " << set_union_time
-                << "\r" << std::flush;
-    }
-    int thread_num = i + RunConfig::omp_thread_num <= dataset.train_set->Shape()[0] ? 
-      RunConfig::omp_thread_num : dataset.train_set->Shape()[0] - i;
-    std::vector<IdType> neighbors[thread_num];
-    Timer t0;
-// #pragma omp parallel for num_threads(thread_num)
-    for(IdType j = 0; j < thread_num; j++) {
-      neighbors[j] = GetNeighbor(dataset, trainset[i + j]);
-    }
-    get_neighbor_time += t0.Passed();
-    if(i == 0) {
-      for(IdType j = 0; j < thread_num; j++) {
-        LOG(INFO) << "neighbor num " << neighbors[j].size();
-      }
-    }
-    for(IdType j = 0; j < thread_num; j++) {
-      Timer t1;
-      auto vertex = trainset[i + j];
-      auto &cur_neighbor = neighbors[j];
-      double s = score(0, cur_neighbor);
-      IdType p = 0;
-      for(auto k = 1; k < partition_num; k++) {
-        double tmp_s = score(k, cur_neighbor);
-        if(tmp_s > s) {
-          s = tmp_s, p = k;
-        }
-      }
-      score_time += t1.Passed();
-      Timer t2;
-#pragma omp parallel for num_threads(thread_num)
-      for(IdType k = 0; k < cur_neighbor.size(); k++) {
-        if(partition_nodes[p][cur_neighbor[k]] == 0) {
-          partition_nodes[p][cur_neighbor[k]] = 1;
-          partition_nodes_size[p]++;
-        }
-      }
-      if(partition_trainsets[p][vertex] == 0) {
-        partition_trainsets[p][vertex] = 1;
-        partition_trainsets_size[p]++;
-      }
-      set_union_time += t2.Passed();
-    }
-    i += thread_num;
+  double get_neighbor_time = 0, score_time = 0, set_union_time = 0;
+  omp_lock_t lock;
+  omp_init_lock(&lock);
+  IdType get_neighb_idx = 0;
+  std::queue<std::tuple<IdType, IdType*, size_t>> ready_neighbor;
+
+  for(IdType i = 0; i < dataset.train_set->Shape()[0]; i++) {
+    GetNeighbor(dataset, trainset[i]);
   }
+  CHECK(false);
+
+#pragma omp parallel num_threads(RunConfig::omp_thread_num)
+  {
+    if(omp_get_thread_num() > 0) {
+      while(true) {
+        omp_set_lock(&lock);
+        auto ready_num = ready_neighbor.size();
+        omp_unset_lock(&lock);
+        if(ready_num > 10000) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        }
+        IdType my_idx;
+#pragma omp atomic capture
+        my_idx = get_neighb_idx++;
+        if(my_idx > dataset.train_set->Shape()[0]) {
+          break;
+        }
+        IdType v = trainset[my_idx];
+        auto neighbor = GetNeighbor(dataset, v);
+        omp_set_lock(&lock);
+        ready_neighbor.push(neighbor);
+        omp_unset_lock(&lock);  
+      }
+    } else {
+      for(IdType i = 0; i < dataset.train_set->Shape()[0];) {
+        Timer t0;
+        omp_set_lock(&lock);
+        bool ready = ready_neighbor.size() > 0;
+        omp_unset_lock(&lock);
+        if(!ready) {
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+          get_neighbor_time += t0.Passed();
+          continue;
+        }
+        omp_set_lock(&lock);
+        auto neighbor = ready_neighbor.front();
+        ready_neighbor.pop();
+        omp_unset_lock(&lock);
+          
+        int cur_progress = 10000.0 * i / dataset.train_set->Shape()[0];
+        if(cur_progress > progress) {
+          progress = cur_progress;
+          std::cout << "partition ... "<< progress / 100  << "." << progress % 100 << " %," 
+                    << " get_neighbor_time " << get_neighbor_time  
+                    << " score_time " << score_time
+                    << " set_union_time " << set_union_time
+                    << "\r" << std::flush;
+        }
+        
+        Timer t1;
+        auto vertex = std::get<0>(neighbor);
+        auto neighbor_node = std::get<1>(neighbor);
+        auto neighbor_num = std::get<2>(neighbor);
+        double scores[partition_num];
+        IdType max_score_idx[partition_num];
+        IdType p = 0;
+#pragma omp parallel for num_threads(partition_num)
+        for(auto k = 0; k < partition_num; k++) {
+          scores[k] = score(k, neighbor_node, neighbor_num);
+          max_score_idx[k] = k;
+        }
+        std::sort(max_score_idx, max_score_idx + partition_num, [&](IdType x, IdType y) {
+          return scores[x] > scores[y];
+        });
+        if(scores[max_score_idx[0]] == 0) {
+          IdType i = 0;
+          while(i < partition_num && scores[max_score_idx[i]] == 0)
+            i++;
+          IdType min_size = partition_nodes_num[max_score_idx[0]];
+          p = max_score_idx[0];
+          for(IdType j = 1; j < i; j++) {
+            if(partition_nodes_num[max_score_idx[j]] < min_size) {
+              min_size = partition_nodes_num[max_score_idx[j]];
+              p = max_score_idx[j];
+            }
+          }
+        }
+        else if(std::abs(scores[max_score_idx[0]] - scores[max_score_idx[1]]) < 1e-6) {
+          if(partition_nodes_num[max_score_idx[0]] < partition_nodes_num[max_score_idx[1]]) {
+            p = max_score_idx[0];
+          } else {
+            p =  max_score_idx[1];
+          }
+        } else {
+          p = max_score_idx[0];
+        }
+        score_time += t1.Passed();
+        Timer t2;
+// #pragma omp parallel for num_threads(8)
+        for(IdType k = 0; k < neighbor_num; k++) {
+          if(partition_nodes[p][neighbor_node[k]] == 0) {
+            partition_nodes[p][neighbor_node[k]] = 1;
+            partition_nodes_num[p]++;
+          }
+        }
+        if(partition_trainsets[p][vertex] == 0) {
+          partition_trainsets[p][vertex] = 1;
+          partition_trainsets_num[p]++;
+        }
+        set_union_time += t2.Passed();
+        Device::Get(CPU())->FreeWorkspace(CPU(), neighbor_node);
+        i++;
+      }
+    }
+  }
+  omp_destroy_lock(&lock);
+#else 
+
+#endif
+//   for(IdType i = 0; i < dataset.train_set->Shape()[0];) {
+//     int cur_progress = 1000.0 * i / dataset.train_set->Shape()[0];
+//     // LOG(INFO) << "progress " << i ;
+//     if(cur_progress > progress) {
+//       progress = cur_progress;
+//       std::cout << "partition ... "<< progress / 10  << "." << progress % 10 << " %," 
+//                 << " get_neighbor_time " << get_neighbor_time  
+//                 << " score_time " << score_time
+//                 << " set_union_time " << set_union_time
+//                 << "\r" << std::flush;
+//     }
+//     int thread_num = i + RunConfig::omp_thread_num <= dataset.train_set->Shape()[0] ? 
+//       RunConfig::omp_thread_num : dataset.train_set->Shape()[0] - i;
+//     std::vector<IdType> neighbors[thread_num];
+//     Timer t0;
+// // #pragma omp parallel for num_threads(thread_num)
+//     for(IdType j = 0; j < thread_num; j++) {
+//       neighbors[j] = GetNeighbor(dataset, trainset[i + j]);
+//     }
+//     get_neighbor_time += t0.Passed();
+//     if(i == 0) {
+//       for(IdType j = 0; j < thread_num; j++) {
+//         LOG(INFO) << "neighbor num " << neighbors[j].size();
+//       }
+//     }
+//     for(IdType j = 0; j < thread_num; j++) {
+//       Timer t1;
+//       auto vertex = trainset[i + j];
+//       auto &cur_neighbor = neighbors[j];
+//       double s = score(0, cur_neighbor);
+//       IdType p = 0;
+//       for(auto k = 1; k < partition_num; k++) {
+//         double tmp_s = score(k, cur_neighbor);
+//         if(tmp_s > s) {
+//           s = tmp_s, p = k;
+//         }
+//       }
+//       score_time += t1.Passed();
+//       Timer t2;
+// #pragma omp parallel for num_threads(thread_num)
+//       for(IdType k = 0; k < cur_neighbor.size(); k++) {
+//         if(partition_nodes[p][cur_neighbor[k]] == 0) {
+//           partition_nodes[p][cur_neighbor[k]] = 1;
+//           partition_nodes_num[p]++;
+//         }
+//       }
+//       if(partition_trainsets[p][vertex] == 0) {
+//         partition_trainsets[p][vertex] = 1;
+//         partition_trainsets_num[p]++;
+//       }
+//       set_union_time += t2.Passed();
+//     }
+//     i += thread_num;
+//   }
   LOG(INFO) << "partition vertex done";
   LOG(INFO) << "partition_node_num:" 
-            << std::accumulate(partition_nodes_size, 
-                partition_nodes_size + partition_num, std::string{""}, 
+            << std::accumulate(partition_nodes_num, 
+                partition_nodes_num + partition_num, std::string{""}, 
                 [](const std::string& init, const IdType first) -> std::string {
                   return init + " " + std::to_string(first);
               });
   LOG(INFO) << "partition_trainset_num:"
-            << std::accumulate(partition_trainsets_size, 
-                partition_trainsets_size + partition_num, std::string{""}, 
+            << std::accumulate(partition_trainsets_num, 
+                partition_trainsets_num + partition_num, std::string{""}, 
                 [](const std::string& init, const IdType first) -> std::string {
                   return init + " " + std::to_string(first);
                 });
-  CHECK(false);
+  // CHECK(false);
+  LOG(INFO) << "making partition ...";
+  MakePartition(dataset, partition_num, 
+    partition_nodes, partition_nodes_num, 
+    partition_trainsets, partition_trainsets_num);
+
+  LOG(INFO) << "making partition dataset ...";
+  MakePartitionDataset(dataset);
+
+  _iter = _partitions.begin();
+
+  for(int p = 0; p < partition_num; p++) {
+    Device::Get(CPU())->FreeWorkspace(CPU(), partition_nodes[p]);
+    Device::Get(CPU())->FreeWorkspace(CPU(), partition_trainsets[p]);
+  }
+} 
+
+Dataset* PaGraphPartition::GetNextPartition(Context ctx) {
+  auto dataset_cpu2gpu = [&](Dataset& dataset) {
+    dataset.indptr = Tensor::CopyTo(dataset.indptr, ctx);
+    dataset.indices = Tensor::CopyTo(dataset.indices, ctx);
+  };
+  auto dataset_gpu2cpu = [](Dataset& dataset) {
+    CHECK(false);
+  };
+  if(_iter == _partitions.end()) {
+    return nullptr;
+  } else {
+    if(_iter != _partitions.begin()) {
+      auto prev = _iter;
+      prev--;
+      dataset_gpu2cpu(*prev->get());
+      _loaded_partition = -1;
+    }
+    auto partition = (_iter++)->get();
+    dataset_cpu2gpu(*partition);
+    _loaded_partition = _iter - _partitions.begin();
+    return partition;
+  }
 }
 
-std::vector<IdType> PaGraphPartition::GetNeighbor(const Dataset& dataset, IdType vertex) {
+TensorPtr PaGraphPartition::GetGlobalNodeId(const IdType* input_nodes, IdType input_num) {
+  CHECK(_loaded_partition != -1);
+  auto res_ts = Tensor::Empty(DataType::kI32, {input_num}, CPU(), "");
+  auto res = static_cast<IdType*>(res_ts->MutableData());
+  auto nodeId_map = static_cast<const IdType*>(_nodeId_map[_loaded_partition]->Data());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+  for(IdType i = 0; i < input_num; i++) {
+    res[i] = nodeId_map[input_nodes[i]];
+  }
+  return res_ts;
+}
+
+std::tuple<IdType, IdType*, size_t> PaGraphPartition::GetNeighbor(const Dataset& dataset, IdType vertex) {
   const IdType* indptr = static_cast<const IdType*>(dataset.indptr->Data());
   const IdType* indices = static_cast<const IdType*>(dataset.indices->Data());
-  std::vector<IdType> tmp_neighbor[_hop_num];
+  // std::vector<IdType> tmp_neighbor[_hop_num];
+  IdType* tmp_neighbor[_hop_num];
+  IdType tmp_neighbor_num[_hop_num] = {0};
   Timer t0;
   phmap::flat_hash_set<IdType> vis;
-  for(IdType i = indptr[vertex]; i < indptr[vertex + 1]; i++) {
-    tmp_neighbor[0].push_back(indices[i]);
+  IdType off = indptr[vertex];
+  IdType len = indptr[vertex + 1] - indptr[vertex];
+  vis.insert(vertex);
+  tmp_neighbor[0] = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), sizeof(IdType) * len));
+  tmp_neighbor_num[0] = len;
+  for(IdType i = 0; i < len; i++) {
+    tmp_neighbor[0][i] = indices[off + i];
     vis.insert(indices[i]);
   }
   LOG(INFO) << "hop 0 time " << t0.Passed();
   for(int l = 1; l < _hop_num; l++) {
     Timer t1;
-    IdType edge_num = 0;
-    for(auto v : tmp_neighbor[l-1]) {
+    IdType max_neighbor_num = 0;
+    for(IdType i = 0; i < tmp_neighbor_num[l-1]; i++) {
+      IdType v = tmp_neighbor[l-1][i];
+      max_neighbor_num += indptr[v+1] - indptr[v];
+    }
+    tmp_neighbor[l] = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+      CPU(), sizeof(IdType) * max_neighbor_num));
+    for(IdType i = 0; i < tmp_neighbor_num[l-1]; i++) {
+      IdType v = tmp_neighbor[l-1][i];
       IdType off = indptr[v];
       IdType len = indptr[v + 1] - indptr[v];
-      edge_num += len;
       for(IdType i = 0; i < len; i++) {
         if(vis.find(indices[off + i]) == vis.end()) {
-          tmp_neighbor[l].push_back(indices[off + i]);
+          IdType pos = tmp_neighbor_num[l]++;
+          tmp_neighbor[l][pos] = indices[off + i];
           vis.insert(indices[off + i]);
         }
       }
     }
     LOG(INFO) << "hop " << l 
-              << " cur_edge " << edge_num
+              << " cur_edge " << max_neighbor_num
               << " tot_node " << vis.size()
-              << " cur_neighbor_size " << tmp_neighbor[l].size() << " time " << t1.Passed();
+              << " cur_neighbor_size " << tmp_neighbor_num[l] << " time " << t1.Passed();
   }
-  return std::vector<IdType>(vis.begin(), vis.end());
+  for(int l = 0; l < _hop_num; l++) {
+    Device::Get(CPU())->FreeWorkspace(CPU(), tmp_neighbor[l]);
+  }
+
+  IdType* ret = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+    CPU(), sizeof(IdType) * vis.size()));
+  std::copy(vis.begin(), vis.end(), ret);
+  return {vertex, ret, vis.size()};
 
 //   IdType* neighbor[_hop_num];
 //   IdType neighbor_num[_hop_num] = {indptr[vertex + 1] - indptr[vertex]};
@@ -455,6 +647,175 @@ std::vector<IdType> PaGraphPartition::GetNeighbor(const Dataset& dataset, IdType
 //     Device::Get(CPU())->FreeWorkspace(CPU(), neighbor[l]);
 //   }
 //   return std::vector<IdType>(set.begin(), set.end());
+}
+
+void PaGraphPartition::MakePartition(
+  const Dataset& dataset, IdType partition_num, 
+  IdType* partition_nodes[], IdType partition_nodes_num[], 
+  IdType* partition_trainset[], IdType partition_trainset_num[]
+) {
+  auto indptr = static_cast<const IdType*>(dataset.indptr->Data());
+  auto indices = static_cast<const IdType*>(dataset.indices->Data());
+
+  size_t partition_tot_indices = 0;
+  size_t partition_tot_indptr = 0;
+  for(int p = 0; p < partition_num; p++) {
+    // indptr & indices
+    auto partition = std::make_unique<Dataset>();
+    IdType cur_indptr_size = partition_nodes_num[p] + 1;
+    IdType cur_indices_size = 0;
+    // compact node
+    auto node_pos_ts = Tensor::Empty(DataType::kI32, {dataset.num_node}, CPU(), "");
+    IdType* node_pos = static_cast<IdType*>(node_pos_ts->MutableData());
+    __gnu_parallel::partial_sum(partition_nodes[p], partition_nodes[p] + dataset.num_node, node_pos);
+    CHECK(node_pos[dataset.num_node - 1] == partition_nodes_num[p]);
+    auto cur_node_ts = Tensor::Empty(DataType::kI32, {partition_nodes_num[p]}, CPU(), "");
+    IdType* cur_node = static_cast<IdType*>(cur_node_ts->MutableData());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < dataset.num_node; i++) {
+      if(partition_nodes[p][i]) {
+        IdType pos = node_pos[i] - 1;
+        cur_node[pos] = i;
+      }
+    }
+    LOG(INFO) << "compact node done";
+    auto tmp_indptr_ts = Tensor::Empty(DataType::kI32, {cur_indptr_size}, CPU(), "");
+    auto cur_indptr_ts = Tensor::Empty(DataType::kI32, {cur_indptr_size}, CPU(), 
+      "partition_indptr_" + std::to_string(p));
+    IdType* tmp_indptr = static_cast<IdType*>(tmp_indptr_ts->MutableData());
+    IdType* cur_indptr = static_cast<IdType*>(cur_indptr_ts->MutableData());
+    tmp_indptr[0] = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < partition_nodes_num[p]; i++) {
+      IdType v = cur_node[i];
+      tmp_indptr[i + 1] = indptr[v + 1] - indptr[v];
+    }
+    __gnu_parallel::partial_sum(tmp_indptr, tmp_indptr + partition_nodes_num[p] + 1, 
+      cur_indptr);
+    cur_indices_size = cur_indptr[partition_nodes_num[p]];
+    auto cur_indices_ts = Tensor::Empty(DataType::kI32, {cur_indices_size}, CPU(), 
+      "partition_indices_" + std::to_string(p));
+    IdType* cur_indices = static_cast<IdType*>(cur_indices_ts->MutableData());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < partition_nodes_num[p]; i++) {
+      IdType v = cur_node[i];
+      IdType off = indptr[v];
+      IdType new_off = cur_indptr[i];
+      IdType len = indptr[v + 1] - indptr[v];
+      IdType new_len = cur_indptr[i + 1] - cur_indptr[i];
+      CHECK(new_len == len);
+      for(IdType j = 0; j < len; j++) {
+        cur_indices[new_off + j] = node_pos[indices[off + j]];
+      }
+    }
+    partition_tot_indptr += cur_indptr_size;
+    partition_tot_indices += cur_indices_size;
+    LOG(INFO) << "get partition indptr indices";
+
+    auto trainset_pos_ts = Tensor::Empty(DataType::kI32, {dataset.num_node}, CPU(), "");
+    IdType* trainset_pos = static_cast<IdType*>(trainset_pos_ts->MutableData());
+    __gnu_parallel::partial_sum(partition_trainset[p], partition_trainset[p] + dataset.num_node,
+      trainset_pos);
+    CHECK(trainset_pos[dataset.num_node - 1] == partition_trainset_num[p]);
+    auto trainset_ts = Tensor::Empty(DataType::kI32, {partition_trainset_num[p]}, CPU(), "");
+    IdType* trainset = static_cast<IdType*>(trainset_ts->MutableData());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < dataset.num_node; i++) {
+      if(partition_trainset[p][i]) {
+        IdType pos = trainset_pos[i] - 1;
+        trainset[pos] = node_pos[i];
+      }
+    }
+    LOG(INFO) << "compact trianset done";
+
+    partition->indptr = cur_indptr_ts;
+    partition->indices = cur_indices_ts;
+    partition->train_set = trainset_ts;
+    _partitions.emplace_back(std::move(partition));
+    _nodeId_map.push_back(node_pos_ts);
+  }
+  LOG(INFO) << "partition_tot_indptr " << partition_tot_indptr
+            << " partition_tot_indices " << partition_tot_indices
+            << " ratio " << 1.0 * partition_tot_indptr / dataset.indptr->Shape()[0]
+            << " " << 1.0 * partition_tot_indices / dataset.indices->Shape()[0];
+}
+
+void PaGraphPartition::MakePartitionDataset(const Dataset& dataset) {
+  auto nodeLabel = [](Dataset &partition, TensorPtr nodeId_map_ts, TensorPtr label_ts) -> TensorPtr {
+    if(label_ts == nullptr || label_ts->Data() == nullptr) {
+      return nullptr;
+    }
+    CHECK(label_ts->Shape().size() == 1);
+    TensorPtr res_ts = Tensor::Empty(label_ts->Type(), {partition.num_node}, CPU(), "");
+    auto nodeId_map = static_cast<const IdType*>(nodeId_map_ts->Data());
+    if(label_ts->Type() == DataType::kI32) {
+      auto label = static_cast<const IdType*>(label_ts->Data());
+      auto res = static_cast<IdType*>(res_ts->MutableData());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < partition.num_node; i++) {
+        IdType v = nodeId_map[i];
+        res[i] = label[v];
+      }
+      return res_ts;
+    } else if(label_ts->Type() == DataType::kI64) {
+      auto label = static_cast<const uint64_t*>(label_ts->Data());
+      auto res = static_cast<uint64_t*>(res_ts->MutableData());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < partition.num_node; i++) {
+        IdType v = nodeId_map[i];
+        res[i] = label[v];
+      }
+      return res_ts;
+    } else {
+      CHECK(false);
+    }
+  };
+  for(size_t i = 0; i < _partitions.size(); i++) {
+    auto&p = _partitions[i];
+    p->num_edge = p->indices->Shape()[0];
+    p->num_node = p->indptr->Shape()[0] - 1;
+    p->num_class = dataset.num_class;
+    LOG(INFO) << "partition_" << i 
+              << " num_edge " << p->num_edge
+              << " num_node " << p->num_node;
+
+
+    CHECK(dataset.prob_table->Data() == nullptr);
+    CHECK(dataset.alias_table->Data() == nullptr);
+    CHECK(dataset.prob_prefix_table->Data() == nullptr);
+
+    p->prob_table = Tensor::Null();
+    p->alias_table = Tensor::Null();
+    p->prob_prefix_table = Tensor::Null();
+
+    p->label = nodeLabel(*p, _nodeId_map[i], dataset.label);
+    p->in_degrees = nodeLabel(*p, _nodeId_map[i], dataset.in_degrees);
+    p->out_degrees = nodeLabel(*p, _nodeId_map[i], dataset.out_degrees);
+  }
+
+  if(dataset.ranking_nodes != nullptr && dataset.ranking_nodes->Data() == nullptr) {
+    CHECK(dataset.ranking_nodes->Shape()[0] == dataset.num_node);
+    auto order_ts = Tensor::Empty(DataType::kI32, {dataset.num_node}, CPU(), "");
+    auto order = static_cast<IdType*>(order_ts->MutableData());
+    auto rank = static_cast<const IdType*>(dataset.ranking_nodes->Data());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < dataset.num_node; i++) {
+      IdType v = rank[i];
+      order[v] = i;
+    }
+    for(auto&p : _partitions) {
+      auto rank_node_ts = Tensor::Empty(DataType::kI32, {p->num_node}, CPU(), "");
+      auto rank_node = static_cast<IdType*>(rank_node_ts->MutableData());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < p->num_node; i++) {
+        rank_node[i] = i;
+      }
+      __gnu_parallel::sort(rank_node, rank_node + p->num_node, [&](IdType x, IdType y) {
+        return order[x] < order[y];
+      });
+      p->ranking_nodes = rank_node_ts;
+    }
+  }
 }
 
 DisjointPartition::DisjointPartition(const Dataset& dataset, IdType partition_num, Context sampler_ctx) {

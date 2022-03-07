@@ -19,6 +19,7 @@
 #include "profiler.h"
 #include "run_config.h"
 #include "timer.h"
+#include "cuda/cuda_engine.h"
 
 namespace samgraph {
 namespace common {
@@ -209,7 +210,11 @@ size_t samgraph_num_class() {
 
 size_t samgraph_feat_dim() {
   // CHECK(Engine::Get()->IsInitialized() && !Engine::Get()->IsShutdown());
-  return Engine::Get()->GetGraphDataset()->feat->Shape().at(1);
+  if(RunConfig::partition && RunConfig::partition_type == PartitionType::PaGraph) {
+    return cuda::GPUEngine::Get()->GetPaPartition().GetFeat()->Shape().at(1);
+  } else {
+    return Engine::Get()->GetGraphDataset()->feat->Shape().at(1);
+  }
 }
 
 uint64_t samgraph_get_next_batch() {

@@ -71,7 +71,8 @@ def get_run_config():
     run_config['arch'] = 'arch3'
     run_config['sample_type'] = 'khop2'
 
-    run_config['fanout'] = [5, 10, 15]
+    # run_config['fanout'] = [5, 10, 15]
+    run_config['fanout'] = [5, 10]
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['weight_decay'] = 0.0005
@@ -127,6 +128,7 @@ def run():
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
 
+    print("before train")
     model.train()
 
     epoch_sample_times = [0 for i in range(num_epoch)]

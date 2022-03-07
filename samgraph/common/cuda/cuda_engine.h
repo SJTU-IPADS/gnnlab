@@ -42,6 +42,7 @@ class GPUEngine : public Engine {
   FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
   SamplingChecker* GetSamplingChecker() { return _sampling_checker; }
   const DisjointPartition& GetPartition() const { return *_dispartition; }
+  PaGraphPartition& GetPaPartition() const { return *_papartition; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }

@@ -35,12 +35,23 @@ class Partition {
 class PaGraphPartition {
  public:
   PaGraphPartition(const Dataset& dataset, IdType partition_num, IdType hop_num, Context sampler_ctx);
+  Dataset* GetNextPartition(Context ctx);
+  TensorPtr GetFeat() const { return _feat; }
+  TensorPtr GetGlobalNodeId(const IdType *input_nodes, IdType input_num);
  private:
+  TensorPtr _feat;
   IdType _hop_num;
+  IdType _loaded_partition;
   std::unique_ptr<Dataset> _gpu_partition;
   std::vector<std::unique_ptr<Dataset>> _partitions;
+  std::vector<std::unique_ptr<Dataset>>::iterator _iter;
+  std::vector<TensorPtr> _nodeId_map; // local Id to global Id
 
-  std::vector<IdType> GetNeighbor(const Dataset& dataset, IdType vertex);
+  std::tuple<IdType, IdType*, size_t> GetNeighbor(const Dataset& dataset, IdType vertex);
+  void MakePartition(const Dataset& dataset, IdType partition_num, 
+    IdType* partition_nodes[], IdType partition_nodes_num[],
+    IdType* partition_trainset[], IdType partition_trainset_num[]);
+  void MakePartitionDataset(const Dataset& dataset);
 };
 
 class DisjointPartition {
