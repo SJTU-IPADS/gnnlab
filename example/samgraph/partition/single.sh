@@ -1,8 +1,10 @@
 log_path=./run_logs/
 
-dataset=com-friendster
+# dataset=com-friendster
 # dataset=papers100M
 # dataset=reddit
+
+dataset=ppi
 
 sample_type=khop0
 sampler=gpu
@@ -22,6 +24,10 @@ cmd="python example/samgraph/train_gcn.py \
     --cache-policy degree \
     --sample-type ${sample_type} \
     --dataset  ${dataset}"
+
+if [ $dataset = "ppi" ]; then
+    cmd="${cmd} --root-path /disk1/wjl/"
+fi
 
 if [ $sampler = "cpu" ]; then
     cmd="${cmd} --arch arch0"

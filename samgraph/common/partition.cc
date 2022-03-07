@@ -310,11 +310,6 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
   IdType get_neighb_idx = 0;
   std::queue<std::tuple<IdType, IdType*, size_t>> ready_neighbor;
 
-  for(IdType i = 0; i < dataset.train_set->Shape()[0]; i++) {
-    GetNeighbor(dataset, trainset[i]);
-  }
-  CHECK(false);
-
 #pragma omp parallel num_threads(RunConfig::omp_thread_num)
   {
     if(omp_get_thread_num() > 0) {
@@ -421,68 +416,76 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
   }
   omp_destroy_lock(&lock);
 #else 
-
+  auto trainset = static_cast<const IdType*>(dataset.train_set->Data());
+  auto indptr = static_cast<const IdType*>(dataset.indptr->Data());
+  auto indices = static_cast<const IdType*>(dataset.indices->Data());
+  for(IdType p = 0, start = 0; p < partition_num; p++) {
+    IdType cur_trainset_num = dataset.train_set->Shape()[0] / partition_num + 
+      (p < dataset.train_set->Shape()[0] % partition_num);
+    LOG(INFO) << "cur_trainset_num " << cur_trainset_num;
+    partition_trainsets_num[p] = cur_trainset_num;
+    IdType* before = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+      CPU(), sizeof(IdType) * dataset.num_node));
+    IdType* after = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
+      CPU(), sizeof(IdType) * dataset.num_node));
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < dataset.num_node; i++) {
+      before[i] = after[i] = 0;
+    }
+    
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < cur_trainset_num; i++) {
+      IdType v = trainset[start + i];
+      partition_trainsets[p][v] = 1;
+      before[v] = 1;
+      partition_nodes[p][v] = 1;
+    }
+    IdType max_neighbor_num = 0;
+    for(IdType k = 0; k < _hop_num; k++) {
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+:max_neighbor_num)
+      for(IdType v = 0; v < dataset.num_node; v++) {
+        if(!before[v])
+          continue;
+        IdType off = indptr[v];
+        IdType len = indptr[v + 1] - indptr[v];
+        max_neighbor_num += len;
+        for(IdType i = 0; i < len; i++) {
+          IdType u = indices[off + i];
+#pragma omp atomic write
+          after[u] = 1;
+        }
+      }
+      LOG(INFO) << "partition " << p << " hop " << k << " max_neighbor " << max_neighbor_num;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+      for(IdType i = 0; i < dataset.num_node; i++) {
+        if(after[i]) {
+          if(partition_nodes[p][i]) {
+            before[i] = 0;
+          } else {
+            before[i] = 1;
+            partition_nodes[p][i] = 1;
+          }
+        } else {
+          before[i] = 0;
+        }
+      }
+    }
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+:partition_nodes_num[p])
+    for(IdType i = 0; i < dataset.num_node; i++) {
+      partition_nodes_num[p] += partition_nodes[p][i];
+    }
+    Device::Get(CPU())->FreeWorkspace(CPU(), before);
+    Device::Get(CPU())->FreeWorkspace(CPU(), after);
+    start += cur_trainset_num;
+  }
 #endif
-//   for(IdType i = 0; i < dataset.train_set->Shape()[0];) {
-//     int cur_progress = 1000.0 * i / dataset.train_set->Shape()[0];
-//     // LOG(INFO) << "progress " << i ;
-//     if(cur_progress > progress) {
-//       progress = cur_progress;
-//       std::cout << "partition ... "<< progress / 10  << "." << progress % 10 << " %," 
-//                 << " get_neighbor_time " << get_neighbor_time  
-//                 << " score_time " << score_time
-//                 << " set_union_time " << set_union_time
-//                 << "\r" << std::flush;
-//     }
-//     int thread_num = i + RunConfig::omp_thread_num <= dataset.train_set->Shape()[0] ? 
-//       RunConfig::omp_thread_num : dataset.train_set->Shape()[0] - i;
-//     std::vector<IdType> neighbors[thread_num];
-//     Timer t0;
-// // #pragma omp parallel for num_threads(thread_num)
-//     for(IdType j = 0; j < thread_num; j++) {
-//       neighbors[j] = GetNeighbor(dataset, trainset[i + j]);
-//     }
-//     get_neighbor_time += t0.Passed();
-//     if(i == 0) {
-//       for(IdType j = 0; j < thread_num; j++) {
-//         LOG(INFO) << "neighbor num " << neighbors[j].size();
-//       }
-//     }
-//     for(IdType j = 0; j < thread_num; j++) {
-//       Timer t1;
-//       auto vertex = trainset[i + j];
-//       auto &cur_neighbor = neighbors[j];
-//       double s = score(0, cur_neighbor);
-//       IdType p = 0;
-//       for(auto k = 1; k < partition_num; k++) {
-//         double tmp_s = score(k, cur_neighbor);
-//         if(tmp_s > s) {
-//           s = tmp_s, p = k;
-//         }
-//       }
-//       score_time += t1.Passed();
-//       Timer t2;
-// #pragma omp parallel for num_threads(thread_num)
-//       for(IdType k = 0; k < cur_neighbor.size(); k++) {
-//         if(partition_nodes[p][cur_neighbor[k]] == 0) {
-//           partition_nodes[p][cur_neighbor[k]] = 1;
-//           partition_nodes_num[p]++;
-//         }
-//       }
-//       if(partition_trainsets[p][vertex] == 0) {
-//         partition_trainsets[p][vertex] = 1;
-//         partition_trainsets_num[p]++;
-//       }
-//       set_union_time += t2.Passed();
-//     }
-//     i += thread_num;
-//   }
   LOG(INFO) << "partition vertex done";
   LOG(INFO) << "partition_node_num:" 
             << std::accumulate(partition_nodes_num, 
                 partition_nodes_num + partition_num, std::string{""}, 
-                [](const std::string& init, const IdType first) -> std::string {
-                  return init + " " + std::to_string(first);
+                [&](const std::string& init, const IdType first) -> std::string {
+                  return init + " " + std::to_string(first) + 
+                    "(" + std::to_string(first * 100 / dataset.num_node) + "%)";
               });
   LOG(INFO) << "partition_trainset_num:"
             << std::accumulate(partition_trainsets_num, 
@@ -490,7 +493,7 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
                 [](const std::string& init, const IdType first) -> std::string {
                   return init + " " + std::to_string(first);
                 });
-  // CHECK(false);
+  CHECK(false);
   LOG(INFO) << "making partition ...";
   MakePartition(dataset, partition_num, 
     partition_nodes, partition_nodes_num, 
@@ -561,7 +564,7 @@ std::tuple<IdType, IdType*, size_t> PaGraphPartition::GetNeighbor(const Dataset&
     tmp_neighbor[0][i] = indices[off + i];
     vis.insert(indices[i]);
   }
-  LOG(INFO) << "hop 0 time " << t0.Passed();
+  // LOG(INFO) << "hop 0 time " << t0.Passed();
   for(int l = 1; l < _hop_num; l++) {
     Timer t1;
     IdType max_neighbor_num = 0;
@@ -583,10 +586,10 @@ std::tuple<IdType, IdType*, size_t> PaGraphPartition::GetNeighbor(const Dataset&
         }
       }
     }
-    LOG(INFO) << "hop " << l 
-              << " cur_edge " << max_neighbor_num
-              << " tot_node " << vis.size()
-              << " cur_neighbor_size " << tmp_neighbor_num[l] << " time " << t1.Passed();
+    // LOG(INFO) << "hop " << l 
+    //           << " cur_edge " << max_neighbor_num
+    //           << " tot_node " << vis.size()
+    //           << " cur_neighbor_size " << tmp_neighbor_num[l] << " time " << t1.Passed();
   }
   for(int l = 0; l < _hop_num; l++) {
     Device::Get(CPU())->FreeWorkspace(CPU(), tmp_neighbor[l]);
@@ -596,57 +599,6 @@ std::tuple<IdType, IdType*, size_t> PaGraphPartition::GetNeighbor(const Dataset&
     CPU(), sizeof(IdType) * vis.size()));
   std::copy(vis.begin(), vis.end(), ret);
   return {vertex, ret, vis.size()};
-
-//   IdType* neighbor[_hop_num];
-//   IdType neighbor_num[_hop_num] = {indptr[vertex + 1] - indptr[vertex]};
-//   neighbor[0] = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
-//     CPU(), sizeof(IdType) * neighbor_num[0]));
-//   IdType off = indptr[vertex];
-//   IdType len = indptr[vertex + 1] - indptr[vertex];
-//   for(IdType i = 0; i < len; i++) {
-//     neighbor[0][i] = indices[off + i];
-//   }
-//   for(int l = 1; l < _hop_num; l++) {
-//     IdType* tmp_cnt = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
-//       CPU(), sizeof(IdType) * (neighbor_num[l-1] + 1)));
-//     IdType* cnt = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
-//       CPU(), sizeof(IdType) * (neighbor_num[l-1] + 1)));
-//     tmp_cnt[0] = 0;
-// #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
-//     for(IdType i = 0; i < neighbor_num[l-1]; i++) {
-//       IdType v = neighbor[l - 1][i];
-//       tmp_cnt[i + 1] = indptr[v + 1] - indptr[v];
-//     }
-//     __gnu_parallel::partial_sum(tmp_cnt, tmp_cnt + neighbor_num[l-1] + 1, cnt);
-//     auto tmp_neighbor = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
-//       CPU(), sizeof(IdType) * cnt[neighbor_num[l-1]]));
-//     neighbor[l] = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
-//       CPU(), sizeof(IdType) * cnt[neighbor_num[l-1]]));
-// #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
-//     for(IdType i = 0; i < neighbor_num[l-1]; i++) {
-//       IdType v = neighbor[l - 1][i];
-//       IdType off = indptr[v];
-//       IdType len = indptr[v + 1] - indptr[v];
-//       IdType pos = cnt[i];
-//       for(IdType j = 0; j < len; j++) {
-//         tmp_neighbor[pos + j] = indices[off + j];
-//       }
-//     }
-//     __gnu_parallel::sort(tmp_neighbor, tmp_neighbor + cnt[neighbor_num[l-1]]);
-//     auto end = __gnu_parallel::unique_copy(
-//       tmp_neighbor, tmp_neighbor + cnt[neighbor_num[l-1]], neighbor[l]);
-//     neighbor_num[l] = end - neighbor[l];
-//     Device::Get(CPU())->FreeWorkspace(CPU(), tmp_cnt);
-//     Device::Get(CPU())->FreeWorkspace(CPU(), cnt);
-//     Device::Get(CPU())->FreeWorkspace(CPU(), tmp_neighbor);
-//   }
-//   phmap::flat_hash_set<IdType> set;
-//   for(IdType l = 0; l < _hop_num; l++) {
-//     for(IdType i = 0; i < neighbor_num[l]; i++)
-//       set.insert(neighbor[l][i]);
-//     Device::Get(CPU())->FreeWorkspace(CPU(), neighbor[l]);
-//   }
-//   return std::vector<IdType>(set.begin(), set.end());
 }
 
 void PaGraphPartition::MakePartition(
