@@ -8,7 +8,6 @@ import numpy as np
 import dgl.function as fn
 from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
 from enum import Enum
@@ -18,6 +17,9 @@ os.environ["NCCL_DEBUG"] = "INFO"
 '''
 import samgraph.torch as sam
 from common_config import *
+from threading import Lock
+
+global_lock = Lock()
 
 """
   We have made the following modification(or say, simplification) on PinSAGE,
@@ -157,6 +159,14 @@ def get_run_config():
 
     return run_config
 
+def get_global_model(run_config):
+    in_feat = sam.feat_dim()
+    num_class = sam.num_class()
+    model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
+                    run_config['num_layer'], F.relu, run_config['dropout'])
+    model.share_memory() # gradients are allocated lazily, so they are not shared here
+
+    return model
 
 def run_init(run_config):
     sam.config(run_config)
@@ -276,6 +286,8 @@ def run_train(worker_id, run_config, trainer_type):
     elif (trainer_type == TrainerType.Switcher):
         ctx = run_config['sample_workers'][worker_id]
         sampler_stop_event = run_config['sampler_stop_event'][worker_id]
+    # for async train exchange parameters
+    global_cpu_model = run_config['global_cpu_model']
 
     # used for sync
     global_barrier = run_config['global_barrier']
@@ -302,7 +314,14 @@ def run_train(worker_id, run_config, trainer_type):
 
     model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
                     num_layer, F.relu, run_config['dropout'])
+    for (param, cpu_param) in zip(model.parameters(), global_cpu_model.parameters()):
+        param.data = cpu_param.data.clone()
     model = model.to(train_device)
+    model_copy = PinSAGE(in_feat, run_config['num_hidden'], num_class,
+                    num_layer, F.relu, run_config['dropout'])
+    for (param, cpu_param) in zip(model_copy.parameters(), global_cpu_model.parameters()):
+        param.data = cpu_param.data.clone()
+    model_copy = model_copy.to(train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
     loss_fcn = loss_fcn.to(train_device)
@@ -313,6 +332,7 @@ def run_train(worker_id, run_config, trainer_type):
     num_step = sam.steps_per_epoch()
 
     model.train()
+    model_copy.train()
 
     epoch_copy_times = []
     epoch_convert_times = []
@@ -357,11 +377,21 @@ def run_train(worker_id, run_config, trainer_type):
             t2 = time.time()
 
             # Compute loss and prediction
+            for (param, copy_param) in zip(model.parameters(), model_copy.parameters()):
+                copy_param.data = param.data.clone()
             batch_pred = model(blocks, batch_input)
             loss = loss_fcn(batch_pred, batch_label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            with global_lock:
+                for (param, copy_param, cpu_param) in zip(model.parameters(),\
+                        model_copy.parameters(), global_cpu_model.parameters()):
+                    delta = param.data - copy_param.data
+                    param.data = cpu_param.data.to(train_device)
+                    param.data += delta
+                    cpu_param.data = param.data.to('cpu')
 
             # wait for the train finish then we can free the data safely
             event_sync()
@@ -448,6 +478,7 @@ if __name__ == '__main__':
 
     num_sample_worker = run_config['num_sample_worker']
     num_train_worker = run_config['num_train_worker']
+    run_config['global_cpu_model'] = get_global_model(run_config)
 
     # global barrier is used to sync all the sample workers and train workers
     run_config['global_barrier'] = mp.Barrier(

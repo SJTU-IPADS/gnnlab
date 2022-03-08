@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "dist_loops.h"
 
 #include "../device.h"
@@ -313,6 +330,10 @@ void DoGraphCopy(TaskPtr task) {
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
+    if (graph->row->Ctx() == trainer_ctx) {
+      CHECK(graph->col->Ctx() == trainer_ctx) << "col ctx needs equal row in graph";
+      continue;
+    }
     auto train_row =
         Tensor::Empty(graph->row->Type(), graph->row->Shape(), trainer_ctx,
                       "train_graph.row_cuda_train_" +
@@ -719,20 +740,26 @@ void DoCacheFeatureCopy(TaskPtr task) {
   size_t num_output_cache = task->miss_cache_index.num_cache;
 
   const IdType *output_miss_src_index = nullptr;
-  const IdType *output_miss_dst_index = nullptr;
-  const IdType *output_cache_src_index = nullptr;
-  const IdType *output_cache_dst_index = nullptr;
+  const IdType *trainer_output_miss_dst_index = nullptr;
+  const IdType *trainer_output_cache_src_index = nullptr;
+  const IdType *trainer_output_cache_dst_index = nullptr;
   if (num_output_miss > 0) {
     output_miss_src_index = static_cast<const IdType *>(
         task->miss_cache_index.miss_src_index->Data());
-    output_miss_dst_index = static_cast<const IdType *>(
+    CHECK_EQ(task->miss_cache_index.miss_dst_index->Ctx(), trainer_ctx)
+      << "output_miss_dst_index should be in trainer GPU";
+    trainer_output_miss_dst_index = static_cast<const IdType *>(
         task->miss_cache_index.miss_dst_index->Data());
   }
 
   if (num_output_cache > 0) {
-    output_cache_src_index = static_cast<const IdType *>(
+    CHECK_EQ(task->miss_cache_index.cache_src_index->Ctx(), trainer_ctx)
+      << "output_cache_src_index should be in trainer GPU";
+    trainer_output_cache_src_index = static_cast<const IdType *>(
         task->miss_cache_index.cache_src_index->Data());
-    output_cache_dst_index = static_cast<const IdType *>(
+    CHECK_EQ(task->miss_cache_index.cache_dst_index->Ctx(), trainer_ctx)
+      << "output_cache_dst_index should be in trainer GPU";
+    trainer_output_cache_dst_index = static_cast<const IdType *>(
         task->miss_cache_index.cache_dst_index->Data());
   }
 
@@ -743,30 +770,6 @@ void DoCacheFeatureCopy(TaskPtr task) {
   Timer t1;
 
   const IdType *cpu_output_miss_src_index = output_miss_src_index;
-  IdType *trainer_output_miss_dst_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_miss));
-  IdType *trainer_output_cache_src_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_cache));
-  IdType *trainer_output_cache_dst_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_cache));
-
-  trainer_device->CopyDataFromTo(output_miss_dst_index, 0,
-                                 trainer_output_miss_dst_index, 0,
-                                 num_output_miss * sizeof(IdType), cpu_ctx,
-                                 trainer_ctx, trainer_copy_stream);
-  trainer_device->CopyDataFromTo(output_cache_src_index, 0,
-                                 trainer_output_cache_src_index, 0,
-                                 num_output_cache * sizeof(IdType), cpu_ctx,
-                                 trainer_ctx, trainer_copy_stream);
-  trainer_device->CopyDataFromTo(output_cache_dst_index, 0,
-                                 trainer_output_cache_dst_index, 0,
-                                 num_output_cache * sizeof(IdType), cpu_ctx,
-                                 trainer_ctx, trainer_copy_stream);
-
-  trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
   double copy_idx_time = t1.Passed();
 
@@ -818,9 +821,6 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   // 7. Free space
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
 
   Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
                           train_feat->NumBytes());
@@ -928,10 +928,9 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   LOG(DEBUG) << "DoCPULabelExtractAndCopy: process task with key " << task->key;
 }
 
-void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task) {
+void DoArch6GetCacheMissIndex(TaskPtr task) {
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
-  auto cpu_device = Device::Get(CPU());
   auto stream = DistEngine::Get()->GetTrainerCopyStream();
 
   auto dataset = DistEngine::Get()->GetGraphDataset();
@@ -939,22 +938,9 @@ void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task) {
 
   auto input_nodes = task->input_nodes;
   auto feat = dataset->feat;
-  auto feat_dim = dataset->feat->Shape()[1];
-  auto feat_type = dataset->feat->Type();
 
   auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
   auto num_input = input_nodes->Shape()[0];
-
-  CHECK_EQ(input_nodes->Ctx().device_type, trainer_ctx.device_type);
-  CHECK_EQ(input_nodes->Ctx().device_id, trainer_ctx.device_id);
-
-  auto train_feat =
-      Tensor::Empty(feat_type, {num_input, feat_dim}, trainer_ctx,
-                    "task.train_feat_cuda_" + std::to_string(task->key));
-
-  // 0. Get index of miss data and cache data
-  // feature data has cache, so we only need to extract the miss data
-  Timer t0;
 
   IdType *trainer_output_miss_src_index = static_cast<IdType *>(
       trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
@@ -976,6 +962,68 @@ void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task) {
 
   CHECK_EQ(num_output_miss + num_output_cache, num_input);
 
+  auto dtype = task->input_nodes->Type();
+  // To be freed in task queue after serialization
+  task->miss_cache_index.miss_src_index =
+      Tensor::FromBlob(trainer_output_miss_src_index, dtype, {num_output_miss},
+                       trainer_ctx, "miss_src_index");
+  task->miss_cache_index.miss_dst_index =
+      Tensor::FromBlob(trainer_output_miss_dst_index, dtype, {num_output_miss},
+                       trainer_ctx, "miss_dst_index");
+  task->miss_cache_index.cache_src_index =
+      Tensor::FromBlob(trainer_output_cache_src_index, dtype,
+                       {num_output_cache}, trainer_ctx, "cache_src_index");
+  task->miss_cache_index.cache_dst_index =
+      Tensor::FromBlob(trainer_output_cache_dst_index, dtype,
+                       {num_output_cache}, trainer_ctx, "cache_dst_index");
+
+  trainer_device->StreamSync(trainer_ctx, stream);
+
+  task->miss_cache_index.num_miss = num_output_miss;
+  task->miss_cache_index.num_cache = num_output_cache;
+}
+
+void DoArch6CacheFeatureCopy(TaskPtr task) {
+  auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
+  auto trainer_device = Device::Get(trainer_ctx);
+  auto cpu_device = Device::Get(CPU());
+  auto stream = DistEngine::Get()->GetTrainerCopyStream();
+
+  auto dataset = DistEngine::Get()->GetGraphDataset();
+  auto cache_manager = DistEngine::Get()->GetGPUCacheManager();
+
+  auto input_nodes = task->input_nodes;
+  auto feat = dataset->feat;
+  auto feat_dim = dataset->feat->Shape()[1];
+  auto feat_type = dataset->feat->Type();
+
+  auto num_input = input_nodes->Shape()[0];
+
+  CHECK_EQ(input_nodes->Ctx().device_type, trainer_ctx.device_type);
+  CHECK_EQ(input_nodes->Ctx().device_id, trainer_ctx.device_id);
+
+  auto train_feat =
+      Tensor::Empty(feat_type, {num_input, feat_dim}, trainer_ctx,
+                    "task.train_feat_cuda_" + std::to_string(task->key));
+
+  // 0. Get index of miss data and cache data
+  // feature data has cache, so we only need to extract the miss data
+  Timer t0;
+
+  size_t num_output_miss = task->miss_cache_index.num_miss;
+  size_t num_output_cache = task->miss_cache_index.num_cache;
+
+  IdType *trainer_output_miss_src_index = static_cast<IdType *>(
+      task->miss_cache_index.miss_src_index->MutableData());
+  IdType *trainer_output_miss_dst_index = static_cast<IdType *>(
+      task->miss_cache_index.miss_dst_index->MutableData());
+  IdType *trainer_output_cache_src_index = static_cast<IdType *>(
+      task->miss_cache_index.cache_src_index->MutableData());
+  IdType *trainer_output_cache_dst_index = static_cast<IdType *>(
+      task->miss_cache_index.cache_dst_index->MutableData());
+
+  CHECK_EQ(num_output_miss + num_output_cache, num_input);
+
   double get_index_time = t0.Passed();
 
   // 1. Move the miss index
@@ -990,8 +1038,6 @@ void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task) {
       num_output_miss * sizeof(IdType), trainer_ctx, CPU(), stream);
 
   trainer_device->StreamSync(trainer_ctx, stream);
-
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_src_index);
 
   double copy_idx_time = t1.Passed();
 
@@ -1044,9 +1090,10 @@ void DoGetCacheMissIndexAndFeatureCopy(TaskPtr task) {
   // 5. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
+  task->miss_cache_index.miss_src_index = nullptr;
+  task->miss_cache_index.miss_dst_index = nullptr;
+  task->miss_cache_index.cache_src_index = nullptr;
+  task->miss_cache_index.cache_dst_index = nullptr;
 
   Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
                           train_feat->NumBytes());
