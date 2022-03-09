@@ -95,7 +95,7 @@ def write_meta():
 
 
 if __name__ == '__main__':
-    assert(os.system(f'mkdir -p {PRODUCTS_RAW_DATA_DIR}'))
+    assert(os.system(f'mkdir -p {PRODUCTS_RAW_DATA_DIR}') == 0)
     assert(os.system(f'mkdir -p {OUTPUT_DATA_DIR}') == 0)
 
     download_data()
