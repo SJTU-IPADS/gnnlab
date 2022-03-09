@@ -1,10 +1,10 @@
 log_path=./run_logs/
 
-# dataset=com-friendster
+dataset=com-friendster
 # dataset=papers100M
 # dataset=reddit
 
-dataset=ppi
+# dataset=ppi
 
 sample_type=khop0
 sampler=gpu

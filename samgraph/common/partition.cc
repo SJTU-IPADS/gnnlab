@@ -288,11 +288,12 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
     }
   }
 
-#if 0
+#if 1
   const double avg_tv = 1.0 * dataset.train_set->Shape()[0] / partition_num;
   auto score = [&](IdType p, IdType* neighbor, IdType neighbor_num) -> double {
     double comm_node = 0;
     // for(auto v : neighbor) {
+#pragma omp parallel for num_threads(12) reduction(+:comm_node)
     for(IdType i = 0; i < neighbor_num; i++) {
       IdType v = neighbor[i];
       comm_node += partition_trainsets[p][v];
@@ -301,6 +302,7 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
     return 1.0 * comm_node * balance;
   };
 
+  Timer partition_time;
   int progress = 0;
   const IdType* trainset = static_cast<const IdType*>(dataset.train_set->Data());
   LOG(INFO) << "start partition ...";
@@ -355,6 +357,7 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
                     << " get_neighbor_time " << get_neighbor_time  
                     << " score_time " << score_time
                     << " set_union_time " << set_union_time
+                    << " tot_time " << partition_time.Passed()
                     << "\r" << std::flush;
         }
         
@@ -397,7 +400,7 @@ PaGraphPartition::PaGraphPartition(const Dataset& dataset, IdType partition_num,
         }
         score_time += t1.Passed();
         Timer t2;
-// #pragma omp parallel for num_threads(8)
+#pragma omp parallel for num_threads(8)
         for(IdType k = 0; k < neighbor_num; k++) {
           if(partition_nodes[p][neighbor_node[k]] == 0) {
             partition_nodes[p][neighbor_node[k]] = 1;

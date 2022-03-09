@@ -9,6 +9,7 @@ sampler=gpu
 um=1
 um_in_cpu=1
 um_factor=0
+um_policy=default
 
 
 if [[ ! -z "${DATA_SET}" ]]; then
@@ -26,6 +27,9 @@ fi
 if [[ ! -z "${UM_FACTOR}" ]]; then
     um_factor=$UM_FACTOR
 fi
+if [[ ! -z "${UM_POLICY}" ]]; then
+    um_policy=$UM_POLICY
+fi
 
 
 log_file=${log_path}gcn_${dataset}_`date +%m-%d#%H-%M-%S`.log
@@ -33,6 +37,7 @@ log_file=${log_path}gcn_${dataset}_`date +%m-%d#%H-%M-%S`.log
 cmd="python example/samgraph/train_gcn.py \
     --empty-feat 4 -ll info \
     --cache-policy degree \
+    --um-policy ${UM_POLICY} \
     --sample-type ${sample_type} \
     --dataset  ${dataset}"
 

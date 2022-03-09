@@ -135,3 +135,5 @@ example/auto_runner/run-logs/*
 mem_eator/
 
 *.bin
+
+log_mgr/

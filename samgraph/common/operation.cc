@@ -161,6 +161,22 @@ void samgraph_config(const char **config_keys, const char **config_values,
     LOG(INFO) << "unified_memory_overscribe_factor="
               << RunConfig::unified_memory_overscribe_factor;
   }
+  if(configs.count("um_policy") > 0) {
+    if(configs["um_policy"] == "default") {
+      RunConfig::unified_memory_policy = UMPolicy::kDefault;
+    } else if(configs["um_policy"] == "degree") {
+      RunConfig::unified_memory_policy = UMPolicy::kDegree;
+    } else if(configs["um_policy"] == "trainset") {
+      RunConfig::unified_memory_policy = UMPolicy::kTrainset;
+    } else if(configs["um_policy"] == "random") {
+      RunConfig::unified_memory_policy = UMPolicy::kRandom;
+    } else if(configs["um_policy"] == "presample") {
+      RunConfig::unified_memory_policy = UMPolicy::kPreSample;
+    } else {
+      LOG(FATAL) << "bad um_policy";
+    }
+    LOG(INFO) << "unified_memory_policy" << " " << configs["um_policy"];
+  }
 
   RC::LoadConfigFromEnv();
   LOG(INFO) << "Use " << RunConfig::sample_type << " sampling algorithm";

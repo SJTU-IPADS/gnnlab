@@ -60,6 +60,9 @@ def parse_args(default_run_config):
     argparser.add_argument('--unified-memory-in-cpu', action='store_true')
     argparser.add_argument('--unified-memory-overscribe-factor', type=float,
                             default=0)
+    argparser.add_argument('--um-policy', type=str, 
+        choices=['default', 'degree', 'trainset', 'random', 'presample'],
+        default='default')
 
     return vars(argparser.parse_args())
 
@@ -71,8 +74,8 @@ def get_run_config():
     run_config['arch'] = 'arch3'
     run_config['sample_type'] = 'khop2'
 
-    # run_config['fanout'] = [5, 10, 15]
-    run_config['fanout'] = [5, 10]
+    run_config['fanout'] = [5, 10, 15]
+    # run_config['fanout'] = [5, 10]
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['weight_decay'] = 0.0005

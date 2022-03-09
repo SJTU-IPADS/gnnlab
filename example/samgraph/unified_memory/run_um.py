@@ -33,9 +33,10 @@ from test_cases import *
 
 # cases = Friendster.um_test_gpu_not_use_um + Friendster.um_test_normal_cases + Friendster.um_test_graph_in_cpu 
 # cases = Friendster.um_test_cpu
-cases = Friendster.um_test_graph_in_gpu
+# cases = Friendster.um_test_graph_in_gpu
 
-# cases = Papers100M.um_test_graph_in_gpu + Friendster.um_test_graph_in_gpu
+# cases = Papers100M.um_test_normal_cases + Friendster.um_test_normal_cases
+cases = Papers100M.um_test_normal_cases[-1:]
 
 def um_test_env(case:dict):
     env = dict(os.environ)
@@ -50,15 +51,29 @@ def mem_eator(size):
         ['mem_eator/build/mem_eator.o', str(size)], 
         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+def add_um_policy(cases, policies):
+    res = []
+    for policy in policies:
+        for case in cases:
+            res.append({
+                **case, 
+                'UM_POLICY' : policy
+            })
+    return res
 
 if __name__ == '__main__':
-    for case in cases:
-        eator = mem_eator(int(case[OCP_MEM]))
-        for stdout_line in iter(eator.stdout.readline, ""):
-            line = stdout_line.decode('utf-8')
-            print(line)
-            if 'mem eator' in line:
-                break
+    policies = []
+    # policies += ['default']
+    # policies += ['degree']
+    # policies += ['trainset']
+    policies += ['presample']
+    for case in add_um_policy(cases, policies):
+        # eator = mem_eator(int(case[OCP_MEM]))
+        # for stdout_line in iter(eator.stdout.readline, ""):
+        #     line = stdout_line.decode('utf-8')
+        #     print(line)
+        #     if 'mem eator' in line:
+        #         break
         subprocess.run('nvidia-smi')
         subprocess.run(args=[
             'bash',
@@ -66,4 +81,4 @@ if __name__ == '__main__':
             '-log'
         ], env=um_test_env(case))
 
-        eator.kill()
+        # eator.kill()
