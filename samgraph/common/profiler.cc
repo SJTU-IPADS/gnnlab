@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "profiler.h"
 
 #include <cstdio>
@@ -567,39 +584,58 @@ void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
   }
 
   if (Engine::Get()->GetStepFromKey(key) == Engine::Get()->NumStep()-1) {
-    size_t e_sim_cnt = 0;
-    size_t e_freq_sim_cnt = 0;
-    size_t last_e_nodes = 0, cur_e_nodes = 0;
-    size_t last_e_freqs = 0, cur_e_freqs = 0;
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : e_sim_cnt,last_e_nodes,cur_e_nodes,e_freq_sim_cnt, last_e_freqs, cur_e_freqs)
+    std::vector<std::pair<size_t, IdType>> last_e_records, cur_e_records; // freq, nid
+    std::vector<double> last_e_nid_to_rank(_last_visit.size()), cur_e_nid_to_rank(_last_visit.size()); // nid to rank
+    last_e_records.resize(_last_visit.size());
+    cur_e_records.resize(_last_visit.size());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for (size_t i = 0; i < _last_visit.size(); i++) {
+      last_e_records[i].first = _epoch_last_visit[i];
+      last_e_records[i].second = i;
+      cur_e_records[i].first = _epoch_cur_visit[i];
+      cur_e_records[i].second = i;
+    }
+#ifdef __linux__
+    __gnu_parallel::sort(last_e_records.begin(), last_e_records.end(),
+                         std::greater<std::pair<size_t, IdType>>());
+    __gnu_parallel::sort(cur_e_records.begin(), cur_e_records.end(),
+                         std::greater<std::pair<size_t, IdType>>());
+#else
+    std::sort(last_e_records.begin(), last_e_records.end(),
+              std::greater<std::pair<size_t, IdType>>());
+    std::sort(cur_e_records.begin(), cur_e_records.end(),
+              std::greater<std::pair<size_t, IdType>>());
+#endif
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for (size_t rank = 0; rank < _last_visit.size(); rank++) {
+      last_e_nid_to_rank[last_e_records[rank].second] = rank / (double)_last_visit.size() * 100;
+      cur_e_nid_to_rank[cur_e_records[rank].second] = rank / (double)_last_visit.size() * 100;
+    }
+
+    size_t total_cur_e_top_K_freq = 0;
+    size_t e_min_freq_both_e_top_K = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : e_min_freq_both_e_top_K, total_cur_e_top_K_freq)
     for (size_t i = 0; i < _epoch_last_visit.size(); ++i) {
-      if (_epoch_last_visit[i] && _epoch_cur_visit[i]) {
-        e_sim_cnt++;
-        e_freq_sim_cnt += Min(_epoch_last_visit[i], _epoch_cur_visit[i]);
-      }
-      if (_epoch_last_visit[i]) {
-        last_e_nodes++;
-        last_e_freqs += _epoch_last_visit[i];
+      if (cur_e_nid_to_rank[i] < 10) {
+        total_cur_e_top_K_freq += _epoch_cur_visit[i];
       }
       if (_epoch_cur_visit[i]) {
-        cur_e_nodes++;
-        cur_e_freqs += _epoch_cur_visit[i];
+        if (last_e_nid_to_rank[i] < 10 && cur_e_nid_to_rank[i] < 10) {
+          e_min_freq_both_e_top_K += Min(_epoch_last_visit[i], _epoch_cur_visit[i]);
+        }
       }
     }
+    _epoch_similarity[Engine::Get()->GetEpochFromKey(key)] = e_min_freq_both_e_top_K/(double)total_cur_e_top_K_freq*100;
+    LOG(WARNING) << "top K min freq is both epoch's topK 10%: " 
+                 << e_min_freq_both_e_top_K << "/" 
+                 << total_cur_e_top_K_freq << "="
+                 << e_min_freq_both_e_top_K/(double)total_cur_e_top_K_freq*100;
+    // clean up
     _epoch_last_visit.swap(_epoch_cur_visit);
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for (size_t i = 0; i < _epoch_cur_visit.size(); ++i) {
       _epoch_cur_visit[i] = 0;
     }
-    _epoch_similarity[Engine::Get()->GetEpochFromKey(key)] = e_sim_cnt;
-    LOG(WARNING) << "epoch similarity: "
-                 << e_sim_cnt << "/"
-                 << last_e_nodes << "/"
-                 << cur_e_nodes;
-    LOG(WARNING) << "epoch freq similarity: "
-                 << e_freq_sim_cnt << "/"
-                 << last_e_freqs << "/"
-                 << cur_e_freqs;
   }
 
 }
@@ -789,6 +825,12 @@ void Profiler::ReportNodeAccessSimple() {
   // ofs0.close();
   ofs1.close();
   ofs2.close();
+
+  double similarity_sum = 0;
+  for (size_t e = 1; e < _epoch_similarity.size(); e++) {
+    similarity_sum += _epoch_similarity[e];
+  }
+  printf("test_result:node_access:epoch_similarity=%lf\n", similarity_sum / (_epoch_similarity.size() - 1));
 }
 
 

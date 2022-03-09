@@ -178,6 +178,7 @@ class RunConfig:
                     if m2:
                         key = m2.group(1)
                         value = m2.group(2)
+                        value = '{:.2f}'.format(float(value))
                         self.test_results[key] = value
 
             self.is_log_parsed = True

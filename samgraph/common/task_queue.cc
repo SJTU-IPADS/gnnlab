@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "task_queue.h"
 
 #include "./dist/dist_engine.h"
@@ -9,6 +26,11 @@
 
 namespace samgraph {
 namespace common {
+
+namespace {
+// TODO: hardcode mq bucket size
+size_t mq_nbytes = 50 * 1024 * 1024;
+} // namespace
 
 TaskQueue::TaskQueue(size_t max_len) { _max_len = max_len; }
 
@@ -136,6 +158,8 @@ namespace {
     }
     size_t data_size = sizeof(TransData) + GetDataBytes(task);
     LOG(DEBUG) << "ToData transform data size: " << ToReadableSize(data_size);
+    // TODO: hardcode
+    CHECK_LE(data_size, mq_nbytes) << "Size of batch topology exceeds memory queue capability. Please update `mq_nbytes` and re-compile!";
 
     TransData* ptr = static_cast<TransData*>(shared_ptr);
     ptr->have_data = have_data;
@@ -214,17 +238,26 @@ namespace {
     LOG(DEBUG) << title << "cuda usage: sampler " << ", trainer " << ToReadableSize(get_cuda_used(Engine::Get()->GetTrainerCtx())) << " with pid " << getpid();
   }
 
-  TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name) {
+  TensorPtr ToTensor(const void* ptr, size_t nbytes, std::string name,
+      Context ctx = Context{kCPU, 0}, StreamHandle stream = nullptr) {
     LOG(DEBUG) << "TaskQueue ToTensor with name: " << name;
-    void *data = Device::Get(CPU())->AllocWorkspace(CPU(), nbytes);
-    CopyCPUToCPU(ptr, data, nbytes);
-    TensorPtr ret =
-        Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, CPU(), name);
+    void *data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+    if (ctx.device_type == kCPU) {
+      CopyCPUToCPU(ptr, data, nbytes);
+    } else if (ctx.device_type == kGPU) {
+      Device::Get(ctx)->CopyDataFromTo(
+          ptr, 0, data, 0, nbytes, CPU(), ctx, stream);
+    } else {
+      LOG(FATAL) << "device not supported!";
+    }
+    TensorPtr ret = Tensor::FromBlob(data, kI32, {(nbytes / sizeof(IdType))}, ctx, name);
     return ret;
   }
 
   std::shared_ptr<Task> ParseData(std::shared_ptr<SharedData> shared_data) {
     log_mem_usage("before paseData  in taskqueue");
+    auto stream = dist::DistEngine::Get()->GetTrainerCopyStream();
+    auto ctx = dist::DistEngine::Get()->GetTrainerCtx();
     auto trans_data = static_cast<const TransData*>(shared_data->Data());
     std::shared_ptr<Task> task = std::make_shared<Task>();
     task->key = trans_data->key;
@@ -255,7 +288,8 @@ namespace {
 
         task->miss_cache_index.miss_dst_index =
             ToTensor(trans_data_data, trans_data->num_miss * sizeof(IdType),
-                     "mis_dst_index_" + std::to_string(task->key));
+                     "mis_dst_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += task->miss_cache_index.num_miss;
       }
 
@@ -263,12 +297,14 @@ namespace {
       if (num_cache > 0) {
         task->miss_cache_index.cache_src_index =
             ToTensor(trans_data_data, num_cache * sizeof(IdType),
-                     "cache_src_index_" + std::to_string(task->key));
+                     "cache_src_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += num_cache;
 
         task->miss_cache_index.cache_dst_index =
             ToTensor(trans_data_data, num_cache * sizeof(IdType),
-                     "cache_dst_index_" + std::to_string(task->key));
+                     "cache_dst_index_" + std::to_string(task->key),
+                     ctx, stream);
         trans_data_data += num_cache;
       }
     }
@@ -284,14 +320,17 @@ namespace {
       graph->num_edge = graph_data->num_edge;
       graph->row = ToTensor(graph_data->data,
           graph->num_edge * sizeof(IdType),
-          "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer));
+          "train_graph.row_" + std::to_string(task->key) + "_" + std::to_string(layer),
+          ctx, stream);
       graph->col = ToTensor(graph_data->data + graph->num_edge,
           graph->num_edge * sizeof(IdType),
-          "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer));
+          "train_graph.col_" + std::to_string(task->key) + "_" + std::to_string(layer),
+          ctx, stream);
       if (trans_data->have_data) {
         graph->data = ToTensor(graph_data->data + 2 * graph->num_edge,
             graph->num_edge * sizeof(IdType),
-            "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer));
+            "train_graph.weight_" + std::to_string(task->key) + "_" + std::to_string(layer),
+            ctx, stream);
         graph_data = reinterpret_cast<const GraphData*>(
             graph_data->data + 3 * graph->num_edge);
       } else {
@@ -302,6 +341,8 @@ namespace {
       task->graphs[layer] = graph;
     }
     // log_mem_usage("after paseData  in taskqueue");
+    // sync stream
+    Device::Get(ctx)->StreamSync(ctx, stream);
     return task;
   }
 
@@ -329,7 +370,8 @@ namespace {
 } // namespace
 
 MessageTaskQueue::MessageTaskQueue(size_t max_len) : TaskQueue(max_len) {
-  size_t mq_nbytes = GetMaxMQSize();
+  // size_t mq_nbytes = GetMaxMQSize();
+  // TODO: hardcode here to speedup the init time of FGNN
   _mq = std::make_shared<MemoryQueue>(mq_nbytes);
 }
 

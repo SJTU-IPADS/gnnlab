@@ -108,19 +108,6 @@ class PinSAGESampler(object):
         return blocks
 
 
-def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
-    # feat/label is on CPU while input_nodes/output_nodes is on GPU or CPU
-    input_nodes = input_nodes.to(feat.device)
-    output_nodes = output_nodes.to(label.device)
-
-    batch_inputs = torch.index_select(
-        feat, 0, input_nodes.long()).to(train_device)
-    batch_labels = torch.index_select(
-        label, 0, output_nodes.long()).to(train_device)
-
-    return batch_inputs, batch_labels
-
-
 def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("PinSAGE Training")
     argparser.add_argument('--use-gpu-sampling', action='store_true',
@@ -177,6 +164,7 @@ def get_run_config():
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
     default_run_config['pipelining'] = False
+    # default_run_config['num_sampling_worker'] = 0
     default_run_config['num_sampling_worker'] = 16
 
     default_run_config['random_walk_length'] = 3
@@ -248,12 +236,26 @@ def get_run_config():
 
     return run_config
 
+def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
+    # feat/label is on CPU while input_nodes/output_nodes is on GPU or CPU
+    input_nodes = input_nodes.to(feat.device)
+    output_nodes = output_nodes.to(label.device)
+
+    batch_inputs = torch.index_select(
+        feat, 0, input_nodes.long()).to(train_device)
+    batch_labels = torch.index_select(
+        label, 0, output_nodes.long()).to(train_device)
+
+    return batch_inputs, batch_labels
 
 def get_data_iterator(run_config, dataloader):
-    if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
-        return [data for data in iter(dataloader)]
-    else:
+    if run_config['use_gpu_sampling']:
         return iter(dataloader)
+    else:
+        if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+            return [data for data in iter(dataloader)]
+        else:
+            return iter(dataloader)
 
 def run(worker_id, run_config):
     torch.set_num_threads(run_config['num_thread'])
@@ -272,12 +274,10 @@ def run(worker_id, run_config):
                                              timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     dataset = run_config['dataset']
-    # g = run_config['g']
     g = run_config['g'].to(sample_device)
     feat = dataset.feat
     label = dataset.label
 
-    # train_nids = dataset.train_set
     train_nids = dataset.train_set.to(sample_device)
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
@@ -333,6 +333,13 @@ def run(worker_id, run_config):
         epoch_train_time = 0.0
         epoch_num_node = 0
         epoch_num_sample = 0
+
+        # In distributed mode, calling the set_epoch() method at the beginning of each epoch
+        # before creating the DataLoader iterator is necessary to make shuffling work properly across multiple epochs.
+        # Otherwise, the same ordering will be always used.
+        # https://pytorch.org/docs/stable/data.html
+        if (num_worker > 1):
+            dataloader.set_epoch(epoch)
 
         tic = time.time()
         t0 = time.time()

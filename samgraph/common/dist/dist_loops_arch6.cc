@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include <thread>
 
 #include "../logging.h"
@@ -58,6 +75,8 @@ bool RunSampleSubLoopOnce() {
                             shuffle_time + sample_time);
     Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
+                                shuffle_time + sample_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTotalTime,
                                 shuffle_time + sample_time);
   } else {
     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
@@ -120,20 +139,27 @@ bool RunCacheDataCopySubLoopOnce() {
 
   if (task) {
     Timer t2;
+    DoArch6GetCacheMissIndex(task);
+    double get_miss_cache_index_time = t2.Passed();
+
+    Timer t3;
     DoCacheIdCopyToCPU(task);
-    double id_copy_time = t2.Passed();
+    double id_copy_time = t3.Passed();
 
     Timer t4;
     DoCPULabelExtractAndCopy(task);
-    DoGetCacheMissIndexAndFeatureCopy(task);
+    DoArch6CacheFeatureCopy(task);
     double feat_copy_time = t4.Passed();
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
 
-    Profiler::Get().LogStep(
-        task->key, kLogL1CopyTime,
-        id_copy_time + feat_copy_time);
+    Profiler::Get().LogEpochAdd(task->key, KLogEpochSampleGetCacheMissIndexTime,
+                                get_miss_cache_index_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTotalTime,
+                                get_miss_cache_index_time);
+    Profiler::Get().LogStep(task->key, kLogL1CopyTime,
+                            id_copy_time + feat_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2IdCopyTime, id_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2FeatCopyTime, feat_copy_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochCopyTime,
