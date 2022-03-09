@@ -4,8 +4,26 @@
 import io
 import os
 
-from setuptools import find_packages, setup
-from torch.utils.cpp_extension import BuildExtension, CUDAExtension
+from setuptools import find_packages, setup, Extension
+from torch.utils.cpp_extension import BuildExtension, CUDAExtension, library_paths, include_paths
+
+def TinyCUDAExtension(name, sources, *args, **kwargs):
+    library_dirs = kwargs.get('library_dirs', [])
+    library_dirs += library_paths(cuda=True)
+    kwargs['library_dirs'] = library_dirs
+
+    libraries = kwargs.get('libraries', [])
+    libraries.append('cudart')
+    kwargs['libraries'] = libraries
+
+    include_dirs = kwargs.get('include_dirs', [])
+
+    include_dirs += include_paths(cuda=True)
+    kwargs['include_dirs'] = include_dirs
+
+    kwargs['language'] = 'c++'
+
+    return Extension(name, sources, *args, **kwargs)
 
 # Package meta-data.
 NAME = 'samgraph'
@@ -44,6 +62,28 @@ else:
 
 # Where the magic happens:
 
+cxx_flags = [
+    '-std=c++14', '-g',
+    # '-fopt-info',
+    '-fPIC',
+    '-Ofast',
+    # '-DPIPELINE',
+    # '-O0',
+    '-Wall', '-fopenmp', '-march=native'
+]
+cuda_flags = [
+    '-std=c++14',
+    '-g',
+    # '-G',
+    #  '--ptxas-options=-v',
+    #  '-DPIPELINE',
+    # '-DSXN_NAIVE_HASHMAP',
+    '--compiler-options', "'-fPIC'",
+    '-gencode=arch=compute_35,code=sm_35',  # K40m
+    '-gencode=arch=compute_70,code=sm_70',  # V100
+    '-gencode=arch=compute_80,code=sm_80',  # A100
+]
+
 setup(
     name=NAME,
     version=about['__version__'],
@@ -67,8 +107,8 @@ setup(
         'Operating System :: POSIX :: Linux'
     ],
     ext_modules=[
-        CUDAExtension(
-            name='samgraph.torch.c_lib',
+        TinyCUDAExtension(
+            name='samgraph.common.c_lib',
             sources=[
                 'samgraph/common/common.cc',
                 'samgraph/common/constant.cc',
@@ -135,32 +175,31 @@ setup(
                 'samgraph/common/dist/pre_sampler.cc',
                 'samgraph/common/dist/dist_shuffler.cc',
                 'samgraph/common/dist/dist_shuffler_aligned.cc',
+            ],
+            include_dirs=[
+                # os.path.join(here, '3rdparty/cub'), 
+                os.path.join(here, '3rdparty/parallel-hashmap')],
+            libraries=['cudart'],
+            extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
+            # these custom march may should be remove and merged
+            extra_compile_args={
+                'cxx': cxx_flags,
+                'nvcc': cuda_flags
+            }),
+        CUDAExtension(
+            name='samgraph.torch.c_lib',
+            sources=[
                 'samgraph/torch/adapter.cc',
             ],
-            include_dirs=[os.path.join(
-                here, '3rdparty/cub'), os.path.join(here, '3rdparty/parallel-hashmap')],
+            include_dirs=[
+                # os.path.join(here, '3rdparty/cub'), 
+                os.path.join(here, '3rdparty/parallel-hashmap')],
             libraries=['cusparse'],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
             # these custom march may should be remove and merged
             extra_compile_args={
-                'cxx': ['-std=c++14', '-g',
-                        # '-fopt-info',
-                        '-fPIC',
-                        '-Ofast',
-                        # '-DPIPELINE',
-                        # '-DSXN_NAIVE_HASHMAP',
-                        # '-O0',
-                        '-Wall', '-fopenmp', '-march=native'],
-                'nvcc': ['-std=c++14',
-                         '-g',
-                         # '-G',
-                         #  '--ptxas-options=-v',
-                         #  '-DPIPELINE',
-                         # '-DSXN_NAIVE_HASHMAP',
-                         '--compiler-options', "'-fPIC'",
-                         '-gencode=arch=compute_35,code=sm_35',  # K40m
-                         '-gencode=arch=compute_70,code=sm_70',  # V100
-                         ]
+                'cxx': cxx_flags,
+                'nvcc': cuda_flags
             })
     ],
     # $ setup.py publish support.
