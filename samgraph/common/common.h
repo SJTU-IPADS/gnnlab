@@ -114,14 +114,19 @@ class Tensor {
   Tensor();
   ~Tensor();
 
+  inline std::string Name() const { return _name; }
   bool Defined() const { return _data; }
   DataType Type() const { return _dtype; }
   const std::vector<size_t>& Shape() const { return _shape; }
   const void* Data() const { return _data; }
   void* MutableData() { return _data; }
   void ReplaceData(void* data);
+  void Swap(TensorPtr tensor);
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
+  inline size_t NumItem() const { return std::accumulate(_shape.begin(), _shape.end(), 1ul, std::multiplies<size_t>()); }
+  void ChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
+  void ForceChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
 
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,

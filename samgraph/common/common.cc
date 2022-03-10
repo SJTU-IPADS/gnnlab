@@ -79,6 +79,51 @@ void Tensor::ReplaceData(void *data) {
   _data = data;
 }
 
+void Tensor::Swap(TensorPtr tensor) {
+  CHECK(this->Ctx() == tensor->Ctx());
+  CHECK(this->Shape() == tensor->Shape());
+  CHECK(this->Type() == tensor->Type());
+  std::swap(this->_data, tensor->_data);
+}
+
+void Tensor::ChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
+  if (!Defined()) {
+    CHECK_GT(shape.size(), 0);
+    size_t nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
+
+    if (ctx.device_type == kMMAP) {
+      ctx = CPU(ctx.device_id);
+    }
+
+    _dtype = dt;
+    _shape = shape;
+    _nbytes = nbytes;
+    _data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+    _ctx = ctx;
+    _name = name;
+    return;
+  } 
+  CHECK(_dtype == dt);
+  CHECK(_ctx == ctx);
+  CHECK(_shape.size() == shape.size());
+  if (Device::Get(ctx)->WorkspaceActualSize(ctx, _data) < GetTensorBytes(dt, shape)) {
+    Device::Get(ctx)->FreeWorkspace(ctx, _data);
+    _data = Device::Get(ctx)->AllocWorkspace(ctx, GetTensorBytes(dt, shape));
+  }
+  _name = name;
+  _shape = shape;
+  _nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
+}
+void Tensor::ForceChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
+  CHECK(Defined());
+  CHECK(_dtype == dt);
+  CHECK(_ctx == ctx);
+  CHECK(_shape.size() == shape.size());
+  _name = name;
+  _shape = shape;
+  _nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
+}
+
 TensorPtr Tensor::Null() { return std::make_shared<Tensor>(); }
 
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
