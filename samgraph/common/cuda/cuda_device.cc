@@ -161,6 +161,9 @@ void GPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   GPUWorkspacePool()->FreeWorkspace(ctx, data);
 }
+size_t GPUDevice::WorkspaceActualSize(Context ctx, void *ptr) {
+  return GPUWorkspacePool()->WorkspaceActualSize(ctx, ptr);
+}
 size_t GPUDevice::TotalSize(Context ctx) {
   return _allocated_size_list[ctx.device_id];
 }

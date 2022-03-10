@@ -35,6 +35,7 @@ class WorkspacePool {
 
   void* AllocWorkspace(Context ctx, size_t size, double scale);
   void FreeWorkspace(Context ctx, void* ptr);
+  size_t WorkspaceActualSize(Context, void* ptr);
   size_t TotalSize(Context ctx);
   size_t FreeSize(Context ctx);
 

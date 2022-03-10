@@ -92,6 +92,10 @@ void CPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
   CPUWorkspacePool()->FreeWorkspace(ctx, data);
 }
 
+size_t CPUDevice::WorkspaceActualSize(Context ctx, void *ptr) {
+  return CPUWorkspacePool()->WorkspaceActualSize(ctx, ptr);
+}
+
 }  // namespace cpu
 }  // namespace common
 }  // namespace samgraph
