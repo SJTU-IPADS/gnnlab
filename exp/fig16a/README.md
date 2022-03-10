@@ -1,6 +1,6 @@
-# Figure 15:  Convergence Test
+# Figure 16a:  Convergence Test
 
-The goal of this experiment is to give a comparison of training time for GraphSAGE to the same accuracy target between FGNN and DGL on products and papers100M.
+The goal of this experiment is to give a comparison of training time for GraphSAGE to the same accuracy target between GNNLab, T<sub>SOTA</sub> and DGL on papers100M.
 
 - `run.sh` is the runner script.
 
@@ -8,8 +8,9 @@ The goal of this experiment is to give a comparison of training time for GraphSA
 
 - Paper's configurations: **8x16GB** NVIDIA V100 GPUs, **2x24** cores Intel 8163 CPU
 - For other hardware configurations, you may need to modify the ①Total Number of Epochs ②Number of GPU. ③Number of vertex(in percentage, 0<=pct. <=1) to be cached.
-  - **DGL**: Modify the arguments `num-epoch`, `devices` of L16 and L23 in run.sh.
-  - **FGNN**: Modify the arguments `num-epoch`, `num-sample-worker` and `num-train-worker`, `cache-percentage` of L17 and L24 in run.sh.
+  - **DGL**: Modify the arguments `num-epoch`, `devices` of L19 in run.sh.
+  - **GNNLab**: Modify the arguments `num-epoch`, `num-sample-worker` and `num-train-worker`, `cache-percentage` of L20 in run.sh.
+  - **T<sub>SOTA</sub>**: Modify the arguments `num-epoch`, `num-worker` and `cache-percentage` of L21 in run.sh.
 
 ## Run Command
 
@@ -26,10 +27,8 @@ The goal of this experiment is to give a comparison of training time for GraphSA
 > tree -L 4 .
 .
 ├── acc_one.res          # the results of all tests
-├── acc-timeline-pa.plt  # drawing script of fig15b
-├── acc-timeline-pr.plt  # drawing script of fig15a
-├── fig15a.eps           # fig15a
-├── fig15b.eps           # fig15b
+├── fig16a.plt           # drawing script of fig16a
+├── fig16a.eps           # fig16a
 ├── parse_acc.py         # the script to parse the log files
 ├── run_logs
 │   └── acc_test

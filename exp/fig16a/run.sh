@@ -24,9 +24,9 @@ num_sam_sampler=4
 num_sam_trainer=4
 
 # products   acc: 91%
-python ${dgl_dir}/train_graphsage.py --dataset products --pipelining --report-acc 25 --num-epoch 200 --use-gpu-sampling --devices ${dgl_devices} > ${log_dir}/dgl_products.log 2> ${log_dir}/dgl_products.err.log
-python ${sam_dir}/train_graphsage.py --dataset products --cache-percentage 1.0 --pipeline --report-acc 25 --num-epoch 200 --num-sample-worker ${num_sam_sampler} --num-train-worker ${num_sam_trainer} > ${log_dir}/sam_products.log 2> ${log_dir}/sam_products.err.log
-python ${sgnn_dir}/train_graphsage.py --dataset products --pipeline --cache-policy degree --cache-percentage 1.0 --report-acc 25 --num-epoch 200 --num-worker ${num_sgnn_worker} > ${log_dir}/sgnn_products.log 2> ${log_dir}/sgnn_products.err.log
+# python ${dgl_dir}/train_graphsage.py --dataset products --pipelining --report-acc 25 --num-epoch 200 --use-gpu-sampling --devices ${dgl_devices} > ${log_dir}/dgl_products.log 2> ${log_dir}/dgl_products.err.log
+# python ${sam_dir}/train_graphsage.py --dataset products --cache-percentage 1.0 --pipeline --report-acc 25 --num-epoch 200 --num-sample-worker ${num_sam_sampler} --num-train-worker ${num_sam_trainer} > ${log_dir}/sam_products.log 2> ${log_dir}/sam_products.err.log
+# python ${sgnn_dir}/train_graphsage.py --dataset products --pipeline --cache-policy degree --cache-percentage 1.0 --report-acc 25 --num-epoch 200 --num-worker ${num_sgnn_worker} > ${log_dir}/sgnn_products.log 2> ${log_dir}/sgnn_products.err.log
 
 
 # parse data
@@ -36,9 +36,9 @@ python ./parse_acc.py -f ${log_dir}/dgl_papers.log --system dgl --dataset papers
 python ./parse_acc.py -f ${log_dir}/sam_papers.log --system fgnn --dataset papers --batch-size 8000 >> acc_one.res
 python ./parse_acc.py -f ${log_dir}/sgnn_papers.log --system sgnn --dataset papers --batch-size 8000 >> acc_one.res
 
-python ./parse_acc.py -f ${log_dir}/dgl_products.log --system dgl --dataset products --batch-size 8000 >> acc_one.res
-python ./parse_acc.py -f ${log_dir}/sam_products.log --system fgnn --dataset products --batch-size 8000 >> acc_one.res
-python ./parse_acc.py -f ${log_dir}/sgnn_products.log --system sgnn --dataset products --batch-size 8000 >> acc_one.res
+# python ./parse_acc.py -f ${log_dir}/dgl_products.log --system dgl --dataset products --batch-size 8000 >> acc_one.res
+# python ./parse_acc.py -f ${log_dir}/sam_products.log --system fgnn --dataset products --batch-size 8000 >> acc_one.res
+# python ./parse_acc.py -f ${log_dir}/sgnn_products.log --system sgnn --dataset products --batch-size 8000 >> acc_one.res
 
 # gnuplot
 gnuplot ./fig16a.plt
