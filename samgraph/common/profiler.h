@@ -141,6 +141,7 @@ struct LogData {
   F(kL2Event_Sample_Shuffle) \
   F(kL2Event_Sample_Core) \
   F(kL2Event_Sample_IdRemap) \
+  F(kL3Event_Sample_Core_Coo) \
   F(kL1Event_Copy) \
   F(kL2Event_Copy_Id) \
   F(kL2Event_Copy_Graph) \

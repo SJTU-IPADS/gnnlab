@@ -39,6 +39,57 @@
 namespace samgraph {
 namespace common {
 
+namespace {
+
+#define F(name) #name ,
+const char* trace_item_names[] = { TRACE_TYPES( F ) nullptr };
+#undef F
+
+std::string trace_item_to_string(TraceItem item) {
+  return trace_item_names[(int)item];
+}
+
+struct TraceJsonHelper {
+  std::string name;
+  std::string ph;
+  uint64_t pid, tid;
+  uint64_t ts, dur;
+  std::string cat = "";
+  uint64_t id = 0;
+  TraceJsonHelper& set_name  (std::string n   ) {this->name = n    ; return *this;}
+  TraceJsonHelper& set_exe   (                ) {this->ph   = "X"  ; return *this;}
+  TraceJsonHelper& set_pid   (uint64_t    pid ) {this->pid  = pid  ; return *this;}
+  TraceJsonHelper& set_tid   (uint64_t    tid ) {this->tid  = tid  ; return *this;}
+  TraceJsonHelper& set_ts    (uint64_t    ts  ) {this->ts   = ts   ; return *this;}
+  TraceJsonHelper& set_dur   (uint64_t    dur ) {this->dur  = dur  ; return *this;}
+  TraceJsonHelper& set_cat   (std::string cat ) {this->cat  = cat  ; return *this;}
+  TraceJsonHelper& set_id    (uint64_t    id  ) {this->id   = id   ; return *this;}
+  std::string to_json(bool & first) {
+    std::stringstream ss;
+    if (! first) {
+      ss << ",";
+    } else {
+      first = false;
+    }
+    ss  << "{"
+        << "\"name\":" << "\"" << name << "\"" << ","
+        << "\"ph\":"   << "\"" << ph << "\"" << ","
+        << "\"pid\":"  << pid << ","
+        << "\"tid\":"  << tid << ","
+        << "\"ts\":"   << ts  << ",";
+    if (this->ph == "X") {
+      ss << "\"dur\":" << dur << ",";
+    }
+    ss  << "\"cat\":"  << "\"" << cat << "\"" << ","
+        << "\"id\":"   << id
+        << "}\n";
+
+    return ss.str();
+  }
+};
+
+}
+
 LogData::LogData(size_t num_logs) {
   vals.resize(num_logs, 0);
   bitmap.resize(num_logs, false);
@@ -280,53 +331,6 @@ void Profiler::ReportEpochAverage(uint64_t epoch) {
   OutputEpoch(epoch, "Epoch(average)");
 }
 
-namespace {
-
-#define F(name) #name ,
-const char* trace_item_names[] = { TRACE_TYPES( F ) nullptr };
-#undef F
-
-std::string trace_item_to_string(TraceItem item) {
-  return trace_item_names[(int)item];
-}
-
-struct TraceJsonHelper {
-  std::string name;
-  std::string ph;
-  uint64_t pid, tid;
-  uint64_t ts;
-  std::string cat = "";
-  uint64_t id = 0;
-  TraceJsonHelper& set_name  (std::string n   ) {this->name = n    ; return *this;}
-  TraceJsonHelper& set_begin (                ) {this->ph   = "B"  ; return *this;}
-  TraceJsonHelper& set_end   (                ) {this->ph   = "E"  ; return *this;}
-  TraceJsonHelper& set_pid   (uint64_t    pid ) {this->pid  = pid  ; return *this;}
-  TraceJsonHelper& set_tid   (uint64_t    tid ) {this->tid  = tid  ; return *this;}
-  TraceJsonHelper& set_ts    (uint64_t    ts  ) {this->ts   = ts   ; return *this;}
-  TraceJsonHelper& set_cat   (std::string cat ) {this->cat  = cat  ; return *this;}
-  TraceJsonHelper& set_id    (uint64_t    id  ) {this->id   = id   ; return *this;}
-  std::string to_json(bool & first) {
-    std::stringstream ss;
-    if (! first) {
-      ss << ",";
-    } else {
-      first = false;
-    }
-    ss  << "{"
-        << "\"name\":" << "\"" << name << "\"" << ","
-        << "\"ph\":"   << "\"" << ph << "\"" << ","
-        << "\"pid\":"  << pid << ","
-        << "\"tid\":"  << tid << ","
-        << "\"ts\":"   << ts  << ","
-        << "\"cat\":"  << "\"" << cat << "\"" << ","
-        << "\"id\":"   << id
-        << "}\n";
-
-    return ss.str();
-  }
-};
-
-}
 
 void Profiler::DumpTrace(std::ostream &of) {
   if (RunConfig::option_dump_trace == false) return;
@@ -354,9 +358,7 @@ void Profiler::DumpTrace(std::ostream &of) {
       tjs.set_name(trace_item_to_string((TraceItem)item) + "-" + std::to_string(key))
          .set_pid(0)
          .set_tid(tid);
-      tjs.set_begin().set_ts(event.begin);
-      of << tjs.to_json(first);
-      tjs.set_end().set_ts(event.end);
+      tjs.set_exe().set_ts(event.begin).set_dur(event.end - event.begin);
       of << tjs.to_json(first);
     }
   }
