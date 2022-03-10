@@ -1,9 +1,8 @@
 {
   global:
-    *samgraph_*;
+    *samgraph*;
     # PyTorch binding
     *PyInit*;
     *initc_lib*;
-    *;
-  # local: *;
+  local: *;
 };
