@@ -494,3 +494,5 @@ class SamGraphBasics(object):
 
     def wait_one_child(self):
         return self.C_LIB_CTYPES.samgraph_wait_one_child()
+
+_basics = SamGraphBasics(__file__, "c_lib")

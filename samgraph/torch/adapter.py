@@ -23,9 +23,9 @@ import dgl
 import torch
 from dgl.heterograph import DGLBlock
 
-from samgraph.torch import c_lib
 from samgraph.common import *
-_basics = SamGraphBasics(__file__, 'c_lib')
+from samgraph.common import _basics
+from samgraph.torch import c_lib
 
 config               = _basics.config
 init                 = _basics.init
