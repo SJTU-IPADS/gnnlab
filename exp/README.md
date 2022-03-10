@@ -1,6 +1,6 @@
 # Experiments
 
-- [Experiments](#experiments)
+### Table of Contents 
   - [Overview](#overview)
   - [Paper's Hardware Configurations](#papers-hardware-configurations)
   - [AE Machine Configuration](#ae-machine-configuration)
@@ -28,16 +28,16 @@ fgnn-artifacts/exp
 ├── Makefile
 ```
 ## Paper's Hardware Configurations
-- 8 * NVIDIA V100 GPUs(16GB of memory each)
-- 2 * Intel Xeon Platinum 8163 CPUs(24 cores each)
+- 8 * NVIDIA V100 GPUs (**16GB** of memory each)
+- 2 * Intel Xeon Platinum 8163 CPUs (24 cores each)
 - 512GB RAM
 
-**Note: If you have a different hardware environment, you need to goto the subdirectories(i.e. `figXX` or `tableXX`), follow the instructions to modify some script configurations(e.g. smaller cache ratio), and then run the experiment**
+**Note: If you have a different hardware environment, you need to goto the subdirectories (i.e., `figXX` or `tableXX`), follow the instructions to modify some script configurations(e.g. smaller cache ratio), and then run the experiment**
 
 
 ## AE Machine Configuration
-- 8 * NVIDIA V100 GPUs(32GB of memory each)
-- 2 * Intel Xeon Platinum 8163 CPUs(24 cores each)
+- 8 * NVIDIA V100 GPUs (**32GB** of memory each)
+- 2 * Intel Xeon Platinum 8163 CPUs (24 cores each)
 - 512GB RAM
 
 
@@ -64,7 +64,7 @@ make all
 
 ## Example output.
 
-The experiment output files are in the subdirectories(`figXX/run-logs` or `figXX/output_XX`). The output files include log files for each testcase, parsed data, and eps-format figures.
+The experiment output files are in the subdirectories (`figXX/run-logs` or `figXX/output_XX`). The output files include log files for each testcase, parsed data, and eps-format figures.
 
 ```bash
 > cat output_2022-01-29_17-19-44/table1.dat
@@ -112,10 +112,9 @@ make clean
 
 ## FAQ
 
-**The paper reported OOM in some test cases(UK dataset). However those test cases run successfully in AE environment.**
+**The paper reported OOM in some test cases (e.g., PinSage on UK). However those test cases run successfully in AE environment.**
 
 In the FGNN, all tests were run in 16GB V100 machine. In the AE machine, each GPU has 32GB of memory because All 16GB V100 machines have been occupied.
-
 
 
 **AE data mismatch the paper data.**
