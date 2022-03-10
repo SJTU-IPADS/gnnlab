@@ -231,10 +231,15 @@ TensorPtr Tensor::CopyBlob(const void *data, DataType dtype,
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
   tensor->_data =
       Device::Get(to_ctx)->AllocWorkspace(to_ctx, nbytes);
-
-  Device::Get(from_ctx)
+  if (to_ctx.device_type == kGPU) {
+    Device::Get(to_ctx)
       ->CopyDataFromTo(data, 0, tensor->_data, 0,
                        nbytes, from_ctx, to_ctx, stream);
+  } else {
+    Device::Get(from_ctx)
+      ->CopyDataFromTo(data, 0, tensor->_data, 0,
+                       nbytes, from_ctx, to_ctx, stream);
+  }
   tensor->_dtype = dtype;
   tensor->_shape = shape;
   tensor->_nbytes = nbytes;
