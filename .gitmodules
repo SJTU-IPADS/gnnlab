@@ -6,7 +6,7 @@
 	url = https://github.com/greg7mdp/parallel-hashmap.git
 [submodule "3rdparty/dgl"]
 	path = 3rdparty/dgl
-	url = https://ipads.se.sjtu.edu.cn:1312/yangjb/dgl.git
+	url = https://ipads.se.sjtu.edu.cn:1312/gnn/dgl.git
 [submodule "3rdparty/CLI11"]
 	path = 3rdparty/CLI11
 	url = https://github.com/CLIUtils/CLI11.git
