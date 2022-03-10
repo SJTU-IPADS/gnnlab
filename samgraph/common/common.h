@@ -34,6 +34,7 @@ namespace common {
 
 using IdType = unsigned int;
 using Id64Type = unsigned long long int;
+static_assert(sizeof(Id64Type) == 8, "long long is not 8 bytes!");
 
 enum DataType {
   kF32 = 0,
@@ -196,6 +197,8 @@ struct TrainGraph {
   size_t num_src;
   size_t num_dst;
   size_t num_edge;
+  TensorPtr src_degree;
+  TensorPtr dst_degree;
 };
 
 struct MissCacheIndex {
