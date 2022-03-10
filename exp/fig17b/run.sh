@@ -70,16 +70,16 @@ parse_data() {
   echo -e "${dataset}\t${dgl_time}\t${sam_time}\t${sgnn_time}\t${app}" >> ${data_file}
 }
 
-touch fig16b.dat
-echo -e "dataset\tdgl\tfgnn\tsgnn\tapp" > fig16b.dat
-parse_data PR GCN ${log_dir} fig16b.dat
-parse_data TW GCN ${log_dir} fig16b.dat
-parse_data PA GCN ${log_dir} fig16b.dat
-parse_data PR GraphSAGE ${log_dir} fig16b.dat
-parse_data TW GraphSAGE ${log_dir} fig16b.dat
-parse_data PA GraphSAGE ${log_dir} fig16b.dat
-parse_data PR PinSAGE ${log_dir} fig16b.dat
-parse_data TW PinSAGE ${log_dir} fig16b.dat
-parse_data PA PinSAGE ${log_dir} fig16b.dat
+touch fig17b.dat
+echo -e "dataset\tdgl\tfgnn\tsgnn\tapp" > fig17b.dat
+parse_data PR GCN ${log_dir} fig17b.dat
+parse_data TW GCN ${log_dir} fig17b.dat
+parse_data PA GCN ${log_dir} fig17b.dat
+parse_data PR GraphSAGE ${log_dir} fig17b.dat
+parse_data TW GraphSAGE ${log_dir} fig17b.dat
+parse_data PA GraphSAGE ${log_dir} fig17b.dat
+parse_data PR PinSAGE ${log_dir} fig17b.dat
+parse_data TW PinSAGE ${log_dir} fig17b.dat
+parse_data PA PinSAGE ${log_dir} fig17b.dat
 
-gnuplot fig16b.plt
+gnuplot fig17b.plt

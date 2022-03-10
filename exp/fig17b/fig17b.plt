@@ -1,5 +1,5 @@
-outputfname = "fig16b.eps"
-dat_file='fig16b.dat'
+outputfname = "fig17b.eps"
+dat_file='fig17b.dat'
 
 set datafile sep '\t'
 
@@ -45,5 +45,5 @@ set ytics 5
 set ytics offset 0.5,0 #format "%.1f" #nomirror
 
 # ^((?!PR).)*$
-plot "fig16b.dat"      using 2:xticlabels(1)       lc "#c00000" title "DGL" \
-    ,"fig16b.dat"      using 3:xticlabels(1)       lc "#008800" title "FGNN" \
+plot "fig17b.dat"      using 2:xticlabels(1)       lc "#c00000" title "DGL" \
+    ,"fig17b.dat"      using 3:xticlabels(1)       lc "#008800" title "FGNN" \
