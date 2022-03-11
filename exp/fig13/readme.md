@@ -10,7 +10,7 @@ This test is similar to table4 with same cache rate.
 
 ## Hardware Requirements
 
-- Paper's configurations: Two 16GB NVIDIA V100 GPUs
+- Paper's configurations: Eight 16GB NVIDIA V100 GPUs
 - For other hardware configurations, you may need to modify the cache percentage
   -  Modify `L29`~`L41` in `runner.py`.
 
