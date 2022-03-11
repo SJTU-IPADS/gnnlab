@@ -1,6 +1,6 @@
 # Figure 14a:  GCN Scalability Test
 
-The goal of this experiment is to show the scalability performance of DGL and FGNN on GCN model.
+The goal of this experiment is to show the scalability performance of DGL, SGNN and FGNN on GCN model.
 
 - `run.py` is the runner script.
 - `logtable_def.py` defines log parsing rules.
@@ -11,8 +11,9 @@ The goal of this experiment is to show the scalability performance of DGL and FG
 
 - Paper's configurations: **8x16GB** NVIDIA V100 GPUs, **2x24** cores Intel 8163 CPU
 - For other hardware configurations, you may need to modify the ①Number of GPU. ②Number of CPU threads ③Number of vertex (in percentage, 0<=pct. <=1) to be cached.
-  - **DGL:** Modify `L64-L65(#GPU)` in `run.py`.
-  - **FGNN:**  Modify  `L106(#CPU threads), L116-L151(#GPU, #Cache percentage)` in `run.py`.
+  - **DGL:** Modify `L66-L67(#GPU)` in `run.py`.
+  - **FGNN:**  Modify  `L108(#CPU threads), L118-L153(#GPU, #Cache percentage)` in `run.py`.
+  - **SGNN:**  Modify  `L187(#Cache percentage), L190(#GPU)` in `run.py`.
 
 
 
@@ -71,15 +72,15 @@ output_2022-01-29_20-10-39
 
 ```sh
 > cat output_2022-01-29_20-10-39/fig14a.res
-"GPUs"  "DGL"   "1S"    "2S"    "3S"
-1       18.51   -       -       -
-2       9.79    4.11    -       -
-3       7.19    2.14    4.08    -
-4       6.00    1.49    2.19    4.14
-5       5.28    1.19    1.46    2.13
-6       4.79    1.06    1.11    1.45
-7       4.48    1.05    0.93    1.11
-8       4.03    1.04    0.81    0.91
+"GPUs"  "DGL"   "SGNN"  "1S"    "2S"    "3S"
+1       18.45   10.02   -       -       -
+2       9.85    6.94    4.10    -       -
+3       7.15    5.15    2.16    4.20    -
+4       6.01    4.18    1.48    2.15    4.15
+5       5.22    3.65    1.14    1.47    2.18
+6       4.75    3.41    1.05    1.13    1.46
+7       4.40    3.23    1.05    0.94    1.13
+8       4.27    2.83    1.03    0.82    0.96
 ```
 
 
