@@ -11,10 +11,10 @@ The goal of this experiment is to show the overall end2end performance of DGL, P
 
 - Paper's configurations: **8x16GB** NVIDIA V100 GPUs, **2x24** cores Intel 8163 CPU
 - For other hardware configurations, you may need to modify the ①Number of GPU ②Number  of CPU threads. ③Number of vertex(in percentage, 0<=pct. <=1) to be cached.
-  - **DGL:** Modify `L69(#GPU), L110(#GPU)` in `run.py`. 
-  - **PyG:** Modify `L142(#CPU threads), L145(#GPU)` in `run.py`.
-  - **SGNN:** Modify `L184(#CPU threads), L203(#GPU), L204-L254(#Cache Percentage)` in `run.py`.
-  - **FGNN:**  Modify  `L290(#CPU threads), L304-L351(#CPU, #Cache percentage)` in `run.py`.
+  - **DGL:** Modify `L69(#GPU), L113(#GPU)` in `run.py`. 
+  - **PyG:** Modify `L145(#CPU threads), L148(#GPU)` in `run.py`.
+  - **SGNN:** Modify `L187(#CPU threads), L206(#GPU), L207-L254(#Cache Percentage)` in `run.py`.
+  - **FGNN:**  Modify  `L293(#CPU threads), L310-L354(#CPU, #Cache percentage)` in `run.py`.
 
 
 
@@ -76,18 +76,18 @@ output_2022-01-29_18-17-21
 ```sh
 > cat output_2022-01-29_18-17-21/table4.dat
 GNN Models       Dataset     DGL    PyG   SGNN       FGNN
-GCN              PR         1.18  11.28   0.23   0.33(3S)
-GCN              TW         3.40  11.48   1.35   0.41(2S)
-GCN              PA         4.07  14.58   2.75   0.86(2S)
-GCN              UK            X  13.30      X   1.20(2S)
-GraphSAGE        PR         0.71   7.45   0.07   0.11(4S)
-GraphSAGE        TW         1.63   7.50   0.32   0.17(2S)
-GraphSAGE        PA         2.17   8.64   0.95   0.28(2S)
-GraphSAGE        UK            X   8.95   1.59   0.51(1S)
-PinSAGE          PR         0.80      X   0.31   0.40(1S)
-PinSAGE          TW         2.01      X   0.81   0.51(1S)
-PinSAGE          PA         2.56      X   1.72   1.03(1S)
-PinSAGE          UK            X      X      X   1.43(1S)
+GCN              PR         1.23  11.28   0.23   0.33(3S)
+GCN              TW         3.40  11.48   1.42   0.43(2S)
+GCN              PA         4.14  14.58   2.68   0.81(2S)
+GCN              UK            X  13.30      X   1.29(2S)
+GraphSAGE        PR         0.71   7.45   0.11   0.13(4S)
+GraphSAGE        TW         1.61   7.50   0.33   0.17(2S)
+GraphSAGE        PA         2.34   8.64   1.00   0.28(2S)
+GraphSAGE        UK            X   8.95   1.65   0.55(1S)
+PinSAGE          PR         0.86      X   0.33   0.41(1S)
+PinSAGE          TW         2.10      X   0.89   0.54(1S)
+PinSAGE          PA         2.59      X   1.69   1.03(1S)
+PinSAGE          UK            X      X      X   1.53(1S)
 ```
 
 
