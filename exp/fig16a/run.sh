@@ -1,51 +1,44 @@
 #!/bin/bash 
-switcher_dir=../../example/samgraph/balance_switcher/
+dgl_dir=../../example/dgl/multi_gpu/
+sam_dir=../../example/samgraph/multi_gpu/
+sgnn_dir=../../example/samgraph/sgnn/
 
 TIME_STAMPS=$(date "+%Y-%m-%d_%H-%M-%S")
-log_dir=./run-logs/switch/${TIME_STAMPS}
-num_epoch=10
+log_dir=./run-logs/acc_test/one/${TIME_STAMPS}
+
+# TODO: need change these configs
+dgl_devices="0 1 2 3 4 5 6 7"
+num_sgnn_worker=8
+
+num_sam_sampler=2
+num_sam_trainer=6
 
 mkdir -p $log_dir
 
-# original FGNN
-python ${switcher_dir}/train_pinsage_no_switch_async.py --dataset papers100M --pipeline --cache-percentage 0.19 --num-sample-worker 1 --num-train-worker 1 2>&1 | tee ${log_dir}/switch_origin_1.log
-python ${switcher_dir}/train_pinsage_no_switch_async.py --dataset papers100M --pipeline --cache-percentage 0.19 --num-sample-worker 1 --num-train-worker 2 2>&1 | tee ${log_dir}/switch_origin_2.log
-python ${switcher_dir}/train_pinsage_no_switch_async.py --dataset papers100M --pipeline --cache-percentage 0.19 --num-sample-worker 1 --num-train-worker 3 2>&1 | tee ${log_dir}/switch_origin_3.log
-python ${switcher_dir}/train_pinsage_no_switch_async.py --dataset papers100M --pipeline --cache-percentage 0.18 --num-sample-worker 1 --num-train-worker 4 2>&1 | tee ${log_dir}/switch_origin_4.log
-python ${switcher_dir}/train_pinsage_no_switch_async.py --dataset papers100M --pipeline --cache-percentage 0.18 --num-sample-worker 1 --num-train-worker 5 2>&1 | tee ${log_dir}/switch_origin_5.log
-python ${switcher_dir}/train_pinsage_no_switch_async.py --dataset papers100M --pipeline --cache-percentage 0.17 --num-sample-worker 1 --num-train-worker 6 2>&1 | tee ${log_dir}/switch_origin_6.log
-python ${switcher_dir}/train_pinsage_no_switch_async.py --dataset papers100M --pipeline --cache-percentage 0.17 --num-sample-worker 1 --num-train-worker 7 2>&1 | tee ${log_dir}/switch_origin_7.log
+# papers100M acc: 56%
+python ${dgl_dir}/train_graphsage.py --dataset papers100M --pipelining --report-acc 151 --num-epoch 200 --use-gpu-sampling --devices ${dgl_devices} > ${log_dir}/dgl_papers.log 2> ${log_dir}/dgl_papers.err.log
+python ${sam_dir}/train_graphsage.py --dataset papers100M --cache-percentage 0.20 --pipeline --report-acc 151 --num-epoch 200 --num-sample-worker ${num_sam_sampler} --num-train-worker ${num_sam_trainer} > ${log_dir}/sam_papers.log 2> ${log_dir}/sam_papers.err.log
+python ${sgnn_dir}/train_graphsage.py --dataset papers100M --pipeline --cache-policy degree --cache-percentage 0.11 --report-acc 151 --num-epoch 200 --num-worker ${num_sgnn_worker} > ${log_dir}/sgnn_papers.log 2> ${log_dir}/sgnn_papers.err.log
 
-# dynamic switch
-python ${switcher_dir}/train_pinsage.py --dataset papers100M --cache-percentage 0.17 --switch-cache-percentage 0.05 --pipeline --num-sample-worker 1 --num-train-worker 1 2>&1 | tee ${log_dir}/switch_balance_1.log
-python ${switcher_dir}/train_pinsage.py --dataset papers100M --cache-percentage 0.17 --switch-cache-percentage 0.05 --pipeline --num-sample-worker 1 --num-train-worker 2 2>&1 | tee ${log_dir}/switch_balance_2.log
-python ${switcher_dir}/train_pinsage.py --dataset papers100M --cache-percentage 0.17 --switch-cache-percentage 0.05 --pipeline --num-sample-worker 1 --num-train-worker 3 2>&1 | tee ${log_dir}/switch_balance_3.log
-python ${switcher_dir}/train_pinsage.py --dataset papers100M --cache-percentage 0.17 --switch-cache-percentage 0.05 --pipeline --num-sample-worker 1 --num-train-worker 4 2>&1 | tee ${log_dir}/switch_balance_4.log
-python ${switcher_dir}/train_pinsage.py --dataset papers100M --cache-percentage 0.17 --switch-cache-percentage 0.05 --pipeline --num-sample-worker 1 --num-train-worker 5 2>&1 | tee ${log_dir}/switch_balance_5.log
-python ${switcher_dir}/train_pinsage.py --dataset papers100M --cache-percentage 0.17 --switch-cache-percentage 0.05 --pipeline --num-sample-worker 1 --num-train-worker 6 2>&1 | tee ${log_dir}/switch_balance_6.log
-python ${switcher_dir}/train_pinsage.py --dataset papers100M --cache-percentage 0.17 --switch-cache-percentage 0.05 --pipeline --num-sample-worker 1 --num-train-worker 7 2>&1 | tee ${log_dir}/switch_balance_7.log
+num_sam_sampler=4
+num_sam_trainer=4
 
-# parse log
-parse_switch_log() {
-  num_trainer=$1
-  log_dir=$2
-  data_file=$3
-  log_file=${log_dir}/switch_balance_${num_trainer}.log
-  switch_time=$(cat $log_file | grep -P "] Epoch Time \d*\.\d*" -o | grep -P "\d*\.\d*" -o | head -n 1)
-  log_file=${log_dir}/switch_origin_${num_trainer}.log
-  origin_time=$(cat $log_file | grep -P "test_result:pipeline_train_epoch_time=\d*\.\d*" -o | grep -P "\d*\.\d*" -o)
-  echo "\"1S ${num_trainer}T\" ${origin_time} ${switch_time}" >> $data_file
-}
+# products   acc: 91%
+# python ${dgl_dir}/train_graphsage.py --dataset products --pipelining --report-acc 25 --num-epoch 200 --use-gpu-sampling --devices ${dgl_devices} > ${log_dir}/dgl_products.log 2> ${log_dir}/dgl_products.err.log
+# python ${sam_dir}/train_graphsage.py --dataset products --cache-percentage 1.0 --pipeline --report-acc 25 --num-epoch 200 --num-sample-worker ${num_sam_sampler} --num-train-worker ${num_sam_trainer} > ${log_dir}/sam_products.log 2> ${log_dir}/sam_products.err.log
+# python ${sgnn_dir}/train_graphsage.py --dataset products --pipeline --cache-policy degree --cache-percentage 1.0 --report-acc 25 --num-epoch 200 --num-worker ${num_sgnn_worker} > ${log_dir}/sgnn_products.log 2> ${log_dir}/sgnn_products.err.log
 
-touch fig16a.dat
-echo -e "Config\t\"w/o DS\"\t\"w/ DS\"" > fig16a.dat
-parse_switch_log 1 ${log_dir} fig16a.dat
-parse_switch_log 2 ${log_dir} fig16a.dat
-parse_switch_log 3 ${log_dir} fig16a.dat
-parse_switch_log 4 ${log_dir} fig16a.dat
-parse_switch_log 5 ${log_dir} fig16a.dat
-parse_switch_log 6 ${log_dir} fig16a.dat
-parse_switch_log 7 ${log_dir} fig16a.dat
+
+# parse data
+touch acc_one.res
+echo -e "system\tdataset\tbatch_size\ttime\tacc" >> acc_one.res
+python ./parse_acc.py -f ${log_dir}/dgl_papers.log --system dgl --dataset papers --batch-size 8000 >> acc_one.res
+python ./parse_acc.py -f ${log_dir}/sam_papers.log --system fgnn --dataset papers --batch-size 8000 >> acc_one.res
+python ./parse_acc.py -f ${log_dir}/sgnn_papers.log --system sgnn --dataset papers --batch-size 8000 >> acc_one.res
+
+# python ./parse_acc.py -f ${log_dir}/dgl_products.log --system dgl --dataset products --batch-size 8000 >> acc_one.res
+# python ./parse_acc.py -f ${log_dir}/sam_products.log --system fgnn --dataset products --batch-size 8000 >> acc_one.res
+# python ./parse_acc.py -f ${log_dir}/sgnn_products.log --system sgnn --dataset products --batch-size 8000 >> acc_one.res
 
 # gnuplot
-gnuplot fig16a.plt
+gnuplot ./fig16a.plt

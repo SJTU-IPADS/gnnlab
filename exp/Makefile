@@ -1,6 +1,6 @@
 run_list_1=fig4a.run fig4b.run fig5a.run fig5b.run fig10.run fig11a.run fig11b.run fig11c.run fig12.run fig13.run table2.run
-run_list_2=table1.run table4.run table5.run fig13a.run fig13b.run fig14.run
-run_list_3=fig15.run fig16a.run fig16b.run
+run_list_2=table1.run table4.run table5.run fig14a.run fig14b.run fig15.run
+run_list_3=fig16a.run fig17a.run fig17b.run
 clean_list_1=$(patsubst %.run,%.clean,$(run_list_1))
 
 all: $(run_list_1) $(run_list_2) $(run_list_3)
