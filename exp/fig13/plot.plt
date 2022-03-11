@@ -1,7 +1,7 @@
 # feat_size_MB = 54228.0
 # max_cache_rate = 16130/feat_size_MB
 
-outputfname = "fig12-end-to-end.eps"
+outputfname = "fig13.eps"
 dat_file='data.dat'
 
 # col numbers
