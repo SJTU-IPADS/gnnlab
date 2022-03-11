@@ -9,16 +9,16 @@ set style data histogram
 set style histogram clustered gap 2
 set style fill solid border -2
 set pointsize 1
-set size 0.4,0.4
+set size 0.5,0.6
 set boxwidth 0.6 relative
 # set no zeroaxis
 
 set tics font ",14" scale 0.5
 
-set rmargin 0
-set lmargin 5
+set rmargin 1
+set lmargin 6
 set tmargin 0.5
-set bmargin 1
+set bmargin 3.5
 
 set output outputfname
 
@@ -45,5 +45,6 @@ set ytics 5
 set ytics offset 0.5,0 #format "%.1f" #nomirror
 
 # ^((?!PR).)*$
-plot "fig17b.dat"      using 2:xticlabels(1)       lc "#c00000" title "DGL" \
-    ,"fig17b.dat"      using 3:xticlabels(1)       lc "#008800" title "FGNN" \
+plot dat_file      using 2:xticlabels(1)       lc "#c00000" title "DGL" \
+    ,dat_file      using 4:xticlabels(1)       lc "#ff9900" title "T_{SOTA}" \
+    ,dat_file      using 3:xticlabels(1)       lc "#008800" title "GNNLab" \
