@@ -1,4 +1,4 @@
-# Figure 13b:  PinSAGE Scalability Test
+# Figure 14b:  PinSAGE Scalability Test
 
 The goal of this experiment is to show the scalability performance of DGL and FGNN on PinSAGE model.
 
@@ -58,9 +58,9 @@ optional arguments:
 ```sh
 > tree output_2022-01-29_20-45-14 -L 1
 output_2022-01-29_20-45-14
-├── fig13b.eps           # Output figure
-├── fig13b-full.res      # Output data with comments
-├── fig13b.res           # Output data
+├── fig14b.eps           # Output figure
+├── fig14b-full.res      # Output data with comments
+├── fig14b.res           # Output data
 ├── logs_dgl
 └── logs_fgnn
 
@@ -70,7 +70,7 @@ output_2022-01-29_20-45-14
 
 
 ```sh
-> cat output_2022-01-29_20-45-14/fig13b.res
+> cat output_2022-01-29_20-45-14/fig14b.res
 "GPUs"  "DGL"   "1S"    "2S"    "3S"
 1       13.14   -       -       -
 2       6.92    6.25    -       -

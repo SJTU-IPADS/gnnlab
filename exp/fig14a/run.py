@@ -23,9 +23,9 @@ def FGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_fgnn')
 
 
 GNUPLOT_FILE = os.path.join(HERE, 'scale-gcn.plt')
-def OUT_DATA_FILE(): return os.path.join(OUTPUT_DIR, 'fig13a.res')
-def OUT_DATA_FILE_FULL(): return os.path.join(OUTPUT_DIR, 'fig13a-full.res')
-def OUT_FIGURE_FILE(): return os.path.join(OUTPUT_DIR, 'fig13a.eps')
+def OUT_DATA_FILE(): return os.path.join(OUTPUT_DIR, 'fig14a.res')
+def OUT_DATA_FILE_FULL(): return os.path.join(OUTPUT_DIR, 'fig14a-full.res')
+def OUT_FIGURE_FILE(): return os.path.join(OUTPUT_DIR, 'fig14a.eps')
 
 
 def global_config(args):
@@ -162,7 +162,7 @@ def fgnn_scalability_test():
     return configs, logtable
 
 
-def run_fig13a_tests():
+def run_fig14a_tests():
     os.system(f'mkdir -p {OUTPUT_DIR}')
     table_format = '{:}\t{:}\t{:}\t{:}\t{:}\n'
     table_format_full = '{:}\t{:}\t{:}\t{:}\t{:}\t# {:}\n'
@@ -172,7 +172,7 @@ def run_fig13a_tests():
         f2.write(table_format_full.format('"GPUs"',
                 '"DGL"', '"1S"', '"2S"', '"3S"', '""'))
 
-        print(f'Running tests for fig 13a({OUTPUT_DIR_SHORT})...')
+        print(f'Running tests for fig 14a({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_scalability_test()
         _, fgnn_logtable = fgnn_scalability_test()
 
@@ -209,7 +209,7 @@ def run_fig13a_tests():
 
 
 if __name__ == '__main__':
-    argparser = argparse.ArgumentParser("Fig 13a Tests Runner")
+    argparser = argparse.ArgumentParser("Fig 14a Tests Runner")
     argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH,
                            help='Number of epochs to run per test case')
     argparser.add_argument('--mock', action='store_true', default=MOCK,
@@ -219,4 +219,4 @@ if __name__ == '__main__':
     args = argparser.parse_args()
 
     global_config(args)
-    run_fig13a_tests()
+    run_fig14a_tests()

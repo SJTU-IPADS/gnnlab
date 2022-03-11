@@ -1,4 +1,4 @@
-# Figure 13a:  GCN Scalability Test
+# Figure 14a:  GCN Scalability Test
 
 The goal of this experiment is to show the scalability performance of DGL and FGNN on GCN model.
 
@@ -58,9 +58,9 @@ optional arguments:
 ```sh
 > tree output_2022-01-29_20-10-39 -L 1
 output_2022-01-29_20-10-39
-├── fig13a.eps             # Output figure
-├── fig13a-full.res        # Output data with comments
-├── fig13a.res             # Output data
+├── fig14a.eps             # Output figure
+├── fig14a-full.res        # Output data with comments
+├── fig14a.res             # Output data
 ├── logs_dgl
 └── logs_fgnn
 
@@ -70,7 +70,7 @@ output_2022-01-29_20-10-39
 
 
 ```sh
-> cat output_2022-01-29_20-10-39/fig13a.res
+> cat output_2022-01-29_20-10-39/fig14a.res
 "GPUs"  "DGL"   "1S"    "2S"    "3S"
 1       18.51   -       -       -
 2       9.79    4.11    -       -
