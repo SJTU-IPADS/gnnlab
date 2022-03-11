@@ -2,6 +2,8 @@
 
 The goal of this experiment is to show the scalability performance of DGL, SGNN and FGNN on GCN model.
 
+Dataset: obg-papers
+
 - `run.py` is the runner script.
 - `logtable_def.py` defines log parsing rules.
 
@@ -77,10 +79,7 @@ output_2022-01-29_20-10-39
 2       9.85    6.94    4.10    -       -
 3       7.15    5.15    2.16    4.20    -
 4       6.01    4.18    1.48    2.15    4.15
-5       5.22    3.65    1.14    1.47    2.18
-6       4.75    3.41    1.05    1.13    1.46
-7       4.40    3.23    1.05    0.94    1.13
-8       4.27    2.83    1.03    0.82    0.96
+...
 ```
 
 
