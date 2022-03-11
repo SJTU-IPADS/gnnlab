@@ -91,10 +91,10 @@ SGNN                        3.26     5.96   4.14  13.37    # logs_sgnn/test3.log
 |   Fig11c   |       94 tests       |      120 mins     |
 |    Fig12   |       33 tests       |      30 mins      |
 |    Fig13   |       33 tests       |      30 mins      |
-|   Fig13a   |       26 tests       |      25 mins      |
-|   Fig13b   |       33 tests       |      30 mins      |
-|    Fig14   |       36 tests       |      40 mins      |
-|    Fig16   |        3 tests       |      25 mins      |
+|   Fig14a   |       26 tests       |      25 mins      |
+|   Fig14b   |       33 tests       |      30 mins      |
+|    Fig15   |       36 tests       |      40 mins      |
+|   Fig16a   |        3 tests       |      25 mins      |
 |   Fig17a   |       14 tests       |      20 mins      |
 |   Fig17b   |       27 tests       |      28 mins      |
 |   Table1   |       12 tests       |      10 mins      |
