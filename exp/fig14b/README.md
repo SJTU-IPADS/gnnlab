@@ -1,6 +1,6 @@
-# Figure 14b:  PinSAGE Scalability Test
+# Figure 14b:  GCN Scalability Test
 
-The goal of this experiment is to show the scalability performance of DGL and FGNN on PinSAGE model.
+The goal of this experiment is to show the scalability performance of DGL and FGNN on GCN model.
 
 - `run.py` is the runner script.
 - `logtable_def.py` defines log parsing rules.
@@ -11,8 +11,8 @@ The goal of this experiment is to show the scalability performance of DGL and FG
 
 - Paper's configurations: **8x16GB** NVIDIA V100 GPUs, **2x24** cores Intel 8163 CPU
 - For other hardware configurations, you may need to modify the ①Number of GPU. ②Number of CPU threads ③Number of vertex (in percentage, 0<=pct. <=1) to be cached.
-  - **DGL:** Modify `L61(#GPU)` in `run.py`.
-  - **FGNN:**  Modify  `L99(#CPU threads), L104-L139(#GPU, #Cache percentage)` in `run.py`.
+  - **DGL:** Modify `L64-L65(#GPU)` in `run.py`.
+  - **FGNN:**  Modify  `L106(#CPU threads), L116-L151(#GPU, #Cache percentage)` in `run.py`.
 
 
 
@@ -51,16 +51,16 @@ optional arguments:
 
 ## Output Example
 
-`python run.py` will create a new folder(e.g. `output_2022-01-29_20-45-14`) as result.
+`python run.py` will create a new folder(e.g. `output_2022-01-29_20-10-39`) as result.
 
 `python run.py --rerun-tests`  does not create a new folder and reuse the last created folder.
 
 ```sh
-> tree output_2022-01-29_20-45-14 -L 1
-output_2022-01-29_20-45-14
-├── fig14b.eps           # Output figure
-├── fig14b-full.res      # Output data with comments
-├── fig14b.res           # Output data
+> tree output_2022-01-29_20-10-39 -L 1
+output_2022-01-29_20-10-39
+├── fig14b.eps             # Output figure
+├── fig14b-full.res        # Output data with comments
+├── fig14b.res             # Output data
 ├── logs_dgl
 └── logs_fgnn
 
@@ -70,16 +70,16 @@ output_2022-01-29_20-45-14
 
 
 ```sh
-> cat output_2022-01-29_20-45-14/fig14b.res
+> cat output_2022-01-29_20-10-39/fig14b.res
 "GPUs"  "DGL"   "1S"    "2S"    "3S"
-1       13.14   -       -       -
-2       6.92    6.25    -       -
-3       4.90    3.22    6.22    -
-4       3.89    2.21    3.26    6.34
-5       3.31    1.66    2.21    3.29
-6       3.03    1.38    1.67    2.26
-7       2.81    1.18    1.39    1.65
-8       2.57    1.02    1.17    1.37
+1       18.51   -       -       -
+2       9.79    4.11    -       -
+3       7.19    2.14    4.08    -
+4       6.00    1.49    2.19    4.14
+5       5.28    1.19    1.46    2.13
+6       4.79    1.06    1.11    1.45
+7       4.48    1.05    0.93    1.11
+8       4.03    1.04    0.81    0.91
 ```
 
 
