@@ -152,7 +152,7 @@ def get_sgnn_logtable():
         num_col=4
     ).update_col_definition(
         col_id=0,
-        definition='epoch_time:sample_time'
+        definition='epoch_time:sample_total'
     ).update_col_definition(
         col_id=1,
         definition='epoch_time:copy_time'

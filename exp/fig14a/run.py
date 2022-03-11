@@ -208,13 +208,13 @@ def sgnn_scalability_test():
 
 def run_fig14a_tests():
     os.system(f'mkdir -p {OUTPUT_DIR}')
-    table_format = '{:}\t{:}\t{:}\t{:}\t{:}\n'
-    table_format_full = '{:}\t{:}\t{:}\t{:}\t{:}\t# {:}\n'
+    table_format = '{:}\t{:}\t{:}\t{:}\t{:}\t{:}\n'
+    table_format_full = '{:}\t{:}\t{:}\t{:}\t{:}\t{:}\t# {:}\n'
     with open(OUT_DATA_FILE(), 'w') as f1, open(OUT_DATA_FILE_FULL(), 'w') as f2:
         f1.write(table_format.format('"GPUs"',
-                                     '"DGL"', '"1S"', '"2S"', '"3S"'))
+                                     '"DGL"', '"SGNN"', '"1S"', '"2S"', '"3S"'))
         f2.write(table_format_full.format('"GPUs"',
-                '"DGL"', '"1S"', '"2S"', '"3S"', '""'))
+                '"DGL"', '"SGNN"', '"1S"', '"2S"', '"3S"', '""'))
 
         print(f'Running tests for fig 14a({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_scalability_test()
@@ -224,7 +224,7 @@ def run_fig14a_tests():
         print('Parsing logs...')
         gpus = [1, 2, 3, 4, 5, 6, 7, 8]
         dgl_data = [data[0] for data in dgl_logtable.data]
-        sgnn_data = [data[0] for data in sgnn_logtable.data]
+        sgnn_data = [data[3] for data in sgnn_logtable.data]
         fgnn_1s_data = ['-'] + [fgnn_logtable.data[i][0] for i in range(0, 7)]
         fgnn_2s_data = ['-', '-'] + [fgnn_logtable.data[i][0]
                                      for i in range(7, 13)]
