@@ -16,7 +16,7 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 
 DGL_APP_DIR = os.path.join(HERE, '../../example/dgl/multi_gpu')
 # Simulate PinSAGE(GPU version) on DGL
-DGL_PINSAGE_APP_DIR = os.path.join(HERE, '../../example/samgraph/sgnn_dgl')
+DGL_PINSAGE_APP_DIR = os.path.join(HERE, '../../example/dgl/multi_gpu')
 PYG_APP_DIR = os.path.join(HERE, '../../example/pyg/multi_gpu')
 SGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/sgnn')
 FGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/multi_gpu')
@@ -103,11 +103,14 @@ def dgl_pinsage_overall_test():
         'num_epoch',
         [NUM_EPOCH]
     ).override(
-        'BOOL_pipeline',
-        ['pipeline']
+        'BOOL_use_gpu_sampling',
+        ['use_gpu_sampling']
     ).override(
-        'num_worker',
-        [8],
+        'BOOL_pipeline',
+        ['pipelining']
+    ).override(
+        'devices',
+        ['0 1 2 3 4 5 6 7'],
         # ).override(
         #     'BOOL_validate_configs',
         #     ['validate_configs']

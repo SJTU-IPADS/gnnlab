@@ -17,8 +17,9 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 
 DGL_APP_DIR = os.path.join(HERE, '../../example/dgl/multi_gpu')
 # Simulate PinSAGE(GPU version) on DGL
-DGL_PINSAGE_APP_DIR = os.path.join(HERE, '../../example/samgraph/sgnn_dgl')
+DGL_PINSAGE_APP_DIR = os.path.join(HERE, '../../example/dgl/multi_gpu')
 PYG_APP_DIR = os.path.join(HERE, '../../example/pyg/multi_gpu')
+SGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/sgnn')
 FGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/multi_gpu')
 
 OUTPUT_DIR = os.path.join(HERE, f'output_{TIMESTAMP}')
@@ -26,6 +27,7 @@ OUTPUT_DIR_SHORT = f'output_{TIMESTAMP}'
 def DGL_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_dgl')
 def DGL_PINSAGE_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_dgl_pinsage')
 def PYG_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_pyg')
+def SGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_sgnn')
 def FGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_fgnn')
 
 
@@ -112,11 +114,14 @@ def dgl_pinsage_breakdown_test():
         'num_epoch',
         [NUM_EPOCH]
     ).override(
-        'BOOL_pipeline',
-        ['no_pipeline']
+        'BOOL_use_gpu_sampling',
+        ['use_gpu_sampling']
     ).override(
-        'num_worker',
-        [1],
+        'BOOL_pipeline',
+        ['no_pipelining']
+    ).override(
+        'devices',
+        ['0'],
         # ).override(
         #     'BOOL_validate_configs',
         #     ['validate_configs']
@@ -162,6 +167,118 @@ def pyg_breakdown_test():
     ).parse_logs(
         logtable=logtable,
         logdir=PYG_LOG_DIR()
+    )
+
+    return configs, logtable
+
+
+def sgnn_breakdown_test():
+    logtable = get_sgnn_logtable()
+
+    configs = ConfigList(
+        CONFIG_NAME_FORMAT.format('SGNN Breakdown Test')
+    ).select(
+        'app',
+        [App.gcn, App.graphsage, App.pinsage]
+    ).combo(
+        'app',
+        [App.gcn, App.graphsage],
+        'sample_type',
+        ['khop2']
+    ).combo(
+        'app',
+        [App.pinsage],
+        'sample_type',
+        ['random_walk']
+    ).override(
+        'num_epoch',
+        [NUM_EPOCH]
+    ).override(
+        'omp-thread-num',
+        [40]
+    ).combo(
+        'app',
+        [App.gcn],
+        'fanout',
+        ['5 10 15']
+    ).combo(
+        'app',
+        [App.graphsage],
+        'fanout',
+        ['25 10']
+    ).override(
+        'BOOL_pipeline',
+        ['no_pipeline']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.products]},
+        'cache_percentage',
+        ['1.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.papers100M]},
+        'cache_percentage',
+        ['0.07']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.twitter]},
+        'cache_percentage',
+        ['0.01']
+    ).multi_combo(
+        'and',
+        {'app': [App.gcn], 'dataset': [Dataset.uk_2006_05]},
+        'cache_percentage',
+        ['0.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.products]},
+        'cache_percentage',
+        ['1.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.papers100M]},
+        'cache_percentage',
+        ['0.11']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.twitter]},
+        'cache_percentage',
+        ['0.15']
+    ).multi_combo(
+        'and',
+        {'app': [App.graphsage], 'dataset': [Dataset.uk_2006_05]},
+        'cache_percentage',
+        ['0.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.products]},
+        'cache_percentage',
+        ['1.0']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.papers100M]},
+        'cache_percentage',
+        ['0.06']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.twitter]},
+        'cache_percentage',
+        ['0.04']
+    ).multi_combo(
+        'and',
+        {'app': [App.pinsage], 'dataset': [Dataset.uk_2006_05]},
+        'cache_percentage',
+        ['0.0']
+        # ).override(
+        #     'BOOL_validate_configs',
+        #     ['validate_configs']
+    ).run(
+        appdir=SGNN_APP_DIR,
+        logdir=SGNN_LOG_DIR(),
+        mock=MOCK
+    ).parse_logs(
+        logtable=logtable,
+        logdir=SGNN_LOG_DIR()
     )
 
     return configs, logtable
@@ -282,29 +399,29 @@ def fgnn_breakdown_test():
 def run_table5_tests():
     os.system(f'mkdir -p {OUTPUT_DIR}')
 
-    dotline = '-' * 134
+    dotline = '-' * 164
 
-    table_header_format = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^6s}   {:^8s}   {:^6s} | {:^29s}   {:^23s}   {:^6s}\n'
-    table_content_format = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^6s}   {:^8s}   {:^6s} | {:^5s} = {:^5s} + {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s}\n'
-    table_content_format_full = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^6s}   {:^8s}   {:^6s} | {:^5s} = {:^5s} + {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s} # {:s}\n'
+    table_header_format       = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^21s}   {:^23s}   {:^6s} | {:^29s}   {:^23s}   {:^6s}\n'
+    table_content_format      = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^5s} = {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s} | {:^5s} = {:^5s} + {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s}\n'
+    table_content_format_full = ' {:^3s} | {:^2s} | {:^6s}   {:^8s}   {:^6s} | {:^5s} = {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s} | {:^5s} = {:^5s} + {:^5s} + {:^5s}   {:^8s} ({:4s}%, {:4s}%)   {:^6s} # {:s}\n'
     with open(OUT_FILE(), 'w') as f1, open(OUT_FILE_FULL(), 'w') as f2:
-        f1.write('{:s}\n {:^8s} | {:^26s} | {:^26s} | {:^61s} \n{:s}\n'.format(
-            dotline, '', 'DGL', 'PyG', 'FGNN', dotline))
+        f1.write('{:s}\n {:^8s} | {:^26s} | {:^56s} | {:^61s} \n{:s}\n'.format(
+            dotline, '', 'DGL', 'SGNN', 'FGNN', dotline))
         f1.write(table_header_format.format('GNN',
-                                            'DS', 'Sample', 'Extract', 'Train', 'Sample', 'Extract', 'Train', 'Sample = S + M + C', 'Extract (Ratio, Hit%)', 'Train'))
+                                            'DS', 'Sample', 'Extract', 'Train', 'Sample = S + M', 'Extract (Ratio, Hit%)', 'Train', 'Sample = S + M + C', 'Extract (Ratio, Hit%)', 'Train'))
         f1.write(dotline + '\n')
 
 
-        f2.write('{:s}\n {:^8s} | {:^26s} | {:^26s} | {:^61s} \n{:s}\n'.format(
-            dotline, '', 'DGL', 'PyG', 'FGNN', dotline))
+        f2.write('{:s}\n {:^8s} | {:^26s} | {:^56s} | {:^61s} \n{:s}\n'.format(
+            dotline, '', 'DGL', 'SGNN', 'FGNN', dotline))
         f2.write(table_header_format.format('GNN',
-                                            'DS', 'Sample', 'Extract', 'Train', 'Sample', 'Extract', 'Train', 'Sample = S + M + C', 'Extract (Ratio, Hit%)', 'Train'))
+                                            'DS', 'Sample', 'Extract', 'Train', 'Sample = S + M', 'Extract (Ratio, Hit%)', 'Train', 'Sample = S + M + C', 'Extract (Ratio, Hit%)', 'Train'))
         f2.write(dotline + '\n')
         print(
             f'Running tests for table 5({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_breakdown_test()
         _, dgl_pinsage_logtable = dgl_pinsage_breakdown_test()
-        _, pyg_logtable = pyg_breakdown_test()
+        _, sgnn_logtable = sgnn_breakdown_test()
         _, fgnn_logtable = fgnn_breakdown_test()
 
         print('Parsing logs...')
@@ -315,15 +432,14 @@ def run_table5_tests():
                 idx = m_idx * num_datasets + d_idx
 
                 dgl_data = dgl_logtable.data + dgl_pinsage_logtable.data
-                pyg_data = pyg_logtable.data if model != 'PSG' else [
-                    ['X', 'X', 'X']] * (num_models * num_datasets)
+                sgnn_data = sgnn_logtable.data
                 fgnn_data = fgnn_logtable.data
 
                 data_refs = [
                     ' '.join(dgl_logtable.data_refs[m_idx * num_datasets + d_idx] if model !=
                              'PSG' else dgl_pinsage_logtable.data_refs[d_idx]),
-                    '' if model == 'PSG' else ' '.join(
-                        pyg_logtable.data_refs[m_idx * num_datasets + d_idx]),
+                    ' '.join(
+                        sgnn_logtable.data_refs[m_idx * num_datasets + d_idx]),
                     ' '.join(
                         fgnn_logtable.data_refs[m_idx * num_datasets + d_idx])
                 ]
@@ -332,7 +448,9 @@ def run_table5_tests():
                     model,
                     dataset,
                     dgl_data[idx][0], dgl_data[idx][1], dgl_data[idx][2],
-                    pyg_data[idx][0], pyg_data[idx][1], pyg_data[idx][2],
+                    sgnn_data[idx][0], sgnn_data[idx][1], sgnn_data[idx][2],
+                    sgnn_data[idx][3], sgnn_data[idx][4], sgnn_data[idx][5],
+                    sgnn_data[idx][6],
                     fgnn_data[idx][0], fgnn_data[idx][1], fgnn_data[idx][2],
                     fgnn_data[idx][3], fgnn_data[idx][4], fgnn_data[idx][5],
                     fgnn_data[idx][6], fgnn_data[idx][7],
@@ -342,7 +460,9 @@ def run_table5_tests():
                     model,
                     dataset,
                     dgl_data[idx][0], dgl_data[idx][1], dgl_data[idx][2],
-                    pyg_data[idx][0], pyg_data[idx][1], pyg_data[idx][2],
+                    sgnn_data[idx][0], sgnn_data[idx][1], sgnn_data[idx][2],
+                    sgnn_data[idx][3], sgnn_data[idx][4], sgnn_data[idx][5],
+                    sgnn_data[idx][6],
                     fgnn_data[idx][0], fgnn_data[idx][1], fgnn_data[idx][2],
                     fgnn_data[idx][3], fgnn_data[idx][4], fgnn_data[idx][5],
                     fgnn_data[idx][6], fgnn_data[idx][7],
