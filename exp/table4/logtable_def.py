@@ -60,7 +60,7 @@ def get_dgl_pinsage_logtable():
         num_col=1
     ).update_col_definition(
         col_id=0,
-        definition='epoch_time:total'
+        definition='epoch_time'
     ).update_row_definition(
         row_id=0,
         col_range=[0, 0],
