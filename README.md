@@ -220,4 +220,4 @@ FGNN is released under the [Apache License 2.0](http://www.apache.org/licenses/L
 
 ## Academic and Conference Papers
 
-[**EuroSys**] FGNN: A Factored System for Sample-based GNN Training over GPUs. Jianbang Yang, Dahai Tang, Xiaoniu Song, Lei Wang, Qiang Yin, Rong Chen, Wenyuan Yu, Jingren Zhou. Proceedings of the 17th European Conference on Computer Systems, Rennes, France, April, 2022.
+[**EuroSys**] GNNLab: A Factored System for Sample-based GNN Training over GPUs. Jianbang Yang, Dahai Tang, Xiaoniu Song, Lei Wang, Qiang Yin, Rong Chen, Wenyuan Yu, Jingren Zhou. Proceedings of the 17th European Conference on Computer Systems, Rennes, France, April, 2022.
