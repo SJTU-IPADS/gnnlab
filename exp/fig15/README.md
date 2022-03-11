@@ -1,4 +1,4 @@
-# Figure 14:  GCN breakdown Test
+# Figure 15:  GCN breakdown Test
 
 The goal of this experiment is to show the scalability breakdown of FGNN on GCN model.
 
@@ -57,8 +57,8 @@ optional arguments:
 ```sh
 > tree output_2022-01-29_21-30-39/ -L 1
 output_2022-01-29_21-30-39/
-├── fig14.eps      # Output figure
-├── fig14.res      # Output data
+├── fig15.eps      # Output figure
+├── fig15.res      # Output data
 └── logs_fgnn
 
 1 directory, 2 files
@@ -67,7 +67,7 @@ output_2022-01-29_21-30-39/
 
 
 ```sh
-> cat output_2022-01-29_21-30-39/fig14.res
+> cat output_2022-01-29_21-30-39/fig15.res
 " " ? ? ? ?
 "1S 1T" 1.01    0.50    4.03    4.11    # logs_fgnn/test18.log logs_fgnn/test0.log
 "1S 2T" 1.00    0.35    1.99    2.20    # logs_fgnn/test1.log logs_fgnn/test19.log

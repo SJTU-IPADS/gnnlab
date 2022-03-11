@@ -23,8 +23,8 @@ def FGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_fgnn')
 
 
 GNUPLOT_FILE = os.path.join(HERE, 'scale-break.plt')
-def OUT_DATA_FILE(): return os.path.join(OUTPUT_DIR, 'fig14.res')
-def OUT_FIGURE_FILE(): return os.path.join(OUTPUT_DIR, 'fig14.eps')
+def OUT_DATA_FILE(): return os.path.join(OUTPUT_DIR, 'fig15.res')
+def OUT_FIGURE_FILE(): return os.path.join(OUTPUT_DIR, 'fig15.eps')
 
 
 def global_config(args):
@@ -156,11 +156,11 @@ def fgnn_scalability_breakdown_test():
     return configs, logtable
 
 
-def run_fig14_tests():
+def run_fig15_tests():
     os.system(f'mkdir -p {OUTPUT_DIR}')
     table_format = '{:}\t{:}\t{:}\t{:}\t{:}\t# {:}\n'
     with open(OUT_DATA_FILE(), 'w') as f:
-        print(f'Running tests for fig 14({OUTPUT_DIR_SHORT})...')
+        print(f'Running tests for fig 15({OUTPUT_DIR_SHORT})...')
         _, fgnn_logtable = fgnn_scalability_breakdown_test()
 
         print('Parsing logs...')
@@ -196,7 +196,7 @@ def run_fig14_tests():
 
 
 if __name__ == '__main__':
-    argparser = argparse.ArgumentParser("Fig 14 Tests Runner")
+    argparser = argparse.ArgumentParser("Fig 15 Tests Runner")
     argparser.add_argument('--num-epoch', type=int, default=NUM_EPOCH,
                            help='Number of epochs to run per test case')
     argparser.add_argument('--mock', action='store_true', default=MOCK,
@@ -206,4 +206,4 @@ if __name__ == '__main__':
     args = argparser.parse_args()
 
     global_config(args)
-    run_fig14_tests()
+    run_fig15_tests()
