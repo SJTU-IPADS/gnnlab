@@ -1,6 +1,8 @@
-# Figure 14b:  PinSAGE Scalability Test
+# Figure 14b:  GCN Scalability Test
 
-The goal of this experiment is to show the scalability performance of DGL and FGNN on PinSAGE model.
+The goal of this experiment is to show the scalability performance of DGL, SGNN and FGNN on GCN model.
+
+Dataset: twitter
 
 - `run.py` is the runner script.
 - `logtable_def.py` defines log parsing rules.
@@ -11,8 +13,9 @@ The goal of this experiment is to show the scalability performance of DGL and FG
 
 - Paper's configurations: **8x16GB** NVIDIA V100 GPUs, **2x24** cores Intel 8163 CPU
 - For other hardware configurations, you may need to modify the ①Number of GPU. ②Number of CPU threads ③Number of vertex (in percentage, 0<=pct. <=1) to be cached.
-  - **DGL:** Modify `L61(#GPU)` in `run.py`.
-  - **FGNN:**  Modify  `L99(#CPU threads), L104-L139(#GPU, #Cache percentage)` in `run.py`.
+  - **DGL:** Modify `L66-L67(#GPU)` in `run.py`.
+  - **FGNN:**  Modify  `L108(#CPU threads), L118-L153(#GPU, #Cache percentage)` in `run.py`.
+  - **SGNN:**  Modify  `L187(#Cache percentage), L190(#GPU)` in `run.py`.
 
 
 
@@ -51,35 +54,33 @@ optional arguments:
 
 ## Output Example
 
-`python run.py` will create a new folder(e.g. `output_2022-01-29_20-45-14`) as result.
+`python run.py` will create a new folder(e.g. `output_2022-01-29_20-10-39`) as result.
 
 `python run.py --rerun-tests`  does not create a new folder and reuse the last created folder.
 
 ```sh
-> tree output_2022-01-29_20-45-14 -L 1
-output_2022-01-29_20-45-14
-├── fig14b.eps           # Output figure
-├── fig14b-full.res      # Output data with comments
-├── fig14b.res           # Output data
+> tree output_2022-01-29_20-10-39 -L 1
+output_2022-01-29_20-10-39
+├── fig14b.eps             # Output figure
+├── fig14b-full.res        # Output data with comments
+├── fig14b.res             # Output data
 ├── logs_dgl
-└── logs_fgnn
+├── logs_fgnn
+└── logs_sgnn
 
-2 directories, 3 files
+3 directories, 3 files
 ```
 
 
 
 ```sh
-> cat output_2022-01-29_20-45-14/fig14b.res
-"GPUs"  "DGL"   "1S"    "2S"    "3S"
-1       13.14   -       -       -
-2       6.92    6.25    -       -
-3       4.90    3.22    6.22    -
-4       3.89    2.21    3.26    6.34
-5       3.31    1.66    2.21    3.29
-6       3.03    1.38    1.67    2.26
-7       2.81    1.18    1.39    1.65
-8       2.57    1.02    1.17    1.37
+> cat output_2022-01-29_20-10-39/fig14b.res
+"GPUs"	"DGL"	"SGNN"	"1S"	"2S"	"3S"
+1   11.86	5.47	-	-	-
+2	7.07	4.26	1.69	-	-
+3	5.65	3.20	0.95	1.70	-
+4	4.88	2.65	0.71	0.97	1.69
+...
 ```
 
 

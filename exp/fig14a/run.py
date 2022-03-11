@@ -15,11 +15,13 @@ TIMESTAMP = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 HERE = os.path.abspath(os.path.dirname(__file__))
 DGL_APP_DIR = os.path.join(HERE, '../../example/dgl/multi_gpu')
 FGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/multi_gpu')
+SGNN_APP_DIR = os.path.join(HERE, '../../example/samgraph/sgnn')
 
 OUTPUT_DIR = os.path.join(HERE, f'output_{TIMESTAMP}')
 OUTPUT_DIR_SHORT = f'output_{TIMESTAMP}'
 def DGL_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_dgl')
 def FGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_fgnn')
+def SGNN_LOG_DIR(): return os.path.join(OUTPUT_DIR, 'logs_sgnn')
 
 
 GNUPLOT_FILE = os.path.join(HERE, 'scale-gcn.plt')
@@ -162,23 +164,67 @@ def fgnn_scalability_test():
     return configs, logtable
 
 
+
+def sgnn_scalability_test():
+    logtable = get_sgnn_logtable()
+
+    configs = ConfigList(
+        'SGNN GCN scalability test'
+    ).select(
+        'app',
+        [App.gcn]
+    ).select(
+        'dataset',
+        [Dataset.papers100M]
+    ).override(
+        'num_epoch',
+        [NUM_EPOCH]
+    ).override(
+        'cache_policy',
+        ['degree']
+    ).override(
+        'cache_percentage',
+        [0.03]
+    ).override(
+        'num_worker',
+        [1, 2, 3, 4, 5, 6, 7, 8],
+    ).override(
+        'BOOL_pipeline',
+        ['no_pipeline']
+        # ).override(
+        #     'BOOL_validate_configs',
+        #     ['validate_configs']
+    ).run(
+        appdir=SGNN_APP_DIR,
+        logdir=SGNN_LOG_DIR(),
+        mock=MOCK
+    ).parse_logs(
+        logtable=logtable,
+        logdir=SGNN_LOG_DIR()
+    )
+
+    return configs, logtable
+
+
 def run_fig14a_tests():
     os.system(f'mkdir -p {OUTPUT_DIR}')
-    table_format = '{:}\t{:}\t{:}\t{:}\t{:}\n'
-    table_format_full = '{:}\t{:}\t{:}\t{:}\t{:}\t# {:}\n'
+    table_format = '{:}\t{:}\t{:}\t{:}\t{:}\t{:}\n'
+    table_format_full = '{:}\t{:}\t{:}\t{:}\t{:}\t{:}\t# {:}\n'
     with open(OUT_DATA_FILE(), 'w') as f1, open(OUT_DATA_FILE_FULL(), 'w') as f2:
         f1.write(table_format.format('"GPUs"',
-                                     '"DGL"', '"1S"', '"2S"', '"3S"'))
+                                     '"DGL"', '"SGNN"', '"1S"', '"2S"', '"3S"'))
         f2.write(table_format_full.format('"GPUs"',
-                '"DGL"', '"1S"', '"2S"', '"3S"', '""'))
+                '"DGL"', '"SGNN"', '"1S"', '"2S"', '"3S"', '""'))
 
         print(f'Running tests for fig 14a({OUTPUT_DIR_SHORT})...')
         _, dgl_logtable = dgl_scalability_test()
+        _, sgnn_logtable = sgnn_scalability_test()
         _, fgnn_logtable = fgnn_scalability_test()
 
         print('Parsing logs...')
         gpus = [1, 2, 3, 4, 5, 6, 7, 8]
         dgl_data = [data[0] for data in dgl_logtable.data]
+        sgnn_data = [data[3] for data in sgnn_logtable.data]
         fgnn_1s_data = ['-'] + [fgnn_logtable.data[i][0] for i in range(0, 7)]
         fgnn_2s_data = ['-', '-'] + [fgnn_logtable.data[i][0]
                                      for i in range(7, 13)]
@@ -188,6 +234,8 @@ def run_fig14a_tests():
         data_refs = [[] for _ in range(8)]
         for i in range(8):
             data_refs[i] += list(dgl_logtable.data_refs[i])
+        for i in range(8):
+            data_refs[i] += list(sgnn_logtable.data_refs[i])
         for i in range(0, 7):
             data_refs[i + 1] += list(fgnn_logtable.data_refs[i])
         for i in range(7, 13):
@@ -196,9 +244,9 @@ def run_fig14a_tests():
             data_refs[i - 13 + 3] += list(fgnn_logtable.data_refs[i])
 
         for i in range(8):
-            f1.write(table_format.format(str(gpus[i]), str(dgl_data[i]), str(
+            f1.write(table_format.format(str(gpus[i]), str(dgl_data[i]), str(sgnn_data[i]), str(
                 fgnn_1s_data[i]), str(fgnn_2s_data[i]), str(fgnn_3s_data[i])))
-            f2.write(table_format.format(str(gpus[i]), str(dgl_data[i]), str(
+            f2.write(table_format.format(str(gpus[i]), str(dgl_data[i]), str(sgnn_data[i]), str(
                 fgnn_1s_data[i]), str(fgnn_2s_data[i]), str(fgnn_3s_data[i]), ' '.join(data_refs[i])))
 
     print('Ploting...')
