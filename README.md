@@ -1,8 +1,8 @@
 # Artifact Evaluation for FGNN [EuroSys'22]
 
-This repository contains scripts and instructions for reproducing the experiments in our EuroSys '22 paper "FGNN: A Factored System For Sample-based GNN Training Over GPUs".
+This repository contains scripts and instructions for reproducing the experiments in our EuroSys '22 paper "GNNLab: A Factored System For Sample-based GNN Training Over GPUs".
 
-FGNN (also called SamGraph) is a factored system for sample-based GNN training over GPUs, where each GPU is dedicated to the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
+FGNN (also called SamGraph) is the initial version of GNNLab, which is a factored system for sample-based GNN training over GPUs. FGNN dedicates each GPUto the task of graph sampling or model training. It accelerates both tasks by eliminating GPU memory contention. Furthermore, FGNN embodies a new pre-sampling based caching policy that takes both sampling algorithms and GNN datasets into account, showing an efficient and robust caching performance.
 
 ## Table of Contents
   - [Project Structure](#project-structure)
