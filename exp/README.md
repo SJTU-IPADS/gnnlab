@@ -3,7 +3,6 @@
 ### Table of Contents 
   - [Overview](#overview)
   - [Paper's Hardware Configurations](#papers-hardware-configurations)
-  - [AE Machine Configuration](#ae-machine-configuration)
   - [Run A Single Experiment](#run-a-single-experiment)
   - [Run All Experiments](#run-all-experiments)
   - [Example output.](#example-output)
@@ -33,12 +32,6 @@ fgnn-artifacts/exp
 - 512GB RAM
 
 **Note: If you have a different hardware environment, you need to goto the subdirectories (i.e., `figXX` or `tableXX`), follow the instructions to modify some script configurations(e.g. smaller cache ratio), and then run the experiment**
-
-
-## AE Machine Configuration
-- 8 * NVIDIA V100 GPUs (**32GB** of memory each)
-- 2 * Intel Xeon Platinum 8163 CPUs (24 cores each)
-- 512GB RAM
 
 
 ## Run A Single Experiment
@@ -113,12 +106,6 @@ make clean
 
 ## FAQ
 
-**The paper reported OOM in some test cases (e.g., PinSage on UK). However those test cases run successfully in AE environment.**
+**The data mismatch the paper data.**
 
-In the FGNN, all tests were run in 16GB V100 machine. In the AE machine, each GPU has 32GB of memory because All 16GB V100 machines have been occupied.
-
-
-**AE data mismatch the paper data.**
-
-- Check if someone else is running the test at the same time. Use `nvidia-smi` and `htop` command.
 - **Do not run `nvidia-smi` command during the tests. `nvidia-smi` command harm the performance severely.**
