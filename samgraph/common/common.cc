@@ -86,7 +86,7 @@ void Tensor::Swap(TensorPtr tensor) {
   std::swap(this->_data, tensor->_data);
 }
 
-void Tensor::ChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
+void Tensor::Scale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
   if (!Defined()) {
     CHECK_GT(shape.size(), 0);
     size_t nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
@@ -114,7 +114,7 @@ void Tensor::ChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, st
   _shape = shape;
   _nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
 }
-void Tensor::ForceChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
+void Tensor::ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
   CHECK(Defined());
   CHECK(_dtype == dt);
   CHECK(_ctx == ctx);

@@ -126,8 +126,10 @@ class Tensor {
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
   inline size_t NumItem() const { return std::accumulate(_shape.begin(), _shape.end(), 1ul, std::multiplies<size_t>()); }
-  void ChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
-  void ForceChangeShape(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
+  // if the allocated space fits, scale the tensor to `shape` in-place. otherwise allocate a new one.
+  void Scale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
+  // force scale the tensor without checking whether fits, since the size querying may be slow.
+  void ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
 
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,

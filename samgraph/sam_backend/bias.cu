@@ -99,7 +99,7 @@ void Bias::prepare() {
   TaskPtr cur_task = _model->cur_task;
   output->Resize(inputs[0]->Type(), inputs[0]->Shape(), _model->ctx, "");
   if (!_model->ones->Defined() || _model->ones->Shape()[0] < 1) {
-    _model->ones->ChangeShape(to_data_type<TrainType>(), {1}, _model->ctx, "_model->ones");
+    _model->ones->Scale(to_data_type<TrainType>(), {1}, _model->ctx, "_model->ones");
     ValInitializer *init = new ValInitializer(1.0);
     init->init(_model, _model->ones);
     delete init;

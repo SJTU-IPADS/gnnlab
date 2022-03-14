@@ -105,17 +105,17 @@ GradTensor::GradTensor(common::DataType dt, std::vector<size_t> shape, Context c
 void GradTensor::Resize(common::DataType dtype, std::vector<size_t> shape, Context ctx,
                         std::string name) {
   if (_data_actual_size >= common::GetTensorBytes(dtype, shape)) {
-    _data->ForceChangeShape(dtype, shape, ctx, name);
+    _data->ForceScale(dtype, shape, ctx, name);
   } else {
-    _data->ChangeShape(dtype, shape, ctx, name);
+    _data->Scale(dtype, shape, ctx, name);
     _data_actual_size = Device::Get(_data->Ctx())->WorkspaceActualSize(_data->Ctx(), _data->MutableData());
   }
 
   if (_require_grad || _grad->Defined()) {
     if (_grad_actual_size >= common::GetTensorBytes(dtype, shape)) {
-      _grad->ForceChangeShape(dtype, shape, ctx, name);
+      _grad->ForceScale(dtype, shape, ctx, name);
     } else {
-      _grad->ChangeShape(dtype, shape, ctx, name);
+      _grad->Scale(dtype, shape, ctx, name);
       _grad_actual_size = Device::Get(_grad->Ctx())->WorkspaceActualSize(_grad->Ctx(), _grad->MutableData());
     }
   }

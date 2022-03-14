@@ -235,7 +235,7 @@ void ScatterGather::prepare() {
   // }
 
   if (!_model->ones->Defined() || _model->ones->Shape()[0] < graph->num_edge) {
-    _model->ones->ChangeShape(inputs[0]->Type(), {graph->num_edge}, _model->ctx, "_model->ones");
+    _model->ones->Scale(inputs[0]->Type(), {graph->num_edge}, _model->ctx, "_model->ones");
     ValInitializer *init = new ValInitializer(1.0);
     init->init(_model, _model->ones);
     delete init;
