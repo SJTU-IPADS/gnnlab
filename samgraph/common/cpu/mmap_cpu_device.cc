@@ -60,6 +60,11 @@ void *MmapCPUDevice::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
   return nullptr;
 }
 
+size_t MmapCPUDevice::WorkspaceActualSize(Context ctx, void *ptr) {
+  LOG(FATAL) << "Device does not support WorkspaceActualSize api";
+  return 0;
+}
+
 void MmapCPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
   int ret = munmap(data, nbytes);
   CHECK_EQ(ret, 0);

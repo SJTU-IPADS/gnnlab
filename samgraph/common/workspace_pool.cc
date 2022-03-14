@@ -113,6 +113,16 @@ class WorkspacePool::Pool {
     }
     _free_list_total_size += e.size;
   }
+  size_t ActualSize(void *data) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    Entry e;
+    int index = static_cast<int>(_allocated.size()) - 1;
+    for (; index > 0 && _allocated[index].data != data; --index) {
+    }
+    CHECK_GT(index, 0) << "trying to check size of things that has not been allocated";
+    e = _allocated[index];
+    return e.size;
+  }
 
   // Release all resources
   void Release(Context ctx, Device *device) {
@@ -181,6 +191,12 @@ void WorkspacePool::FreeWorkspace(Context ctx, void *ptr) {
   CHECK(static_cast<size_t>(ctx.device_id) < _array.size() &&
         _array[ctx.device_id] != nullptr);
   _array[ctx.device_id]->Free(ptr);
+}
+
+size_t WorkspacePool::WorkspaceActualSize(Context ctx, void *ptr) {
+  CHECK(static_cast<size_t>(ctx.device_id) < _array.size() &&
+        _array[ctx.device_id] != nullptr);
+  return _array[ctx.device_id]->ActualSize(ptr);
 }
 
 size_t WorkspacePool::TotalSize(Context ctx) {

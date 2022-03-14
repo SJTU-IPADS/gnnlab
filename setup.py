@@ -7,6 +7,9 @@ import os
 from setuptools import find_packages, setup, Extension
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension, library_paths, include_paths
 
+if 'CXX' not in os.environ:
+    os.environ['CXX'] = 'g++'
+
 def TinyCUDAExtension(name, sources, *args, **kwargs):
     library_dirs = kwargs.get('library_dirs', [])
     library_dirs += library_paths(cuda=True)
@@ -192,9 +195,38 @@ setup(
                 'samgraph/torch/adapter.cc',
             ],
             include_dirs=[
-                # os.path.join(here, '3rdparty/cub'), 
+                # os.path.join(here, '3rdparty/cub'),
                 os.path.join(here, '3rdparty/parallel-hashmap')],
             libraries=['cusparse'],
+            extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
+            # these custom march may should be remove and merged
+            extra_compile_args={
+                'cxx': cxx_flags,
+                'nvcc': cuda_flags
+            }),
+        TinyCUDAExtension(
+            name='samgraph.sam_backend.c_lib',
+            sources=[
+                'samgraph/sam_backend/adapter.cc',
+                'samgraph/sam_backend/activation.cu',
+                'samgraph/sam_backend/bias.cu',
+                'samgraph/sam_backend/common.cc',
+                'samgraph/sam_backend/dropout.cu',
+                'samgraph/sam_backend/element.cu',
+                'samgraph/sam_backend/graph_norm.cu',
+                'samgraph/sam_backend/initializer.cu',
+                'samgraph/sam_backend/linear.cu',
+                'samgraph/sam_backend/model.cc',
+                'samgraph/sam_backend/optimizer.cu',
+                'samgraph/sam_backend/scattergather.cu',
+                'samgraph/sam_backend/softmax.cu',
+                'samgraph/sam_backend/utils.cu',
+            ],
+            include_dirs=[
+                # os.path.join(here, '3rdparty/cub'),
+                os.path.join(here, '3rdparty/parallel-hashmap'),
+                os.path.join(os.environ['CONDA_PREFIX'], 'include')],
+            libraries=['cusparse', 'cudart', 'cudnn', 'cublas', 'curand'],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
             # these custom march may should be remove and merged
             extra_compile_args={

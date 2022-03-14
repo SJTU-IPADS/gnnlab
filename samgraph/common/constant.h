@@ -69,6 +69,7 @@ class Constant {
   static constexpr size_t kRandomWalkMaxThreads = 512 * 1024;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
+  static constexpr Id64Type kEmptyLabel = std::numeric_limits<Id64Type>::max();
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;
@@ -86,6 +87,7 @@ class Constant {
   static const std::string kEnvSanityCheck;
   static const std::string kEnvDumpTrace;
   static const std::string kEnvEmptyFeat;
+  static const std::string kEnvSamBackCudaLaunchBlocking;
 
   static const std::string kNodeAccessLogFile;
   static const std::string kNodeAccessFrequencyFile;

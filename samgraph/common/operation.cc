@@ -71,6 +71,10 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   CHECK(configs.count("max_sampling_jobs"));
   CHECK(configs.count("max_copying_jobs"));
   CHECK(configs.count("omp_thread_num"));
+  CHECK(configs.count("num_layer"));
+  CHECK(configs.count("num_hidden"));
+  CHECK(configs.count("lr"));
+  CHECK(configs.count("dropout"));
 
   RC::raw_configs = configs;
   RC::dataset_path = configs["dataset_path"];
@@ -85,6 +89,10 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   RC::max_sampling_jobs = std::stoull(configs["max_sampling_jobs"]);
   RC::max_copying_jobs = std::stoull(configs["max_copying_jobs"]);
   RC::omp_thread_num = std::stoi(configs["omp_thread_num"]);
+  RC::hiddem_dim = std::stoi(configs["num_hidden"]);
+  RC::lr = std::stod(configs["lr"]);
+  RC::dropout = std::stod(configs["dropout"]);
+  RC::num_layer = std::stoull(configs["num_layer"]);
 
   switch (RC::run_arch) {
     case kArch0:
@@ -144,14 +152,12 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
     CHECK(configs.count("random_walk_restart_prob"));
     CHECK(configs.count("num_random_walk"));
     CHECK(configs.count("num_neighbor"));
-    CHECK(configs.count("num_layer"));
 
     RC::random_walk_length = std::stoull(configs["random_walk_length"]);
     RC::random_walk_restart_prob =
         std::stod(configs["random_walk_restart_prob"]);
     RC::num_random_walk = std::stoull(configs["num_random_walk"]);
     RC::num_neighbor = std::stoull(configs["num_neighbor"]);
-    RC::num_layer = std::stoull(configs["num_layer"]);
     RC::fanout = std::vector<size_t>(RC::num_layer, RC::num_neighbor);
   }
 

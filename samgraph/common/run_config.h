@@ -53,6 +53,11 @@ struct RunConfig {
   static size_t               num_neighbor;
   static size_t               num_layer;
 
+  // model parameters
+  static size_t               hiddem_dim;
+  static double               dropout;
+  static double               lr;
+
   static bool                 is_configured;
 
   static cpu::CPUHashType     cpu_hash_type;
@@ -71,6 +76,7 @@ struct RunConfig {
   static bool                 option_log_node_access;
   static bool                 option_log_node_access_simple;
   static bool                 option_sanity_check;
+  static bool                 option_samback_cuda_launch_blocking;
   static int                  barriered_epoch;
   static int                  presample_epoch;
   static bool                 option_dump_trace;
