@@ -304,7 +304,15 @@ void Profiler::ReportStepAverage(uint64_t epoch, uint64_t step) {
 
   size_t num_items = static_cast<size_t>(kNumLogStepItems);
   for (size_t i = 0; i < num_items; i++) {
-    double sum = _step_data[i].sum - _step_data[i].vals[0];
+    if (_step_data[i].cnt <= 1) {
+      _step_buf[i] = 0;
+      continue;
+    }
+    size_t first_idx = 0;
+    for (; first_idx < _step_data[i].vals.size(); first_idx ++) {
+      if (_step_data[i].bitmap[first_idx]) break;
+    }
+    double sum = _step_data[i].sum - _step_data[i].vals[first_idx];
     size_t cnt = _step_data[i].cnt <= 1 ? 1 : _step_data[i].cnt - 1;
     _step_buf[i] = sum / cnt;
   }
