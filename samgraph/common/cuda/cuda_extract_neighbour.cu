@@ -160,7 +160,7 @@ void GPUExtractNeighbour(const IdType *indptr, const IdType *indices,
 
   compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
-          indptr, indices, input, num_input, item_prefix, nullptr, output);
+          indptr, indices, input, num_input, item_prefix_out, nullptr, output);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t2.Passed();
 
