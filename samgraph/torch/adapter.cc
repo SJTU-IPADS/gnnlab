@@ -42,6 +42,20 @@
 // Use the torch built-in CHECK macros
 // #include "../common/logging.h"
 
+namespace {
+::torch::Dtype to_torch_data_type(samgraph::common::DataType dt) {
+  switch (dt) {
+    case samgraph::common::kF32: return ::torch::kF32;
+    case samgraph::common::kF64: return ::torch::kF64;
+    case samgraph::common::kF16: return ::torch::kF16;
+    case samgraph::common::kU8:  return ::torch::kU8;
+    case samgraph::common::kI32: return ::torch::kI32;
+    case samgraph::common::kI8:  return ::torch::kI8;
+    case samgraph::common::kI64: return ::torch::kI64;
+  }
+}
+};
+
 namespace samgraph {
 namespace torch {
 
@@ -57,7 +71,7 @@ namespace torch {
       feat->MutableData(),
       {(long long)feat->Shape()[0], (long long)feat->Shape()[1]},
       [feat](void* data) {},
-      ::torch::TensorOptions().dtype(::torch::kF32).device(device));
+      ::torch::TensorOptions().dtype(to_torch_data_type(feat->Type())).device(device));
 
   return tensor;
 }
@@ -129,7 +143,7 @@ namespace torch {
       feat->MutableData(),
       {(long long)feat->Shape()[0], (long long)feat->Shape()[1]},
       [feat](void* data) {},
-      ::torch::TensorOptions().dtype(::torch::kF32).device("cpu"));
+      ::torch::TensorOptions().dtype(to_torch_data_type(feat->Type())).device("cpu"));
 
   return tensor;
 }

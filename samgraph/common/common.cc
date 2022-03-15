@@ -348,6 +348,22 @@ std::string ToPercentage(double percentage) {
   return std::string(buf);
 }
 
+DataType DataTypeParseName(std::string name) {
+  static std::unordered_map<std::string, DataType> _map = {
+    {"F32", kF32},
+    {"F64", kF64},
+    {"F16", kF16},
+    {"U8",  kU8},
+    {"I32", kI32},
+    {"I8",  kI8},
+    {"I64", kI64},
+  };
+  if (_map.find(name) == _map.end()) {
+    CHECK(false) << "Unrecognized data type name: " << name;
+  }
+  return _map[name];
+}
+
 size_t GetDataTypeBytes(DataType dtype) {
   switch (dtype) {
     case kI8:

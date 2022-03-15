@@ -44,6 +44,7 @@ const std::string Constant::kCacheByRandomFile = "cache_by_random.bin";
 const std::string Constant::kMetaNumNode = "NUM_NODE";
 const std::string Constant::kMetaNumEdge = "NUM_EDGE";
 const std::string Constant::kMetaFeatDim = "FEAT_DIM";
+const std::string Constant::kMetaFeatDataType = "FEAT_DATA_TYPE";
 const std::string Constant::kMetaNumClass = "NUM_CLASS";
 const std::string Constant::kMetaNumTrainSet = "NUM_TRAIN_SET";
 const std::string Constant::kMetaNumTestSet = "NUM_TEST_SET";

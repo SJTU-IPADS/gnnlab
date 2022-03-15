@@ -54,6 +54,7 @@ class Constant {
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;
   static const std::string kMetaFeatDim;
+  static const std::string kMetaFeatDataType;
   static const std::string kMetaNumClass;
   static const std::string kMetaNumTrainSet;
   static const std::string kMetaNumTestSet;
