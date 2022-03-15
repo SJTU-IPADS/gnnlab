@@ -293,7 +293,10 @@ double samgraph_get_log_epoch_value(uint64_t epoch, int item) {
                                           static_cast<LogEpochItem>(item));
 }
 
-void samgraph_report_init() { Profiler::Get().ReportInit(); }
+void samgraph_report_init() {
+  Profiler::Get().ReportInit();
+  std::cout.flush();
+}
 
 void samgraph_report_step(uint64_t epoch, uint64_t step) {
   Profiler::Get().ReportStep(epoch, step);
@@ -301,6 +304,7 @@ void samgraph_report_step(uint64_t epoch, uint64_t step) {
 
 void samgraph_report_step_average(uint64_t epoch, uint64_t step) {
   Profiler::Get().ReportStepAverage(epoch, step);
+  std::cout.flush();
 }
 
 void samgraph_report_epoch(uint64_t epoch) {
@@ -309,6 +313,7 @@ void samgraph_report_epoch(uint64_t epoch) {
 
 void samgraph_report_epoch_average(uint64_t epoch) {
   Profiler::Get().ReportEpochAverage(epoch);
+  std::cout.flush();
 }
 
 void samgraph_report_node_access() {
@@ -318,6 +323,7 @@ void samgraph_report_node_access() {
   if (RunConfig::option_log_node_access) {
     Profiler::Get().ReportNodeAccess();
   }
+  std::cout.flush();
 }
 
 void samgraph_trace_step_begin(uint64_t key, int item, uint64_t us) {
@@ -340,7 +346,10 @@ void samgraph_trace_step_end_now(uint64_t key, int item) {
                                t.TimePointMicro());
 }
 
-void samgraph_dump_trace() { Profiler::Get().DumpTrace(std::cerr); }
+void samgraph_dump_trace() {
+  Profiler::Get().DumpTrace(std::cerr);
+  std::cerr.flush();
+}
 
 void samgraph_forward_barrier() { Engine::Get()->ForwardBarrier(); }
 
