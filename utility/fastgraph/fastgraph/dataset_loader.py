@@ -70,20 +70,6 @@ class DatasetLoader:
             dataset_path, 'indices.bin'), dtype='int32', mode='r', shape=(self.num_edge,)))
         # self.eids = torch.from_numpy(
         #     np.arange(0, self.num_edge, dtype='int32'))
-        if os.path.isfile(os.path.join(
-                dataset_path, 'feat.bin')):
-            self.feat = torch.from_numpy(np.memmap(os.path.join(
-                dataset_path, 'feat.bin'), dtype='float32', mode='r', shape=(self.num_node, self.feat_dim)))
-        else:
-            self.feat = torch.empty(
-                (self.num_node, self.feat_dim), dtype=torch.float32)
-        if os.path.isfile(os.path.join(
-                dataset_path, 'label.bin')):
-            self.label = torch.from_numpy(np.memmap(os.path.join(
-                dataset_path, 'label.bin'), dtype='long', mode='r', shape=(self.num_node,)))
-        else:
-            self.label = torch.empty(
-                (self.num_node, ), dtype=torch.long)
 
         self.train_set = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'train_set.bin'), dtype='int32', mode='r', shape=(self.num_train_set,)))
