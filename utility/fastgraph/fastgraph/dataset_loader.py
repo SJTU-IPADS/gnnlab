@@ -25,6 +25,10 @@ INT_MAX = 2**31
 
 
 class DatasetLoader:
+    _data_type_name_map = {
+        'F32': ('float32', torch.float32),
+        'F16': ('float16', torch.float16),
+    }
     def __init__(self, dataset_path, force_load64=False):
         tic = time.time()
 
@@ -44,13 +48,17 @@ class DatasetLoader:
         else:
             self.load64(dataset_path)
 
+        if meta['FEAT_DATA_TYPE'] not in DatasetLoader._data_type_name_map:
+            raise Exception(f"unsupported feature datatype {meta['FEAT_DATA_TYPE']}")
         if os.path.isfile(os.path.join(
                 dataset_path, 'feat.bin')):
+            dtype = DatasetLoader._data_type_name_map[meta['FEAT_DATA_TYPE']][0]
             self.feat = torch.from_numpy(np.memmap(os.path.join(
-                dataset_path, 'feat.bin'), dtype='float32', mode='r', shape=(self.num_node, self.feat_dim)))
+                dataset_path, 'feat.bin'), dtype=dtype, mode='r', shape=(self.num_node, self.feat_dim)))
         else:
+            dtype = DatasetLoader._data_type_name_map[meta['FEAT_DATA_TYPE']][1]
             self.feat = torch.empty(
-                (self.num_node, self.feat_dim), dtype=torch.float32)
+                (self.num_node, self.feat_dim), dtype=dtype)
         if os.path.isfile(os.path.join(
                 dataset_path, 'label.bin')):
             self.label = torch.from_numpy(np.memmap(os.path.join(
