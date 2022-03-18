@@ -22,13 +22,16 @@ class MetaReader(object):
         pass
 
     def read(self, folder):
-        meta = {}
+        meta = {'FEAT_DATA_TYPE' : 'F32'}
         with open(os.path.join(folder, 'meta.txt'), 'r') as f:
             lines = f.readlines()
             for line in lines:
                 line = line.split()
                 assert len(line) == 2
-                meta[line[0]] = int(line[1])
+                if line[0] == 'FEAT_DATA_TYPE':
+                    meta[line[0]] = line[1]
+                else:
+                    meta[line[0]] = int(line[1])
 
         meta_keys = meta.keys()
 

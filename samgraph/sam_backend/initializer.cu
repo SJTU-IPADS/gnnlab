@@ -93,6 +93,10 @@ void ZerosInitializer::init(const Model *model, const TensorPtr p) {
   // Context ctx = model->ctx;
   size_t count = p->NumItem();
   switch (p->Type()) {
+  case common::DataType::kF16:
+    // float zero looks just like int zero
+    zero_init(tensor_cast<short>(p), count, model->stream);
+    break;
   case common::DataType::kF32:
     zero_init(tensor_cast<float>(p), count, model->stream);
     break;

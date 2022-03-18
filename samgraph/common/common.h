@@ -35,6 +35,7 @@ namespace common {
 using IdType = unsigned int;
 using Id64Type = unsigned long long int;
 static_assert(sizeof(Id64Type) == 8, "long long is not 8 bytes!");
+static_assert(sizeof(short) == 2, "short is not 2 bytes!");
 
 enum DataType {
   kF32 = 0,
@@ -245,6 +246,7 @@ Context CPU_CLIB(int device_id = CPU_CLIB_MALLOC_DEVICE);
 Context GPU(int device_id = 0);
 Context MMAP(int device_id = 0);
 
+DataType DataTypeParseName(std::string name);
 size_t GetDataTypeBytes(DataType dtype);
 size_t GetTensorBytes(DataType dtype, const std::vector<size_t> shape);
 size_t GetTensorBytes(DataType dtype,

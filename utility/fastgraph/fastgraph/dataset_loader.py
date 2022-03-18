@@ -25,6 +25,10 @@ INT_MAX = 2**31
 
 
 class DatasetLoader:
+    _data_type_name_map = {
+        'F32': ('float32', torch.float32),
+        'F16': ('float16', torch.float16),
+    }
     def __init__(self, dataset_path, force_load64=False):
         tic = time.time()
 
@@ -44,13 +48,17 @@ class DatasetLoader:
         else:
             self.load64(dataset_path)
 
+        if meta['FEAT_DATA_TYPE'] not in DatasetLoader._data_type_name_map:
+            raise Exception(f"unsupported feature datatype {meta['FEAT_DATA_TYPE']}")
         if os.path.isfile(os.path.join(
                 dataset_path, 'feat.bin')):
+            dtype = DatasetLoader._data_type_name_map[meta['FEAT_DATA_TYPE']][0]
             self.feat = torch.from_numpy(np.memmap(os.path.join(
-                dataset_path, 'feat.bin'), dtype='float32', mode='r', shape=(self.num_node, self.feat_dim)))
+                dataset_path, 'feat.bin'), dtype=dtype, mode='r', shape=(self.num_node, self.feat_dim)))
         else:
+            dtype = DatasetLoader._data_type_name_map[meta['FEAT_DATA_TYPE']][1]
             self.feat = torch.empty(
-                (self.num_node, self.feat_dim), dtype=torch.float32)
+                (self.num_node, self.feat_dim), dtype=dtype)
         if os.path.isfile(os.path.join(
                 dataset_path, 'label.bin')):
             self.label = torch.from_numpy(np.memmap(os.path.join(
@@ -70,20 +78,6 @@ class DatasetLoader:
             dataset_path, 'indices.bin'), dtype='int32', mode='r', shape=(self.num_edge,)))
         # self.eids = torch.from_numpy(
         #     np.arange(0, self.num_edge, dtype='int32'))
-        if os.path.isfile(os.path.join(
-                dataset_path, 'feat.bin')):
-            self.feat = torch.from_numpy(np.memmap(os.path.join(
-                dataset_path, 'feat.bin'), dtype='float32', mode='r', shape=(self.num_node, self.feat_dim)))
-        else:
-            self.feat = torch.empty(
-                (self.num_node, self.feat_dim), dtype=torch.float32)
-        if os.path.isfile(os.path.join(
-                dataset_path, 'label.bin')):
-            self.label = torch.from_numpy(np.memmap(os.path.join(
-                dataset_path, 'label.bin'), dtype='long', mode='r', shape=(self.num_node,)))
-        else:
-            self.label = torch.empty(
-                (self.num_node, ), dtype=torch.long)
 
         self.train_set = torch.from_numpy(np.memmap(os.path.join(
             dataset_path, 'train_set.bin'), dtype='int32', mode='r', shape=(self.num_train_set,)))

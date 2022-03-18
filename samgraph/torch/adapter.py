@@ -70,7 +70,10 @@ extract_start  = _basics.extract_start
 num_local_step = _basics.num_local_step
 
 def get_graph_feat(batch_key):
-    return c_lib.samgraph_torch_get_graph_feat(batch_key)
+    batch_feat = c_lib.samgraph_torch_get_graph_feat(batch_key)
+    if batch_feat.dtype != torch.float32:
+        batch_feat = batch_feat.float()
+    return batch_feat
 
 
 def get_graph_label(batch_key):
@@ -172,7 +175,7 @@ def load_subtensor(batch_key, feat, label, device):
     output_nodes = get_graph_output_nodes(batch_key).to(label.device)
 
     batch_inputs = torch.index_select(
-        feat, 0, input_nodes.long()).to(device)
+        feat, 0, input_nodes.long()).to(device, dtype=torch.float32)
     batch_labels = torch.index_select(
         label, 0, output_nodes.long()).to(device)
 
