@@ -217,8 +217,6 @@ def run():
             # train_times   [cur_step_key] = train_time
             # total_times   [cur_step_key] = total_time
             sample_kernel_times[cur_step_key] = sample_kernel_time
-            partition_load_times[cur_step_key] = partition_load_time
-            partition_sample_times[cur_step_key] = partition_sample_time
 
             # num_samples.append(num_sample)
             # num_nodes     [cur_step_key] = num_node
