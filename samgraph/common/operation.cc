@@ -181,13 +181,6 @@ void samgraph_config(const char **config_keys, const char **config_values,
   RC::LoadConfigFromEnv();
   LOG(INFO) << "Use " << RunConfig::sample_type << " sampling algorithm";
 
-  if(RC::unified_memory_check) {
-    if(!RC::unified_memory) {
-      LOG(FATAL) << "bad unified memory cfg";
-    } else {
-      RC::unified_memory_in_cpu = true;
-    }
-  }
   RC::is_configured = true;
 }
 

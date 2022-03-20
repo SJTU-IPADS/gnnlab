@@ -1,4 +1,3 @@
-#include "sampling_checker.h"
 #include "../logging.h"
 #include "../constant.h"
 #include "../device.h"

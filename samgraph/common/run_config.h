@@ -67,7 +67,6 @@ struct RunConfig {
 
   static bool                 unified_memory;
   static bool                 unified_memory_in_cpu;
-  static bool                 unified_memory_check;
   static double               unified_memory_overscribe_factor;
   static UMPolicy             unified_memory_policy;
 

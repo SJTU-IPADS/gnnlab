@@ -240,7 +240,6 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
   LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
-  if(!RunConfig::partition_check) {
 #ifndef NEW_ALGO
     sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
         <<<grid, block, 0, cu_stream>>>(
@@ -258,16 +257,6 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
             random_states->GetStates(), random_states->NumStates());
     sampler_device->StreamSync(ctx, stream);
 #endif
-  } else {
-    const size_t num_tiles = (num_input + Constant::kCudaTileSize - 1) / Constant::kCudaTileSize;
-    const dim3 gird(num_tiles);
-    const dim3 block(Constant::kCudaBlockSize);
-    partition_check_sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>(
-        indptr, indices, input, num_input, fanout, tmp_src, tmp_dst, 
-        random_states->GetStates(), random_states->NumStates());
-    sampler_device->StreamSync(ctx, stream);
-  }
   double sample_time = t0.Passed();
 
   Timer t1;

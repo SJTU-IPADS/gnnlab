@@ -191,7 +191,6 @@ void GPUEngine::Init() {
     size_t num_nodes = _dataset->indptr->Shape()[0] - 1;
     size_t num_trainset = _dataset->train_set->Shape()[0];
     TensorPtr order;
-    _sampling_checker = nullptr;
     switch (RunConfig::unified_memory_policy)
     {
     case UMPolicy::kDegree: {
@@ -262,12 +261,6 @@ void GPUEngine::Init() {
         order_ptr[i] = i;
       }
       break;
-    }
-    if(RunConfig::unified_memory_check) {
-      LOG(INFO) << "check um sample: init checker";
-      _sampling_checker = new UMChecker(*_dataset, order, _dataset->indptr->Ctx());
-    } else {
-      _sampling_checker = nullptr;
     }
     if(RunConfig::unified_memory_policy != UMPolicy::kDefault) {
       SortUMDatasetBy(static_cast<const IdType*>(order->Data()));
@@ -353,9 +346,6 @@ void GPUEngine::Shutdown() {
   if (_frequency_hashmap != nullptr) {
     delete _frequency_hashmap;
   }
-  if(_sampling_checker != nullptr) {
-    delete _sampling_checker;
-  }
 
 
   _dataset = nullptr;
@@ -364,7 +354,6 @@ void GPUEngine::Shutdown() {
   _cache_manager = nullptr;
   _random_states = nullptr;
   _frequency_hashmap = nullptr;
-  _sampling_checker = nullptr;
 
   _threads.clear();
   _joined_thread_cnt = 0;
