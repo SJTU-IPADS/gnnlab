@@ -17,6 +17,7 @@
 #include "cuda_hashtable.h"
 #include "cuda_random_states.h"
 #include "cuda_shuffler.h"
+#include "sampling_checker.h"
 
 namespace samgraph {
 namespace common {
@@ -38,6 +39,7 @@ class GPUEngine : public Engine {
   GPUCacheManager* GetCacheManager() { return _cache_manager; }
   GPUDynamicCacheManager* GetDynamicCacheManager() { return _dynamic_cache_manager; }
   FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
+  SamplingChecker* GetSamplingChecker() { return _sampling_checker; }
 
   StreamHandle GetSampleStream() { return _sample_stream; }
   StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
@@ -65,8 +67,12 @@ class GPUEngine : public Engine {
   // Frequency hashmap
   FrequencyHashmap* _frequency_hashmap;
 
+  SamplingChecker* _sampling_checker;
+
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;
+  
+  void SortUMDatasetBy(const IdType* order);
 };
 
 }  // namespace cuda

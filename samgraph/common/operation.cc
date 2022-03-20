@@ -19,6 +19,7 @@
 #include "profiler.h"
 #include "run_config.h"
 #include "timer.h"
+#include "cuda/cuda_engine.h"
 
 namespace samgraph {
 namespace common {
@@ -146,8 +147,47 @@ void samgraph_config(const char **config_keys, const char **config_values,
     RunConfig::presample_epoch = 0;
   }
 
+  if(configs.count("unified_memory") > 0 && configs["unified_memory"] == "True") {
+    RunConfig::unified_memory = true;
+    LOG(DEBUG) << "unified_memory=True";
+  }
+  if(configs.count("unified_memory_in_cpu") > 0 && configs["unified_memory_in_cpu"] == "True") {
+    RunConfig::unified_memory_in_cpu = true;
+    LOG(INFO) << "unified_memory_in_cpu=True";
+  }
+  if(configs.count("unified_memory_overscribe_factor") > 0) {
+    RunConfig::unified_memory_overscribe_factor = 
+        std::stod(configs["unified_memory_overscribe_factor"]);
+    LOG(INFO) << "unified_memory_overscribe_factor="
+              << RunConfig::unified_memory_overscribe_factor;
+  }
+  if(configs.count("um_policy") > 0) {
+    if(configs["um_policy"] == "default") {
+      RunConfig::unified_memory_policy = UMPolicy::kDefault;
+    } else if(configs["um_policy"] == "degree") {
+      RunConfig::unified_memory_policy = UMPolicy::kDegree;
+    } else if(configs["um_policy"] == "trainset") {
+      RunConfig::unified_memory_policy = UMPolicy::kTrainset;
+    } else if(configs["um_policy"] == "random") {
+      RunConfig::unified_memory_policy = UMPolicy::kRandom;
+    } else if(configs["um_policy"] == "presample") {
+      RunConfig::unified_memory_policy = UMPolicy::kPreSample;
+    } else {
+      LOG(FATAL) << "bad um_policy";
+    }
+    LOG(INFO) << "unified_memory_policy" << " " << configs["um_policy"];
+  }
+
   RC::LoadConfigFromEnv();
   LOG(INFO) << "Use " << RunConfig::sample_type << " sampling algorithm";
+
+  if(RC::unified_memory_check) {
+    if(!RC::unified_memory) {
+      LOG(FATAL) << "bad unified memory cfg";
+    } else {
+      RC::unified_memory_in_cpu = true;
+    }
+  }
   RC::is_configured = true;
 }
 

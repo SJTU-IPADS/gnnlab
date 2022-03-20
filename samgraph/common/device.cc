@@ -39,6 +39,7 @@ class DeviceManager {
         _device[type] = cpu::CPUDevice::Global().get();
         break;
       case kGPU:
+      case kGPU_UM:
         _device[type] = cuda::GPUDevice::Global().get();
         break;
       case kMMAP:

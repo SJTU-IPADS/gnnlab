@@ -126,6 +126,8 @@ setup(
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
                 'samgraph/common/cuda/pre_sampler.cc',
+                'samgraph/common/cuda/um_pre_sampler.cc',
+                'samgraph/common/cuda/sampling_checker.cc',
                 'samgraph/common/dist/dist_engine.cc',
                 'samgraph/common/dist/dist_loops.cc',
                 'samgraph/common/dist/dist_loops_arch5.cc',
@@ -159,6 +161,7 @@ setup(
                          '-DSXN_REVISED',
                          #  '-DPIPELINE',
                          # '-DSXN_NAIVE_HASHMAP',
+                         "-DTHRUST_IGNORE_CUB_VERSION_CHECK",
                          '--compiler-options', "'-fPIC'",
                          '-gencode=arch=compute_35,code=sm_35',  # K40m
                          '-gencode=arch=compute_70,code=sm_70',  # V100

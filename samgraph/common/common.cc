@@ -93,6 +93,7 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   switch (ctx.device_type) {
     case kCPU:
     case kGPU:
+    case kGPU_UM:
       tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes,
                                                        Constant::kAllocNoScale);
       Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, nbytes, CPU(),

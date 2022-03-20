@@ -56,6 +56,13 @@ def parse_args(default_run_config):
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
+    argparser.add_argument('--unified-memory', action='store_true')
+    argparser.add_argument('--unified-memory-in-cpu', action='store_true')
+    argparser.add_argument('--unified-memory-overscribe-factor', type=float,
+                            default=0)
+    argparser.add_argument('--um-policy', type=str, 
+        choices=['default', 'degree', 'trainset', 'random', 'presample'],
+        default='default')
 
     return vars(argparser.parse_args())
 
@@ -68,11 +75,21 @@ def get_run_config():
     run_config['sample_type'] = 'khop2'
 
     run_config['fanout'] = [5, 10, 15]
+    # run_config['fanout'] = [5, 10]
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
     run_config['weight_decay'] = 0.0005
 
     run_config.update(parse_args(run_config))
+
+    # run_config["override_device"] = True
+    # run_config["override_train_device"] = 'cuda:0'
+    # run_config["override_sample_device"] = 'cuda:1'
+    
+    # run_config["dataset"] = 'reddit'
+    # run_config["dataset"] = 'com-friendster'
+    # run_config["dataset"] = 'ppi'
+    # run_config["unified_memory"] = True
 
     process_common_config(run_config)
     assert(run_config['sample_type'] != 'random_walk')
@@ -114,6 +131,7 @@ def run():
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
 
+    print("before train")
     model.train()
 
     epoch_sample_times = [0 for i in range(num_epoch)]
@@ -125,13 +143,14 @@ def run():
     epoch_total_times_python = []
     epoch_cache_hit_rates = []
 
-    # sample_times  = [0 for i in range(num_epoch * num_step)]
+    sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
     # convert_times = [0 for i in range(num_epoch * num_step)]
     # train_times   = [0 for i in range(num_epoch * num_step)]
     # total_times   = [0 for i in range(num_epoch * num_step)]
     # num_nodes     = [0 for i in range(num_epoch * num_step)]
     num_samples = [0 for i in range(num_epoch * num_step)]
+    sample_kernel_times = [0 for i in range(num_epoch * num_step)]
 
     cur_step_key = 0
     for epoch in range(num_epoch):
@@ -176,8 +195,9 @@ def run():
             sam.trace_step_end_now(
                 epoch * num_step + step, sam.kL0Event_Train_Step)
 
-            # sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
+            sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
             # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
+            sample_kernel_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime)
             convert_time = t2 - t1
             train_time = t3 - t2
             total_time = t3 - t0
@@ -191,11 +211,14 @@ def run():
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime,   train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime,   total_time)
 
-            # sample_times  [cur_step_key] = sample_time
+            sample_times  [cur_step_key] = sample_time
             # copy_times    [cur_step_key] = copy_time
             # convert_times [cur_step_key] = convert_time
             # train_times   [cur_step_key] = train_time
             # total_times   [cur_step_key] = total_time
+            sample_kernel_times[cur_step_key] = sample_kernel_time
+            partition_load_times[cur_step_key] = partition_load_time
+            partition_sample_times[cur_step_key] = partition_sample_time
 
             # num_samples.append(num_sample)
             # num_nodes     [cur_step_key] = num_node
@@ -256,8 +279,10 @@ def run():
         epoch_cache_hit_rates[1:])))
     test_result.append(
         ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
+    test_result.append(('step_sample_time', np.mean(sample_times)))
+    test_result.append(('sample_kernel_time', np.mean(sample_kernel_times)))
     for k, v in test_result:
-        print('test_result:{:}={:.2f}'.format(k, v))
+        print('test_result:{:}={:.4f}'.format(k, v))
 
     sam.report_init()
 

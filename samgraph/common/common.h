@@ -28,7 +28,7 @@ enum DataType {
   kI64 = 6,
 };
 
-enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2 };
+enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM= 3 };
 
 enum SampleType {
   kKHop0 = 0,  // vertex-parallel
@@ -74,6 +74,14 @@ enum CachePolicy {
   kCacheByRandom,
 };
 
+enum class UMPolicy {
+  kDegree = 0,
+  kTrainset,
+  kRandom,
+  kPreSample,
+  kDefault,
+};
+
 struct Context {
   DeviceType device_type;
   int device_id;
@@ -105,6 +113,7 @@ class Tensor {
   void ReplaceData(void* data);
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
+  std::string Name() const { return _name; }
 
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,

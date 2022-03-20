@@ -88,6 +88,25 @@ void DoGPUSample(TaskPtr task) {
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
     size_t num_samples;
 
+    IdType *out_src_chk = nullptr, *out_dst_chk = nullptr, *input_chk = nullptr;
+    size_t *num_out_chk = nullptr;
+    if((RunConfig::unified_memory_check ) && 
+        GPUEngine::Get()->GetSamplingChecker() != nullptr) {
+      if(RunConfig::unified_memory_check) {
+        LOG(INFO) << "create check input tensor";
+        input_chk = static_cast<IdType*>(Device::Get(cur_input->Ctx())->AllocWorkspace(
+          cur_input->Ctx(), num_input * sizeof(IdType)));
+        dynamic_cast<UMChecker*>(GPUEngine::Get()->GetSamplingChecker())->CvtInputNodeId(
+          input, input_chk, num_input, cur_input->Ctx());
+      }
+      out_src_chk = static_cast<IdType*>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+      out_dst_chk = static_cast<IdType*>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+      num_out_chk = static_cast<size_t *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    }
+
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
     LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
@@ -99,44 +118,77 @@ void DoGPUSample(TaskPtr task) {
     // Sample a compact coo graph
     switch (RunConfig::sample_type) {
       case kKHop0:
-        GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+          GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
+                        out_dst, num_out, sampler_ctx, sample_stream,
+                        random_states, task->key);
+          if(RunConfig::unified_memory_check && GPUEngine::Get()->GetSamplingChecker() != nullptr) {
+            auto checker = GPUEngine::Get()->GetSamplingChecker();
+            GPUSampleKHop0(checker->GetRawIndptr(), checker->GetRawIndices(), 
+                          input_chk, num_input, fanout, out_src_chk,
+                          out_dst_chk, num_out_chk, sampler_ctx, sample_stream,
+                          random_states, task->key);
+            checker->Check(out_src, out_dst, num_out, out_src_chk, out_dst_chk, num_out_chk, sampler_ctx);
+            LOG(INFO) << "unified memory sampling check done";
+          }
         break;
       case kKHop1:
-        GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+        if(!RunConfig::partition) {
+          GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
+                        out_dst, num_out, sampler_ctx, sample_stream,
+                        random_states, task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kWeightedKHop:
-        GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
-                              num_input, fanout, out_src, out_dst, num_out,
-                              sampler_ctx, sample_stream, random_states,
-                              task->key);
+        if(!RunConfig::partition) {
+          GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
+                                num_input, fanout, out_src, out_dst, num_out,
+                                sampler_ctx, sample_stream, random_states,
+                                task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kRandomWalk:
         CHECK_EQ(fanout, RunConfig::num_neighbor);
-        GPUSampleRandomWalk(
-            indptr, indices, input, num_input, RunConfig::random_walk_length,
-            RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
-            RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
-            frequency_hashmap, sampler_ctx, sample_stream, random_states,
-            task->key);
+        if(!RunConfig::partition) {
+          GPUSampleRandomWalk(
+              indptr, indices, input, num_input, RunConfig::random_walk_length,
+              RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
+              RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
+              frequency_hashmap, sampler_ctx, sample_stream, random_states,
+              task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kWeightedKHopPrefix:
-        GPUSampleWeightedKHopPrefix(indptr, indices, prob_prefix_table, input,
-                              num_input, fanout, out_src, out_dst, num_out,
-                              sampler_ctx, sample_stream, random_states,
-                              task->key);
+        if(!RunConfig::partition) {
+          GPUSampleWeightedKHopPrefix(indptr, indices, prob_prefix_table, input,
+                                num_input, fanout, out_src, out_dst, num_out,
+                                sampler_ctx, sample_stream, random_states,
+                                task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kKHop2:
-        GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+        if(!RunConfig::partition) {
+          GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
+                        out_dst, num_out, sampler_ctx, sample_stream,
+                        random_states, task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       case kWeightedKHopHashDedup:
-        GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
-        num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
+        if(!RunConfig::partition) {
+          GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
+          num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
+        } else {
+          LOG(FATAL) << "TODO";
+        }
         break;
       default:
         CHECK(0);
@@ -217,6 +269,13 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
+    if(RunConfig::unified_memory_check) && 
+        GPUEngine::Get()->GetSamplingChecker() != nullptr) {
+      sampler_device->FreeWorkspace(sampler_ctx, out_dst_chk);
+      sampler_device->FreeWorkspace(sampler_ctx, out_src_chk);
+      if(RunConfig::unified_memory_check)
+        Device::Get(cur_input->Ctx())->FreeWorkspace(cur_input->Ctx(), input_chk);
+    }
     if (i == (int)last_layer_idx) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
                                    layer_time);
@@ -662,8 +721,8 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto feat = dataset->feat;
   auto label = dataset->label;
 
-  auto feat_dim = dataset->feat->Shape()[1];
-  auto feat_type = dataset->feat->Type();
+  auto feat_dim = feat->Shape()[1];
+  auto feat_type = feat->Type();
   auto label_type = dataset->label->Type();
 
   auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
@@ -684,7 +743,7 @@ void DoCPUFeatureExtract(TaskPtr task) {
              << ToReadableSize(task->output_label->NumBytes());
 
   auto feat_dst = task->input_feat->MutableData();
-  auto feat_src = dataset->feat->Data();
+  auto feat_src = feat->Data();
 
   if (RunConfig::option_empty_feat != 0) {
     cpu::CPUMockExtract(feat_dst, feat_src, input_data, num_input, feat_dim,

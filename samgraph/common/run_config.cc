@@ -58,6 +58,12 @@ int                  RunConfig::omp_thread_num                 = 40;
 std::string          RunConfig::shared_meta_path               = "/shared_meta_data";
 // clang-format on
 
+bool                 RunConfig::unified_memory                 = false;
+bool                 RunConfig::unified_memory_in_cpu          = false;
+bool                 RunConfig::unified_memory_check           = false;
+double               RunConfig::unified_memory_overscribe_factor = 0;
+UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kPreSample;
+
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvProfileCuda)) {
     RunConfig::option_profile_cuda = true;
