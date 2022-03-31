@@ -1,0 +1,12 @@
+[submodule "3rdparty/cub"]
+	path = 3rdparty/cub
+	url = https://github.com/NVIDIA/cub.git
+[submodule "3rdparty/parallel-hashmap"]
+	path = 3rdparty/parallel-hashmap
+	url = https://github.com/greg7mdp/parallel-hashmap.git
+[submodule "3rdparty/dgl"]
+	path = 3rdparty/dgl
+	url = https://github.com/dmlc/dgl.git
+[submodule "3rdparty/CLI11"]
+	path = 3rdparty/CLI11
+	url = https://github.com/CLIUtils/CLI11.git
