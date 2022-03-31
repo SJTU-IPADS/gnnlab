@@ -53,15 +53,8 @@ FGNN is the initial version GNNLab, while SGNN is the initial version of T<sub>S
 - 2 * Intel Xeon Platinum 8163 CPUs (24 cores each)
 - 512GB RAM
 
-**In the AE machine we provided,  each V100 GPU has 32GB memory.**
-
-
 
 ## Installation
-
-**We have prepared an out-of-the-box environment (with all preprocessed datasets) for the AE reviewers. AE reviewers do not need to perform the following steps if they choose to run the experiments on the machine we provide.**
-
-**The AE machine IP and account information can be found in the AE appendix.**
 
 ### Software Version
 
@@ -182,8 +175,6 @@ docker run --ulimit memlock=-1 --rm --gpus all -v $HOST_VOLUMN:/graph-learning -
 
 
 ## Dataset Preprocessing
-
-**AE reviewers do not need to perform the following steps if they choose to run the experiments on the machine we provided. We have already downloaded and preprocessed the dataset in `/graph-learning/samgraph`**.
 
 See [`datagen/README.md`](datagen/README.md) to find out how to preprocess datasets.
 
