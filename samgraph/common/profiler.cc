@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "profiler.h"
 
 #include <cstdio>
@@ -21,6 +38,57 @@
 
 namespace samgraph {
 namespace common {
+
+namespace {
+
+#define F(name) #name ,
+const char* trace_item_names[] = { TRACE_TYPES( F ) nullptr };
+#undef F
+
+std::string trace_item_to_string(TraceItem item) {
+  return trace_item_names[(int)item];
+}
+
+struct TraceJsonHelper {
+  std::string name;
+  std::string ph;
+  uint64_t pid, tid;
+  uint64_t ts, dur;
+  std::string cat = "";
+  uint64_t id = 0;
+  TraceJsonHelper& set_name  (std::string n   ) {this->name = n    ; return *this;}
+  TraceJsonHelper& set_exe   (                ) {this->ph   = "X"  ; return *this;}
+  TraceJsonHelper& set_pid   (uint64_t    pid ) {this->pid  = pid  ; return *this;}
+  TraceJsonHelper& set_tid   (uint64_t    tid ) {this->tid  = tid  ; return *this;}
+  TraceJsonHelper& set_ts    (uint64_t    ts  ) {this->ts   = ts   ; return *this;}
+  TraceJsonHelper& set_dur   (uint64_t    dur ) {this->dur  = dur  ; return *this;}
+  TraceJsonHelper& set_cat   (std::string cat ) {this->cat  = cat  ; return *this;}
+  TraceJsonHelper& set_id    (uint64_t    id  ) {this->id   = id   ; return *this;}
+  std::string to_json(bool & first) {
+    std::stringstream ss;
+    if (! first) {
+      ss << ",";
+    } else {
+      first = false;
+    }
+    ss  << "{"
+        << "\"name\":" << "\"" << name << "\"" << ","
+        << "\"ph\":"   << "\"" << ph << "\"" << ","
+        << "\"pid\":"  << pid << ","
+        << "\"tid\":"  << tid << ","
+        << "\"ts\":"   << ts  << ",";
+    if (this->ph == "X") {
+      ss << "\"dur\":" << dur << ",";
+    }
+    ss  << "\"cat\":"  << "\"" << cat << "\"" << ","
+        << "\"id\":"   << id
+        << "}\n";
+
+    return ss.str();
+  }
+};
+
+}
 
 LogData::LogData(size_t num_logs) {
   vals.resize(num_logs, 0);
@@ -236,7 +304,15 @@ void Profiler::ReportStepAverage(uint64_t epoch, uint64_t step) {
 
   size_t num_items = static_cast<size_t>(kNumLogStepItems);
   for (size_t i = 0; i < num_items; i++) {
-    double sum = _step_data[i].sum - _step_data[i].vals[0];
+    if (_step_data[i].cnt <= 1) {
+      _step_buf[i] = 0;
+      continue;
+    }
+    size_t first_idx = 0;
+    for (; first_idx < _step_data[i].vals.size(); first_idx ++) {
+      if (_step_data[i].bitmap[first_idx]) break;
+    }
+    double sum = _step_data[i].sum - _step_data[i].vals[first_idx];
     size_t cnt = _step_data[i].cnt <= 1 ? 1 : _step_data[i].cnt - 1;
     _step_buf[i] = sum / cnt;
   }
@@ -263,53 +339,6 @@ void Profiler::ReportEpochAverage(uint64_t epoch) {
   OutputEpoch(epoch, "Epoch(average)");
 }
 
-namespace {
-
-#define F(name) #name ,
-const char* trace_item_names[] = { TRACE_TYPES( F ) nullptr };
-#undef F
-
-std::string trace_item_to_string(TraceItem item) {
-  return trace_item_names[(int)item];
-}
-
-struct TraceJsonHelper {
-  std::string name;
-  std::string ph;
-  uint64_t pid, tid;
-  uint64_t ts;
-  std::string cat = "";
-  uint64_t id = 0;
-  TraceJsonHelper& set_name  (std::string n   ) {this->name = n    ; return *this;}
-  TraceJsonHelper& set_begin (                ) {this->ph   = "B"  ; return *this;}
-  TraceJsonHelper& set_end   (                ) {this->ph   = "E"  ; return *this;}
-  TraceJsonHelper& set_pid   (uint64_t    pid ) {this->pid  = pid  ; return *this;}
-  TraceJsonHelper& set_tid   (uint64_t    tid ) {this->tid  = tid  ; return *this;}
-  TraceJsonHelper& set_ts    (uint64_t    ts  ) {this->ts   = ts   ; return *this;}
-  TraceJsonHelper& set_cat   (std::string cat ) {this->cat  = cat  ; return *this;}
-  TraceJsonHelper& set_id    (uint64_t    id  ) {this->id   = id   ; return *this;}
-  std::string to_json(bool & first) {
-    std::stringstream ss;
-    if (! first) {
-      ss << ",";
-    } else {
-      first = false;
-    }
-    ss  << "{"
-        << "\"name\":" << "\"" << name << "\"" << ","
-        << "\"ph\":"   << "\"" << ph << "\"" << ","
-        << "\"pid\":"  << pid << ","
-        << "\"tid\":"  << tid << ","
-        << "\"ts\":"   << ts  << ","
-        << "\"cat\":"  << "\"" << cat << "\"" << ","
-        << "\"id\":"   << id
-        << "}\n";
-
-    return ss.str();
-  }
-};
-
-}
 
 void Profiler::DumpTrace(std::ostream &of) {
   if (RunConfig::option_dump_trace == false) return;
@@ -337,9 +366,7 @@ void Profiler::DumpTrace(std::ostream &of) {
       tjs.set_name(trace_item_to_string((TraceItem)item) + "-" + std::to_string(key))
          .set_pid(0)
          .set_tid(tid);
-      tjs.set_begin().set_ts(event.begin);
-      of << tjs.to_json(first);
-      tjs.set_end().set_ts(event.end);
+      tjs.set_exe().set_ts(event.begin).set_dur(event.end - event.begin);
       of << tjs.to_json(first);
     }
   }
@@ -466,10 +493,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "walk topk step1   %.4lf | walk topk step2   %.4lf\n"
         "        L3  walk topk step3  %.4lf | walk topk step4   %.4lf | "
         "walk topk step5   %.4lf\n"
-        "        L3  walk topk step6  %.4lf | walk topk step7   %.4lf | "
-        "walk topk step8   %.4lf\n"
-        "        L3  walk topk step9  %.4lf | walk topk step10  %.4lf | "
-        "walk topk step11  %.4lf\n"
+        "        L3  walk topk step6  %.4lf | walk topk step7   %.4lf\n"
         "        L3  remap unique     %.4lf | remap populate    %.4lf | "
         "remap mapnode     %.4lf | remap mapedge     %.4lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL3KHopSampleCooTime],
@@ -485,10 +509,6 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL3RandomWalkTopKStep5Time],
         _step_buf[kLogL3RandomWalkTopKStep6Time],
         _step_buf[kLogL3RandomWalkTopKStep7Time],
-        _step_buf[kLogL3RandomWalkTopKStep8Time],
-        _step_buf[kLogL3RandomWalkTopKStep9Time],
-        _step_buf[kLogL3RandomWalkTopKStep10Time],
-        _step_buf[kLogL3RandomWalkTopKStep11Time],
         _step_buf[kLogL3RemapFillUniqueTime],
         _step_buf[kLogL3RemapPopulateTime], _step_buf[kLogL3RemapMapNodeTime],
         _step_buf[kLogL3RemapMapEdgeTime]);
@@ -501,10 +521,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "walk topk step1     %.4lf | walk topk step2   %.4lf\n"
         "        L3  walk topk step3  %.4lf | walk topk step4    %.4lf | "
         "walk topk step5     %.4lf\n"
-        "        L3  walk topk step6  %.4lf | walk topk step7    %.4lf | "
-        "walk topk step8     %.4lf\n"
-        "        L3  walk topk step9  %.4lf | walk topk step10   %.4lf | "
-        "walk topk step11    %.4lf\n"
+        "        L3  walk topk step6  %.4lf | walk topk step7    %.4lf\n"
         "        L3  remap unique     %.4lf | remap populate     %.4lf | "
         "remap mapnode       %.4lf | remap mapedge     %.4lf\n"
         "        L3  cache get_index  %.4lf | cache copy_index   %.4lf | "
@@ -524,10 +541,6 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL3RandomWalkTopKStep5Time],
         _step_buf[kLogL3RandomWalkTopKStep6Time],
         _step_buf[kLogL3RandomWalkTopKStep7Time],
-        _step_buf[kLogL3RandomWalkTopKStep8Time],
-        _step_buf[kLogL3RandomWalkTopKStep9Time],
-        _step_buf[kLogL3RandomWalkTopKStep10Time],
-        _step_buf[kLogL3RandomWalkTopKStep11Time],
         _step_buf[kLogL3RemapFillUniqueTime],
         _step_buf[kLogL3RemapPopulateTime], _step_buf[kLogL3RemapMapNodeTime],
         _step_buf[kLogL3RemapMapEdgeTime], _step_buf[kLogL3CacheGetIndexTime],
@@ -581,39 +594,58 @@ void Profiler::LogNodeAccess(uint64_t key, const IdType *input,
   }
 
   if (Engine::Get()->GetStepFromKey(key) == Engine::Get()->NumStep()-1) {
-    size_t e_sim_cnt = 0;
-    size_t e_freq_sim_cnt = 0;
-    size_t last_e_nodes = 0, cur_e_nodes = 0;
-    size_t last_e_freqs = 0, cur_e_freqs = 0;
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : e_sim_cnt,last_e_nodes,cur_e_nodes,e_freq_sim_cnt, last_e_freqs, cur_e_freqs)
+    std::vector<std::pair<size_t, IdType>> last_e_records, cur_e_records; // freq, nid
+    std::vector<double> last_e_nid_to_rank(_last_visit.size()), cur_e_nid_to_rank(_last_visit.size()); // nid to rank
+    last_e_records.resize(_last_visit.size());
+    cur_e_records.resize(_last_visit.size());
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for (size_t i = 0; i < _last_visit.size(); i++) {
+      last_e_records[i].first = _epoch_last_visit[i];
+      last_e_records[i].second = i;
+      cur_e_records[i].first = _epoch_cur_visit[i];
+      cur_e_records[i].second = i;
+    }
+#ifdef __linux__
+    __gnu_parallel::sort(last_e_records.begin(), last_e_records.end(),
+                         std::greater<std::pair<size_t, IdType>>());
+    __gnu_parallel::sort(cur_e_records.begin(), cur_e_records.end(),
+                         std::greater<std::pair<size_t, IdType>>());
+#else
+    std::sort(last_e_records.begin(), last_e_records.end(),
+              std::greater<std::pair<size_t, IdType>>());
+    std::sort(cur_e_records.begin(), cur_e_records.end(),
+              std::greater<std::pair<size_t, IdType>>());
+#endif
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for (size_t rank = 0; rank < _last_visit.size(); rank++) {
+      last_e_nid_to_rank[last_e_records[rank].second] = rank / (double)_last_visit.size() * 100;
+      cur_e_nid_to_rank[cur_e_records[rank].second] = rank / (double)_last_visit.size() * 100;
+    }
+
+    size_t total_cur_e_top_K_freq = 0;
+    size_t e_min_freq_both_e_top_K = 0;
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : e_min_freq_both_e_top_K, total_cur_e_top_K_freq)
     for (size_t i = 0; i < _epoch_last_visit.size(); ++i) {
-      if (_epoch_last_visit[i] && _epoch_cur_visit[i]) {
-        e_sim_cnt++;
-        e_freq_sim_cnt += Min(_epoch_last_visit[i], _epoch_cur_visit[i]);
-      }
-      if (_epoch_last_visit[i]) {
-        last_e_nodes++;
-        last_e_freqs += _epoch_last_visit[i];
+      if (cur_e_nid_to_rank[i] < 10) {
+        total_cur_e_top_K_freq += _epoch_cur_visit[i];
       }
       if (_epoch_cur_visit[i]) {
-        cur_e_nodes++;
-        cur_e_freqs += _epoch_cur_visit[i];
+        if (last_e_nid_to_rank[i] < 10 && cur_e_nid_to_rank[i] < 10) {
+          e_min_freq_both_e_top_K += Min(_epoch_last_visit[i], _epoch_cur_visit[i]);
+        }
       }
     }
+    _epoch_similarity[Engine::Get()->GetEpochFromKey(key)] = e_min_freq_both_e_top_K/(double)total_cur_e_top_K_freq*100;
+    LOG(WARNING) << "top K min freq is both epoch's topK 10%: " 
+                 << e_min_freq_both_e_top_K << "/" 
+                 << total_cur_e_top_K_freq << "="
+                 << e_min_freq_both_e_top_K/(double)total_cur_e_top_K_freq*100;
+    // clean up
     _epoch_last_visit.swap(_epoch_cur_visit);
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for (size_t i = 0; i < _epoch_cur_visit.size(); ++i) {
       _epoch_cur_visit[i] = 0;
     }
-    _epoch_similarity[Engine::Get()->GetEpochFromKey(key)] = e_sim_cnt;
-    LOG(WARNING) << "epoch similarity: " 
-                 << e_sim_cnt << "/" 
-                 << last_e_nodes << "/" 
-                 << cur_e_nodes;
-    LOG(WARNING) << "epoch freq similarity: " 
-                 << e_freq_sim_cnt << "/" 
-                 << last_e_freqs << "/" 
-                 << cur_e_freqs;
   }
 
 }
@@ -803,6 +835,12 @@ void Profiler::ReportNodeAccessSimple() {
   // ofs0.close();
   ofs1.close();
   ofs2.close();
+
+  double similarity_sum = 0;
+  for (size_t e = 1; e < _epoch_similarity.size(); e++) {
+    similarity_sum += _epoch_similarity[e];
+  }
+  printf("test_result:node_access:epoch_similarity=%lf\n", similarity_sum / (_epoch_similarity.size() - 1));
 }
 
 

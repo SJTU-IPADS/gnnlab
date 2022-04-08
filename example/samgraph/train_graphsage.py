@@ -192,7 +192,7 @@ def run():
             # ))
 
             # sam.report_step_average(epoch, step)
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
             cur_step_key += 1
 
         # sam.report_epoch_average(epoch)

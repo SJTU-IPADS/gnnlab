@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "workspace_pool.h"
 
 #include <memory>
@@ -96,6 +113,16 @@ class WorkspacePool::Pool {
     }
     _free_list_total_size += e.size;
   }
+  size_t ActualSize(void *data) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    Entry e;
+    int index = static_cast<int>(_allocated.size()) - 1;
+    for (; index > 0 && _allocated[index].data != data; --index) {
+    }
+    CHECK_GT(index, 0) << "trying to check size of things that has not been allocated";
+    e = _allocated[index];
+    return e.size;
+  }
 
   // Release all resources
   void Release(Context ctx, Device *device) {
@@ -164,6 +191,12 @@ void WorkspacePool::FreeWorkspace(Context ctx, void *ptr) {
   CHECK(static_cast<size_t>(ctx.device_id) < _array.size() &&
         _array[ctx.device_id] != nullptr);
   _array[ctx.device_id]->Free(ptr);
+}
+
+size_t WorkspacePool::WorkspaceActualSize(Context ctx, void *ptr) {
+  CHECK(static_cast<size_t>(ctx.device_id) < _array.size() &&
+        _array[ctx.device_id] != nullptr);
+  return _array[ctx.device_id]->ActualSize(ptr);
 }
 
 size_t WorkspacePool::TotalSize(Context ctx) {

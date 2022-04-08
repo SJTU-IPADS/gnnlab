@@ -1,9 +1,9 @@
-import samgraph.torch as sam
+import samgraph.common as sam
 import time
 import os
-import torch
 from enum import Enum
 
+__all__ = ['event_sync', 'get_default_timeout', 'get_dataset_list', 'get_default_common_config', 'add_common_arguments', 'process_common_config', 'print_run_config', 'RunMode']
 
 class RunMode(Enum):
     NORMAL = 0  # arch0, arch1, arch2, arch3, arch4, for applications in example/samgraph
@@ -11,8 +11,17 @@ class RunMode(Enum):
     SGNN = 2  # arch6, for applications in example/samgraph/sgnn
     SGNN_DGL = 3  # arch7, for applications in example/samgraph/sgnn_dgl
 
+def _empty_func():
+    pass
+def import_torch_once():
+    global torch
+    import torch
+    global import_torch_func_ptr
+    import_torch_func_ptr = _empty_func
+import_torch_func_ptr = import_torch_once
 
 def event_sync():
+    import_torch_func_ptr()
     event = torch.cuda.Event(blocking=True)
     event.record()
     event.synchronize()
@@ -174,7 +183,9 @@ def process_common_config(run_config):
             run_config['sampler_ctx'] = run_config['override_sample_device']
             run_config['trainer_ctx'] = run_config['override_train_device']
     elif run_mode == RunMode.FGNN:
+        import_torch_func_ptr()
         run_config['omp_thread_num'] //= run_config['num_train_worker']
+        run_config['torch_thread_num'] = torch.get_num_threads() // run_config['num_train_worker']
         assert(
             'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
         assert(
@@ -195,6 +206,7 @@ def process_common_config(run_config):
         run_config['workers'] = [sam.gpu(i)
                                  for i in range(run_config['num_worker'])]
     elif run_mode == RunMode.SGNN_DGL:
+        import_torch_func_ptr()
         run_config['omp_thread_num'] //= run_config['num_worker']
         run_config['torch_thread_num'] = torch.get_num_threads() // run_config['num_worker']
         run_config['workers'] = [sam.gpu(i)

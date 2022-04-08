@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include <curand.h>
 #include <curand_kernel.h>
 
@@ -143,7 +160,7 @@ void GPUExtractNeighbour(const IdType *indptr, const IdType *indices,
 
   compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
-          indptr, indices, input, num_input, item_prefix, nullptr, output);
+          indptr, indices, input, num_input, item_prefix_out, nullptr, output);
   sampler_device->StreamSync(ctx, stream);
   double compact_edge_time = t2.Passed();
 

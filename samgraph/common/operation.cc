@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "operation.h"
 
 #include <cuda_profiler_api.h>
@@ -38,6 +55,12 @@ void samgraph_config(const char **config_keys, const char **config_values,
     std::string v(config_values[i]);
     configs[k] = v;
   }
+  samgraph_config_from_map(configs);
+}
+
+void samgraph_config_from_map(std::unordered_map<std::string, std::string>& configs) {
+  using RC = RunConfig;
+  CHECK(!RC::is_configured);
 
   CHECK(configs.count("dataset_path"));
   CHECK(configs.count("_arch"));
@@ -49,6 +72,10 @@ void samgraph_config(const char **config_keys, const char **config_values,
   CHECK(configs.count("max_sampling_jobs"));
   CHECK(configs.count("max_copying_jobs"));
   CHECK(configs.count("omp_thread_num"));
+  CHECK(configs.count("num_layer"));
+  CHECK(configs.count("num_hidden"));
+  CHECK(configs.count("lr"));
+  CHECK(configs.count("dropout"));
 
   RC::raw_configs = configs;
   RC::dataset_path = configs["dataset_path"];
@@ -63,6 +90,10 @@ void samgraph_config(const char **config_keys, const char **config_values,
   RC::max_sampling_jobs = std::stoull(configs["max_sampling_jobs"]);
   RC::max_copying_jobs = std::stoull(configs["max_copying_jobs"]);
   RC::omp_thread_num = std::stoi(configs["omp_thread_num"]);
+  RC::hiddem_dim = std::stoi(configs["num_hidden"]);
+  RC::lr = std::stod(configs["lr"]);
+  RC::dropout = std::stod(configs["dropout"]);
+  RC::num_layer = std::stoull(configs["num_layer"]);
 
   switch (RC::run_arch) {
     case kArch0:
@@ -122,14 +153,12 @@ void samgraph_config(const char **config_keys, const char **config_values,
     CHECK(configs.count("random_walk_restart_prob"));
     CHECK(configs.count("num_random_walk"));
     CHECK(configs.count("num_neighbor"));
-    CHECK(configs.count("num_layer"));
 
     RC::random_walk_length = std::stoull(configs["random_walk_length"]);
     RC::random_walk_restart_prob =
         std::stod(configs["random_walk_restart_prob"]);
     RC::num_random_walk = std::stoull(configs["num_random_walk"]);
     RC::num_neighbor = std::stoull(configs["num_neighbor"]);
-    RC::num_layer = std::stoull(configs["num_layer"]);
     RC::fanout = std::vector<size_t>(RC::num_layer, RC::num_neighbor);
   }
 
@@ -297,7 +326,10 @@ double samgraph_get_log_epoch_value(uint64_t epoch, int item) {
                                           static_cast<LogEpochItem>(item));
 }
 
-void samgraph_report_init() { Profiler::Get().ReportInit(); }
+void samgraph_report_init() {
+  Profiler::Get().ReportInit();
+  std::cout.flush();
+}
 
 void samgraph_report_step(uint64_t epoch, uint64_t step) {
   Profiler::Get().ReportStep(epoch, step);
@@ -305,6 +337,7 @@ void samgraph_report_step(uint64_t epoch, uint64_t step) {
 
 void samgraph_report_step_average(uint64_t epoch, uint64_t step) {
   Profiler::Get().ReportStepAverage(epoch, step);
+  std::cout.flush();
 }
 
 void samgraph_report_epoch(uint64_t epoch) {
@@ -313,6 +346,7 @@ void samgraph_report_epoch(uint64_t epoch) {
 
 void samgraph_report_epoch_average(uint64_t epoch) {
   Profiler::Get().ReportEpochAverage(epoch);
+  std::cout.flush();
 }
 
 void samgraph_report_node_access() {
@@ -322,6 +356,7 @@ void samgraph_report_node_access() {
   if (RunConfig::option_log_node_access) {
     Profiler::Get().ReportNodeAccess();
   }
+  std::cout.flush();
 }
 
 void samgraph_trace_step_begin(uint64_t key, int item, uint64_t us) {
@@ -344,7 +379,10 @@ void samgraph_trace_step_end_now(uint64_t key, int item) {
                                t.TimePointMicro());
 }
 
-void samgraph_dump_trace() { Profiler::Get().DumpTrace(std::cerr); }
+void samgraph_dump_trace() {
+  Profiler::Get().DumpTrace(std::cerr);
+  std::cerr.flush();
+}
 
 void samgraph_forward_barrier() { Engine::Get()->ForwardBarrier(); }
 

@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #ifndef SAMGRAPH_COMMON_H
 #define SAMGRAPH_COMMON_H
 
@@ -17,6 +34,8 @@ namespace common {
 
 using IdType = unsigned int;
 using Id64Type = unsigned long long int;
+static_assert(sizeof(Id64Type) == 8, "long long is not 8 bytes!");
+static_assert(sizeof(short) == 2, "short is not 2 bytes!");
 
 enum DataType {
   kF32 = 0,
@@ -105,20 +124,27 @@ class Tensor {
   Tensor();
   ~Tensor();
 
+  inline std::string Name() const { return _name; }
   bool Defined() const { return _data; }
   DataType Type() const { return _dtype; }
   const std::vector<size_t>& Shape() const { return _shape; }
   const void* Data() const { return _data; }
   void* MutableData() { return _data; }
   void ReplaceData(void* data);
+  void Swap(TensorPtr tensor);
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
   std::string Name() const { return _name; }
+  inline size_t NumItem() const { return std::accumulate(_shape.begin(), _shape.end(), 1ul, std::multiplies<size_t>()); }
+  // if the allocated space fits, scale the tensor to `shape` in-place. otherwise allocate a new one.
+  void Scale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
+  // force scale the tensor without checking whether fits, since the size querying may be slow.
+  void ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
 
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
                          std::string name);
-  static TensorPtr EmptyNoScale(DataType dtype, std::vector<size_t> shape, 
+  static TensorPtr EmptyNoScale(DataType dtype, std::vector<size_t> shape,
                                 Context ctx, std::string name);
   static TensorPtr Copy1D(TensorPtr tensor, size_t item_offset,
                           std::vector<size_t> shape, std::string name,
@@ -183,6 +209,8 @@ struct TrainGraph {
   size_t num_src;
   size_t num_dst;
   size_t num_edge;
+  TensorPtr src_degree;
+  TensorPtr dst_degree;
 };
 
 struct MissCacheIndex {
@@ -227,6 +255,7 @@ Context CPU_CLIB(int device_id = CPU_CLIB_MALLOC_DEVICE);
 Context GPU(int device_id = 0);
 Context MMAP(int device_id = 0);
 
+DataType DataTypeParseName(std::string name);
 size_t GetDataTypeBytes(DataType dtype);
 size_t GetTensorBytes(DataType dtype, const std::vector<size_t> shape);
 size_t GetTensorBytes(DataType dtype,

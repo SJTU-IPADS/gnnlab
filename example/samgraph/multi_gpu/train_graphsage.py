@@ -52,7 +52,7 @@ class SAGE(nn.Module):
 
 
 def parse_args(default_run_config):
-    argparser = argparse.ArgumentParser("GCN Training")
+    argparser = argparse.ArgumentParser("GraphSage Training")
 
     add_common_arguments(argparser, default_run_config)
 
@@ -145,7 +145,7 @@ def run_sample(worker_id, run_config):
         tic = time.time()
         for step in range(num_step):
             sam.sample_once()
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
         toc0 = time.time()
 
         if not run_config['pipeline']:
@@ -179,7 +179,7 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     if worker_id == 0:
-        # sam.report_step_average(epoch - 1, step - 1)
+        sam.report_step_average(epoch - 1, step - 1)
         sam.report_init()
 
     # print result
@@ -340,7 +340,7 @@ def run_train(worker_id, run_config):
             train_times.append(train_time)
             total_times.append(total_time)
 
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
             if (run_config['report_acc']) and \
                     (step % run_config['report_acc'] == 0) and (worker_id == 0):
                 tt = time.time()
@@ -409,6 +409,8 @@ def run_train(worker_id, run_config):
     global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
+        sam.report_step_average(num_epoch - 1, num_step - 1)
+        sam.report_init()
         test_result = []
         test_result.append(('epoch_time:copy_time',
                            np.mean(epoch_copy_times[1:])))
@@ -427,7 +429,7 @@ def run_train(worker_id, run_config):
         for k, v in test_result:
             print('test_result:{:}={:.2f}'.format(k, v))
 
-        # sam.dump_trace()
+        sam.dump_trace()
 
     sam.shutdown()
 

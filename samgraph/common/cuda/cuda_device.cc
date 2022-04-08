@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "cuda_device.h"
 
 #include <cuda_runtime.h>
@@ -176,6 +193,9 @@ void *GPUDevice::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
 void GPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
   CUDA_CALL(cudaSetDevice(ctx.device_id));
   GPUWorkspacePool()->FreeWorkspace(ctx, data);
+}
+size_t GPUDevice::WorkspaceActualSize(Context ctx, void *ptr) {
+  return GPUWorkspacePool()->WorkspaceActualSize(ctx, ptr);
 }
 size_t GPUDevice::TotalSize(Context ctx) {
   return _allocated_size_list[ctx.device_id];

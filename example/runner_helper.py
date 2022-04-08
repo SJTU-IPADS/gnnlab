@@ -16,6 +16,10 @@ def percent_gen(lb, ub, gap=1):
     i += gap
   return ret
 
+class System(Enum):
+  samgraph = 0
+  dgl = 1
+
 class CachePolicy(Enum):
   cache_by_degree = 0
   cache_by_heuristic = 1
@@ -24,6 +28,7 @@ class CachePolicy(Enum):
   cache_by_presample_static = 4
   cache_by_fake_optimal = 5
   dynamic_cache = 6
+  cache_by_random = 7
 
   cache_by_presample_1 = 11
   cache_by_presample_2 = 12
@@ -43,7 +48,8 @@ class CachePolicy(Enum):
       'degree_hop',
       'presample_static',
       'fake_optimal',
-      'dynamic_cache'
+      'dynamic_cache',
+      'random',
     ]
     return name_list[self.value]
   def get_presample_epoch(self):
@@ -130,11 +136,23 @@ class RunConfig:
     self.batch_size    = batch_size
     self.logdir        = logdir
     self.sample_type   = SampleType.kDefaultForApp
+    self.no_torch = False
     self.report_optimal = 0
     self.profile_level = 1
     self.multi_gpu = False
+    self.multi_gpu_sgnn = False
     self.empty_feat = 0
     self.log_level = 'warn'
+    self.custom_arg = ''
+    self.async_train = False
+    self.num_sampler = 1
+    self.num_trainer = 1
+    self.lr = None
+    self.cuda_launch_blocking = 0
+    self.dump_trace = 0
+    self.system = System.samgraph
+    self.dgl_gpu_sampling = True
+    self.nv_prof = False
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -155,19 +173,87 @@ class RunConfig:
       return
 
   def form_cmd(self, durable_log=True):
+    if self.system is System.samgraph:
+      return self.form_samgraph_cmd(durable_log)
+    elif self.system is System.dgl:
+      return self.form_dgl_cmd(durable_log)
+    else:
+      assert(False)
+
+  def form_dgl_cmd(self, durable_log=True):
+    assert(self.system is System.dgl)
+    cmd_line = ''
+    cmd_line += f'export CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking}; '
+    if self.multi_gpu:
+      if self.async_train:
+        cmd_line += f'python dgl/multi_gpu/async/train_{self.app.name}.py'
+      else:
+        cmd_line += f'python dgl/multi_gpu/train_{self.app.name}.py'
+    else:
+      cmd_line += f'python dgl/train_{self.app.name}.py'
+
+    if self.dgl_gpu_sampling:
+      cmd_line += ' --use-gpu-sampling'
+    else:
+      cmd_line += ' --no-use-gpu-sampling'
+
+    if self.multi_gpu:
+      # cmd_line += f' --num-sample-worker {self.num_sampler} '
+      cmd_line += ' --devices ' + ' '.join([str(dev_id) for dev_id in range(self.num_trainer)])
+
+    if self.pipeline:
+      cmd_line += ' --pipelining'
+    else:
+      cmd_line += ' --no-pipelining'
+
+    cmd_line += f' --root-path "{root_path}"'
+    cmd_line += f' --dataset {str(self.dataset)}'
+    cmd_line += f' --num-epoch {self.epoch}'
+    cmd_line += f' --batch-size {self.batch_size}'
+    if self.lr is not None:
+      cmd_line += f' --lr {self.lr}'
+
+    cmd_line += f' {self.custom_arg} '
+
+    if durable_log:
+      std_out_log = self.get_log_fname() + '.log'
+      std_err_log = self.get_log_fname() + '.err.log'
+      cmd_line += f' > \"{std_out_log}\"'
+      cmd_line += f' 2> \"{std_err_log}\"'
+      cmd_line += ';'
+      cmd_line += ' sed -i \"/^Using.*/d\" \"' + std_err_log + "\"" 
+    return cmd_line
+
+  def form_samgraph_cmd(self, durable_log=True):
+    assert(self.system is System.samgraph)
     self.preprocess_sample_type()
     cmd_line = ''
+    cmd_line += f'export CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking}; '
     cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '
     cmd_line += f'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal}; '
-    cmd_line += 'export SAMGRAPH_DUMP_TRACE=0; '
-    if self.multi_gpu:
-      cmd_line += f'python samgraph/multi_gpu/train_{self.app.name}.py'
+    cmd_line += f'export SAMGRAPH_DUMP_TRACE={self.dump_trace}; '
+    if self.nv_prof:
+      assert(self.multi_gpu == False)
+      assert(self.multi_gpu_sgnn == False)
+      cmd_line += f' sudo -E /usr/local/cuda-10.0/bin/nvprof -f -o sam.trace /home/sxn/miniconda3/bin/python samgraph/train_{self.app.name}.py --arch {self.arch.name}'
+    elif self.multi_gpu:
+      if self.async_train:
+        cmd_line += f'python samgraph/multi_gpu/async/train_{self.app.name}.py'
+      else:
+        cmd_line += f'python samgraph/multi_gpu/train_{self.app.name}.py'
+    elif self.multi_gpu_sgnn:
+      cmd_line += f'python samgraph/sgnn/train_{self.app.name}.py'
     else:
       cmd_line += f'python samgraph/train_{self.app.name}.py --arch {self.arch.name}'
 
     cmd_line += f' --sample-type {str(self.sample_type)}'
     cmd_line += f' --max-sampling-jobs {self.sample_job}'
     cmd_line += f' --max-copying-jobs {self.copy_job}'
+
+    if self.multi_gpu:
+      cmd_line += f' --num-sample-worker {self.num_sampler} '
+      cmd_line += f' --num-train-worker {self.num_trainer} '
+
     if self.pipeline:
       cmd_line += ' --pipeline'
     else:
@@ -185,9 +271,13 @@ class RunConfig:
     cmd_line += f' --dataset {str(self.dataset)}'
     cmd_line += f' --num-epoch {self.epoch}'
     cmd_line += f' --batch-size {self.batch_size}'
+    if self.lr is not None:
+      cmd_line += f' --lr {self.lr}'
+
     cmd_line += f' --profile-level {self.profile_level}'
     cmd_line += f' --log-level {self.log_level}'
     cmd_line += f' --empty-feat {self.empty_feat}'
+    cmd_line += f' {self.custom_arg} '
 
     if durable_log:
       std_out_log = self.get_log_fname() + '.log'
@@ -195,7 +285,6 @@ class RunConfig:
       cmd_line += f' > \"{std_out_log}\"'
       cmd_line += f' 2> \"{std_err_log}\"'
       cmd_line += ';'
-      cmd_line += ' sed -i \"/^Using.*/d\" \"' + std_err_log + "\"" 
     return cmd_line
   
   def get_log_fname(self):
@@ -204,7 +293,7 @@ class RunConfig:
     if self.report_optimal == 1:
       std_out_log += "report_optimal_"
     std_out_log += '_'.join(
-      ['samgraph']+self.cache_log_name() + self.pipe_log_name() +
+      [self.system.name]+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
       [f'cache_rate_{int(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}']) 
     return std_out_log
@@ -212,7 +301,7 @@ class RunConfig:
   def beauty(self):
     self.preprocess_sample_type()
     msg = ' '.join(
-      ['Running '] + self.cache_log_name() + self.pipe_log_name() + 
+      ['Running', self.system.name] + self.cache_log_name() + self.pipe_log_name() + 
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
       [f'cache rate:{int(self.cache_percent*100):0>3}%', f'batch size:{self.batch_size}', ])
     return msg
@@ -371,3 +460,8 @@ class ConfigList:
     return self
   def copy(self):
     return copy.deepcopy(self)
+  @staticmethod
+  def Empty():
+    ret = ConfigList()
+    ret.conf_list = []
+    return ret

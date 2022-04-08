@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #ifndef SAMGRAPH_DEVICE_H
 #define SAMGRAPH_DEVICE_H
 
@@ -25,6 +42,7 @@ class Device {
   virtual void FreeDataSpace(Context ctx, void *ptr) = 0;
   virtual void *AllocWorkspace(Context ctx, size_t nbytes,
                                double scale = Constant::kAllocScale);
+  virtual size_t WorkspaceActualSize(Context, void *ptr) = 0;
   virtual void FreeWorkspace(Context ctx, void *ptr, size_t nbytes = 0);
   virtual void CopyDataFromTo(const void *from, size_t from_offset, void *to,
                               size_t to_offset, size_t nbytes, Context ctx_from,

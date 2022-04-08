@@ -1,3 +1,19 @@
+"""
+  Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+  
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  
+      http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+"""
+
 import ctypes
 import os
 import sysconfig
@@ -198,10 +214,6 @@ kLogL3RandomWalkTopKStep4Time    = _get_next_enum_val(_step_log_val)
 kLogL3RandomWalkTopKStep5Time    = _get_next_enum_val(_step_log_val)
 kLogL3RandomWalkTopKStep6Time    = _get_next_enum_val(_step_log_val)
 kLogL3RandomWalkTopKStep7Time    = _get_next_enum_val(_step_log_val)
-kLogL3RandomWalkTopKStep8Time    = _get_next_enum_val(_step_log_val)
-kLogL3RandomWalkTopKStep9Time    = _get_next_enum_val(_step_log_val)
-kLogL3RandomWalkTopKStep10Time   = _get_next_enum_val(_step_log_val)
-kLogL3RandomWalkTopKStep11Time   = _get_next_enum_val(_step_log_val)
 kLogL3RemapFillUniqueTime        = _get_next_enum_val(_step_log_val)
 kLogL3RemapPopulateTime          = _get_next_enum_val(_step_log_val)
 kLogL3RemapMapNodeTime           = _get_next_enum_val(_step_log_val)
@@ -233,6 +245,7 @@ kL1Event_Sample                      = _get_next_enum_val(_step_event_val)
 kL2Event_Sample_Shuffle              = _get_next_enum_val(_step_event_val)
 kL2Event_Sample_Core                 = _get_next_enum_val(_step_event_val)
 kL2Event_Sample_IdRemap              = _get_next_enum_val(_step_event_val)
+kL3Event_Sample_Core_Coo             = _get_next_enum_val(_step_event_val)
 kL1Event_Copy                        = _get_next_enum_val(_step_event_val)
 kL2Event_Copy_Id                     = _get_next_enum_val(_step_event_val)
 kL2Event_Copy_Graph                  = _get_next_enum_val(_step_event_val)
@@ -482,3 +495,5 @@ class SamGraphBasics(object):
 
     def wait_one_child(self):
         return self.C_LIB_CTYPES.samgraph_wait_one_child()
+
+_basics = SamGraphBasics(__file__, "c_lib")

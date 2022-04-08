@@ -108,21 +108,12 @@ class PinSAGESampler(object):
         return blocks
 
 
-def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
-    # feat/label is on CPU while input_nodes/output_nodes is on GPU or CPU
-    input_nodes = input_nodes.to(feat.device)
-    output_nodes = output_nodes.to(label.device)
-
-    batch_inputs = torch.index_select(
-        feat, 0, input_nodes.long()).to(train_device)
-    batch_labels = torch.index_select(
-        label, 0, output_nodes.long()).to(train_device)
-
-    return batch_inputs, batch_labels
-
-
 def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("PinSAGE Training")
+    argparser.add_argument('--use-gpu-sampling', action='store_true',
+                           default=default_run_config['use_gpu_sampling'])
+    argparser.add_argument('--no-use-gpu-sampling',
+                           dest='use_gpu_sampling', action='store_false')
     argparser.add_argument('--devices', nargs='+',
                            type=int, default=default_run_config['devices'])
     argparser.add_argument('--dataset', type=str,
@@ -165,6 +156,7 @@ def parse_args(default_run_config):
 
 def get_run_config():
     default_run_config = {}
+    default_run_config['use_gpu_sampling'] = False
     default_run_config['devices'] = [0, 1]
     default_run_config['dataset'] = 'reddit'
     # default_run_config['dataset'] = 'products'
@@ -172,8 +164,8 @@ def get_run_config():
     # default_run_config['dataset'] = 'com-friendster'
     default_run_config['root_path'] = '/graph-learning/samgraph/'
     default_run_config['pipelining'] = False
+    # default_run_config['num_sampling_worker'] = 0
     default_run_config['num_sampling_worker'] = 16
-    # default_run_config['num_sampling_worker'] = 16
 
     default_run_config['random_walk_length'] = 3
     default_run_config['random_walk_restart_prob'] = 0.5
@@ -188,6 +180,7 @@ def get_run_config():
 
     run_config = parse_args(default_run_config)
 
+    assert(len(run_config['devices']) > 0)
     assert(run_config['num_sampling_worker'] >= 0)
 
     # the first epoch is used to warm up the system
@@ -216,6 +209,17 @@ def get_run_config():
         # default prefetch factor is 2
         run_config['prefetch_factor'] = 2
 
+    if run_config['use_gpu_sampling']:
+        run_config['sample_devices'] = run_config['devices']
+        run_config['train_devices'] = run_config['devices']
+        #  GPU sampling requires sample_device to be 0
+        run_config['num_sampling_worker'] = 0
+        # default prefetch factor is 2
+        run_config['prefetch_factor'] = 2
+    else:
+        run_config['sample_devices'] = ['cpu' for _ in run_config['devices']]
+        run_config['train_devices'] = run_config['devices']
+
     run_config['num_thread'] = torch.get_num_threads(
     ) // run_config['num_worker']
 
@@ -232,16 +236,31 @@ def get_run_config():
 
     return run_config
 
+def load_subtensor(feat, label, input_nodes, output_nodes, train_device):
+    # feat/label is on CPU while input_nodes/output_nodes is on GPU or CPU
+    input_nodes = input_nodes.to(feat.device)
+    output_nodes = output_nodes.to(label.device)
+
+    batch_inputs = torch.index_select(
+        feat, 0, input_nodes.long()).to(train_device, dtype=torch.float32)
+    batch_labels = torch.index_select(
+        label, 0, output_nodes.long()).to(train_device)
+
+    return batch_inputs, batch_labels
 
 def get_data_iterator(run_config, dataloader):
-    if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
-        return [data for data in iter(dataloader)]
-    else:
+    if run_config['use_gpu_sampling']:
         return iter(dataloader)
+    else:
+        if run_config['num_sampling_worker'] > 0 and not run_config['pipelining']:
+            return [data for data in iter(dataloader)]
+        else:
+            return iter(dataloader)
 
 def run(worker_id, run_config):
     torch.set_num_threads(run_config['num_thread'])
-    device = torch.device(run_config['devices'][worker_id])
+    sample_device = torch.device(run_config['sample_devices'][worker_id])
+    train_device = torch.device(run_config['train_devices'][worker_id])
     num_worker = run_config['num_worker']
 
     if num_worker > 1:
@@ -255,36 +274,37 @@ def run(worker_id, run_config):
                                              timeout=datetime.timedelta(seconds=get_default_timeout()))
 
     dataset = run_config['dataset']
-    g = run_config['g']
+    g = run_config['g'].to(sample_device)
     feat = dataset.feat
     label = dataset.label
 
-    train_nids = dataset.train_set
+    train_nids = dataset.train_set.to(sample_device)
     in_feats = dataset.feat_dim
     n_classes = dataset.num_class
 
     sampler = PinSAGESampler(g, run_config['random_walk_length'], run_config['random_walk_restart_prob'],
                              run_config['num_random_walk'], run_config['num_neighbor'], run_config['num_layer'])
     dataloader = dgl.dataloading.NodeDataLoader(
-        g,
-        train_nids,
-        sampler,
-        use_ddp=num_worker > 1,
-        batch_size=run_config['batch_size'],
-        shuffle=True,
-        drop_last=False,
-        prefetch_factor=run_config['prefetch_factor'],
-        num_workers=run_config['num_sampling_worker'])
+        g
+        ,train_nids
+        ,sampler
+        ,use_ddp=num_worker > 1
+        ,batch_size=run_config['batch_size']
+        ,shuffle=True
+        ,drop_last=False
+        ,prefetch_factor=run_config['prefetch_factor']
+        ,num_workers=run_config['num_sampling_worker']
+        )
 
     model = PinSAGE(in_feats, run_config['num_hidden'], n_classes,
                     run_config['num_layer'], F.relu, run_config['dropout'])
-    model = model.to(device)
+    model = model.to(train_device)
     if num_worker > 1:
         model = DistributedDataParallel(
-            model, device_ids=[device], output_device=device)
+            model, device_ids=[train_device], output_device=train_device)
 
     loss_fcn = nn.CrossEntropyLoss()
-    loss_fcn = loss_fcn.to(device)
+    loss_fcn = loss_fcn.to(train_device)
     optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
     num_epoch = run_config['num_epoch']
 
@@ -314,6 +334,13 @@ def run(worker_id, run_config):
         epoch_num_node = 0
         epoch_num_sample = 0
 
+        # In distributed mode, calling the set_epoch() method at the beginning of each epoch
+        # before creating the DataLoader iterator is necessary to make shuffling work properly across multiple epochs.
+        # Otherwise, the same ordering will be always used.
+        # https://pytorch.org/docs/stable/data.html
+        if (num_worker > 1):
+            dataloader.set_epoch(epoch)
+
         tic = time.time()
         t0 = time.time()
         for step, (input_nodes, output_nodes, blocks) in enumerate(get_data_iterator(run_config, dataloader)):
@@ -321,10 +348,10 @@ def run(worker_id, run_config):
                 event_sync()
             t1 = time.time()
             # graph are copied to GPU here
-            blocks = [block.int().to(device) for block in blocks]
+            blocks = [block.int().to(train_device) for block in blocks]
             t2 = time.time()
             batch_inputs, batch_labels = load_subtensor(
-                feat, label, input_nodes, output_nodes, device)
+                feat, label, input_nodes, output_nodes, train_device)
             if not run_config['pipelining']:
                 event_sync()
             t3 = time.time()
@@ -385,7 +412,7 @@ def run(worker_id, run_config):
         torch.distributed.barrier()
 
     print('[Worker {:d}({:s})] Avg Epoch Time {:.4f} | Avg Nodes {:.0f} | Avg Samples {:.0f} | Sample Time {:.4f} | Graph copy {:.4f} | Copy Time {:.4f} | Train Time {:.4f}'.format(
-        worker_id, torch.cuda.get_device_name(device), np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
+        worker_id, torch.cuda.get_device_name(train_device), np.mean(epoch_total_times[1:]), np.mean(epoch_num_nodes), np.mean(epoch_num_samples), np.mean(epoch_sample_times[1:]), np.mean(epoch_graph_copy_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_times[1:])))
 
     if num_worker > 1:
         torch.distributed.barrier()

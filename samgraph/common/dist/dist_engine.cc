@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "dist_engine.h"
 
 #include <semaphore.h>
@@ -252,6 +269,9 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     case kArch5:
       _shuffler = new DistShuffler(_dataset->train_set,
           _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
+      if (_shuffler->NumStep() > mq_size) {
+        LOG(FATAL) << "Num step exceeds max length of memory queue. Please increase `mq_size` and re-compile!";
+      }
       break;
     case kArch6:
       CHECK_EQ(RunConfig::num_sample_worker, RunConfig::num_train_worker);

@@ -45,6 +45,11 @@ add_executable(
     ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_fake_optimal.cc
     ${COMMON_SOURCE}
 )
+add_executable(
+    cache-by-random
+    ${CMAKE_SOURCE_DIR}/toolkit/cache/cache_by_random.cc
+    ${COMMON_SOURCE}
+)
 
 add_executable(
     degree-info
@@ -83,7 +88,7 @@ add_executable(
 )
 
 add_executable(
-    csr_checker
+    csr-checker
     ${CMAKE_SOURCE_DIR}/toolkit/property/csr_checker.cc
     ${COMMON_SOURCE}
 )
@@ -101,7 +106,7 @@ add_executable(
 
 
 add_executable(
-    train-graph-szie
+    train-graph-size
     ${CMAKE_SOURCE_DIR}/toolkit/train_graph_size/train_graph_size.cc
     ${COMMON_SOURCE}
 )

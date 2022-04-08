@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "run_config.h"
 
 #include "constant.h"
@@ -29,6 +46,10 @@ size_t               RunConfig::num_random_walk;
 size_t               RunConfig::num_neighbor;
 size_t               RunConfig::num_layer;
 
+size_t               RunConfig::hiddem_dim                     = 256;
+double               RunConfig::lr                             = 0.003;
+double               RunConfig::dropout                        = 0.5;
+
 bool                 RunConfig::is_configured                  = false;
 
 // CPUHash2 now is the best parallel hash remapping
@@ -46,6 +67,7 @@ bool                 RunConfig::option_profile_cuda            = false;
 bool                 RunConfig::option_log_node_access         = false;
 bool                 RunConfig::option_log_node_access_simple  = false;
 bool                 RunConfig::option_sanity_check            = false;
+bool                 RunConfig::option_samback_cuda_launch_blocking = false;
 
 // env key: on -1, all epochs; on 0: no barrier; on other: which epoch to barrier
 int                  RunConfig::barriered_epoch;
@@ -64,6 +86,9 @@ double               RunConfig::unified_memory_overscribe_factor = 0;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kPreSample;
 
 void RunConfig::LoadConfigFromEnv() {
+  if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {
+    RunConfig::option_samback_cuda_launch_blocking = true;
+  }
   if (IsEnvSet(Constant::kEnvProfileCuda)) {
     RunConfig::option_profile_cuda = true;
   }

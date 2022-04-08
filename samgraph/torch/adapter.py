@@ -1,3 +1,19 @@
+"""
+  Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+  
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  
+      http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+"""
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -7,9 +23,9 @@ import dgl
 import torch
 from dgl.heterograph import DGLBlock
 
-from samgraph.torch import c_lib
 from samgraph.common import *
-_basics = SamGraphBasics(__file__, 'c_lib')
+from samgraph.common import _basics
+from samgraph.torch import c_lib
 
 config               = _basics.config
 init                 = _basics.init
@@ -54,7 +70,10 @@ extract_start  = _basics.extract_start
 num_local_step = _basics.num_local_step
 
 def get_graph_feat(batch_key):
-    return c_lib.samgraph_torch_get_graph_feat(batch_key)
+    batch_feat = c_lib.samgraph_torch_get_graph_feat(batch_key)
+    if batch_feat.dtype != torch.float32:
+        batch_feat = batch_feat.float()
+    return batch_feat
 
 
 def get_graph_label(batch_key):
@@ -156,7 +175,7 @@ def load_subtensor(batch_key, feat, label, device):
     output_nodes = get_graph_output_nodes(batch_key).to(label.device)
 
     batch_inputs = torch.index_select(
-        feat, 0, input_nodes.long()).to(device)
+        feat, 0, input_nodes.long()).to(device, dtype=torch.float32)
     batch_labels = torch.index_select(
         label, 0, output_nodes.long()).to(device)
 

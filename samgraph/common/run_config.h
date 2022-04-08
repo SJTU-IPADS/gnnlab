@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #ifndef SAMGRAPH_RUN_CONFIG_H
 #define SAMGRAPH_RUN_CONFIG_H
 
@@ -36,6 +53,11 @@ struct RunConfig {
   static size_t               num_neighbor;
   static size_t               num_layer;
 
+  // model parameters
+  static size_t               hiddem_dim;
+  static double               dropout;
+  static double               lr;
+
   static bool                 is_configured;
 
   static cpu::CPUHashType     cpu_hash_type;
@@ -54,6 +76,7 @@ struct RunConfig {
   static bool                 option_log_node_access;
   static bool                 option_log_node_access_simple;
   static bool                 option_sanity_check;
+  static bool                 option_samback_cuda_launch_blocking;
   static int                  barriered_epoch;
   static int                  presample_epoch;
   static bool                 option_dump_trace;

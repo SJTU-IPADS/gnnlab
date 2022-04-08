@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "engine.h"
 
 #include <sys/mman.h>
@@ -65,6 +82,10 @@ void Engine::LoadGraphDataset() {
   std::unordered_map<std::string, size_t> meta;
   std::unordered_map<std::string, Context> ctx_map = GetGraphFileCtx();
 
+  // default feature type is 32-bit float.
+  // legacy dataset doesnot have this meta
+  DataType feat_data_type = kF32;
+
   if (_dataset_path.back() != '/') {
     _dataset_path.push_back('/');
   }
@@ -81,7 +102,11 @@ void Engine::LoadGraphDataset() {
       break;
     }
 
-    meta[kv[0]] = std::stoull(kv[1]);
+    if (kv[0] == Constant::kMetaFeatDataType) {
+      feat_data_type = DataTypeParseName(kv[1]);
+    } else {
+      meta[kv[0]] = std::stoull(kv[1]);
+    }
   }
 
   CHECK(meta.count(Constant::kMetaNumNode) > 0);
@@ -124,18 +149,18 @@ void Engine::LoadGraphDataset() {
 
   if (FileExist(_dataset_path + Constant::kFeatFile) && RunConfig::option_empty_feat == 0) {
     _dataset->feat = Tensor::FromMmap(
-        _dataset_path + Constant::kFeatFile, DataType::kF32,
+        _dataset_path + Constant::kFeatFile, feat_data_type,
         {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
         ctx_map[Constant::kFeatFile], "dataset.feat");
   } else {
     if (RunConfig::option_empty_feat != 0) {
       _dataset->feat = Tensor::EmptyNoScale(
-          DataType::kF32,
+          feat_data_type,
           {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]},
           ctx_map[Constant::kFeatFile], "dataset.feat");
     } else {
       _dataset->feat = Tensor::EmptyNoScale(
-          DataType::kF32,
+          feat_data_type,
           {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
           ctx_map[Constant::kFeatFile], "dataset.feat");
     }

@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "common.h"
 
 #include <cuda_runtime.h>
@@ -60,6 +77,51 @@ Tensor::~Tensor() {
 void Tensor::ReplaceData(void *data) {
   Device::Get(_ctx)->FreeWorkspace(_ctx, _data);
   _data = data;
+}
+
+void Tensor::Swap(TensorPtr tensor) {
+  CHECK(this->Ctx() == tensor->Ctx());
+  CHECK(this->Shape() == tensor->Shape());
+  CHECK(this->Type() == tensor->Type());
+  std::swap(this->_data, tensor->_data);
+}
+
+void Tensor::Scale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
+  if (!Defined()) {
+    CHECK_GT(shape.size(), 0);
+    size_t nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
+
+    if (ctx.device_type == kMMAP) {
+      ctx = CPU(ctx.device_id);
+    }
+
+    _dtype = dt;
+    _shape = shape;
+    _nbytes = nbytes;
+    _data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+    _ctx = ctx;
+    _name = name;
+    return;
+  } 
+  CHECK(_dtype == dt);
+  CHECK(_ctx == ctx);
+  CHECK(_shape.size() == shape.size());
+  if (Device::Get(ctx)->WorkspaceActualSize(ctx, _data) < GetTensorBytes(dt, shape)) {
+    Device::Get(ctx)->FreeWorkspace(ctx, _data);
+    _data = Device::Get(ctx)->AllocWorkspace(ctx, GetTensorBytes(dt, shape));
+  }
+  _name = name;
+  _shape = shape;
+  _nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
+}
+void Tensor::ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name) {
+  CHECK(Defined());
+  CHECK(_dtype == dt);
+  CHECK(_ctx == ctx);
+  CHECK(_shape.size() == shape.size());
+  _name = name;
+  _shape = shape;
+  _nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
 }
 
 TensorPtr Tensor::Null() { return std::make_shared<Tensor>(); }
@@ -215,10 +277,15 @@ TensorPtr Tensor::CopyBlob(const void *data, DataType dtype,
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
   tensor->_data =
       Device::Get(to_ctx)->AllocWorkspace(to_ctx, nbytes);
-
-  Device::Get(from_ctx)
+  if (to_ctx.device_type == kGPU) {
+    Device::Get(to_ctx)
       ->CopyDataFromTo(data, 0, tensor->_data, 0,
                        nbytes, from_ctx, to_ctx, stream);
+  } else {
+    Device::Get(from_ctx)
+      ->CopyDataFromTo(data, 0, tensor->_data, 0,
+                       nbytes, from_ctx, to_ctx, stream);
+  }
   tensor->_dtype = dtype;
   tensor->_shape = shape;
   tensor->_nbytes = nbytes;
@@ -244,8 +311,12 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   tensor->_data =
       Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
   tensor->_name = source->_name;
-  Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
-                                   nbytes, source->_ctx, tensor->_ctx, stream);
+  if (source->Ctx().device_type == kGPU && ctx.device_type != kGPU) {
+    Device::Get(source->Ctx())->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
+  } else {
+    Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
+                                    nbytes, source->_ctx, tensor->_ctx, stream);
+  }
   Device::Get(tensor->_ctx)->StreamSync(tensor->_ctx, stream);
 
   return tensor;
@@ -276,6 +347,22 @@ std::string ToPercentage(double percentage) {
   char buf[Constant::kBufferSize];
   sprintf(buf, "%.2lf %%", percentage * 100);
   return std::string(buf);
+}
+
+DataType DataTypeParseName(std::string name) {
+  static std::unordered_map<std::string, DataType> _map = {
+    {"F32", kF32},
+    {"F64", kF64},
+    {"F16", kF16},
+    {"U8",  kU8},
+    {"I32", kI32},
+    {"I8",  kI8},
+    {"I64", kI64},
+  };
+  if (_map.find(name) == _map.end()) {
+    CHECK(false) << "Unrecognized data type name: " << name;
+  }
+  return _map[name];
 }
 
 size_t GetDataTypeBytes(DataType dtype) {

@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #ifndef SAMGRAPH_CONSTANT_H
 #define SAMGRAPH_CONSTANT_H
 
@@ -37,6 +54,7 @@ class Constant {
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;
   static const std::string kMetaFeatDim;
+  static const std::string kMetaFeatDataType;
   static const std::string kMetaNumClass;
   static const std::string kMetaNumTrainSet;
   static const std::string kMetaNumTestSet;
@@ -52,6 +70,7 @@ class Constant {
   static constexpr size_t kRandomWalkMaxThreads = 512 * 1024;
 
   static constexpr IdType kEmptyKey = std::numeric_limits<IdType>::max();
+  static constexpr Id64Type kEmptyLabel = std::numeric_limits<Id64Type>::max();
 
   static constexpr size_t kBufferSize = 64;
   static constexpr size_t kGigabytes = 1 * 1024 * 1024 * 1024;
@@ -69,6 +88,7 @@ class Constant {
   static const std::string kEnvSanityCheck;
   static const std::string kEnvDumpTrace;
   static const std::string kEnvEmptyFeat;
+  static const std::string kEnvSamBackCudaLaunchBlocking;
 
   static const std::string kNodeAccessLogFile;
   static const std::string kNodeAccessFrequencyFile;

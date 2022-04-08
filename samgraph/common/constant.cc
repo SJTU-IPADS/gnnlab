@@ -1,3 +1,20 @@
+/*
+ * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "constant.h"
 
 namespace samgraph {
@@ -27,6 +44,7 @@ const std::string Constant::kCacheByRandomFile = "cache_by_random.bin";
 const std::string Constant::kMetaNumNode = "NUM_NODE";
 const std::string Constant::kMetaNumEdge = "NUM_EDGE";
 const std::string Constant::kMetaFeatDim = "FEAT_DIM";
+const std::string Constant::kMetaFeatDataType = "FEAT_DATA_TYPE";
 const std::string Constant::kMetaNumClass = "NUM_CLASS";
 const std::string Constant::kMetaNumTrainSet = "NUM_TRAIN_SET";
 const std::string Constant::kMetaNumTestSet = "NUM_TEST_SET";
@@ -40,6 +58,7 @@ const std::string Constant::kEnvLogNodeAccessSimple = "SAMGRAPH_LOG_NODE_ACCESS_
 const std::string Constant::kEnvSanityCheck = "SAMGRAPH_SANITY_CHECK";
 const std::string Constant::kEnvDumpTrace = "SAMGRAPH_DUMP_TRACE";
 const std::string Constant::kEnvEmptyFeat = "SAMGRAPH_EMPTY_FEAT";
+const std::string Constant::kEnvSamBackCudaLaunchBlocking = "SAMBACK_CUDA_LAUNCH_BLOCKING";
 
 const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";

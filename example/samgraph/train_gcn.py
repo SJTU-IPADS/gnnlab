@@ -60,7 +60,7 @@ def parse_args(default_run_config):
     argparser.add_argument('--unified-memory-in-cpu', action='store_true')
     argparser.add_argument('--unified-memory-overscribe-factor', type=float,
                             default=0)
-    argparser.add_argument('--um-policy', type=str, 
+    argparser.add_argument('--um-policy', type=str,
         choices=['default', 'degree', 'trainset', 'random', 'presample'],
         default='default')
 
@@ -85,7 +85,7 @@ def get_run_config():
     # run_config["override_device"] = True
     # run_config["override_train_device"] = 'cuda:0'
     # run_config["override_sample_device"] = 'cuda:1'
-    
+
     # run_config["dataset"] = 'reddit'
     # run_config["dataset"] = 'com-friendster'
     # run_config["dataset"] = 'ppi'
@@ -142,6 +142,7 @@ def run():
     epoch_total_times_profiler = [0 for i in range(num_epoch)]
     epoch_total_times_python = []
     epoch_cache_hit_rates = []
+    epoch_miss_nbytes = []
 
     sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
@@ -228,7 +229,7 @@ def run():
             # ))
 
             # sam.report_step_average(epoch, step)
-            sam.report_step(epoch, step)
+            # sam.report_step(epoch, step)
             cur_step_key += 1
 
         toc = time.time()
@@ -236,6 +237,7 @@ def run():
             epoch, sam.kLogEpochFeatureBytes)
         miss_nbytes = sam.get_log_epoch_value(
             epoch, sam.kLogEpochMissBytes)
+        epoch_miss_nbytes.append(miss_nbytes)
         epoch_cache_hit_rates.append(
             (feat_nbytes - miss_nbytes) / feat_nbytes)
         epoch_sample_times.append(
@@ -279,6 +281,9 @@ def run():
         ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
     test_result.append(('step_sample_time', np.mean(sample_times)))
     test_result.append(('sample_kernel_time', np.mean(sample_kernel_times)))
+    test_result.append(('epoch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])))
+    test_result.append(('batch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])/num_step))
+    test_result.append(('batch_copy_time', np.mean(epoch_copy_times[1:])/num_step))
     for k, v in test_result:
         print('test_result:{:}={:.4f}'.format(k, v))
 
