@@ -134,7 +134,6 @@ class Tensor {
   void Swap(TensorPtr tensor);
   size_t NumBytes() const { return _nbytes; }
   Context Ctx() const { return _ctx; }
-  std::string Name() const { return _name; }
   inline size_t NumItem() const { return std::accumulate(_shape.begin(), _shape.end(), 1ul, std::multiplies<size_t>()); }
   // if the allocated space fits, scale the tensor to `shape` in-place. otherwise allocate a new one.
   void Scale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
