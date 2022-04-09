@@ -1,12 +1,12 @@
 /*
  * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -90,7 +90,7 @@ void GPUEngine::Init() {
   double time_load_graph_dataset = tl.Passed();
   LOG_MEM_USAGE(INFO, "after load dataset");
 
-  
+
 
   // Create CUDA streams
   Timer t_create_stream;
@@ -110,7 +110,7 @@ void GPUEngine::Init() {
                                               RunConfig::num_worker);
     _num_step = _shuffler->NumStep();
     _num_local_step = _shuffler->NumLocalStep();
-    
+
   } else {
     _shuffler =
         new GPUShuffler(_dataset->train_set, _num_epoch, _batch_size, false);
@@ -154,7 +154,7 @@ void GPUEngine::Init() {
   double build_cache_time = 0;
   if (RunConfig::UseGPUCache()) {
     switch (RunConfig::cache_policy) {
-      case kCacheByPreSampleStatic: 
+      case kCacheByPreSampleStatic:
       case kCacheByPreSample: {
         Timer tp;
         PreSampler::SetSingleton(new PreSampler(_dataset->num_node, NumStep()));
@@ -200,8 +200,7 @@ void GPUEngine::Init() {
 
   // sort dataset(UM)
   LOG(INFO) << "unified_memory: " << RunConfig::unified_memory << " | "
-            << "unified_memory_in_cpu: " << RunConfig::unified_memory_in_cpu << " | "
-            << "unified_memory_overscribe_factor: " << RunConfig::unified_memory_overscribe_factor << " | "
+            << "unified_memory_percentage: " << RunConfig::unified_memory_percentage << " | "
             << "unified_memory_policy: " << static_cast<int>(RunConfig::unified_memory_policy);
   if(RunConfig::unified_memory) {
     Timer sort_um_tm;
@@ -215,7 +214,7 @@ void GPUEngine::Init() {
       LOG(INFO) << "sort um dataset by Degree";
       order = Tensor::FromMmap(
         _dataset_path + Constant::kCacheByDegreeFile,
-        DataType::kI32, {num_nodes}, 
+        DataType::kI32, {num_nodes},
         CPU(), "order");
       break;
     }
@@ -283,7 +282,7 @@ void GPUEngine::Init() {
       SortUMDatasetBy(static_cast<const IdType*>(order->Data()));
     }
     LOG(INFO) << "sort um dataset " << sort_um_tm.Passed() << "secs";
-  } 
+  }
 
   _initialize = true;
 }
@@ -465,7 +464,7 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
       break;
     case kArch4:
       ret[Constant::kFeatFile] = MMAP();
-      ret[Constant::kLabelFile] = 
+      ret[Constant::kLabelFile] =
           RunConfig::UseDynamicGPUCache() ? _trainer_ctx : MMAP();
       break;
     default:
@@ -477,9 +476,9 @@ std::unordered_map<std::string, Context> GPUEngine::GetGraphFileCtx() {
 
 void GPUEngine::SortUMDatasetBy(const IdType* order) {
   size_t num_nodes = _dataset->indptr->Shape()[0] - 1;
-  size_t indptr_nbytes = 
+  size_t indptr_nbytes =
     _dataset->indptr->Shape()[0] * GetDataTypeBytes(_dataset->indptr->Type());
-  size_t indices_nbytes = 
+  size_t indices_nbytes =
     _dataset->indices->Shape()[0] * GetDataTypeBytes(_dataset->indices->Type());
 
   IdType* nodeIdold2new = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
@@ -492,12 +491,12 @@ void GPUEngine::SortUMDatasetBy(const IdType* order) {
     CPU(), indptr_nbytes, Constant::kAllocNoScale));
   IdType* new_indices = static_cast<IdType*>(Device::Get(CPU())->AllocWorkspace(
     CPU(), indices_nbytes, Constant::kAllocNoScale));
-  
-  Device::Get(_dataset->indptr->Ctx().device_type == DeviceType::kMMAP ? 
+
+  Device::Get(_dataset->indptr->Ctx().device_type == DeviceType::kMMAP ?
     CPU() : _dataset->indptr->Ctx())->CopyDataFromTo(
-    _dataset->indptr->Data(), 0, tmp_indptr, 0, indptr_nbytes, 
+    _dataset->indptr->Data(), 0, tmp_indptr, 0, indptr_nbytes,
     _dataset->indptr->Ctx(), CPU());
-  Device::Get(_dataset->indices->Ctx().device_type == DeviceType::kMMAP ? 
+  Device::Get(_dataset->indices->Ctx().device_type == DeviceType::kMMAP ?
     CPU() : _dataset->indices->Ctx())->CopyDataFromTo(
     _dataset->indices->Data(), 0, tmp_indices, 0, indices_nbytes,
     _dataset->indices->Ctx(), CPU());
@@ -508,7 +507,7 @@ void GPUEngine::SortUMDatasetBy(const IdType* order) {
   }
 
   new_indptr[0] = 0;
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num) 
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for(IdType i = 1; i <= num_nodes; i++) {
     IdType v = order[i-1];
     CHECK(v >= 0 && v < num_nodes);
@@ -563,9 +562,9 @@ void GPUEngine::SortUMDatasetBy(const IdType* order) {
       size_t src = i;
       size_t dst = nodeIdold2new[i];
       memcpy(
-        static_cast<char*>(new_values_ts->MutableData()) + dst * per_node_nbytes, 
-        static_cast<char*>(tmp_values_ts->MutableData()) + src * per_node_nbytes, 
-        per_node_nbytes  
+        static_cast<char*>(new_values_ts->MutableData()) + dst * per_node_nbytes,
+        static_cast<char*>(tmp_values_ts->MutableData()) + src * per_node_nbytes,
+        per_node_nbytes
       );
     }
     if(values->Ctx().device_type == DeviceType::kMMAP) {

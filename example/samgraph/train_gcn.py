@@ -57,8 +57,7 @@ def parse_args(default_run_config):
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
     argparser.add_argument('--unified-memory', action='store_true')
-    argparser.add_argument('--unified-memory-in-cpu', action='store_true')
-    argparser.add_argument('--unified-memory-overscribe-factor', type=float,
+    argparser.add_argument('--unified-memory-percentage', type=float,
                             default=0)
     argparser.add_argument('--um-policy', type=str,
         choices=['default', 'degree', 'trainset', 'random', 'presample'],
@@ -93,6 +92,8 @@ def get_run_config():
 
     process_common_config(run_config)
     assert(run_config['sample_type'] != 'random_walk')
+    assert(run_config['unified_memory_percentage'] >= 0
+           and run_config['unified_memory_percentage'] <= 1.0)
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])

@@ -1,12 +1,12 @@
 /*
  * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -43,35 +43,33 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   void *ret;
   CHECK_EQ(256 % alignment, 0U);
   CUDA_CALL(cudaSetDevice(ctx.device_id));
-  if(ctx.device_type == kGPU) {
+  if (ctx.device_type == kGPU) {
     CUDA_CALL(cudaMalloc(&ret, nbytes));
-  } else {
-    LOG(INFO) << "alloc unified memory " << nbytes;
+  } else if (ctx.device_type == kGPU_UM) {
+    LOG(INFO) << "alloc unified memory " << ToReadableSize(nbytes);
     CUDA_CALL(cudaMallocManaged(&ret, nbytes));
     // advice gpu um
-    if(RunConfig::unified_memory_in_cpu) {
-      CUDA_CALL(cudaMemAdvise(ret, nbytes, 
-          cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
-      CUDA_CALL(cudaMemAdvise(ret, nbytes, 
-          cudaMemAdviseSetAccessedBy, ctx.device_id));
+    size_t device_nbyte = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
+    size_t host_nbyte = nbytes - device_nbyte;
+    LOG(INFO) << "unified_memory: in GPU " << ToReadableSize(device_nbyte)
+              << ", in CPU " << ToReadableSize(host_nbyte);
+    if (device_nbyte != 0) {
+        CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
+            cudaMemAdviseSetPreferredLocation, ctx.device_id));
+        CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
+            cudaMemAdviseSetAccessedBy, ctx.device_id));
     }
-    else if(RunConfig::unified_memory_overscribe_factor > 1) {
-      size_t device_nbyte = static_cast<size_t>(1.0 * nbytes / RunConfig::unified_memory_overscribe_factor);
-      size_t host_nbyte = nbytes - device_nbyte;
-      LOG(INFO) << "unified_memory_overscribe " << device_nbyte << " " << host_nbyte;
-      CUDA_CALL(cudaMemAdvise(ret, device_nbyte, 
-          cudaMemAdviseSetPreferredLocation, ctx.device_id));
-      CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
-          cudaMemAdviseSetAccessedBy, ctx.device_id));
-          
-      CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
-          cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
-      CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
-          cudaMemAdviseSetAccessedBy, ctx.device_id));
+    if (host_nbyte != 0) {
+        CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
+            cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
+        CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
+            cudaMemAdviseSetAccessedBy, ctx.device_id));
     }
+  } else {
+      LOG(FATAL) << "device_type is not supported";
   }
   // data space is only allocated during init phase, thread-safe
-  _allocated_size_list[ctx.device_id] += nbytes; 
+  _allocated_size_list[ctx.device_id] += nbytes;
   return ret;
 }
 
