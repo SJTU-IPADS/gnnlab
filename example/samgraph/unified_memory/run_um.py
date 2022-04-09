@@ -19,7 +19,7 @@ from test_cases import *
 # ][:1]
 
 # cases = Papers100M.um_test_gpu_not_use_um + Papers100M.um_test_normal_cases + Papers100M.um_test_graph_in_cpu
-# cases = Papers100M.um_test_normal_cases + Papers100M.um_test_graph_in_cpu
+# cases = Papers100M.um_test_graph_in_cpu
 # cases = Papers100M.um_test_cpu #+ Papers100M.um_test_graph_in_cpu
 # cases = Papers100M.um_test_normal_cases[-1:]
 # cases = Papers100M.um_test_graph_in_gpu
@@ -29,7 +29,7 @@ from test_cases import *
 # cases = Friendster.um_test_graph_in_gpu
 
 # cases = Papers100M.um_test_normal_cases + Friendster.um_test_normal_cases
-cases = Papers100M.um_test_normal_cases[-1:]
+cases = [Papers100M.um_test_normal_cases[0], Papers100M.um_test_normal_cases[2]]
 # cases = Papers100M.um_test_gpu_not_use_um
 
 def um_test_env(case:dict):
@@ -54,9 +54,9 @@ def add_um_policy(cases, policies):
 
 if __name__ == '__main__':
     policies = []
-    # policies += ['default']
-    policies += ['degree']
-    policies += ['trainset']
+    policies += ['default']
+    # policies += ['degree']
+    # policies += ['trainset']
     policies += ['presample']
     for case in add_um_policy(cases, policies):
         subprocess.run('nvidia-smi')

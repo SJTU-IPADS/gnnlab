@@ -7,9 +7,8 @@ dataset=com-friendster
 sample_type=khop0
 sampler=gpu
 um=1
-um_in_cpu=1
-um_factor=0
 um_policy=default
+um_percent=100
 
 
 if [[ ! -z "${DATA_SET}" ]]; then
@@ -21,11 +20,8 @@ fi
 if [[ ! -z "${UM}" ]]; then
     um=$UM
 fi
-if [[ ! -z "${UM_IN_CPU}" ]]; then
-    um_in_cpu=$UM_IN_CPU
-fi
-if [[ ! -z "${UM_FACTOR}" ]]; then
-    um_factor=$UM_FACTOR
+if [[ ! -z "${UM_PERCENT}" ]]; then
+    um_percent=$UM_PERCENT
 fi
 if [[ ! -z "${UM_POLICY}" ]]; then
     um_policy=$UM_POLICY
@@ -49,12 +45,7 @@ else
         --override-train-device cuda:0 \
         --override-sample-device cuda:1"
     if [ $um -ge 1 ]; then
-        cmd="${cmd} --unified-memory"
-    fi
-    if [ $um_in_cpu -ge 1 ]; then
-        cmd="${cmd} --unified-memory-in-cpu"
-    else
-        cmd="${cmd} --unified-memory-overscribe-factor ${um_factor}"
+        cmd="${cmd} --unified-memory --unified-memory-percentage ${UM_PERCENT}"
     fi
 fi
 
