@@ -1,12 +1,12 @@
 /*
  * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,7 +25,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include "./dist/dist_engine.h"
@@ -36,6 +36,7 @@
 #include "profiler.h"
 #include "run_config.h"
 #include "timer.h"
+#include "cuda/cuda_engine.h"
 
 namespace samgraph {
 namespace common {
@@ -175,8 +176,36 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
     RunConfig::presample_epoch = 0;
   }
 
+  if(configs.count("unified_memory") > 0 && configs["unified_memory"] == "True") {
+    RunConfig::unified_memory = true;
+    LOG(DEBUG) << "unified_memory=True";
+  }
+  if(configs.count("unified_memory_percentage") > 0) {
+    RunConfig::unified_memory_percentage =
+        std::stod(configs["unified_memory_percentage"]);
+    LOG(INFO) << "unified_memory_percentage="
+              << RunConfig::unified_memory_percentage;
+  }
+  if(configs.count("um_policy") > 0) {
+    if(configs["um_policy"] == "default") {
+      RunConfig::unified_memory_policy = UMPolicy::kDefault;
+    } else if(configs["um_policy"] == "degree") {
+      RunConfig::unified_memory_policy = UMPolicy::kDegree;
+    } else if(configs["um_policy"] == "trainset") {
+      RunConfig::unified_memory_policy = UMPolicy::kTrainset;
+    } else if(configs["um_policy"] == "random") {
+      RunConfig::unified_memory_policy = UMPolicy::kRandom;
+    } else if(configs["um_policy"] == "presample") {
+      RunConfig::unified_memory_policy = UMPolicy::kPreSample;
+    } else {
+      LOG(FATAL) << "bad um_policy";
+    }
+    LOG(INFO) << "unified_memory_policy" << " " << configs["um_policy"];
+  }
+
   RC::LoadConfigFromEnv();
   LOG(INFO) << "Use " << RunConfig::sample_type << " sampling algorithm";
+
   RC::is_configured = true;
 }
 

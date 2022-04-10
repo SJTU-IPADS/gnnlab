@@ -1,12 +1,12 @@
 /*
  * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -47,7 +47,7 @@ enum DataType {
   kI64 = 6,
 };
 
-enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2 };
+enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM= 3 };
 
 enum SampleType {
   kKHop0 = 0,  // vertex-parallel
@@ -93,6 +93,14 @@ enum CachePolicy {
   kCacheByRandom,
 };
 
+enum class UMPolicy {
+  kDegree = 0,
+  kTrainset,
+  kRandom,
+  kPreSample,
+  kDefault,
+};
+
 struct Context {
   DeviceType device_type;
   int device_id;
@@ -135,7 +143,7 @@ class Tensor {
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
                          std::string name);
-  static TensorPtr EmptyNoScale(DataType dtype, std::vector<size_t> shape, 
+  static TensorPtr EmptyNoScale(DataType dtype, std::vector<size_t> shape,
                                 Context ctx, std::string name);
   static TensorPtr Copy1D(TensorPtr tensor, size_t item_offset,
                           std::vector<size_t> shape, std::string name,

@@ -105,6 +105,7 @@ void DoGPUSample(TaskPtr task) {
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
     size_t num_samples;
 
+
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
     LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
@@ -117,13 +118,13 @@ void DoGPUSample(TaskPtr task) {
     switch (RunConfig::sample_type) {
       case kKHop0:
         GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+                      out_dst, num_out, sampler_ctx, sample_stream,
+                      random_states, task->key);
         break;
       case kKHop1:
         GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+                      out_dst, num_out, sampler_ctx, sample_stream,
+                      random_states, task->key);
         break;
       case kWeightedKHop:
         GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
@@ -148,8 +149,8 @@ void DoGPUSample(TaskPtr task) {
         break;
       case kKHop2:
         GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
-                       out_dst, num_out, sampler_ctx, sample_stream,
-                       random_states, task->key);
+                      out_dst, num_out, sampler_ctx, sample_stream,
+                      random_states, task->key);
         break;
       case kWeightedKHopHashDedup:
         GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
@@ -679,8 +680,8 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto feat = dataset->feat;
   auto label = dataset->label;
 
-  auto feat_dim = dataset->feat->Shape()[1];
-  auto feat_type = dataset->feat->Type();
+  auto feat_dim = feat->Shape()[1];
+  auto feat_type = feat->Type();
   auto label_type = dataset->label->Type();
 
   auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
@@ -701,7 +702,7 @@ void DoCPUFeatureExtract(TaskPtr task) {
              << ToReadableSize(task->output_label->NumBytes());
 
   auto feat_dst = task->input_feat->MutableData();
-  auto feat_src = dataset->feat->Data();
+  auto feat_src = feat->Data();
 
   if (RunConfig::option_empty_feat != 0) {
     cpu::CPUMockExtract(feat_dst, feat_src, input_data, num_input, feat_dim,

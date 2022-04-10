@@ -35,7 +35,8 @@ def get_default_timeout():
 def get_dataset_list():
     return ['papers100M', 'com-friendster',
             'reddit', 'products', 'twitter', 'uk-2006-05', 'papers100M_empty',
-            'papers100M_300', 'papers100M_600']
+            'papers100M_300', 'papers100M_600',
+            'ppi']
 
 
 def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
@@ -216,7 +217,7 @@ def process_common_config(run_config):
     run_config['_sample_type'] = sam.sample_types[run_config['sample_type']]
     run_config['_cache_policy'] = sam.cache_policies[run_config['cache_policy']]
     assert(run_config['cache_percentage'] >=
-           0 and run_config['cache_percentage'] <= 100)
+           0 and run_config['cache_percentage'] <= 1.0)
 
     assert(run_config['max_sampling_jobs'] > 0)
     assert(run_config['max_copying_jobs'] > 0)

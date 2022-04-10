@@ -169,6 +169,7 @@ setup(
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
                 'samgraph/common/cuda/pre_sampler.cc',
+                'samgraph/common/cuda/um_pre_sampler.cc',
                 'samgraph/common/dist/dist_engine.cc',
                 'samgraph/common/dist/dist_loops.cc',
                 'samgraph/common/dist/dist_loops_arch5.cc',
@@ -180,7 +181,7 @@ setup(
                 'samgraph/common/dist/dist_shuffler_aligned.cc',
             ],
             include_dirs=[
-                # os.path.join(here, '3rdparty/cub'), 
+                # os.path.join(here, '3rdparty/cub'),
                 os.path.join(here, '3rdparty/parallel-hashmap')],
             libraries=['cudart'],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],

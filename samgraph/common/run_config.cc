@@ -1,12 +1,12 @@
 /*
  * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -79,6 +79,10 @@ int                  RunConfig::omp_thread_num                 = 40;
 
 std::string          RunConfig::shared_meta_path               = "/shared_meta_data";
 // clang-format on
+
+bool                 RunConfig::unified_memory                 = false;
+double               RunConfig::unified_memory_percentage      = 0.0;
+UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kPreSample;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {

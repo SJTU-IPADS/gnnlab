@@ -29,6 +29,7 @@
 #include "../logging.h"
 #include "../profiler.h"
 #include "../timer.h"
+#include "../run_config.h"
 #include "cuda_function.h"
 #include "cuda_utils.h"
 
@@ -257,21 +258,21 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
 #ifndef NEW_ALGO
-  sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
-      <<<grid, block, 0, cu_stream>>>(
-          indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
-          random_states->GetStates(), random_states->NumStates());
-  sampler_device->StreamSync(ctx, stream);
+    sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
+        <<<grid, block, 0, cu_stream>>>(
+            indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+            random_states->GetStates(), random_states->NumStates());
+    sampler_device->StreamSync(ctx, stream);
 #else
-  const int WARP_SIZE = 32;
-  const int BLOCK_WARP = 128 / WARP_SIZE;
-  const int TILE_SIZE = BLOCK_WARP * 16;
-  const dim3 block_t(WARP_SIZE, BLOCK_WARP);
-  const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
-  sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
-          indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
-          random_states->GetStates(), random_states->NumStates());
-  sampler_device->StreamSync(ctx, stream);
+    const int WARP_SIZE = 32;
+    const int BLOCK_WARP = 128 / WARP_SIZE;
+    const int TILE_SIZE = BLOCK_WARP * 16;
+    const dim3 block_t(WARP_SIZE, BLOCK_WARP);
+    const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
+    sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
+            indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
+            random_states->GetStates(), random_states->NumStates());
+    sampler_device->StreamSync(ctx, stream);
 #endif
   double sample_time = t0.Passed();
 

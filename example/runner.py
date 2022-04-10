@@ -22,8 +22,8 @@ if __name__ == '__main__':
     ]).select('dataset', [
       # Dataset.reddit,
       # Dataset.products,
-      Dataset.papers100M,
-      # Dataset.friendster,
+      # Dataset.papers100M,
+      Dataset.friendster,
     ]).select('cache_policy', [
       CachePolicy.no_cache,
       # CachePolicy.cache_by_degree,
@@ -36,14 +36,15 @@ if __name__ == '__main__':
     # .override_arch(Arch.arch0)
     .override('logdir', [TMP_LOG_DIR])
     .override('dataset', [
-      Dataset.papers100M_300,
+      # Dataset.papers100M_300,
     ]).override('sample_type', [
+      SampleType.kKHop0
       # SampleType.kKHop1,
       # SampleType.kWeightedKHop,
-      SampleType.kDefaultForApp,
+      # SampleType.kDefaultForApp,
     ]).override('cache_policy', [
       # CachePolicy.cache_by_degree,
-      CachePolicy.cache_by_heuristic,
+      # CachePolicy.cache_by_heuristic,
       # CachePolicy.cache_by_presample,
       # CachePolicy.cache_by_degree_hop,
       # CachePolicy.cache_by_presample_static,

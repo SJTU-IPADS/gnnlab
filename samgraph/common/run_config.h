@@ -1,12 +1,12 @@
 /*
  * Copyright 2022 Institute of Parallel and Distributed Systems, Shanghai Jiao Tong University
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -87,6 +87,12 @@ struct RunConfig {
   // shared memory meta_data path for data communication acrossing processes
   static std::string          shared_meta_path;
   // clang-format on
+
+  static bool                 unified_memory;
+  // how much percentage of unified_memory data to be stored in GPU
+  // note: unified_memory_percentage is in the range [0, 1]
+  static double               unified_memory_percentage;
+  static UMPolicy             unified_memory_policy;
 
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;

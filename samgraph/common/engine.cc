@@ -26,16 +26,20 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <parallel/algorithm>
+#include <parallel/numeric>
 
 #include "common.h"
 #include "constant.h"
 #include "cpu/cpu_engine.h"
 #include "cuda/cuda_engine.h"
+#include "cuda/um_pre_sampler.h"
 #include "dist/dist_engine.h"
 #include "logging.h"
 #include "profiler.h"
 #include "run_config.h"
 #include "timer.h"
+#include "device.h"
 
 namespace samgraph {
 namespace common {

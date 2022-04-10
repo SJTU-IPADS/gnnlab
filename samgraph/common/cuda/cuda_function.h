@@ -19,6 +19,7 @@
 #define SAMGRAPH_CUDA_FUNCTION_H
 
 #include "../common.h"
+
 #include "cuda_frequency_hashmap.h"
 #include "cuda_hashtable.h"
 #include "cuda_random_states.h"
@@ -110,6 +111,7 @@ void GetMissCacheIndex(
     IdType *output_cache_dst_index, size_t *num_output_cache,
     const IdType *nodes, const size_t num_nodes, StreamHandle stream);
 
+ 
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph
