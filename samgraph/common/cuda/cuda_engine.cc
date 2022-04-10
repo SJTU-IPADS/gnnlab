@@ -543,7 +543,30 @@ void GPUEngine::SortUMDatasetBy(const IdType* order) {
   auto sort_edge_values = [&](TensorPtr &values) -> void {
     if(values == nullptr || values->Data() == nullptr)
       return;
-    CHECK(false);
+    auto tmp_values_ts = Tensor::CopyTo(values, CPU());
+    auto new_values_ts = Tensor::EmptyNoScale(
+        values->Type(), values->Shape(), CPU(), values->Name());
+    CHECK(tmp_values_ts->NumBytes() % tmp_values_ts->Shape()[0] == 0);
+    auto per_edge_nbytes = (tmp_values_ts->NumBytes() / tmp_values_ts->Shape()[0]);
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for(IdType i = 0; i < num_nodes; i++) {
+      IdType v = order[i];
+      IdType old_off = tmp_indptr[v];
+      IdType new_off = new_indptr[i];
+      size_t edge_len = (new_indptr[i+1] - new_indptr[i]);
+      Device::Get(new_values_ts->Ctx())->CopyDataFromTo(tmp_values_ts->Data(), old_off * per_edge_nbytes,
+          new_values_ts->MutableData(), new_off * per_edge_nbytes,
+          edge_len * per_edge_nbytes,
+          tmp_values_ts->Ctx(), new_values_ts->Ctx());
+    }
+    if (values->Ctx().device_type == DeviceType::kMMAP) {
+      values = new_values_ts;
+    } else {
+      Device::Get(values->Ctx())->CopyDataFromTo(new_values_ts->Data(), 0,
+          values->MutableData(), 0,
+          values->NumBytes(),
+          new_values_ts->Ctx(), values->Ctx());
+    }
   };
   sort_edge_values(_dataset->prob_table);
   sort_edge_values(_dataset->alias_table);
