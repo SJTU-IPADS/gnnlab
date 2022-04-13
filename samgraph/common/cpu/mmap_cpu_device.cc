@@ -38,10 +38,21 @@ void MmapCPUDevice::SetDevice(Context ctx) {}
 
 void *MmapCPUDevice::AllocDataSpace(Context ctx, size_t nbytes,
                                     size_t alignment) {
-  LOG(FATAL) << "Device does not support AllocDataSpace api";
-  return nullptr;
+  int prot = PROT_READ;
+  if (ctx.device_id == MMAP_RW_DEVICE) {
+    prot |= PROT_WRITE;
+  }
+  void* ptr = mmap(nullptr, nbytes, prot, MAP_ANON | MAP_SHARED | MAP_LOCKED, -1, 0);
+  CHECK_NE(ptr, (void *)-1);
+  return ptr;
 }
 
+/**
+ * @brief the intension for mmap device is to create shared memory for each process.
+ * a clean unmap requires unmap from all process. current we have no support for this.
+ * another problem is that unmap requires the size of the mapping. a possible solution
+ * is to allocate one more page and place the size at the beginning.
+ */
 void MmapCPUDevice::FreeDataSpace(Context ctx, void *ptr) {}
 
 void MmapCPUDevice::CopyDataFromTo(const void *from, size_t from_offset,
@@ -56,8 +67,7 @@ void MmapCPUDevice::StreamSync(Context ctx, StreamHandle stream) {
 }
 
 void *MmapCPUDevice::AllocWorkspace(Context ctx, size_t nbytes, double scale) {
-  LOG(FATAL) << "Device does not support AllocWorkspace api";
-  return nullptr;
+  return AllocDataSpace(ctx, nbytes * scale);
 }
 
 size_t MmapCPUDevice::WorkspaceActualSize(Context ctx, void *ptr) {
