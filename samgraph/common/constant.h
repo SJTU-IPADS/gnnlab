@@ -96,6 +96,7 @@ class Constant {
   static const std::string kNodeAccessFrequencyFile;
   static const std::string kNodeAccessOptimalCacheHitFile;
   static const std::string kNodeAccessOptimalCacheBinFile;
+  static const std::string kNodeAccessOptimalCacheFreqBinFile;
   static const std::string kNodeAccessSimilarityFile;
   static const std::string kNodeAccessPreSampleSimFile;
   static const std::string kNodeAccessFileSuffix;
