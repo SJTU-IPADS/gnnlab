@@ -59,6 +59,7 @@ const std::string Constant::kEnvSanityCheck = "SAMGRAPH_SANITY_CHECK";
 const std::string Constant::kEnvDumpTrace = "SAMGRAPH_DUMP_TRACE";
 const std::string Constant::kEnvEmptyFeat = "SAMGRAPH_EMPTY_FEAT";
 const std::string Constant::kEnvSamBackCudaLaunchBlocking = "SAMBACK_CUDA_LAUNCH_BLOCKING";
+const std::string Constant::kEnvTrainSetPart = "SAMGRAPH_TRAIN_SET_PART";
 
 const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";
