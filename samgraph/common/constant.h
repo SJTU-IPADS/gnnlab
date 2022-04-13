@@ -90,6 +90,7 @@ class Constant {
   static const std::string kEnvEmptyFeat;
   static const std::string kEnvSamBackCudaLaunchBlocking;
   static const std::string kEnvTrainSetPart;
+  static const std::string kEnvFakeFeatDim;
 
   static const std::string kNodeAccessLogFile;
   static const std::string kNodeAccessFrequencyFile;

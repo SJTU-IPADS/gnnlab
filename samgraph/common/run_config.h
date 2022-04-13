@@ -87,6 +87,8 @@ struct RunConfig {
   static int                  option_train_set_part_num;
   static int                  option_train_set_part_idx;
   
+  static size_t               option_fake_feat_dim;
+
   static int                  omp_thread_num;
 
   // shared memory meta_data path for data communication acrossing processes
