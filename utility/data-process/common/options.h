@@ -32,8 +32,8 @@ class Options {
  public:
   static void InitOptions(std::string app_name);
   template<typename T>
-  static void CustomOption(std::string key, T& val) {
-    _app.add_option(key, val);
+  static CLI::Option * CustomOption(std::string key, T& val, std::string desc="") {
+    return _app.add_option(key, val, desc);
   }
   static void Parse(int argc, char *argv[]);
   static int Exit(const CLI::ParseError &e);
