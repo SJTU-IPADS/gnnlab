@@ -63,6 +63,8 @@ def parse_args(default_run_config):
         choices=['default', 'degree', 'trainset', 'random', 'presample'],
         default='default')
 
+    argparser.add_argument('--unified-memory-ctx', type=str, nargs='+')
+
     return vars(argparser.parse_args())
 
 

@@ -27,6 +27,7 @@
 #include <vector>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <regex>
 
 #include "./dist/dist_engine.h"
 #include "common.h"
@@ -201,6 +202,34 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       LOG(FATAL) << "bad um_policy";
     }
     LOG(INFO) << "unified_memory_policy" << " " << configs["um_policy"];
+  }
+  if(RunConfig::unified_memory == true) {
+    RunConfig::unified_memory_ctxes.clear();
+    if (configs.count("unified_memory_ctx") > 0) {
+      std::stringstream ss(configs["unified_memory_ctx"]);
+      std::regex cuda_reg("cuda:([0-9]+)");
+      std::string ctx;
+      while(ss >> ctx) {
+        std::smatch device_id;
+        if (std::regex_match(ctx, device_id, cuda_reg)) {
+          RunConfig::unified_memory_ctxes.push_back(GPU(std::stoi(device_id[1])));
+        } else if (ctx == "cpu") {
+          RunConfig::unified_memory_ctxes.push_back(CPU());
+        }
+      }
+      CHECK(RunConfig::unified_memory_ctxes[0] == RunConfig::sampler_ctx);
+    } else {
+      RunConfig::unified_memory_ctxes.push_back(RunConfig::sampler_ctx);
+      RunConfig::unified_memory_ctxes.push_back(CPU());
+    }
+    LOG(INFO) << "unified_memory_ctxes : "
+              << std::accumulate(RunConfig::unified_memory_ctxes.begin(), RunConfig::unified_memory_ctxes.end(), 
+                  std::string{""},
+                [](std::string init, const Context& first) {
+                  std::stringstream ss;
+                  ss << first << " ";
+                  return init + ss.str();
+                });
   }
 
   RC::LoadConfigFromEnv();

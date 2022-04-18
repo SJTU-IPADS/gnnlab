@@ -49,21 +49,25 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
     LOG(INFO) << "alloc unified memory " << ToReadableSize(nbytes);
     CUDA_CALL(cudaMallocManaged(&ret, nbytes));
     // advice gpu um
-    size_t device_nbyte = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
-    size_t host_nbyte = nbytes - device_nbyte;
-    LOG(INFO) << "unified_memory: in GPU " << ToReadableSize(device_nbyte)
-              << ", in CPU " << ToReadableSize(host_nbyte);
-    if (device_nbyte != 0) {
-        CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
-            cudaMemAdviseSetPreferredLocation, ctx.device_id));
-        CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
-            cudaMemAdviseSetAccessedBy, ctx.device_id));
+    LOG(INFO) << "use 2 device store graph!";
+    CHECK(RunConfig::unified_memory_ctxes.size() >= 2);
+    auto ctx0 = RunConfig::unified_memory_ctxes[0];
+    auto ctx1 = RunConfig::unified_memory_ctxes[1];
+    size_t ctx0_nbytes = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
+    size_t ctx1_nbytes = nbytes - ctx0_nbytes;
+    LOG(INFO) << "unified_memory: in " << ctx0  << " " << ToReadableSize(ctx0_nbytes)
+              << ", in " << ctx1 << " " << ToReadableSize(ctx1_nbytes);
+    if (ctx0_nbytes != 0) {
+        CUDA_CALL(cudaMemAdvise(ret, ctx0_nbytes,
+            cudaMemAdviseSetPreferredLocation, ctx0.GetCudaDeviceId()));
+        CUDA_CALL(cudaMemAdvise(ret, ctx0_nbytes,
+            cudaMemAdviseSetAccessedBy, ctx0.GetCudaDeviceId()));
     }
-    if (host_nbyte != 0) {
-        CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
-            cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
-        CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
-            cudaMemAdviseSetAccessedBy, ctx.device_id));
+    if (ctx1_nbytes != 0) {
+        CUDA_CALL(cudaMemAdvise(ret + ctx0_nbytes, ctx1_nbytes,
+            cudaMemAdviseSetPreferredLocation, ctx1.GetCudaDeviceId()));
+        CUDA_CALL(cudaMemAdvise(ret + ctx0_nbytes, ctx1_nbytes,
+            cudaMemAdviseSetAccessedBy, ctx0.GetCudaDeviceId()));
     }
   } else {
       LOG(FATAL) << "device_type is not supported";

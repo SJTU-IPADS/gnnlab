@@ -80,9 +80,10 @@ int                  RunConfig::omp_thread_num                 = 40;
 std::string          RunConfig::shared_meta_path               = "/shared_meta_data";
 // clang-format on
 
-bool                 RunConfig::unified_memory                 = false;
+bool                 RunConfig::unified_memory                 = true;
 double               RunConfig::unified_memory_percentage      = 0.0;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kPreSample;
+std::vector<Context> RunConfig::unified_memory_ctxes;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {

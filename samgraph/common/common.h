@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 
+#include "logging.h"
+
 namespace samgraph {
 namespace common {
 
@@ -108,9 +110,36 @@ struct Context {
   Context() {}
   Context(DeviceType type, int id) : device_type(type), device_id(id) {}
   Context(std::string name);
+  int GetCudaDeviceId() const {
+    if (device_type == DeviceType::kCPU || device_type == DeviceType::kMMAP) {
+      return -1;
+    } else {
+      return device_id;
+    }
+  }
   bool operator==(const Context& rhs) {
     return this->device_type == rhs.device_type &&
            this->device_id == rhs.device_id;
+  }
+  friend std::ostream& operator<<(std::ostream& os, const Context& ctx) {
+    switch (ctx.device_type)
+    {
+    case DeviceType::kMMAP:
+      os << "mmap:" << ctx.device_id;
+      return os;
+    case DeviceType::kCPU:
+      os << "cpu:" << ctx.device_id;    
+      return os;
+    case DeviceType::kGPU:
+      os << "gpu:" << ctx.device_id;
+      return os;
+    case DeviceType::kGPU_UM:
+      os << "gpu_um:" << ctx.device_id;
+      return os;
+    default:
+      LOG(FATAL) << "not support device type "
+                 << static_cast<int>(ctx.device_id) << ":" << ctx.device_id;
+    }
   }
 };
 

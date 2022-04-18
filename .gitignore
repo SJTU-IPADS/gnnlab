@@ -135,4 +135,5 @@ example/auto_runner/run-logs/*
 
 *.bin
 
-log_mgr/
+run_logs/*
+local/*
