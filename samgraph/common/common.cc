@@ -164,14 +164,12 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
       munmap(data, nbytes);
       break;
     case kGPU_UM: {
-      tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes);
+      tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
       Context ctx0 = RunConfig::unified_memory_ctxes[0];
       Context ctx1 = RunConfig::unified_memory_ctxes[1];
-      size_t ctx0_nbytes = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
-      size_t ctx1_nbytes = nbytes - ctx0_nbytes;
-      Device::Get(ctx0)->CopyDataFromTo(data, 0, tensor->_data, 0, ctx0_nbytes, CPU(), ctx0);
-      Device::Get(ctx1)->CopyDataFromTo(data + ctx0_nbytes, 0, tensor->_data, 0, ctx1_nbytes, CPU(), ctx1);
-      munmap(data, nbytes);
+      Device::Get(ctx0)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx0);
+      Device::Get(ctx1)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx1);
+      munmap(data, tensor->NumBytes());
     }
       break;
     case kMMAP:
