@@ -165,10 +165,24 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
       break;
     case kGPU_UM: {
       tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
+      // constexpr size_t page_size = 4096;
+      // nbytes = (nbytes + page_size - 1) / page_size * page_size;
       Context ctx0 = RunConfig::unified_memory_ctxes[0];
       Context ctx1 = RunConfig::unified_memory_ctxes[1];
-      Device::Get(ctx0)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx0);
-      Device::Get(ctx1)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx1);
+      // LOG(INFO) << __func__ << " nbytes " << nbytes;
+      // size_t ctx0_nbytes = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
+      // // round to page
+      // ctx0_nbytes = ((ctx0_nbytes + page_size - 1) / (page_size)) * page_size;
+      // ctx0_nbytes = std::min(ctx0_nbytes, nbytes);
+      // size_t ctx1_nbytes = nbytes - ctx0_nbytes;
+      // LOG(INFO) << ctx0 << " " << ctx0_nbytes << " | " << ctx1 << " " << ctx1_nbytes;
+      // Device::Get(ctx0)->CopyDataFromTo(data, 0, tensor->_data, 0, ctx0_nbytes, CPU(), ctx0);
+      // Device::Get(ctx1)->CopyDataFromTo(data + ctx0_nbytes, 0, tensor->_data, 0, ctx1_nbytes, CPU(), ctx1);
+      for (auto &ctx : {ctx0, ctx1}) {
+        if(ctx.device_type == DeviceType::kGPU || ctx.device_type == DeviceType::kGPU_UM) {
+          Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx);
+        }
+      }
       munmap(data, tensor->NumBytes());
     }
       break;
