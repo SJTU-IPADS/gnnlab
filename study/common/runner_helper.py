@@ -166,6 +166,7 @@ class RunConfig:
     self.async_train = False
     self.num_sampler = 1
     self.num_trainer = 1
+    self.num_feat_dim_hack = None
     self.num_hidden = None
     self.lr = None
     self.cuda_launch_blocking = 0
@@ -255,6 +256,8 @@ class RunConfig:
     cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '
     cmd_line += f'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal}; '
     cmd_line += f'export SAMGRAPH_DUMP_TRACE={self.dump_trace}; '
+    if self.num_feat_dim_hack != None:
+      cmd_line += f'export SAMGRAPH_FAKE_FEAT_DIM={self.num_feat_dim_hack}; '
     if self.custom_env != '':
       cmd_line += f'{self.custom_env}; '
     if self.multi_gpu:

@@ -64,6 +64,25 @@ policy_str_short = {
   # 20: "no_cache",
 }
 
+size_unit_to_coefficient = {
+  'GB':1024*1024*1024,
+  'MB':1024*1024,
+  'KB':1024,
+  'Bytes':1,
+}
+
+def sample_method_str_short(cfg):
+  if cfg.app is App.gcn:
+    num_hop = 3
+  elif cfg.app is App.graphsage:
+    num_hop = 2
+  if cfg.sample_type is SampleType.kRandomWalk:
+    return 'RndWlk'
+  elif cfg.sample_type is SampleType.kKHop2:
+    return str(num_hop)+ 'HopRnd'
+  elif cfg.sample_type is SampleType.kWeightedKHopPrefix:
+    return str(num_hop)+ 'HopWgt'
+
 def my_assert_eq(a, b):
   if a != b:
     print(a, "!=", b)
@@ -112,6 +131,7 @@ class BenchInstance:
       self.prepare_config(cfg)
       self.prepare_init(cfg)
       self.prepare_epoch_eval(cfg)
+      self.prepare_profiler_log(cfg)
       self.vals['optimal_hit_percent'] = self.get_optimal()
     except Exception:
       print("error when ", fname)
@@ -149,6 +169,7 @@ class BenchInstance:
     self.vals['dataset'] = str(cfg.dataset)
     self.vals['cache_policy'] = policy_str[cfg.cache_policy.value]
     self.vals['cache_policy_short'] = policy_str_short[cfg.cache_policy.value]
+    self.vals['sample_type_short'] = sample_method_str_short(cfg)
     self.vals['seq_num'] = getattr(cfg, 'seq_num', None)
     self.vals['cache_percentage'] = 100 * cfg.cache_percent
     self.vals['sample_type'] = cfg.sample_type.name
@@ -229,6 +250,58 @@ class BenchInstance:
     self.vals['epoch_time'] = '{:.2f}'.format(self.vals['epoch_time'])
     self.vals['train_process_time'] = '{:.2f}'.format(self.vals['train_process_time'])
 
+  @staticmethod
+  def prepare_profiler_log_merge_groups(result_map_list, cfg):
+    rst = {}
+    for result_map in result_map_list:
+      for key,val in result_map.items():
+        if key in rst:
+          val = max(rst[key], val)
+        rst[key] = val
+    # print(rst)
+    return rst
+  @staticmethod
+  def prepare_profiler_log_one_group(line_list):
+    result_map = {}
+    if len(line_list) == 0:
+      return None
+    assert(line_list[0].startswith('    ['))
+    global_prefix = line_list[0].strip()[1:5]
+    for i in range(1, len(line_list)):
+      line = line_list[i].strip()
+      if line.find(':') != -1:
+        prefix = line[:line.find(':')]
+        line = line[len(prefix)+1:]
+      else:
+        prefix = line[:2]
+        line = line[len(prefix):]
+      item_list = line.split('|')
+      item_list = [global_prefix + ' ' + prefix + ' ' + item.strip() for item in item_list]
+      for item in item_list:
+        m=re.match(r'([^\.]*) +([0-9\.]*)( (MB|Bytes|KB|GB))?', item)
+        # print(item, m)
+        key,val = m.group(1).strip(),float(m.group(2))
+        if m.group(3):
+          val *= size_unit_to_coefficient[m.group(4)]
+        assert(key not in result_map)
+        result_map[key] = val
+    return result_map
+
+  def prepare_profiler_log(self, cfg):
+    line_list = grep_from(cfg.get_log_fname() + '.log', r'^(    \[Step|        L|    \[Init).*')
+    line_list.append('    [END]')
+    result_map_list = []
+    cur_begin = 0
+    for i in range(0, len(line_list)):
+      line = line_list[i]
+      if line.startswith('    ['):
+        if cur_begin != 0:
+          result_map_list.append(self.prepare_profiler_log_one_group(line_list[cur_begin:i]))
+        cur_begin = i
+    result_map = self.prepare_profiler_log_merge_groups(result_map_list, cfg)
+    self.vals.update(result_map)
+    # print(result_map_list)
+
   def to_formated_str(self):
     self.vals['cache_percentage'] = '{:.1f}'.format(self.vals['cache_percentage'])
     self.vals['hit_percent']      = '{:.3f}'.format(self.vals['hit_percent'])
@@ -245,8 +318,10 @@ class BenchInstance:
       self.vals[key] = '{:.2f}'.format(self.vals[key])
 
   @staticmethod
-  def print_dat(inst_list: list, outf, meta_list = default_meta_list, sep='\t'):
-    print(sep.join(meta_list), file=outf)
+  def print_dat(inst_list: list, outf, meta_list = default_meta_list, custom_col_title_list=None, sep='\t'):
+    if custom_col_title_list is None:
+      custom_col_title_list = meta_list
+    print(sep.join(custom_col_title_list), file=outf)
     for inst in inst_list:
       try:
         inst.to_formated_str()
