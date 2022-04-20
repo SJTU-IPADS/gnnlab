@@ -428,8 +428,8 @@ int samgraph_wait_one_child() {
     LOG(ERROR) << "detect a terminated child " << pid << ", status is "
                << WEXITSTATUS(child_stat);
     return 1;
-  } else if (WIFSIGNALED(child_stat) && (WTERMSIG(child_stat) == SIGABRT)) {
-    LOG(ERROR) << "detect an aborted child " << pid;
+  } else if (WIFSIGNALED(child_stat)) {
+    LOG(ERROR) << "detect an abnormal terminated child, signal is " << strsignal(WTERMSIG(child_stat));
     return 1;
   } else return 0;
 }
