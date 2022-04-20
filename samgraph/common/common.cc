@@ -91,10 +91,6 @@ void Tensor::Scale(DataType dt, std::vector<size_t> shape, Context ctx, std::str
     CHECK_GT(shape.size(), 0);
     size_t nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
 
-    if (ctx.device_type == kMMAP) {
-      ctx = CPU(ctx.device_id);
-    }
-
     _dtype = dt;
     _shape = shape;
     _nbytes = nbytes;
@@ -179,10 +175,6 @@ TensorPtr Tensor::Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
   CHECK_GT(shape.size(), 0);
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
 
-  if (ctx.device_type == kMMAP) {
-    ctx = CPU(ctx.device_id);
-  }
-
   tensor->_dtype = dtype;
   tensor->_shape = shape;
   tensor->_nbytes = nbytes;
@@ -197,10 +189,6 @@ TensorPtr Tensor::EmptyNoScale(DataType dtype, std::vector<size_t> shape,
   TensorPtr tensor = std::make_shared<Tensor>();
   CHECK_GT(shape.size(), 0);
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
-
-  if (ctx.device_type == kMMAP) {
-    ctx = CPU(ctx.device_id);
-  }
 
   tensor->_dtype = dtype;
   tensor->_shape = shape;
@@ -223,9 +211,6 @@ TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
   size_t nbytes = GetTensorBytes(source->_dtype, shape.begin(), shape.end());
 
   Context output_ctx = source->_ctx;
-  if (output_ctx.device_type == kMMAP) {
-    output_ctx = CPU();
-  }
 
   size_t copy_start_offset =
       item_offset *
