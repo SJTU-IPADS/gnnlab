@@ -788,16 +788,23 @@ void Profiler::ReportNodeAccess() {
 
 void Profiler::ReportNodeAccessSimple() {
   LOG(INFO) << "Writing the node access data to file...";
+  // ofs0: frequency histogram: frequency per epoch of top 0~100% nodes
+  // ofs1: binary file that looks like a cache file. can be used as cache
+  // ofs2: optimal cache hit under different cache rate
+  // ofs3: binary file containing each node's frequency
 
-  // std::ofstream ofs0(Constant::kNodeAccessLogFile + GetTimeString() +
-  //                        Constant::kNodeAccessFileSuffix,
-  //                    std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs0(Constant::kNodeAccessFrequencyFile + GetTimeString() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc);
   std::ofstream ofs1(Constant::kNodeAccessOptimalCacheBinFile + GetTimeString() +
                          Constant::kNodeAccessFileSuffix,
                      std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
   std::ofstream ofs2(Constant::kNodeAccessOptimalCacheHitFile + GetTimeString() +
                          Constant::kNodeAccessFileSuffix,
                      std::ofstream::out | std::ofstream::trunc);
+  std::ofstream ofs3(Constant::kNodeAccessOptimalCacheFreqBinFile + GetTimeString() +
+                         Constant::kNodeAccessFileSuffix,
+                     std::ofstream::out | std::ofstream::trunc | std::ofstream::binary);
   size_t num_nodes = _node_access.size();
   // (frequency, nodeid)
   std::vector<std::pair<size_t, IdType>> records(num_nodes, {0, 0});
@@ -820,21 +827,27 @@ void Profiler::ReportNodeAccessSimple() {
 #endif
 
   for (auto & p : records) {
-    size_t frequency = p.first;
+    IdType frequency = p.first;
+    float avg_frequency = frequency / static_cast<double>(Engine::Get()->NumEpoch());
     IdType nodeid = p.second;
     ofs1.write(reinterpret_cast<char*>(&nodeid), sizeof(IdType));
+    ofs3.write(reinterpret_cast<char*>(&avg_frequency), sizeof(float));
     frequency_sum += frequency;
     p.first = frequency_sum;
   }
 
   for (int cache_rate = 0; cache_rate <= 100; cache_rate++) {
-    double hit_rate = records[static_cast<int>((static_cast<double>(cache_rate) / 100) * num_nodes)].first / static_cast<double>(frequency_sum);
+    int idx = ((uint64_t)cache_rate * num_nodes - 1) / 100;
+    if (cache_rate == 0) idx = 0;
+    ofs0 << cache_rate << "\t" << ((idx == 0) ? (double)0 : (records[idx].first - records[idx-1].first) / (double)Engine::Get()->NumEpoch()) << "\n";
+    double hit_rate = ((idx == 0) ? 0 : records[idx].first / static_cast<double>(frequency_sum));
     ofs2 << cache_rate << "\t" << hit_rate << "\n";
   }
 
-  // ofs0.close();
+  ofs0.close();
   ofs1.close();
   ofs2.close();
+  ofs3.close();
 
   double similarity_sum = 0;
   for (size_t e = 1; e < _epoch_similarity.size(); e++) {
