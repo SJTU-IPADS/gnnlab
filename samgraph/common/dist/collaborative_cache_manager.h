@@ -33,10 +33,12 @@ namespace dist {
  */
 class CollCacheManager {
  public:
-  struct HashTableEntry{
-    int _location_id;
-    uint32_t _offset;
-  };
+  // struct HashTableEntry{
+  //   int _location_id;
+  //   uint32_t _offset;
+  // };
+  using HashTableEntryLocation = int;
+  using HashTableEntryOffset = IdType;
   struct SrcKey {
     int _location_id;
   };
@@ -64,9 +66,9 @@ class CollCacheManager {
   void CombineOneGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream = nullptr);
   void CombineAllGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream = nullptr);
   void ExtractFeat(const IdType* nodes, const size_t num_nodes,
-                   void* output, StreamHandle stream = nullptr, uint64_t task_key=((int64_t)-1));
+                   void* output, StreamHandle stream = nullptr, uint64_t task_key=0xffffffffffffffff);
   inline bool IsDirectMapping() {
-    if (_hash_table == nullptr) {
+    if (_hash_table_location == nullptr) {
       CHECK(_num_location == 1);
       return true;
     }
@@ -79,11 +81,11 @@ class CollCacheManager {
     }
     return false;
   }
-  typedef IdType(* OffsetGetter_t)(const SrcKey*, const DstVal*, const IdType*, const size_t);
+  // typedef IdType(* OffsetGetter_t)(const SrcKey*, const DstVal*, const IdType*, const size_t);
   // typedef std::function<IdType&(SrcKey*, DstVal*, IdType*, size_t)> OffsetGetter_t;
  private:
-  template <OffsetGetter_t src_getter, OffsetGetter_t dst_getter>
-  void Combine(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream = nullptr);
+  // template <OffsetGetter_t src_getter, OffsetGetter_t dst_getter>
+  // void Combine(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream = nullptr);
 
   CollCacheManager(Context trainer_ctx, DataType dtype, size_t dim, int num_gpu);
 
@@ -97,7 +99,9 @@ class CollCacheManager {
 
   size_t _cache_nbytes = 0;
 
-  HashTableEntry* _hash_table = nullptr;
+  // HashTableEntry* _hash_table = nullptr;
+  HashTableEntryLocation* _hash_table_location = nullptr;
+  HashTableEntryOffset* _hash_table_offset = nullptr;
   std::vector<void*> _device_cache_data;
  public:
   static CollCacheManager BuildLegacy(Context trainer_ctx,
