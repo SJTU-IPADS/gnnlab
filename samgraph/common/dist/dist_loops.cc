@@ -372,6 +372,8 @@ void DoGetCacheMissIndex(TaskPtr task) {
     task->miss_cache_index.num_miss = num_output_miss;
     task->miss_cache_index.num_cache = num_output_cache;
   }
+  double get_miss_cache_index_time = t4.Passed();
+  Profiler::Get().LogStep(task->key, kLogL3CacheGetIndexTime, get_miss_cache_index_time);
 }
 #endif
 
