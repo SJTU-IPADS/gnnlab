@@ -101,8 +101,10 @@ void DistEngine::Init() {
   _dist_type = DistType::Default;
   _shuffler = nullptr;
   _random_states = nullptr;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   _cache_manager = nullptr;
   _gpu_cache_manager = nullptr;
+#endif
   _frequency_hashmap = nullptr;
   _cache_hashtable = nullptr;
 
@@ -563,8 +565,25 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
 
   double time_load_graph_ds_copy = 0;
   double time_build_cache = 0;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   _cache_manager = nullptr;
   _gpu_cache_manager = nullptr;
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_ENABLE
+  CUDA_CALL(cudaHostRegister(_dataset->feat->MutableData(), _dataset->feat->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  CUDA_CALL(cudaHostRegister(_dataset->label->MutableData(), _dataset->label->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  if (_dataset->ranking_nodes != nullptr && _dataset->ranking_nodes->Defined()) {
+    CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  }
+  _coll_cache_manager = new CollCacheManager();
+  *_coll_cache_manager = CollCacheManager::BuildLegacy(_trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
+            _dataset->feat->Shape()[1],
+            _dataset->ranking_nodes,
+            _dataset->num_node, RunConfig::cache_percentage, _trainer_copy_stream);
+  _coll_label_manager = new CollCacheManager();
+  *_coll_label_manager = CollCacheManager::BuildNoCache(_trainer_ctx, _dataset->label->MutableData(), _dataset->label->Type(),
+            1, _trainer_copy_stream);
+#endif
   if (RunConfig::UseGPUCache()) {
     // wait the presample
     // XXX: let the app ensure sampler initialization before trainer
@@ -578,6 +597,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
     }
     */
     Timer t_build_cache;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     if (RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch9) {
       if (_dist_type == DistType::Extract) {
         _cache_manager = new DistCacheManager(
@@ -602,6 +622,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
           static_cast<const IdType *>(_dataset->ranking_nodes->Data()),
           _dataset->num_node, RunConfig::cache_percentage);
     }
+#endif
     time_build_cache = t_build_cache.Passed();
   }
   LOG_MEM_USAGE(WARNING, "after train load cache", _trainer_ctx);
@@ -729,6 +750,7 @@ void DistEngine::Shutdown() {
     delete _random_states;
   }
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   if (_cache_manager != nullptr) {
     delete _cache_manager;
   }
@@ -736,6 +758,7 @@ void DistEngine::Shutdown() {
   if (_gpu_cache_manager != nullptr) {
     delete _gpu_cache_manager;
   }
+#endif
 
   if (_frequency_hashmap != nullptr) {
     delete _frequency_hashmap;
@@ -759,8 +782,10 @@ void DistEngine::Shutdown() {
   _dataset = nullptr;
   _shuffler = nullptr;
   _graph_pool = nullptr;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   _cache_manager = nullptr;
   _gpu_cache_manager = nullptr;
+#endif
   _random_states = nullptr;
   _frequency_hashmap = nullptr;
 

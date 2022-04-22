@@ -87,7 +87,9 @@ bool RunSampleSubLoopOnce() {
   sample_time = t1.Passed();
 
   Timer t2;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   DoGetCacheMissIndex(task);
+#endif
   get_miss_cache_index_time = t2.Passed();
 
   LOG(DEBUG) << "RunSampleOnce next_q Send task";
@@ -168,18 +170,34 @@ bool RunDataCopySubLoopOnce() {
   auto task = q->Recv();
   double recv_time = t4.Passed();
 
+  double extract_time=0,feat_copy_time=0;
   if (task) {
     Timer t0;
     DoGraphCopy(task);
     double graph_copy_time = t0.Passed();
 
     Timer t2;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     DoCPUFeatureExtract(task);
     double extract_time = t2.Passed();
 
     Timer t3;
     DoFeatureCopy(task);
     double feat_copy_time = t3.Passed();
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
+    auto backup_feat = Tensor::CopyTo(task->input_feat, DistEngine::Get()->GetTrainerCtx(), DistEngine::Get()->GetTrainerCopyStream());
+    auto backup_label = Tensor::CopyTo(task->output_label, DistEngine::Get()->GetTrainerCtx(), DistEngine::Get()->GetTrainerCopyStream());
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_ENABLE
+    Timer t2_1;
+    DoCollFeatLabelExtract(task);
+    extract_time = t2_1.Passed();
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
+    CollCacheManager::CheckCudaEqual(backup_feat->Data(), task->input_feat->Data(), backup_feat->NumBytes());
+    CollCacheManager::CheckCudaEqual(backup_label->Data(), task->output_label->Data(), backup_label->NumBytes());
+#endif
 
     LOG(DEBUG) << "Submit: process task with key " << task->key;
     graph_pool->Submit(task->key, task);
@@ -222,6 +240,7 @@ bool RunCacheDataCopySubLoopOnce() {
     double graph_copy_time = t0.Passed();
 
     Timer t2;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     switch(dist_type) {
       case (DistType::Extract): {
             DoCacheFeatureCopy(task);
@@ -235,7 +254,19 @@ bool RunCacheDataCopySubLoopOnce() {
             CHECK(0);
     }
     DoCPULabelExtractAndCopy(task);
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
+    auto backup_feat = Tensor::CopyTo(task->input_feat, DistEngine::Get()->GetTrainerCtx(), DistEngine::Get()->GetTrainerCopyStream());
+    auto backup_label = Tensor::CopyTo(task->output_label, DistEngine::Get()->GetTrainerCtx(), DistEngine::Get()->GetTrainerCopyStream());
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_ENABLE
+    DoCollFeatLabelExtract(task);
+#endif
     double cache_feat_copy_time = t2.Passed();
+#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
+    CollCacheManager::CheckCudaEqual(backup_feat->Data(), task->input_feat->Data(), backup_feat->NumBytes());
+    CollCacheManager::CheckCudaEqual(backup_label->Data(), task->output_label->Data(), backup_label->NumBytes());
+#endif
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;
     graph_pool->Submit(task->key, task);

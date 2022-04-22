@@ -34,21 +34,34 @@ void RunArch9LoopsOnce(DistType dist_type);
 // common steps
 TaskPtr DoShuffle();
 void DoGPUSample(TaskPtr task);
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoGetCacheMissIndex(TaskPtr task);
+#endif
 void DoGraphCopy(TaskPtr task);
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
+// copy input/output id to CPU
 void DoIdCopy(TaskPtr task);
 void DoCPUFeatureExtract(TaskPtr task);
 void DoFeatureCopy(TaskPtr task);
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoCacheIdCopy(TaskPtr task);
 void DoCacheIdCopyToCPU(TaskPtr task);
 void DoSwitchCacheFeatureCopy(TaskPtr task);
 void DoCacheFeatureCopy(TaskPtr task);
 void DoGPULabelExtract(TaskPtr task);
 void DoCPULabelExtractAndCopy(TaskPtr task);
+#endif
 
+#ifdef SAMGRAPH_COLL_CACHE_ENABLE
+void DoCollFeatLabelExtract(TaskPtr task);
+#endif
+
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoArch6GetCacheMissIndex(TaskPtr task);
 void DoArch6CacheFeatureCopy(TaskPtr task);
+#endif
 
 typedef void (*ExtractFunction)(int);
 ExtractFunction GetArch5Loops();

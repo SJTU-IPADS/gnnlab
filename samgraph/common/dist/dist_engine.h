@@ -36,6 +36,7 @@
 #include "../task_queue.h"
 #include "dist_cache_manager.h"
 #include "dist_um_sampler.h"
+#include "collaborative_cache_manager.h"
 
 namespace samgraph {
 namespace common {
@@ -85,8 +86,14 @@ class DistEngine : public Engine {
     }
     return _random_states; 
   }
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   DistCacheManager* GetCacheManager() { return _cache_manager; }
   cuda::GPUCacheManager* GetGPUCacheManager() { return _gpu_cache_manager; }
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_ENABLE
+  CollCacheManager* GetCollCacheManager() { return _coll_cache_manager; }
+  CollCacheManager* GetCollLabelManager() { return _coll_label_manager; }
+#endif
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
   IdType *GetCacheHashtable() { return _cache_hashtable; }
   DistType GetDistType() { return _dist_type; }
@@ -141,10 +148,17 @@ class DistEngine : public Engine {
   cuda::OrderedHashTable* _hashtable;
   // CUDA random states
   cuda::GPURandomStates* _random_states;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   // Feature cache in GPU
   DistCacheManager* _cache_manager;
   // Cuda Cache Manager
   cuda::GPUCacheManager* _gpu_cache_manager;
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_ENABLE
+  // Collaborative cache manager
+  CollCacheManager* _coll_cache_manager;
+  CollCacheManager* _coll_label_manager;
+#endif
   // Frequency hashmap
   cuda::FrequencyHashmap* _frequency_hashmap;
   // vertices cache hash table

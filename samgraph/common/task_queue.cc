@@ -71,7 +71,9 @@ namespace {
     uint64_t key;
     size_t   input_size;
     size_t   output_size;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     size_t   num_miss;
+#endif
     IdType data[0];
     // input_nodes|output_nodes| [input_dst_index]
     //   GraphData: <num_src|num_dst|num_edge|row|col|data> : layer 1
@@ -93,6 +95,7 @@ namespace {
     if (!RunConfig::UseGPUCache() || RunConfig::have_switcher) {
       ret += task->input_nodes->NumBytes();
     } else {
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
       if (task->miss_cache_index.num_miss > 0) {
         ret += task->miss_cache_index.miss_src_index->NumBytes();
         ret += task->miss_cache_index.miss_dst_index->NumBytes();
@@ -102,6 +105,7 @@ namespace {
         ret += task->miss_cache_index.cache_src_index->NumBytes();
         ret += task->miss_cache_index.cache_dst_index->NumBytes();
       }
+#endif
     }
 
     for (auto &graph : task->graphs) {
@@ -175,20 +179,27 @@ namespace {
     ptr->key = task->key;
     ptr->input_size = task->input_nodes->Shape()[0];
     ptr->output_size = task->output_nodes->Shape()[0];
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     ptr->num_miss = task->miss_cache_index.num_miss;
+#endif
 
     IdType *ptr_data = ptr->data;
 
+#ifndef SAMGRAPH_COLL_CACHE_ENABLE
     if (!RunConfig::UseGPUCache() || RunConfig::have_switcher) {
+#endif
       CHECK_EQ(sizeof(IdType) * ptr->input_size, task->input_nodes->NumBytes());
       CopyGPUToCPU(task->input_nodes, ptr_data);
       ptr_data += ptr->input_size;
+#ifndef SAMGRAPH_COLL_CACHE_ENABLE
     }
+#endif
 
     CHECK_EQ(sizeof(IdType) * ptr->output_size, task->output_nodes->NumBytes());
     CopyGPUToCPU(task->output_nodes, ptr_data);
     ptr_data += ptr->output_size;
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     if (RunConfig::UseGPUCache()) {
       if (ptr->num_miss > 0) {
         CopyGPUToCPU(task->miss_cache_index.miss_src_index, ptr_data);
@@ -205,6 +216,7 @@ namespace {
         ptr_data += num_cache;
       }
     }
+#endif
 
     GraphData* graph_data = reinterpret_cast<GraphData*>(ptr_data);
     LOG(DEBUG) << "ToData with task graphs layer: " << task->graphs.size();
@@ -283,17 +295,42 @@ namespace {
 
     const IdType *trans_data_data = trans_data->data;
 
+#ifndef SAMGRAPH_COLL_CACHE_ENABLE
+    // only legacy cache wants input node
     if (!RunConfig::UseGPUCache() || RunConfig::have_switcher) {
       task->input_nodes =
           ToTensor(trans_data_data, trans_data->input_size * sizeof(IdType),
                    "input_" + std::to_string(task->key));
       trans_data_data += trans_data->input_size;
     }
+#else
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
+    // both legacy cache and coll cache wants input node, must be at cpu
+    task->input_nodes =
+        ToTensor(trans_data_data, trans_data->input_size * sizeof(IdType),
+                  "input_" + std::to_string(task->key));
+    trans_data_data += trans_data->input_size;
+#else
+    // only coll cache wants input node, put at gpu
+    task->input_nodes =
+        ToTensor(trans_data_data, trans_data->input_size * sizeof(IdType),
+                  "input_" + std::to_string(task->key), ctx, stream);
+    trans_data_data += trans_data->input_size;
+#endif
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     task->output_nodes = ToTensor(trans_data_data,
         trans_data->output_size * sizeof(IdType), "output_" + std::to_string(task->key));
     trans_data_data += trans_data->output_size;
+#else
+    task->output_nodes = ToTensor(trans_data_data,
+        trans_data->output_size * sizeof(IdType), "output_" + std::to_string(task->key),
+        ctx, stream);
+    trans_data_data += trans_data->output_size;
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     if (RunConfig::UseGPUCache()) {
       task->miss_cache_index.num_miss = trans_data->num_miss;
       task->miss_cache_index.num_cache =
@@ -327,6 +364,7 @@ namespace {
         trans_data_data += num_cache;
       }
     }
+#endif
 
     task->graphs.resize(trans_data->num_layer);
     auto graph_data = reinterpret_cast<const GraphData*>(trans_data_data);

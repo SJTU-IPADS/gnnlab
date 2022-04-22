@@ -300,6 +300,7 @@ void DoGPUSample(TaskPtr task) {
              << "SampleLoop: process task with key " << task->key;
 }
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoGetCacheMissIndex(TaskPtr task) {
   // Get index of miss data and cache data
   // Timer t4;
@@ -372,6 +373,7 @@ void DoGetCacheMissIndex(TaskPtr task) {
     task->miss_cache_index.num_cache = num_output_cache;
   }
 }
+#endif
 
 void DoGraphCopy(TaskPtr task) {
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
@@ -487,6 +489,35 @@ void DoCPUFeatureExtract(TaskPtr task) {
   LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
 }
 
+#ifdef SAMGRAPH_COLL_CACHE_ENABLE
+void DoCollFeatLabelExtract(TaskPtr task) {
+  auto dataset = DistEngine::Get()->GetGraphDataset();
+
+  auto feat = dataset->feat;
+  auto label = dataset->label;
+
+  auto feat_dim = dataset->feat->Shape()[1];
+  auto feat_type = dataset->feat->Type();
+  auto label_type = dataset->label->Type();
+
+  auto input_nodes  = reinterpret_cast<const IdType *>(task->input_nodes->Data());
+  auto output_nodes = reinterpret_cast<const IdType *>(task->output_nodes->Data());
+  auto num_input = task->input_nodes->Shape()[0];
+  auto num_ouput = task->output_nodes->Shape()[0];
+
+  auto copy_stream = DistEngine::Get()->GetTrainerCopyStream();
+
+  task->input_feat = Tensor::Empty(feat_type, {num_input, feat_dim}, DistEngine::Get()->GetTrainerCtx(),
+                    "task.train_feat_cuda_" + std::to_string(task->key));
+  task->output_label = Tensor::Empty(label_type, {num_ouput}, DistEngine::Get()->GetTrainerCtx(),
+                     "task.train_label_cuda_" + std::to_string(task->key));
+  DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
+  DistEngine::Get()->GetCollLabelManager()->ExtractFeat(output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream);
+
+  LOG(DEBUG) << "CollFeatExtract: process task with key " << task->key;
+}
+#endif
+
 void DoFeatureCopy(TaskPtr task) {
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
@@ -553,6 +584,7 @@ void DoCacheIdCopyToCPU(TaskPtr task) {
 }
 
 // for switcher cache
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoSwitchCacheFeatureCopy(TaskPtr task) {
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
@@ -689,7 +721,9 @@ void DoSwitchCacheFeatureCopy(TaskPtr task) {
 
   LOG(DEBUG) << "DoSwitchCacheFeatureCopy: process task with key " << task->key;
 }
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoCacheFeatureCopy(TaskPtr task) {
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
@@ -815,8 +849,22 @@ void DoCacheFeatureCopy(TaskPtr task) {
       GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
+  // {
+  //   LOG(ERROR) << "CollCache: try extract and check it " << task->key;
+  //   auto coll_feat = Tensor::Empty(train_feat->Type(), train_feat->Shape(), trainer_ctx, "task.train_feat_cuda_" + std::to_string(task->key));
+  //   // input node is cuda host mallocated, so should be able to access using UVA.
+  //   CHECK(task->input_nodes->Defined());
+  //   auto input_nodes = reinterpret_cast<const IdType *>(task->input_nodes->Data());
+  //   LOG(ERROR) << "CollCache: extracting... " << task->key;
+  //   DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], coll_feat->MutableData(), trainer_copy_stream);
+  //   LOG(ERROR) << "CollCache: extract done " << task->key;
+  //   DistEngine::Get()->GetCollCacheManager()->CheckCudaEqual(train_feat->Data(), coll_feat->Data(), coll_feat->NumBytes(), trainer_copy_stream);
+  //   LOG(ERROR) << "CollCache: check done " << task->key;
+  // }
 }
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoGPULabelExtract(TaskPtr task) {
   auto dataset = DistEngine::Get()->GetGraphDataset();
 
@@ -854,7 +902,9 @@ void DoGPULabelExtract(TaskPtr task) {
 
   Profiler::Get().LogStep(task->key, kLogL1LabelBytes, train_label->NumBytes());
 }
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoCPULabelExtractAndCopy(TaskPtr task) {
   auto dataset = DistEngine::Get()->GetGraphDataset();
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
@@ -893,7 +943,9 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
 
   LOG(DEBUG) << "DoCPULabelExtractAndCopy: process task with key " << task->key;
 }
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoArch6GetCacheMissIndex(TaskPtr task) {
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
@@ -948,7 +1000,9 @@ void DoArch6GetCacheMissIndex(TaskPtr task) {
   task->miss_cache_index.num_miss = num_output_miss;
   task->miss_cache_index.num_cache = num_output_cache;
 }
+#endif
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoArch6CacheFeatureCopy(TaskPtr task) {
   auto trainer_ctx = DistEngine::Get()->GetTrainerCtx();
   auto trainer_device = Device::Get(trainer_ctx);
@@ -1079,6 +1133,7 @@ void DoArch6CacheFeatureCopy(TaskPtr task) {
 
   LOG(DEBUG) << "DoCacheFeatureCopy: process task with key " << task->key;
 }
+#endif
 
 } // dist
 } // common

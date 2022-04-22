@@ -18,6 +18,22 @@
 #ifndef SAMGRAPH_COMMON_H
 #define SAMGRAPH_COMMON_H
 
+#define SAMGRAPH_COLL_CACHE_ENABLE
+// #define SAMGRAPH_COLL_CACHE_VALIDATE
+
+#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
+
+#define SAMGRAPH_COLL_CACHE_ENABLE
+#define SAMGRAPH_LEGACY_CACHE_ENABLE
+
+#else
+
+#ifndef SAMGRAPH_COLL_CACHE_ENABLE
+#define SAMGRAPH_LEGACY_CACHE_ENABLE
+#endif
+
+#endif
+
 #include <atomic>
 #include <cstdint>
 #include <fstream>
@@ -275,8 +291,10 @@ struct Task {
   TensorPtr input_feat;
   // Output label tensor
   TensorPtr output_label;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   // Multi-gpu miss cache index
   MissCacheIndex miss_cache_index;
+#endif
   std::atomic_bool graph_remapped;
   Task() : graph_remapped(false) {}
 };
