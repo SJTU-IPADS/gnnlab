@@ -130,6 +130,9 @@ ndarray<GRBVar> c_list;
 ndarray<GRBVar> x_list;
 std::vector<GRBLinExpr> time_list;
 
+std::vector<int> stream_mapping;
+
+uint32_t num_stream;
 uint32_t num_part;
 uint32_t num_block;
 uint32_t cache_percent = 14;
@@ -210,6 +213,7 @@ void constraint_capacity(GRBModel & model, uint32_t part_id) {
   model.addConstr(exp <= cache_percent);
 }
 void constraint_time(GRBModel & model, uint32_t part_id) {
+  uint32_t stream_id = stream_mapping[part_id];
   double sum_weight = 0;
   // {
   //   uint32_t block_id = 0;
@@ -227,7 +231,7 @@ void constraint_time(GRBModel & model, uint32_t part_id) {
   // }, 1, num_block);
   GRBLinExpr &exp = time_list[part_id];
   FOR_LOOP(block_id, num_block) {
-    double weight = density_array[block_id] * block_freq_array[(block_id) * num_part + part_id];
+    double weight = density_array[block_id] * block_freq_array[(block_id) * num_stream + stream_id];
     if (weight == 0) continue;
     sum_weight += weight;
     exp += c_list[block_id].ref() * (weight * (T_cpu - T_remote)) - x_list[block_id][part_id].ref() * (weight * (T_remote - T_local));
@@ -247,6 +251,7 @@ int main(int argc, char** argv) {
   _app.add_option("--tc", T_cpu, "time cpu");
   _app.add_option("-m,--mode", mode, "BIN or CONT")->check(CLI::IsMember({"BIN","CONT"}));
   _app.add_option("-t,--thread", NUM_THREADS, "num of threads");
+  _app.add_option("--sm,--stream-mapping", stream_mapping, "mapping from part to stream. useful when stream is shared across different parts");
   try {
     _app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
@@ -258,14 +263,25 @@ int main(int argc, char** argv) {
   stat(bin_filename_list[0].c_str(), &st);
   num_block = st.st_size / sizeof(double);
   stat(bin_filename_list[1].c_str(), &st);
-  num_part = st.st_size / sizeof(double) / num_block;
+  num_stream = st.st_size / sizeof(double) / num_block;
+
+  if (stream_mapping.size() == 0) {
+    // by default, each stream is a part
+    num_part = num_stream;
+    stream_mapping.resize(num_stream);
+    for (int i = 0; i < num_part; i++) {
+      stream_mapping[i] = i;
+    }
+  } else {
+    num_part = stream_mapping.size();
+  }
 
   std::cerr << num_block << " blocks, " << num_part << "parts\n";
 
   int density_fd = open(bin_filename_list[0].c_str(), O_RDONLY);
   int block_freq_fd = open(bin_filename_list[1].c_str(), O_RDONLY);
-  density_array    = (double*)mmap(nullptr, num_block *            sizeof(double), PROT_READ, MAP_PRIVATE, density_fd, 0);
-  block_freq_array = (double*)mmap(nullptr, num_block * num_part * sizeof(double), PROT_READ, MAP_PRIVATE, block_freq_fd, 0);
+  density_array    = (double*)mmap(nullptr, num_block *              sizeof(double), PROT_READ, MAP_PRIVATE, density_fd, 0);
+  block_freq_array = (double*)mmap(nullptr, num_block * num_stream * sizeof(double), PROT_READ, MAP_PRIVATE, block_freq_fd, 0);
 
   GRBEnv env = GRBEnv(true);
   env.set("LogFile", "cppsolver.log");

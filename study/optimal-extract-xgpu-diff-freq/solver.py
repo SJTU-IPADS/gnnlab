@@ -22,28 +22,30 @@ from runner_helper import ConfigList
 )
 
 num_threads = 108
-num_slot = 10
-num_part = 4
+num_slot = 100
+num_part = 2
+num_stream = 1
+stream_mapping = [0, 0]
+coefficient = 1.05
 
 def try_and_throw(exp):
   if not exp:
     raise Exception("")
 
-def block_id_to_slot_id(block_id, part_id, num_slot):
-  return (block_id // (num_slot ** (num_part - part_id - 1))) % num_slot
+def block_id_to_slot_id(block_id, stream_id, num_slot):
+  return (block_id // (num_slot ** (num_stream - stream_id - 1))) % num_slot
 
 # row is rank in part1, col is rank in part2
 def get_density_array(cfg_list : list, method='exp', n_slot=20, cache_percent=0):
-  cmd = f"./gen_density_matrix_fine_grain -t {num_threads} -f " + " ".join([cfg.get_log_fname() + suffix for suffix in ["_optimal_cache_bin.bin", "_optimal_cache_freq_bin.bin"] for cfg in cfg_list]) + f" -m {method}" + f" -s {n_slot}" + f" -c {cache_percent}"
+  cmd = f"./gen_density_matrix_fine_grain --coe {coefficient} -t {num_threads} -f " + " ".join([cfg.get_log_fname() + suffix for suffix in ["_optimal_cache_bin.bin", "_optimal_cache_freq_bin.bin"] for cfg in cfg_list]) + f" -m {method}" + f" -s {n_slot}" + f" -c {cache_percent}"
   print(cmd)
   subprocess.check_output(cmd, shell=True)
   # density_array = numpy.memmap('density.bin', mode='r', shape=((num_slot,)*len(cfg_list)))
   # freq_array = numpy.memmap('freq.bin', mode='r', shape=(num_slot,len(cfg_list)))
   density_array = numpy.memmap('density.bin', dtype='float64', mode='r')
   # freq_array = numpy.memmap('freq.bin', dtype='float64', mode='r', shape=(n_slot, num_part))
-  freq_array = None
-  block_freq_array = numpy.memmap('block_freq.bin', dtype='float64', mode='r', shape=(len(density_array), num_part))
-  return density_array, freq_array, block_freq_array
+  block_freq_array = numpy.memmap('block_freq.bin', dtype='float64', mode='r', shape=(len(density_array), num_stream))
+  return density_array, None, block_freq_array
 
 class Problem:
   def __init__(self, cfg_list:list, mode = 'CONT'):
@@ -55,8 +57,8 @@ class Problem:
 
     # this stores how many nodes this blocks have
     self.cfg_list = cfg_list
-    self.num_block = num_slot ** num_part
-    self.density_array, self.freq_array, self.block_freq_array = get_density_array(cfg_list, n_slot=num_slot)
+    self.num_block = num_slot ** num_stream
+    self.density_array, _, self.block_freq_array = get_density_array(cfg_list, n_slot=num_slot)
     self.x_list_optimal = None
     self.mode = mode
     assert(mode in ['BIN', 'CONT'])
@@ -113,8 +115,9 @@ class Problem:
     print("building pulp problem - constraints - run time")
     # time of each gpu
     for part_id in range(num_part):
+      stream_id = stream_mapping[part_id]
       # prob += pulp.lpSum([block_freq_array[block_id][part_id] * density_array[block_id] * (T_local * x_list[block_id][part_id] + T_remote * r_list[block_id][part_id] + T_cpu *c_list[block_id]) for block_id in range(self.num_block)]) - z <= 0, f"time_{part_id}"
-      prob += pulp.lpSum([block_freq_array[block_id][part_id] * density_array[block_id] * ((T_local-T_remote) * x_list[block_id][part_id] + T_remote + (T_cpu-T_remote) *c_list[block_id]) for block_id in range(self.num_block)]) - z <= 0, f"time_{part_id}"
+      prob += pulp.lpSum([block_freq_array[block_id][stream_id] * density_array[block_id] * ((T_local-T_remote) * x_list[block_id][part_id] + T_remote + (T_cpu-T_remote) *c_list[block_id]) for block_id in range(self.num_block)]) - z <= 0, f"time_{part_id}"
 
     print("solving pulp problem")
     prob.writeLP("NoName.lp")
@@ -147,11 +150,11 @@ class Problem:
 
     ret = [pulp.value(z)]
 
-    ret += self.calculate_final_time(self.x_list_optimal, self.density_array, self.freq_array, self.block_freq_array, T_local, T_remote, T_cpu)
+    ret += self.calculate_final_time(self.x_list_optimal, self.density_array, None, self.block_freq_array, T_local, T_remote, T_cpu)
     return ret
 
   def solve_cpp(self, cache_percent, T_local = 2, T_remote = 15, T_cpu = 60):
-    cmd = f"./solver_gurobi -f density.bin block_freq.bin -m {self.mode} -c {cache_percent} --tl {T_local} --tr {T_remote} --tc {T_cpu} -t {num_threads}"
+    cmd = f"./solver_gurobi -f density.bin block_freq.bin -m {self.mode} -c {cache_percent} --tl {T_local} --tr {T_remote} --tc {T_cpu} -t {num_threads} --sm {' '.join([str(i) for i in stream_mapping])}"
     print(cmd)
     subprocess.check_call(cmd, shell=True)
     with open('solver_gurobi.out') as f:
@@ -168,7 +171,7 @@ class Problem:
     naive_density_array, naive_freq_array, naive_block_freq_array = get_density_array(self.cfg_list, method='bin', n_slot=2, cache_percent=cache_percent)
     x_list_naive = []
     for block_id in range(len(naive_density_array)):
-      x_list_naive += [[1 - block_id_to_slot_id(block_id, part_id, 2) for part_id in range(num_part)]]
+      x_list_naive += [[1 - block_id_to_slot_id(block_id, stream_mapping[part_id], 2) for part_id in range(num_part)]]
     return Problem.calculate_final_time(x_list_naive, naive_density_array, naive_freq_array, naive_block_freq_array, T_local, T_remote, T_cpu)
 
   @staticmethod
@@ -189,15 +192,16 @@ class Problem:
     rate_cpu = 0
     for block_id in range(len(x_list)):
       for part_id in range(num_part):
-        t_list[part_id] += density_array[block_id] * block_freq_array[block_id][part_id] * Problem.get_T(x_list[block_id], part_id, T_local, T_remote, T_cpu)
+        stream_id = stream_mapping[part_id]
+        t_list[part_id] += density_array[block_id] * block_freq_array[block_id][stream_id] * Problem.get_T(x_list[block_id], part_id, T_local, T_remote, T_cpu)
       #   rate_part_list[part_id] += density_array[block_id] * x_list[block_id][part_id] * (1 - Problem.get_x_remote(x_list[block_id], part_id))
       # rate_rep     += density_array[block_id] * (sum(x_list[block_id]) == num_part)
       # rate_cpu     += density_array[block_id] * (sum(x_list[block_id]) == 0)
     # return [max(t_list), *t_list, rate_rep, *rate_part_list, rate_cpu]
     return [max(t_list), *t_list, rate_rep, rate_cpu]
 
-cfg_list_collector.select('part_num', [num_part])
-part1_conf_list = cfg_list_collector.copy().select('part_idx', [0])
+cfg_list_collector.select('part_num', [num_stream])
+stream_1_conf_list = cfg_list_collector.copy().select('part_idx', [0])
 
 summary_list = []
 
@@ -217,19 +221,19 @@ def print_summary(summary_list):
   for summary in summary_list:
     print(" | ".join(summary))
 
-for i in range(len(part1_conf_list.conf_list)):
-  part1_cfg = part1_conf_list.conf_list[i]
-  same_part_list = cfg_list_collector.copy().select('app', [part1_cfg.app]).select('dataset', [part1_cfg.dataset]).select('sample_type', [part1_cfg.sample_type])
+for i in range(len(stream_1_conf_list.conf_list)):
+  stream1_cfg = stream_1_conf_list.conf_list[i]
+  same_part_list = cfg_list_collector.copy().select('app', [stream1_cfg.app]).select('dataset', [stream1_cfg.dataset]).select('sample_type', [stream1_cfg.sample_type])
   tr_list = [i for i in range(1, 30, 1)]
-  # for (cache_size, T_local, T_remote, T_cpu) in [(11, 2, 15, 60),(27, 2, 15, 60),(35, 1, 500/240, 500/11),(75, 1, 500/240, 500/11)]:
-  for (cache_size, T_local, T_remote, T_cpu) in [(11, 2, 15, 60),(27, 2, 15, 60),(35, 1, 500/240, 500/11)]:
+  for (cache_size, T_local, T_remote, T_cpu) in [(11, 2, 15, 60),(27, 2, 15, 60),(35, 1, 500/240, 500/11),(75, 1, 500/240, 500/11)]:
+  # for (cache_size, T_local, T_remote, T_cpu) in [(11, 2, 15, 60),(27, 2, 15, 60),(35, 1, 500/240, 500/11)]:
   # for (cache_size, T_local, T_remote, T_cpu) in [(cache, 1, tr, tc) for tc in [30,] for cache in range(11, 36, 2) for tr in tr_list]:
   # for (cache_size, T_local, T_remote, T_cpu) in [(cache, 1, tr, tc) for tc in [30,] for cache in range(17, 22, 1) for tr in tr_list]:
-    print(f"solving with cache={cache_size} {T_local} {T_remote} {T_cpu} {part1_cfg.get_log_fname()} ")
-    cache_percent = min(math.floor(100 * cache_size / part1_cfg.dataset.FeatGB()), 100)
+    print(f"solving with cache={cache_size} {T_local} {T_remote} {T_cpu} {stream1_cfg.get_log_fname()} ")
+    cache_percent = min(math.floor(100 * cache_size / stream1_cfg.dataset.FeatGB()), 100)
     result_list = [math.nan for _ in range(4 + 2 * num_part)]
     t0 = time.time()
-    p = Problem(same_part_list.conf_list)
+    p = Problem(same_part_list.conf_list, mode='BIN')
     # result_list = p.solve(cache_percent, T_local, T_remote, T_cpu)
     result_list = p.solve_cpp(cache_percent, T_local, T_remote, T_cpu)
     t1 = time.time()
@@ -241,7 +245,7 @@ for i in range(len(part1_conf_list.conf_list)):
       # ("{:7.2f}=max(" + ",".join([r"{:7.2f}" for _ in range(num_part)]) + ") {:6.2f} (" + ",".join([r"{:5.2f}" for _ in range(num_part)]) + ") {:5.2f}").format(*naive_result),
       ("{:7.2f}={:7.2f}=max(" + ",".join([r"{:7.2f}" for _ in range(num_part)]) + ") {:6.2f} {:5.2f} {:6.2f}").format(*result_list, t1-t0),
       ("{:7.2f}=max(" + ",".join([r"{:7.2f}" for _ in range(num_part)]) + ") {:6.2f} {:5.2f} {:6.2f}").format(*naive_result, t2-t1),
-      "{:2}GB {:5.2f} {:5.2f} {:5.2f} {}".format(cache_size, T_local, T_remote, T_cpu, part1_cfg.get_log_fname())
+      "{:2}GB {:5.2f} {:5.2f} {:5.2f} {}".format(cache_size, T_local, T_remote, T_cpu, stream1_cfg.get_log_fname())
     ]
     summary_list.append(summary)
     print_summary(summary_list)
