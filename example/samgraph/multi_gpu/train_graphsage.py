@@ -179,7 +179,7 @@ def run_sample(worker_id, run_config):
     global_barrier.wait()
 
     if worker_id == 0:
-        sam.report_step_average(epoch - 1, step - 1)
+        sam.report_step_average(num_epoch - 1, num_step - 1)
         sam.report_init()
 
     # print result
