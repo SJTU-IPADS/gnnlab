@@ -89,11 +89,14 @@ class Constant {
   static const std::string kEnvDumpTrace;
   static const std::string kEnvEmptyFeat;
   static const std::string kEnvSamBackCudaLaunchBlocking;
+  static const std::string kEnvTrainSetPart;
+  static const std::string kEnvFakeFeatDim;
 
   static const std::string kNodeAccessLogFile;
   static const std::string kNodeAccessFrequencyFile;
   static const std::string kNodeAccessOptimalCacheHitFile;
   static const std::string kNodeAccessOptimalCacheBinFile;
+  static const std::string kNodeAccessOptimalCacheFreqBinFile;
   static const std::string kNodeAccessSimilarityFile;
   static const std::string kNodeAccessPreSampleSimFile;
   static const std::string kNodeAccessFileSuffix;

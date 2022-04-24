@@ -27,7 +27,7 @@ namespace cpu {
 class MmapCPUDevice final : public Device {
  public:
   void SetDevice(Context ctx) override;
-  void *AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) override;
+  void *AllocDataSpace(Context ctx, size_t nbytes, size_t alignment = kAllocAlignment) override;
   void FreeDataSpace(Context ctx, void *ptr) override;
   void *AllocWorkspace(Context ctx, size_t nbytes,
                        double scale = Constant::kAllocScale) override;

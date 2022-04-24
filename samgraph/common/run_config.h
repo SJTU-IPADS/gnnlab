@@ -82,6 +82,13 @@ struct RunConfig {
   static bool                 option_dump_trace;
   static size_t               option_empty_feat;
 
+  static std::string          option_train_set_slice_mode;
+  static double               option_train_set_percent;
+  static int                  option_train_set_part_num;
+  static int                  option_train_set_part_idx;
+  
+  static size_t               option_fake_feat_dim;
+
   static int                  omp_thread_num;
 
   // shared memory meta_data path for data communication acrossing processes

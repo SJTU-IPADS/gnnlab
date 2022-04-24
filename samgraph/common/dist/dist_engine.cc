@@ -613,8 +613,8 @@ std::unordered_map<std::string, Context> DistEngine::GetGraphFileCtx() {
 
   ret[Constant::kIndptrFile] = MMAP();
   ret[Constant::kIndicesFile] = MMAP();
-  ret[Constant::kFeatFile] = MMAP(CPU_CLIB_MALLOC_DEVICE);
-  ret[Constant::kLabelFile] = MMAP(CPU_CLIB_MALLOC_DEVICE);
+  ret[Constant::kFeatFile] = MMAP();
+  ret[Constant::kLabelFile] = MMAP();
   ret[Constant::kTrainSetFile] = MMAP();
   ret[Constant::kTestSetFile] = MMAP();
   ret[Constant::kValidSetFile] = MMAP();

@@ -59,11 +59,14 @@ const std::string Constant::kEnvSanityCheck = "SAMGRAPH_SANITY_CHECK";
 const std::string Constant::kEnvDumpTrace = "SAMGRAPH_DUMP_TRACE";
 const std::string Constant::kEnvEmptyFeat = "SAMGRAPH_EMPTY_FEAT";
 const std::string Constant::kEnvSamBackCudaLaunchBlocking = "SAMBACK_CUDA_LAUNCH_BLOCKING";
+const std::string Constant::kEnvTrainSetPart = "SAMGRAPH_TRAIN_SET_PART";
+const std::string Constant::kEnvFakeFeatDim = "SAMGRAPH_FAKE_FEAT_DIM";
 
 const std::string Constant::kNodeAccessLogFile = "node_access";
 const std::string Constant::kNodeAccessFrequencyFile = "node_access_frequency";
 const std::string Constant::kNodeAccessOptimalCacheHitFile = "node_access_optimal_cache_hit";
 const std::string Constant::kNodeAccessOptimalCacheBinFile = "node_access_optimal_cache_bin";
+const std::string Constant::kNodeAccessOptimalCacheFreqBinFile = "node_access_optimal_cache_freq_bin";
 const std::string Constant::kNodeAccessSimilarityFile = "node_access_similarity";
 const std::string Constant::kNodeAccessPreSampleSimFile = "node_access_presample";
 const std::string Constant::kNodeAccessFileSuffix = ".txt";

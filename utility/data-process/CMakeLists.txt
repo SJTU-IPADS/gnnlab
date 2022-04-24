@@ -3,7 +3,7 @@ project(samgraph_utility CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -g -fopenmp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -march=native -g -fopenmp")
 
 include_directories(.)
 include_directories(${CMAKE_SOURCE_DIR}/../../3rdparty/CLI11/include)

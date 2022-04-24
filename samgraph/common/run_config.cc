@@ -75,6 +75,13 @@ int                  RunConfig::presample_epoch;
 bool                 RunConfig::option_dump_trace              = false;
 size_t               RunConfig::option_empty_feat              = 0;
 
+std::string          RunConfig::option_train_set_slice_mode = "";
+double               RunConfig::option_train_set_percent = 100;
+int                  RunConfig::option_train_set_part_num = 1;
+int                  RunConfig::option_train_set_part_idx = 0;
+
+size_t               RunConfig::option_fake_feat_dim = 0;
+
 int                  RunConfig::omp_thread_num                 = 40;
 
 std::string          RunConfig::shared_meta_path               = "/shared_meta_data";
@@ -110,6 +117,26 @@ void RunConfig::LoadConfigFromEnv() {
   }
   if (GetEnv(Constant::kEnvEmptyFeat) != "") {
     RunConfig::option_empty_feat = std::stoul(GetEnv(Constant::kEnvEmptyFeat));
+  }
+
+  if (GetEnv(Constant::kEnvTrainSetPart) != "") {
+    std::string env = GetEnv(Constant::kEnvTrainSetPart);
+    size_t div = env.find('/');
+    if (div == env.npos) {
+      // env looks like "train_set_percent
+      RunConfig::option_train_set_slice_mode = "percent";
+      RunConfig::option_train_set_percent = std::stod(env);
+    } else {
+      // env looks like "part_idx/part_num"
+      RunConfig::option_train_set_slice_mode = "part";
+      RunConfig::option_train_set_part_num = std::stod(env.substr(div + 1));
+      RunConfig::option_train_set_part_idx = std::stoi(env.substr(0, div));
+    }
+  }
+
+  if (GetEnv(Constant::kEnvFakeFeatDim) != "") {
+    std::string env = GetEnv(Constant::kEnvFakeFeatDim);
+    RunConfig::option_fake_feat_dim = std::stoi(env);
   }
 }
 

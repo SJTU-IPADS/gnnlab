@@ -23,17 +23,57 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <cassert>
+#include <limits>
+#include <random>
+#include <cstring>
 
 #include "common/graph_loader.h"
 #include "common/options.h"
+#include "common/utils.h"
 
-void TrainSize(utility::GraphPtr dataset, int partition) {
+uint32_t max_hop = std::numeric_limits<uint32_t>::max();
+
+
+void shuffle(uint32_t * data, size_t num_data, uint64_t seed= 0x1234567890abcdef) {
+  auto g = std::default_random_engine(seed);
+  for (size_t i = num_data - 1; i > 0; i--) {
+    std::uniform_int_distribution<size_t> d(0, i);
+    size_t candidate = d(g);
+    std::swap(data[i], data[candidate]);
+  }
+}
+
+uint32_t* RandSet(uint32_t num_nodes, uint64_t seed = 0x1234567890abcdef) {
+  uint32_t *id_list = new uint32_t[num_nodes];
+#pragma omp parallel for
+  for (uint32_t cur_node = 0; cur_node < num_nodes; cur_node++) {
+    id_list[cur_node] = cur_node;
+  }
+
+  shuffle(id_list, num_nodes);
+  return id_list;
+}
+
+void TrainSize(utility::GraphPtr dataset, int partition, double percent) {
   uint32_t *indptr = dataset->indptr;
   uint32_t *indices = dataset->indices;
   uint32_t *train_set = dataset->train_set;
   uint32_t num_train_set = dataset->num_train_set;
   uint32_t num_nodes = dataset->num_nodes;
   uint32_t num_edges = dataset->num_edges;
+  std::cout << "Graph has " << num_train_set << " train set\n";
+
+  if (!std::isnan(percent)) {
+    num_train_set = ((uint64_t)num_nodes) * percent / 100;
+    if (num_train_set > dataset->num_train_set) {
+      train_set = RandSet(num_nodes);
+    } else {
+      uint32_t *old_train_set = train_set;
+      train_set = new uint32_t[dataset->num_train_set];
+      std::memcpy(train_set, old_train_set, dataset->num_train_set * sizeof(uint32_t));
+      shuffle(train_set, dataset->num_train_set);
+    }
+  }
 
   num_train_set /= partition;
 
@@ -41,7 +81,7 @@ void TrainSize(utility::GraphPtr dataset, int partition) {
   volatile uint8_t*  before = new volatile uint8_t [num_nodes]();
   volatile uint8_t*  after = new volatile uint8_t [num_nodes]();
 
-  std::printf("On hop 0: count %12d/%d (%2d%%) nodes\n", num_train_set, num_nodes, num_train_set * 100 / num_nodes);
+  std::printf("On hop 0: count %12d/%d (%4.2lf%%) nodes\n", num_train_set, num_nodes, num_train_set * ((double)100) / num_nodes);
 #pragma omp parallel for
   for (uint32_t cur_node = 0; cur_node < num_nodes; cur_node++) {
     before[cur_node] = 0;
@@ -55,7 +95,7 @@ void TrainSize(utility::GraphPtr dataset, int partition) {
 
   // const size_t hop = 6;
   size_t last_count = 0;
-  for (size_t hop_idx = 0; ; hop_idx++) {
+  for (size_t hop_idx = 0; hop_idx < max_hop; hop_idx++) {
 #pragma omp parallel for
     for (uint32_t cur_node = 0; cur_node < num_nodes; cur_node++) {
       if (before[cur_node] != 0x02) continue;
@@ -86,7 +126,7 @@ void TrainSize(utility::GraphPtr dataset, int partition) {
     for (uint32_t node_src = 0; node_src < num_nodes; node_src++) {
       if (before[node_src] != 0) count++;
     }
-    std::printf("On hop %lu: count %12lu/%d (%2d%%) nodes\n", hop_idx+1, count, num_nodes, (count * 100) / num_nodes);
+    std::printf("On hop %lu: count %12lu/%d (%4.2lf%%) nodes\n", hop_idx+1, count, num_nodes, (count * (double)100) / num_nodes);
     if (last_count == count) break;
     else {
       last_count = count;
@@ -97,13 +137,16 @@ void TrainSize(utility::GraphPtr dataset, int partition) {
 int main(int argc, char *argv[]) {
   utility::Options::InitOptions("Graph property");
   int partition = 1;
-  utility::Options::CustomOption("-P,--partition", partition);
+  double percent = std::nan("");
+  utility::Options::CustomOption("--part", partition, "partition train set. ignored when <percent> is set.");
+  utility::Options::CustomOption("--percent", percent, "use <percent>%% of entire graph as train set.");
+  utility::Options::CustomOption("--max-hop", max_hop, "max hop to check.");
   OPTIONS_PARSE(argc, argv);
 
   utility::GraphLoader graph_loader(utility::Options::root);
   auto graph = graph_loader.GetGraphDataset(utility::Options::graph);
 
-  TrainSize(graph, partition);
+  TrainSize(graph, partition, percent);
 
   return 0;
 }
