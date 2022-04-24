@@ -72,6 +72,8 @@ cxx_flags = [
     '-Ofast',
     # '-DPIPELINE',
     # '-O0',
+    # '-DMAPPED_MM',
+    # '-DP2P',
     '-Wall', '-fopenmp', '-march=native'
 ]
 cuda_flags = [
@@ -86,6 +88,11 @@ cuda_flags = [
     '-gencode=arch=compute_70,code=sm_70',  # V100
     '-gencode=arch=compute_80,code=sm_80',  # A100
 ]
+
+if os.getenv('MAPPED_MM'):
+    cxx_flags.append('-DMAPPED_MM')
+if os.getenv('P2P'):
+    cxx_flags.append('-DP2P')
 
 setup(
     name=NAME,

@@ -82,7 +82,7 @@ std::string          RunConfig::shared_meta_path               = "/shared_meta_d
 
 bool                 RunConfig::unified_memory                 = false;
 double               RunConfig::unified_memory_percentage      = 0.0;
-UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kPreSample;
+UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kDefault;
 std::vector<Context> RunConfig::unified_memory_ctxes;
 
 void RunConfig::LoadConfigFromEnv() {

@@ -189,6 +189,19 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
     case kMMAP:
       tensor->_data = data;
       break;
+    case kGPU_MAPPED: {
+      tensor->_data = Device::Get(CPU(CPU_CUDA_HOST_MAPPED_DEVICE))->AllocWorkspace(
+        CPU(CPU_CUDA_HOST_MAPPED_DEVICE), nbytes, Constant::kAllocNoScale);
+      Device::Get(CPU())->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), CPU());
+      munmap(data, tensor->NumBytes());
+    }
+      break;
+    case kGPU_P2P: {
+      tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
+      Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx);
+      munmap(data, tensor->NumBytes()); 
+    }
+      break;
     default:
       CHECK(0);
   }

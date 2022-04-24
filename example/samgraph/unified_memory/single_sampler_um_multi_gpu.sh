@@ -1,14 +1,15 @@
 log_path=./run_logs/single-sampler-um-multi-gpu/
 
-dataset=com-friendster
+# dataset=com-friendster
 # dataset=papers100M
 # dataset=reddit
+dataset=uk-2006-05
 
 sample_type=khop0
 sampler=gpu
 um=1
 um_policy=default
-um_percent=100
+um_percent=1
 ctx="cuda:1 cpu"
 
 

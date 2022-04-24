@@ -27,12 +27,12 @@ class TestCase:
 cases = TestCase(
     dataset=[
         # 'reddit', 
-        'papers100M',
+        # 'papers100M',
         'uk-2006-05',
     ], 
     percentage=['0', '0.25', '0.50', '0.75', '1'],
     policy=[
-        # 'default', 
+        'default', 
         'presample',
     ],
     ctx=['cuda:1 cpu', 'cuda:1 cuda:2']

@@ -49,7 +49,7 @@ enum DataType {
   kI64 = 6,
 };
 
-enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM= 3 };
+enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM = 3, kGPU_MAPPED = 4, kGPU_P2P = 5};
 
 enum SampleType {
   kKHop0 = 0,  // vertex-parallel
@@ -277,6 +277,7 @@ typedef bool (*LoopOnceFunction)();
 
 constexpr static int CPU_CUDA_HOST_MALLOC_DEVICE = 0;
 constexpr static int CPU_CLIB_MALLOC_DEVICE = 1;
+constexpr static int CPU_CUDA_HOST_MAPPED_DEVICE = 2;
 
 Context CPU(int device_id = CPU_CUDA_HOST_MALLOC_DEVICE);
 Context CPU_CLIB(int device_id = CPU_CLIB_MALLOC_DEVICE);

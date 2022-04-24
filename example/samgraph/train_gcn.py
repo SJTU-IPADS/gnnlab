@@ -63,7 +63,7 @@ def parse_args(default_run_config):
         choices=['default', 'degree', 'trainset', 'random', 'presample'],
         default='default')
 
-    argparser.add_argument('--unified-memory-ctx', type=str, nargs='+')
+    argparser.add_argument('--unified-memory-ctx', type=str, nargs='+', default=argparse.SUPPRESS)
 
     return vars(argparser.parse_args())
 
@@ -149,12 +149,16 @@ def run():
 
     sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
+    core_sample_times = [0 for i in range(num_epoch * num_step)]
+    fill_sample_input_times = [0 for i in range(num_epoch * num_step)]
+    remap_times   = [0 for i in range(num_epoch * num_step)]
     # convert_times = [0 for i in range(num_epoch * num_step)]
     # train_times   = [0 for i in range(num_epoch * num_step)]
     # total_times   = [0 for i in range(num_epoch * num_step)]
     # num_nodes     = [0 for i in range(num_epoch * num_step)]
     num_samples = [0 for i in range(num_epoch * num_step)]
     sample_kernel_times = [0 for i in range(num_epoch * num_step)]
+    sample_compact_edge_times = [0 for i in range(num_epoch * num_step)]
 
     cur_step_key = 0
     for epoch in range(num_epoch):
@@ -200,8 +204,13 @@ def run():
                 epoch * num_step + step, sam.kL0Event_Train_Step)
 
             sample_time = sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime)
+            core_sample_time = sam.get_log_step_value(epoch, step, sam.kLogL2CoreSampleTime)
+            fill_sample_input_time = sam.get_log_step_value(epoch, step, sam.kLogL3RemapFillUniqueTime)
+            remap_time = sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime)
             # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
             sample_kernel_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime)
+            sample_compact_edge_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCompactEdgesTime) + \
+                sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCountEdgeTime)
             convert_time = t2 - t1
             train_time = t3 - t2
             total_time = t3 - t0
@@ -216,11 +225,15 @@ def run():
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime,   total_time)
 
             sample_times  [cur_step_key] = sample_time
+            core_sample_times[cur_step_key] = core_sample_time
+            fill_sample_input_times[cur_step_key] = fill_sample_input_time
+            remap_times[cur_step_key] = remap_time
             # copy_times    [cur_step_key] = copy_time
             # convert_times [cur_step_key] = convert_time
             # train_times   [cur_step_key] = train_time
             # total_times   [cur_step_key] = total_time
             sample_kernel_times[cur_step_key] = sample_kernel_time
+            sample_compact_edge_times[cur_step_key] = sample_compact_edge_time
 
             # num_samples.append(num_sample)
             # num_nodes     [cur_step_key] = num_node
@@ -282,11 +295,15 @@ def run():
         epoch_cache_hit_rates[1:])))
     test_result.append(
         ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
-    test_result.append(('step_sample_time', np.mean(sample_times)))
-    test_result.append(('sample_kernel_time', np.mean(sample_kernel_times)))
     test_result.append(('epoch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])))
     test_result.append(('batch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])/num_step))
     test_result.append(('batch_copy_time', np.mean(epoch_copy_times[1:])/num_step))
+    test_result.append(('step_time:sample_time', np.mean(sample_times[num_step:])))
+    test_result.append(('step_time:core_sample_time', np.mean(core_sample_times[num_step:])))
+    test_result.append(('step_time:fill_sample_input_time', np.mean(fill_sample_input_times[num_step:])))
+    test_result.append(('step_time:remap_time', np.mean(remap_times[num_step:])))
+    test_result.append(('step_time:sample_kernel_time', np.mean(sample_kernel_times[num_step:])))
+    test_result.append(('step_time:sample_compact_edge_time', np.mean(sample_compact_edge_times[num_step:])))
     for k, v in test_result:
         print('test_result:{:}={:.4f}'.format(k, v))
 

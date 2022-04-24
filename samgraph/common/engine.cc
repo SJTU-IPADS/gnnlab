@@ -138,6 +138,35 @@ void Engine::LoadGraphDataset() {
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
   _dataset->num_class = meta[Constant::kMetaNumClass];
 
+#ifdef MAPPED_MM
+  {
+    Context ctx = _sampler_ctx;
+    CHECK(ctx.device_type == DeviceType::kGPU);
+    ctx.device_type = DeviceType::kGPU_MAPPED;
+    ctx.device_id = CPU_CUDA_HOST_MAPPED_DEVICE;
+    _dataset->indptr = Tensor::FromMmap(
+      _dataset_path + Constant::kIndptrFile, DataType::kI32, 
+      {meta[Constant::kMetaNumNode] + 1}, ctx, "dataset.indptr");
+    _dataset->indices = Tensor::FromMmap(
+      _dataset_path + Constant::kIndicesFile, DataType::kI32,
+      {meta[Constant::kMetaNumEdge]}, ctx, "dataset.indices"); 
+  }
+#elif P2P
+  {
+    Context ctx = _sampler_ctx;
+    CHECK(ctx.device_type == DeviceType::kGPU);
+    ctx.device_type = DeviceType::kGPU_P2P;
+    ctx.device_id = 2;
+    cudaSetDevice(_sampler_ctx.device_id);
+    CUDA_CALL(cudaDeviceEnablePeerAccess(ctx.device_id, 0));
+    _dataset->indptr = Tensor::FromMmap(
+      _dataset_path + Constant::kIndptrFile, DataType::kI32, 
+      {meta[Constant::kMetaNumNode] + 1}, ctx, "dataset.indptr");
+    _dataset->indices = Tensor::FromMmap(
+      _dataset_path + Constant::kIndicesFile, DataType::kI32,
+      {meta[Constant::kMetaNumEdge]}, ctx, "dataset.indices"); 
+  }
+#else
   _dataset->indptr =
       Tensor::FromMmap(_dataset_path + Constant::kIndptrFile, DataType::kI32,
                        {meta[Constant::kMetaNumNode] + 1},
@@ -146,6 +175,7 @@ void Engine::LoadGraphDataset() {
       Tensor::FromMmap(_dataset_path + Constant::kIndicesFile, DataType::kI32,
                        {meta[Constant::kMetaNumEdge]},
                        ctx_map[Constant::kIndicesFile], "dataset.indices");
+#endif
 
   if (FileExist(_dataset_path + Constant::kFeatFile) && RunConfig::option_empty_feat == 0) {
     _dataset->feat = Tensor::FromMmap(
