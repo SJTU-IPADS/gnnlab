@@ -332,7 +332,7 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   tensor->_data =
       Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
   tensor->_name = source->_name;
-  if (source->Ctx().device_type == kGPU && ctx.device_type != kGPU) {
+  if ((source->Ctx().device_type == kGPU || source->Ctx().device_type == kGPU_UM) && ctx.device_type != kGPU) {
     Device::Get(source->Ctx())->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
   } else {
     Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
