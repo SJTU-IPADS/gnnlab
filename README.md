@@ -103,20 +103,20 @@ We use conda to manage our python environment.
 
     ```bash
     # Download FGNN source code
-    git clone --recursive https://github.com/SJTU-IPADS/fgnn-artifacts.git
+    git clone --recursive https://github.com/SJTU-IPADS/gnnlab.git
     ```
 
 3. Install DGL, PyG, and FastGraph. The package FastGraph is used to load datasets for GNN systems in all experiments.
 
     ```bash
     # Install DGL
-    ./fgnn-artifacts/3rdparty/dgl_install.sh
+    ./gnnlab/3rdparty/dgl_install.sh
 
     # Install PyG
-    ./fgnn-artifacts/3rdparty/pyg_install.sh
+    ./gnnlab/3rdparty/pyg_install.sh
 
     # Install fastgraph
-    ./fgnn-artifacts/utility/fg_install.sh
+    ./gnnlab/utility/fg_install.sh
     ```
 
     
@@ -124,7 +124,7 @@ We use conda to manage our python environment.
 4. Install FGNN (also called SamGraph) and SGNN.
    
     ```bash
-    cd fgnn-artifacts
+    cd gnnlab
     ./build.sh
     ```
 
@@ -185,10 +185,10 @@ See [`datagen/README.md`](datagen/README.md) to find out how to preprocess datas
 
 ## QuickStart: Use FGNN to train GNN models
 
-FGNN is compiled into Python library. We have written several GNN models using FGNN’s APIs. These models are in `fgnn-artifacts/example` and are easy to run as following:
+FGNN is compiled into Python library. We have written several GNN models using FGNN’s APIs. These models are in `gnnlab/example` and are easy to run as following:
 
 ```bash
-cd fgnn-artifacts/example
+cd gnnlab/example
 
 python samgraph/multi_gpu/train_gcn.py --dataset papers100M --num-train-worker 1 --num-sample-worker 1 --pipeline --cache-policy pre_sample --cache-percentage 0.1 --num-epoch 10 --batch-size 8000
 ```
@@ -197,7 +197,7 @@ python samgraph/multi_gpu/train_gcn.py --dataset papers100M --num-train-worker 1
 
 ## Experiments
 
-Our experiments have been automated by scripts (`run.py`). Each figure or table in our paper is treated as one experiment and is associated with a subdirectory in `fgnn-artifacts/exp`. The script will automatically run the experiment, save the logs into files, and parse the output data from the files.
+Our experiments have been automated by scripts (`run.py`). Each figure or table in our paper is treated as one experiment and is associated with a subdirectory in `gnnlab/exp`. The script will automatically run the experiment, save the logs into files, and parse the output data from the files.
 
 Note that running all experiments may take several hours. This [table](exp/README.md#expected-running-time) lists the expected running time for each experiment.
 
