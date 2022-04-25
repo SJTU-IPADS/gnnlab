@@ -9,12 +9,13 @@ __global__ void delay(volatile int* flag) {
     }
 } 
 
-__global__ void read(int* arr, int len, int* result, int result_len) {
+__global__ void read(int* __restrict__ arr, int len, int* __restrict__ result, int result_len) {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
 #pragma unroll(5)
     for(size_t i = idx; i < len; i += grid_size) {
-        result[i % result_len] += arr[i];
+        result[rid % result_len] += arr[i];
     }
 }
 
@@ -32,7 +33,7 @@ void perform_random_read_int32(
     std::random_device rd;
     std::mt19937 gen(rd());
     uniform_int_distribution<> dist(0, len - 1);
-    read<<<grid_size, block_size, 0, stream>>>(arr + dist(gen), 1, result, result_len);
+    read<<<1, 1, 0, stream>>>(arr + dist(gen), 1, result, result_len);
 }
 
 string Dataset::root_path = "/graph-learning/samgraph/";

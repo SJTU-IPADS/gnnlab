@@ -57,6 +57,27 @@ protected:
     double time; // ms
 };
 
+class Local : public MemoryTestCase {
+public:
+    Local(int device, size_t elem_num)
+        : MemoryTestCase("Local", device, elem_num) {}
+
+    virtual void Init() override {
+        MemoryTestCase::Init();
+        CUDA_CALL(cudaSetDevice(device));
+        CUDA_CALL(cudaMalloc(&read_buf.data, read_buf_size * sizeof(int)));
+        read_buf.size = read_buf_size;
+        CUDA_CALL(cudaMemset(read_buf.data, 0x0f, sizeof(int) * read_buf.size));
+    }
+    virtual void Clear(float time) override {
+        MemoryTestCase::Clear(time);
+        CUDA_CALL(cudaSetDevice(device));
+        CUDA_CALL(cudaFree(read_buf.data));
+        read_buf.data = nullptr;
+        read_buf.size = 0;
+    }
+};
+
 class P2P : public MemoryTestCase {
 public:
     int remote_device;
@@ -172,6 +193,7 @@ public:
             cout << "device " << local_device << " " << remote_deivce
                  << " do not support p2p access, abort testing\n";
         }
+        env.push_back(make_unique<Local>(local_device, elem_num));
         env.push_back(make_unique<HostMapped>(local_device, elem_num));
         env.push_back(make_unique<P2P>(local_device, remote_deivce, elem_num));
         env.push_back(make_unique<UM_CUDA_CUDA>(local_device, remote_deivce, elem_num));
@@ -238,7 +260,7 @@ protected:
     }
 };
 
-template<size_t elem_num = (1ULL << 30)>
+template<size_t elem_num = (1ULL << 28)>
 class BandWitdhTest : public SMReadTest<elem_num, perform_sequential_read> {
 public:
     BandWitdhTest(int remote_device, int local_device, int repeat = 5)
@@ -267,7 +289,7 @@ public:
     }
 };
 
-template<size_t elem_num = (1ULL << 30)>
+template<size_t elem_num = (1ULL << 28)>
 class LatencyTest : public SMReadTest<elem_num, perform_random_read_int32> {
 public: 
     LatencyTest(int remote_device, int local_device, int repeat = 5)
