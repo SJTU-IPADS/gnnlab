@@ -16,6 +16,11 @@ using namespace std;
 __global__ void delay(volatile int* flag);
 __global__ void read(int* arr, int len, int* result, int result_len);
 
+void perform_sequential_read(int grid_size, int block_size, cudaStream_t stream, 
+    int* arr, int len, int* result, int result_len);
+void perform_random_read_int32(int grid_size, int block_size, cudaStream_t stream, 
+    int* arr, int len, int* result, int result_len);
+
 enum class MemoryType {
     CPU,
     P2P,

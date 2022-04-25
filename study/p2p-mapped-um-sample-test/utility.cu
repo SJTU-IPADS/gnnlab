@@ -1,6 +1,7 @@
 #include <fstream>
 #include <cassert>
 #include <cstring>
+#include <random>
 #include "utility.h"
 
 __global__ void delay(volatile int* flag) {
@@ -17,6 +18,22 @@ __global__ void read(int* arr, int len, int* result, int result_len) {
     }
 }
 
+void perform_sequential_read(
+    int grid_size, int block_size, cudaStream_t stream, 
+    int* arr, int len, int* result, int result_len
+) {
+    read<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len);
+}
+
+void perform_random_read_int32(
+    int grid_size, int block_size, cudaStream_t stream,
+    int* arr, int len, int* result, int result_len
+) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    uniform_int_distribution<> dist(0, len - 1);
+    read<<<grid_size, block_size, 0, stream>>>(arr + dist(gen), 1, result, result_len);
+}
 
 string Dataset::root_path = "/graph-learning/samgraph/";
 

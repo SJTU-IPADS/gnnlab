@@ -160,7 +160,7 @@ public:
     }
 }; 
 
-template<size_t elem_num>
+template<size_t elem_num, auto perform_read>
 class SMReadTest {
 public:
     SMReadTest(int local_device, int remote_deivce, int repeat = 5) 
@@ -198,7 +198,10 @@ public:
             delay<<<1, 1, 0, env[i]->stream>>>(start_flag);
             CUDA_CALL(cudaEventRecord(start[i], env[i]->stream));
             for(int r = 0; r < repeat; r++) {
-                read<<<grid_size, block_size, 0, env[i]->stream>>>(
+                // read<<<grid_size, block_size, 0, env[i]->stream>>>(
+                //     env[i]->read_buf.data, env[i]->read_buf.size, 
+                //     env[i]->read_result.data, env[i]->read_result.size);
+                perform_read(grid_size, block_size, env[i]->stream, 
                     env[i]->read_buf.data, env[i]->read_buf.size, 
                     env[i]->read_result.data, env[i]->read_result.size);
             }
@@ -236,10 +239,10 @@ protected:
 };
 
 template<size_t elem_num = (1ULL << 30)>
-class BandWitdhTest : public SMReadTest<elem_num> {
+class BandWitdhTest : public SMReadTest<elem_num, perform_sequential_read> {
 public:
     BandWitdhTest(int remote_device, int local_device, int repeat = 5)
-        : SMReadTest<elem_num>(remote_device, local_device, repeat) {}
+        : SMReadTest<elem_num, perform_sequential_read>(remote_device, local_device, repeat) {}
     virtual void Statistic() override {
         cout << "BandWidth Test Result:\n";
         cout << "----------------------\n";
@@ -264,11 +267,11 @@ public:
     }
 };
 
-template<size_t elem_num = 1>
-class LatencyTest : public SMReadTest<elem_num> {
+template<size_t elem_num = (1ULL << 30)>
+class LatencyTest : public SMReadTest<elem_num, perform_random_read_int32> {
 public: 
     LatencyTest(int remote_device, int local_device, int repeat = 5)
-        : SMReadTest<elem_num>(remote_device, local_device, repeat) {};
+        : SMReadTest<elem_num, perform_random_read_int32>(remote_device, local_device, repeat) {};
     virtual void Statistic() override {
         cout << "Latency Test Result:\n";
         cout << "--------------------\n";
