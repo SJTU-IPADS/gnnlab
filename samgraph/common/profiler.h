@@ -123,7 +123,9 @@ enum LogEpochItem {
   kLogEpochTotalTime,
   kLogEpochFeatureBytes,
   kLogEpochMissBytes,
-  kNumLogEpochItems
+  kLogEpochUMSampleTotBytes,
+  kLogEpochUMSampleHitBytes,
+  kNumLogEpochItems,
 };
 
 struct LogData {

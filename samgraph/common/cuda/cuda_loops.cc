@@ -15,6 +15,8 @@
  *
  */
 
+#include <unordered_set>
+
 #include "cuda_loops.h"
 
 #include "../device.h"
@@ -85,6 +87,10 @@ void DoGPUSample(TaskPtr task) {
   size_t total_num_samples = 0;
 
   for (int i = last_layer_idx; i >= 0; i--) {
+    if(RunConfig::unified_memory_statistic_hit_rate) {
+      StatisticUMSampleCacheHit(task->key, i, 
+        static_cast<const IdType*>(cur_input->Data()), cur_input->Shape()[0], cur_input->Ctx());
+    }
     Timer tlayer;
     Timer t0;
     const size_t fanout = fanouts[i];
@@ -265,6 +271,55 @@ void DoGPUSample(TaskPtr task) {
                              fill_unique_time);
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
+}
+
+void StatisticUMSampleCacheHit(int task_key, int layer, const IdType* input, size_t num_input, Context input_ctx) {
+  size_t um_indptr_bound = 0;
+  size_t um_indices_bound = 0;
+  size_t um_indptr_size = 1.0 * GPUEngine::Get()->GetGraphDataset()->indptr->NumBytes() * RunConfig::unified_memory_percentage;
+  size_t um_indices_size = 1.0 * GPUEngine::Get()->GetGraphDataset()->indices->NumBytes() * RunConfig::unified_memory_percentage;
+  // not consider page-size, roughly estimate
+  auto indptr_ts = Tensor::CopyTo(GPUEngine::Get()->GetGraphDataset()->indptr, CPU());
+  auto indptr = static_cast<const IdType*>(indptr_ts->Data());
+  um_indptr_bound = um_indptr_size / sizeof(IdType);
+  for(IdType i = 0; i < GPUEngine::Get()->GetGraphDataset()->num_node; i++) {
+    IdType edge_num = indptr[i+1];
+    if (sizeof(IdType) * edge_num <= um_indices_size) {
+      um_indices_bound = i;
+    } else {
+      break;
+    }
+  }
+  auto cpu_input_ts = Tensor::EmptyNoScale(DataType::kI32, {num_input}, CPU(), "");
+  Device::Get(input_ctx)->CopyDataFromTo(input, 0, cpu_input_ts->MutableData(), 0, sizeof(IdType) * num_input, input_ctx, CPU());
+  auto cpu_input = static_cast<const IdType*>(cpu_input_ts->Data());
+  LOG(INFO) << "um_indptr_bound " << um_indptr_bound << " (size " << sizeof(IdType) * um_indptr_bound << ")"
+            << " um_indices_bound " << um_indices_bound << " (size " << sizeof(IdType) * indptr[um_indices_bound + 1] << ")"
+            << " um_indptr_size " << um_indptr_size << " um_indices_size " << um_indices_size;
+  size_t indptr_hit = 0;
+  size_t indices_hit = 0;
+  size_t indptr_tot = 0;
+  size_t indices_tot = 0;
+
+  // note that elem in input is unique
+  for(int i = 0; i < num_input; i++) {
+    auto v = cpu_input[i];
+    IdType edge_num = indptr[v + 1] - indptr[v];
+    indptr_tot += sizeof(IdType);
+    indices_tot += sizeof(IdType) * edge_num;
+    if (v < um_indptr_bound) {
+      indptr_hit += sizeof(IdType);
+    }
+    if (v < um_indices_bound) {
+      indices_hit += sizeof(IdType) * edge_num;
+    }
+  }
+  LOG(INFO) << "UM Sample task " << task_key << " layer " << layer 
+             << " tot_bytes " << indices_tot + indptr_tot 
+             << " hit_bytes " << indices_hit + indptr_hit;
+  Profiler::Get().LogEpochAdd(task_key, kLogEpochUMSampleTotBytes, indptr_tot + indices_tot);
+  Profiler::Get().LogEpochAdd(task_key, kLogEpochUMSampleHitBytes, indptr_hit + indices_hit);
+  // double hit_rate = (indptr_hit + indices_hit) / (indptr_tot + indices_tot);
 }
 
 void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {

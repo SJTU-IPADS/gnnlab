@@ -272,47 +272,47 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
     const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
     Timer _kt;
 
-    {
-      sampler_device->StreamSync(ctx, stream);
-      IdType *p2p_indptr, *p2p_indice;
-      IdType *maped_indptr, *mapped_indices;  
-      IdType num_node = GPUEngine::Get()->GetGraphDataset()->num_node;
-      IdType num_edge = GPUEngine::Get()->GetGraphDataset()->num_edge;
-      CUDA_CALL(cudaHostAlloc(&maped_indptr, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_node + 1), cudaHostAllocMapped));
-      CUDA_CALL(cudaHostAlloc(&mapped_indices, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_edge), cudaHostAllocMapped));
-      CUDA_CALL(cudaSetDevice(2));
-      CUDA_CALL(cudaMalloc(&p2p_indptr, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_node + 1)));
-      CUDA_CALL(cudaMalloc(&p2p_indice, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_edge)));
-      CUDA_CALL(cudaSetDevice(1));
-      CUDA_CALL(cudaDeviceEnablePeerAccess(2, 0));
+    // {
+    //   sampler_device->StreamSync(ctx, stream);
+    //   IdType *p2p_indptr, *p2p_indice;
+    //   IdType *maped_indptr, *mapped_indices;  
+    //   IdType num_node = GPUEngine::Get()->GetGraphDataset()->num_node;
+    //   IdType num_edge = GPUEngine::Get()->GetGraphDataset()->num_edge;
+    //   CUDA_CALL(cudaHostAlloc(&maped_indptr, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_node + 1), cudaHostAllocMapped));
+    //   CUDA_CALL(cudaHostAlloc(&mapped_indices, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_edge), cudaHostAllocMapped));
+    //   CUDA_CALL(cudaSetDevice(2));
+    //   CUDA_CALL(cudaMalloc(&p2p_indptr, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_node + 1)));
+    //   CUDA_CALL(cudaMalloc(&p2p_indice, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_edge)));
+    //   CUDA_CALL(cudaSetDevice(1));
+    //   CUDA_CALL(cudaDeviceEnablePeerAccess(2, 0));
 
-      CUDA_CALL(cudaMemcpy(maped_indptr, indptr, sizeof(IdType) * (num_node + 1), cudaMemcpyDefault));
-      CUDA_CALL(cudaMemcpy(mapped_indices, indices, sizeof(IdType) * (num_edge), cudaMemcpyDefault));
-      CUDA_CALL(cudaMemcpy(p2p_indptr, indptr, sizeof(IdType) * (num_node + 1), cudaMemcpyDefault));
-      CUDA_CALL(cudaMemcpy(p2p_indice, indices, sizeof(IdType) * (num_edge), cudaMemcpyDefault));
+    //   CUDA_CALL(cudaMemcpy(maped_indptr, indptr, sizeof(IdType) * (num_node + 1), cudaMemcpyDefault));
+    //   CUDA_CALL(cudaMemcpy(mapped_indices, indices, sizeof(IdType) * (num_edge), cudaMemcpyDefault));
+    //   CUDA_CALL(cudaMemcpy(p2p_indptr, indptr, sizeof(IdType) * (num_node + 1), cudaMemcpyDefault));
+    //   CUDA_CALL(cudaMemcpy(p2p_indice, indices, sizeof(IdType) * (num_edge), cudaMemcpyDefault));
 
-      LOG(INFO) << "sample_khop0 input=" << num_input << " fanout=" << fanout; 
-      Timer p2p_tm;
-      sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
-            p2p_indptr, p2p_indice, input, num_input, fanout, tmp_src, tmp_dst,
-            random_states->GetStates(), random_states->NumStates());
-      sampler_device->StreamSync(ctx, stream);
-      LOG(INFO) << "p2p " << p2p_tm.Passed();
-      Timer maped_tm;
-      sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
-            maped_indptr, mapped_indices, input, num_input, fanout, tmp_src, tmp_dst,
-            random_states->GetStates(), random_states->NumStates());
-      sampler_device->StreamSync(ctx, stream);
-      LOG(INFO) << "mappded " << maped_tm.Passed();
-      CHECK(false);
-    }
+    //   LOG(INFO) << "sample_khop0 input=" << num_input << " fanout=" << fanout; 
+    //   Timer p2p_tm;
+    //   sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
+    //         p2p_indptr, p2p_indice, input, num_input, fanout, tmp_src, tmp_dst,
+    //         random_states->GetStates(), random_states->NumStates());
+    //   sampler_device->StreamSync(ctx, stream);
+    //   LOG(INFO) << "p2p " << p2p_tm.Passed();
+    //   Timer maped_tm;
+    //   sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
+    //         maped_indptr, mapped_indices, input, num_input, fanout, tmp_src, tmp_dst,
+    //         random_states->GetStates(), random_states->NumStates());
+    //   sampler_device->StreamSync(ctx, stream);
+    //   LOG(INFO) << "mappded " << maped_tm.Passed();
+    //   CHECK(false);
+    // }
 
     sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
             indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
             random_states->GetStates(), random_states->NumStates());
     sampler_device->StreamSync(ctx, stream);
-    LOG(INFO) << "sample_khop0 input=" << num_input 
-              << " fanout=" << fanout << " " << _kt.Passed() << "s";
+    // LOG(INFO) << "sample_khop0 input=" << num_input 
+    //           << " fanout=" << fanout << " " << _kt.Passed() << "s";
 #endif
   double sample_time = t0.Passed();
 

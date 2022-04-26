@@ -91,6 +91,7 @@ bool                 RunConfig::unified_memory                 = false;
 double               RunConfig::unified_memory_percentage      = 0.0;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kDefault;
 std::vector<Context> RunConfig::unified_memory_ctxes;
+bool                 RunConfig::unified_memory_statistic_hit_rate = false;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {

@@ -27,15 +27,19 @@ class TestCase:
 cases = TestCase(
     dataset=[
         # 'reddit', 
-        # 'papers100M',
+        'papers100M',
         'uk-2006-05',
+        'com-friendster',
     ], 
     percentage=['0', '0.25', '0.50', '0.75', '1'],
     policy=[
         'default', 
         'presample',
     ],
-    ctx=['cuda:1 cpu', 'cuda:1 cuda:2']
+    ctx=[
+        'cuda:1 cpu', 
+        'cuda:1 cuda:2'
+    ]
 )
 
 def test_env(case:dict):

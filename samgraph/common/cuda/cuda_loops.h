@@ -54,6 +54,8 @@ void DoFeatureCopy(TaskPtr task);
 void DoCacheFeatureCopy(TaskPtr task);
 void DoDynamicCacheFeatureCopy(TaskPtr task);
 
+void StatisticUMSampleCacheHit(int task_key, int layer,const IdType* input, size_t num_input, Context input_ctx);
+
 }  // namespace cuda
 }  // namespace common
 }  // namespace samgraph
