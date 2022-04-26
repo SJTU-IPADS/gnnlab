@@ -8,5 +8,5 @@ target_compile_features(bandwidth-latency-test PUBLIC cuda_std_17)
 
 add_executable(simulate simulate.cu utility.cu)
 
-add_executable(tmp tmp.cu utility.cu)
+add_executable(simple-test simple-test.cu utility.cu)
 

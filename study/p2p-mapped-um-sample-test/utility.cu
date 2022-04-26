@@ -15,7 +15,7 @@ __global__ void read(int* __restrict__ arr, int len, int* __restrict__ result, i
     size_t rid = idx % result_len;
 #pragma unroll(5)
     for(size_t i = idx; i < len; i += grid_size) {
-        result[rid % result_len] += arr[i];
+        result[rid] += arr[i];
     }
 }
 
