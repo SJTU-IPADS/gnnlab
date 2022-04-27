@@ -129,6 +129,12 @@ GRBVar z;
 ndarray<GRBVar> c_list;
 ndarray<GRBVar> x_list;
 std::vector<GRBLinExpr> time_list;
+std::vector<GRBLinExpr> local_weight_list;
+std::vector<GRBLinExpr> local_density_list;
+// std::vector<GRBLinExpr> remote_weight_list;
+std::vector<double> total_weight_list;
+std::vector<GRBLinExpr> cpu_weight_list;
+GRBLinExpr cpu_density;
 
 std::vector<int> stream_mapping;
 
@@ -235,9 +241,19 @@ void constraint_time(GRBModel & model, uint32_t part_id) {
     if (weight == 0) continue;
     sum_weight += weight;
     exp += c_list[block_id].ref() * (weight * (T_cpu - T_remote)) - x_list[block_id][part_id].ref() * (weight * (T_remote - T_local));
+
+    local_weight_list[part_id] +=  weight * x_list[block_id][part_id].ref();
+    cpu_weight_list[part_id]   +=  weight * c_list[block_id].ref();
+    local_density_list[part_id] += x_list[block_id][part_id].ref() * density_array[block_id];
   }
   exp += sum_weight * T_remote;
+  total_weight_list[part_id] = sum_weight;
   model.addConstr(exp <= z, "time_" + std::to_string(part_id));
+  if (part_id != 0) return;
+  FOR_LOOP(block_id, num_block) {
+    if (ignore_block(block_id, density_array[block_id])) continue;
+    cpu_density += c_list[block_id].ref() * density_array[block_id];
+  }
 }
 
 int main(int argc, char** argv) {
@@ -300,6 +316,10 @@ int main(int argc, char** argv) {
   c_list = ndarray<GRBVar> ({num_block});
   x_list = ndarray<GRBVar> ({num_block, num_part});
   time_list.resize(num_part);
+  local_weight_list.resize(num_part);
+  total_weight_list.resize(num_part);
+  cpu_weight_list.resize(num_part);
+  local_density_list.resize(num_part);
 
   std::cerr << "Add Var...\n";
   char var_type = (mode == "BIN") ? GRB_BINARY : GRB_CONTINUOUS;
@@ -339,15 +359,34 @@ int main(int argc, char** argv) {
 
   std::ofstream fs("solver_gurobi.out");
   fs << z.get(GRB_DoubleAttr::GRB_DoubleAttr_X);
-  double max_gpu_time = 0;
+  double max_gpu_time = 0, min_gpu_time = std::numeric_limits<double>::max();
   FOR_LOOP(part_id, num_part) {
-    if (time_list[part_id].getValue() > max_gpu_time) {
-      max_gpu_time = time_list[part_id].getValue();
-    }
+    max_gpu_time = std::max(max_gpu_time, time_list[part_id].getValue());
+    min_gpu_time = std::min(min_gpu_time, time_list[part_id].getValue());
   }
   fs << " " << max_gpu_time;
   FOR_LOOP(part_id, num_part) {
     fs << " " << time_list[part_id].getValue();
   }
+  fs << " \n";
+  fs << "solver_time " << z.get(GRB_DoubleAttr::GRB_DoubleAttr_X) << "\n";
+  fs << "max_time " << max_gpu_time << "\n";
+  fs << "time_list";
+  FOR_LOOP(part_id, num_part) { fs << " " << time_list[part_id].getValue(); }
+  fs << "\n";
+
+  fs << "local_weight";
+  FOR_LOOP(part_id, num_part) { fs << " " << local_weight_list[part_id].getValue() / total_weight_list[part_id]; }
+  fs << "\n";
+
+  fs << "cpu_weight";
+  FOR_LOOP(part_id, num_part) { fs << " " << cpu_weight_list[part_id].getValue() / total_weight_list[part_id]; }
+  fs << "\n";
+
+  fs << "local_density";
+  FOR_LOOP(part_id, num_part) { fs << " " << local_density_list[part_id].getValue(); }
+  fs << "\n";
+
+  fs << "cpu_density " << cpu_density.getValue() << "\n";
   fs.close();
 }
