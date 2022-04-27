@@ -36,6 +36,20 @@ void perform_random_read_int32(
     read<<<1, 1, 0, stream>>>(arr + dist(gen), 1, result, result_len);
 }
 
+tuple<double, double, double> sum_avg_std(const vector<size_t> &vec) {
+    double sum = 0;
+    double var = 0;
+    for(auto x : vec) {
+        sum += x;
+        var += x * x;
+    }
+    double avg = sum / vec.size();
+    var /= vec.size();
+    var -= avg * avg;
+    assert(var >= 0);
+    return {sum, avg, sqrt(var)};
+}
+
 string Dataset::root_path = "/graph-learning/samgraph/";
 
 Dataset::Dataset(string name) : name(name), mm_type(MemoryType::CPU), 
@@ -43,6 +57,7 @@ Dataset::Dataset(string name) : name(name), mm_type(MemoryType::CPU),
     string path = root_path + name + "/";
     ifstream indptr(path + "indptr.bin", ios::binary);
     ifstream indices(path + "indices.bin", ios::binary);
+    ifstream trainset(path + "train_set.bin", ios::binary);
     if(!indptr) {
         cout << "file " << path + "indptr.bin" << " not exist\n";
         exit(EXIT_FAILURE);
@@ -51,11 +66,15 @@ Dataset::Dataset(string name) : name(name), mm_type(MemoryType::CPU),
         cout << "file " << path + "indices.bin" << " not exist\n";
         exit(EXIT_FAILURE);
     }
+    if(!trainset) {
+        cout << "file " << path + "train_set.bin" << " not exist\n";
+    }
     indptr.seekg(0, ios::end);
     size_t file_size = indptr.tellg();
     indptr.seekg(0);
     node_num = file_size / 4 - 1;
-    this->indptr = new uint32_t[file_size / 4];
+    // this->indptr = new uint32_t[file_size / 4];
+    CUDA_CALL(cudaHostAlloc(&this->indptr, file_size, cudaHostAllocDefault));
     indptr.read((char*)this->indptr, file_size);
     indptr.close();
     assert(indptr.good());
@@ -64,23 +83,37 @@ Dataset::Dataset(string name) : name(name), mm_type(MemoryType::CPU),
     file_size = indices.tellg();
     indices.seekg(0);
     edge_num = file_size / 4;
-    this->indices = new uint32_t[file_size / 4];
+    // this->indices = new uint32_t[file_size / 4];
+    CUDA_CALL(cudaHostAlloc(&this->indices, file_size, cudaHostAllocDefault));
     indices.read((char*)this->indices, file_size);
     indices.close();
     assert(indices.good());
+
+    trainset.seekg(0, ios::end);
+    file_size = trainset.tellg();
+    trainset.seekg(0);
+    train_num = file_size / 4;
+    this->trainset = new uint32_t[train_num];
+    trainset.read((char*)this->trainset, file_size);
+    trainset.close();
+    assert(trainset.good());
 }
 
 void Dataset::cpu() {
     if (mm_type == MemoryType::CPU)
         return;
     uint32_t *indptr, *indices;
-    indptr = new uint32_t[node_num + 1];
-    indices = new uint32_t[edge_num];
+    // indptr = new uint32_t[node_num + 1];
+    // indices = new uint32_t[edge_num];
+    CUDA_CALL(cudaHostAlloc(&indptr, sizeof(uint32_t) * (node_num + 1), cudaHostAllocDefault));
+    CUDA_CALL(cudaHostAlloc(&indices, sizeof(uint32_t) * (edge_num), cudaHostAllocDefault));
     switch (mm_type)
     {
     case MemoryType::HostAllocMapped: 
-        memcpy(indptr, this->indptr, sizeof(uint32_t) * (node_num + 1));
-        memcpy(indices, this->indices, sizeof(uint32_t) * (edge_num));
+        CUDA_CALL(cudaMemcpy(indptr, this->indptr, sizeof(uint32_t) * (node_num + 1), cudaMemcpyDefault));
+        CUDA_CALL(cudaMemcpy(indices, this->indices, sizeof(uint32_t) * (edge_num), cudaMemcpyDefault));
+        // memcpy(indptr, this->indptr, sizeof(uint32_t) * (node_num + 1));
+        // memcpy(indices, this->indices, sizeof(uint32_t) * (edge_num));
         break;
     case MemoryType::P2P: 
         CUDA_CALL(cudaSetDevice(remote_device));
@@ -90,7 +123,7 @@ void Dataset::cpu() {
     default :
         assert(false);
     }
-    _free();
+    _free_graph();
     this->indptr = indptr;
     this->indices = indices;
     this->mm_type = MemoryType::CPU;
@@ -112,10 +145,11 @@ void Dataset::p2p(int local_device, int remote_device) {
     CUDA_CALL(cudaMalloc(&indices, sizeof(uint32_t) * edge_num));
     CUDA_CALL(cudaMemcpy(indptr, this->indptr, sizeof(uint32_t) * (node_num + 1), cudaMemcpyDefault));
     CUDA_CALL(cudaMemcpy(indices, this->indices, sizeof(uint32_t) * (edge_num), cudaMemcpyDefault));
+    CUDA_CALL(cudaDeviceSynchronize());
     CUDA_CALL(cudaSetDevice(local_device));
     CUDA_CALL(cudaDeviceEnablePeerAccess(remote_device, 0));
 
-    _free();
+    _free_graph();
     this->indptr = indptr;
     this->indices = indices;
     this->mm_type = MemoryType::P2P;
@@ -132,25 +166,53 @@ void Dataset::hostAllocMapped(int device) {
 
     CUDA_CALL(cudaHostAlloc(&indptr, sizeof(uint32_t) * (node_num + 1), cudaHostAllocMapped));
     CUDA_CALL(cudaHostAlloc(&indices, sizeof(uint32_t) * edge_num, cudaHostAllocMapped));
-    memcpy(indptr, this->indptr, sizeof(uint32_t) * (node_num + 1));
-    memcpy(indices, this->indices, sizeof(uint32_t) * (edge_num));
+    CUDA_CALL(cudaMemcpy(indptr, this->indptr, sizeof(uint32_t) * (node_num + 1), cudaMemcpyDefault));
+    CUDA_CALL(cudaMemcpy(indices, this->indices, sizeof(uint32_t) * (edge_num), cudaMemcpyDefault));
+    // memcpy(indptr, this->indptr, sizeof(uint32_t) * (node_num + 1));
+    // memcpy(indices, this->indices, sizeof(uint32_t) * (edge_num));
 
-    _free();
+    _free_graph();
     this->indptr = indptr;
     this->indices = indices;
     this->mm_type = MemoryType::HostAllocMapped;
 }
 
-Dataset::~Dataset() {
-    _free();
-}
-
-void Dataset::_free() {
+pair<unique_ptr<uint32_t[]>, unique_ptr<uint32_t[]>> Dataset::get_cpu_graph() {
+    auto indptr = make_unique<uint32_t[]>(node_num + 1);
+    auto indices = make_unique<uint32_t[]>(edge_num);
     switch (mm_type)
     {
     case MemoryType::CPU:
-        delete[] this->indptr;
-        delete[] this->indices;
+    case MemoryType::HostAllocMapped:
+        CUDA_CALL(cudaMemcpy(indptr.get(), this->indptr, sizeof(uint32_t) * (node_num + 1), cudaMemcpyDefault));
+        CUDA_CALL(cudaMemcpy(indices.get(), this->indices, sizeof(uint32_t) * (edge_num), cudaMemcpyDefault));
+        break;
+    case MemoryType::P2P:
+        CUDA_CALL(cudaSetDevice(remote_device));
+        CUDA_CALL(cudaMemcpy(indptr.get(), this->indptr, sizeof(uint32_t) * (node_num + 1), cudaMemcpyDefault));
+        CUDA_CALL(cudaMemcpy(indices.get(), this->indices, sizeof(uint32_t) * edge_num, cudaMemcpyDefault));
+        break;
+    case MemoryType::UM_CUDA_CPU:
+    case MemoryType::UM_CUDA_CUDA:
+    default:
+        assert(false);
+    }
+    return {move(indptr), move(indices)};
+}
+
+Dataset::~Dataset() {
+    _free_graph();
+    delete[] this->trainset;
+}
+
+void Dataset::_free_graph() {
+    switch (mm_type)
+    {
+    case MemoryType::CPU:
+        // delete[] this->indptr;
+        // delete[] this->indices;
+        CUDA_CALL(cudaFreeHost(this->indptr));
+        CUDA_CALL(cudaFreeHost(this->indices));
         return ;
     case MemoryType::HostAllocMapped:
         CUDA_CALL(cudaFreeHost(this->indptr));

@@ -30,6 +30,22 @@ __global__ void vertex_parallel_khop0(
 ) {
     // assert(WARP_SIZE == blockDim.x);
     // assert(BLOCK_WARP == blockDim.y);
+    // if(blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0 && threadIdx.y == 0 ) {
+    //     printf("input: ");
+    //     for(int i = 0; i < 10; i++) {
+    //         printf("%d ", input[i]);
+    //     }
+    //     printf("\n");
+    //     printf("indptr: ");
+    //     for(int i = 0; i < 10; i++) {
+    //         printf("%d ", indptr[i]);
+    //     }
+    //     printf("\n");
+    //     printf("indices: ");
+    //     for(int i = 0; i < 10; i++) {
+    //         printf("%d ", indices[i]);
+    //     }
+    // }
     size_t index = TILE_SIZE * blockIdx.x + threadIdx.y;
     const size_t last_index = min(TILE_SIZE * (blockIdx.x + 1), num_input);
 
@@ -44,13 +60,13 @@ __global__ void vertex_parallel_khop0(
         const IdType len = indptr[rid + 1] - indptr[rid];
 
         if (len <= fanout) {
-        size_t j = threadIdx.x;
-        for (; j < len; j += blockDim.x) {
-            tmp_src[index * fanout + j] = rid;
-            tmp_dst[index * fanout + j] = indices[off + j];
-        }
-        __syncwarp();
-        for (; j < fanout; j += blockDim.x) {
+            size_t j = threadIdx.x;
+            for (; j < len; j += blockDim.x) {
+                tmp_src[index * fanout + j] = rid;
+                tmp_dst[index * fanout + j] = indices[off + j];
+            }
+            __syncwarp();
+            for (; j < fanout; j += blockDim.x) {
                 tmp_src[index * fanout + j] = -1;
                 tmp_dst[index * fanout + j] = -1;
             }
@@ -59,9 +75,9 @@ __global__ void vertex_parallel_khop0(
             for (; j < fanout; j += blockDim.x) {
                 tmp_src[index * fanout + j] = rid;
                 tmp_dst[index * fanout + j] = indices[off + j];
-        }
-        __syncwarp();
-        for (; j < len; j += blockDim.x) {
+            }
+            __syncwarp();
+            for (; j < len; j += blockDim.x) {
                 size_t k = curand(&local_state) % (j + 1);
                 if (k < fanout) {
                 atomicExch(tmp_dst + index * fanout + k, indices[off + j]);
@@ -70,6 +86,13 @@ __global__ void vertex_parallel_khop0(
         }
         index += blockDim.y;
     }
+    // if(blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0 && threadIdx.y == 0 ) {
+    //     printf("output: ");
+    //     for(int i = num_input; i < num_input + 20; i++) {
+    //         printf("(%d %d)", tmp_src[i], tmp_dst[i]);
+    //     }
+    //     printf("\n");
+    // }
 }
 
 template <size_t TILE_SIZE>
@@ -120,7 +143,65 @@ __global__ void sample_parallel_khop0(
 
 }
 
-float Test(Dataset& dataset, size_t input_num, size_t fanout, int device, SampleType sample_type, int repeat = 5) {
+enum class InputType {
+    RandomTrainset,
+    SequentialTrainset,
+    RandomVertex,
+    SequantialVertex,
+    FromFile,
+};
+
+void statistic_sample_input(Dataset& dataset, uint32_t* input, size_t input_num) {
+    // auto indptr = make_unique<uint32_t[]>(dataset.node_num + 1);
+    // auto indices = make_unique<uint32_t[]>(dataset.edge_num);
+    auto graph = dataset.get_cpu_graph();
+    auto indptr = graph.first.get();
+    auto indices = graph.second.get();
+    map<string, double> res;
+    res["sample input_num"] = input_num;
+    
+    vector<size_t> node_pos;
+    vector<size_t> edge_pos;
+    vector<size_t> degree;
+    for(size_t i = 0; i < input_num; i++) {
+        uint32_t v = input[i];
+        assert(v < dataset.node_num);
+        uint32_t off = indptr[v];
+        uint32_t len = indptr[v + 1] - indptr[v];
+        node_pos.push_back(v);
+        edge_pos.push_back(off);
+        degree.push_back(len);
+    }
+    auto degree_sta = sum_avg_std(degree);
+    auto edge_pos_sta = sum_avg_std(edge_pos);
+    auto node_pos_sta = sum_avg_std(node_pos);
+    res["sum(edge_num)"] = get<0>(degree_sta);
+    res["avg(edge_num)"] = get<1>(degree_sta);
+    res["std(edge_num)"] = get<2>(degree_sta);
+    res["avg(node_pos)"] = get<1>(node_pos_sta);
+    res["std(node_pos)"] = get<2>(node_pos_sta);
+    res["std(edge_pos)"] = get<2>(edge_pos_sta);
+
+    size_t fw1 = 0, fw2 = 0;
+    for(auto v : res) {
+        fw1 = max(fw1, v.first.size());
+        fw2 = max(fw2, std::to_string(v.second).size());
+    }
+    cout << setw(fw1 + fw2 + 8) << setfill('-') << "-";
+    cout << "\n";
+    cout.fill(' ');
+    for(auto v : res) {
+        cout << "| " << left << setw(fw1) << v.first << " | ";
+        cout << left << setw(fw2) << to_string(v.second) << " |\n";
+    }
+    cout << setw(fw1 + fw2 + 8) << setfill('-') << "-";
+    cout << "\n";
+}
+
+// if input from file, input_num will be ignored and will be set according to input file
+// for other input type, input_file will be ignored
+float Test(Dataset& dataset, InputType input_type ,size_t input_num, size_t fanout, int device, 
+    SampleType sample_type, string input_file, int repeat = 5, bool verbose = false) {
     cudaStream_t stream;
     vector<cudaEvent_t> start(repeat), end(repeat);
     volatile int* start_flag;
@@ -133,6 +214,26 @@ float Test(Dataset& dataset, size_t input_num, size_t fanout, int device, Sample
     CUDA_CALL(cudaHostAlloc(&start_flag, sizeof(int), cudaHostAllocPortable));
 
     uint32_t *input, *out_src, *out_dst;
+    // auto cpu_input = make_unique<uint32_t[]>(input_num);
+    unique_ptr<uint32_t[]> cpu_input;
+    if (input_type == InputType::FromFile) {
+        ifstream ifs(input_file, ios::binary);
+        if(!ifs) { 
+            printf("input file %s dose not exist\n", input_file.c_str()); 
+            exit(EXIT_FAILURE); 
+        }
+        ifs.seekg(0, ios::end);
+        input_num = ifs.tellg() / sizeof(uint32_t);
+        // printf("input-fanout-5 num: %d", input_num);
+        ifs.seekg(0);
+        cpu_input = make_unique<uint32_t[]>(input_num);
+        ifs.read((char*)cpu_input.get(), sizeof(uint32_t) * input_num);
+        // CUDA_CALL(cudaMalloc(&input, sizeof(uint32_t) * input_num));
+        // CUDA_CALL(cudaMalloc(&out_src, sizeof(uint32_t) * input_num * fanout));
+        // CUDA_CALL(cudaMalloc(&out_dst, sizeof(uint32_t) * input_num * fanout));
+    } else {
+        cpu_input = make_unique<uint32_t[]>(input_num);
+    }
     CUDA_CALL(cudaMalloc(&input, sizeof(uint32_t) * input_num));
     CUDA_CALL(cudaMalloc(&out_src, sizeof(uint32_t) * input_num * fanout));
     CUDA_CALL(cudaMalloc(&out_dst, sizeof(uint32_t) * input_num * fanout));
@@ -140,12 +241,49 @@ float Test(Dataset& dataset, size_t input_num, size_t fanout, int device, Sample
     float tot_ms = 0;
     random_device rd;
     mt19937 gen(rd());
-    uniform_int_distribution<> dist(0, input_num - 1);
-    auto cpu_input = make_unique<uint32_t[]>(input_num);
-    for(int r = 0; r < repeat; r++) {
-        for(int i = 0; i < input_num; i++) {
-            cpu_input[i] = dist(gen);
+    int trainset_input_idx = 0;
+    int r;
+    for(r = 0; r < repeat; r++) {
+        switch (input_type)
+        {
+        case InputType::RandomTrainset: {
+            uniform_int_distribution<> dist(0, dataset.train_num - 1);
+            for(int i = 0; i < input_num; i++) {
+                cpu_input[i] = dist(gen);
+            }   
         }
+            break;
+        case InputType::SequentialTrainset:
+            input_num = min(input_num, dataset.train_num - trainset_input_idx);
+            for(int i = 0; i < input_num; i++, trainset_input_idx++)
+                cpu_input[i] = dataset.trainset[trainset_input_idx];
+            break;
+        case InputType::RandomVertex: {
+            uniform_int_distribution<> dist(0, dataset.node_num - 1);
+            for(int i = 0; i < input_num; i++) {
+                cpu_input[i] = dist(gen);
+            }
+        }
+            break;
+        case InputType::SequantialVertex:
+            input_num = min(input_num, dataset.node_num - trainset_input_idx);
+            for(int i = 0; i < input_num; i++, trainset_input_idx++)
+                cpu_input[i] = trainset_input_idx;
+            break;
+        case InputType::FromFile:
+            break;
+        default:
+            assert(false);
+        }
+
+        if (input_num == 0) {
+            break;
+        }
+        if(verbose) {
+            printf("[Test repeat=%d] input num=%lld fanout=%lld\n", r, input_num, fanout);
+            statistic_sample_input(dataset, cpu_input.get(), input_num);
+        }
+        CUDA_CALL(cudaSetDevice(device));
         CUDA_CALL(cudaMemcpy(input, cpu_input.get(), sizeof(uint32_t) * input_num, cudaMemcpyDefault));
 
         const int WARP_SIZE = 32;
@@ -173,6 +311,9 @@ float Test(Dataset& dataset, size_t input_num, size_t fanout, int device, Sample
         float ms;
         CUDA_CALL(cudaEventElapsedTime(&ms, start[r], end[r]));
         tot_ms += ms;
+        if (verbose) {
+            printf("[Test repeat=%d] %f\n", r, ms);
+        }
     }
 
     CUDA_CALL(cudaFree(input));;
@@ -184,17 +325,59 @@ float Test(Dataset& dataset, size_t input_num, size_t fanout, int device, Sample
         CUDA_CALL(cudaEventDestroy(start[i]));
         CUDA_CALL(cudaEventDestroy(end[i]));
     }
-    return tot_ms / repeat;
+    return tot_ms / r;
 }
 
 int main() {
     Dataset dataset("papers100M");
+    float sample_time;
 
-    dataset.hostAllocMapped(0);
-    // cout << Test(dataset, 8000, 5, 0, SampleType::SampleParallel, 20) << "\n";
-    cout << Test(dataset, 8000, 15, 0, SampleType::VertexParallel, 10) << "\n";
-    dataset.p2p(0, 1);
-    // cout << Test(dataset, 8000, 5, 0, SampleType::SampleParallel, 20) << "\n";
-    cout << Test(dataset, 8000, 15, 0, SampleType::VertexParallel, 10) << "\n";
-    // cout << Test(dataset, 100000, 5, 0) << "\n";
+    int local_device = 0;
+    int remote_device = 1;
+
+    dataset.p2p(local_device, remote_device);
+    {
+        sample_time = Test(dataset, InputType::FromFile,0, 5, local_device, 
+            SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
+        printf("p2p FromFile %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
+            SampleType::VertexParallel, "", 1, true);
+        printf("p2p SequentialTrainset %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::RandomTrainset, 500000, 5, local_device, 
+            SampleType::VertexParallel, "", 2, true);
+        printf("p2p RandomTrainset %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::SequantialVertex, 500000, 5, local_device,
+            SampleType::VertexParallel, "", 1, true);
+        printf("p2p SequantialVertex %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::RandomVertex, 500000, 5, local_device,
+            SampleType::VertexParallel, "", 2, true );
+        printf("p2p RandomVertex %f\n\n", sample_time);
+    }
+
+    dataset.hostAllocMapped(local_device);
+    {
+        sample_time = Test(dataset, InputType::FromFile,0, 5, 0, 
+            SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
+        printf("mapped FromFile %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
+            SampleType::VertexParallel, "", 1, true);
+        printf("mapped SequentialTrainset %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::RandomTrainset, 500000, 5, local_device, 
+            SampleType::VertexParallel, "", 2, true);
+        printf("mapped RandomTrainset %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::SequantialVertex, 500000, 5, local_device,
+            SampleType::VertexParallel, "", 1, true);
+        printf("mapped SequantialVertex %f\n\n", sample_time);
+
+        sample_time = Test(dataset, InputType::RandomVertex, 500000, 5, local_device,
+            SampleType::VertexParallel, "", 2, true );
+        printf("mapped RandomVertex %f\n\n", sample_time);
+    }
 }
