@@ -34,6 +34,10 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
                     size_t *num_out, Context ctx, StreamHandle stream,
                     GPURandomStates *random_states, uint64_t task_key);
 
+void SampleKernelTest_khop0(
+  const IdType* input, size_t num_input, size_t fanout,
+  int local_device, int remote_device, Context ctx, StreamHandle stream, int repeat = 1);
+
 void GPUSampleKHop1(const IdType *indptr, const IdType *indices,
                     const IdType *input, const size_t num_input,
                     const size_t fanout, IdType *out_src, IdType *out_dst,

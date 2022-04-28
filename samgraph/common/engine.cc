@@ -170,7 +170,7 @@ void Engine::LoadGraphDataset() {
     CHECK(ctx.device_type == DeviceType::kGPU);
     ctx.device_type = DeviceType::kGPU_P2P;
     ctx.device_id = 2;
-    cudaSetDevice(_sampler_ctx.device_id);
+    CUDA_CALL(cudaSetDevice(_sampler_ctx.device_id));
     CUDA_CALL(cudaDeviceEnablePeerAccess(ctx.device_id, 0));
     _dataset->indptr = Tensor::FromMmap(
       _dataset_path + Constant::kIndptrFile, DataType::kI32, 
