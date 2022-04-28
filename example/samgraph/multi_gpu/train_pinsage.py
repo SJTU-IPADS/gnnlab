@@ -236,7 +236,7 @@ def run_sample(worker_id, run_config):
         worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
 
     if worker_id == 0:
-        sam.report_step_average(epoch - 1, step - 1)
+        sam.report_step_average(num_epoch - 1, num_step - 1)
 
     # run end barrier
     global_barrier.wait()

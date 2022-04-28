@@ -291,15 +291,22 @@ class BenchInstance:
     line_list = grep_from(cfg.get_log_fname() + '.log', r'^(    \[Step|        L|    \[Init).*')
     line_list.append('    [END]')
     result_map_list = []
-    cur_begin = 0
+    cur_begin = -1
     for i in range(0, len(line_list)):
       line = line_list[i]
       if line.startswith('    ['):
-        if cur_begin != 0:
+        if cur_begin != -1:
           result_map_list.append(self.prepare_profiler_log_one_group(line_list[cur_begin:i]))
         cur_begin = i
     result_map = self.prepare_profiler_log_merge_groups(result_map_list, cfg)
     self.vals.update(result_map)
+
+    num_step_pattern = r'^    \[Step.* E[0-9]+ S([0-9]+)\]\n'
+    line_list = grep_from(cfg.get_log_fname() + '.log', num_step_pattern)
+    num_step = 0
+    for line in line_list:
+      num_step = max(num_step, int(re.match(num_step_pattern, line).group(1)))
+    self.vals['num_step'] = num_step + 1
     # print(result_map_list)
 
   def to_formated_str(self):

@@ -158,6 +158,7 @@ int main(int argc, char** argv) {
   _app.add_option("-m,--method", method, "method to split slot. default is exp: to split exponential")->check(CLI::IsMember({"exp","num","bin"}));
   _app.add_option("-c,--cache", cache_rate, "cache rate. must be conjunction with -m bin");
   _app.add_option("-t,--threads", NUM_THREAD, "num of working threads");
+  _app.add_option("--coe,--coefficient", coefficient, "coefficient. 1.4 by default");
   try {
     _app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
