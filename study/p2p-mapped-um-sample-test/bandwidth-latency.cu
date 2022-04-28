@@ -263,8 +263,8 @@ protected:
 template<size_t elem_num = (1ULL << 28)>
 class BandWitdhTest : public SMReadTest<elem_num, perform_sequential_read> {
 public:
-    BandWitdhTest(int remote_device, int local_device, int repeat = 5)
-        : SMReadTest<elem_num, perform_sequential_read>(remote_device, local_device, repeat) {}
+    BandWitdhTest(int local_device, int remote_device, int repeat = 5)
+        : SMReadTest<elem_num, perform_sequential_read>(local_device, remote_device, repeat) {}
     virtual void Statistic() override {
         cout << "BandWidth Test Result:\n";
         cout << "----------------------\n";
@@ -292,8 +292,8 @@ public:
 template<size_t elem_num = (1ULL << 28)>
 class LatencyTest : public SMReadTest<elem_num, perform_random_read_int32> {
 public: 
-    LatencyTest(int remote_device, int local_device, int repeat = 5)
-        : SMReadTest<elem_num, perform_random_read_int32>(remote_device, local_device, repeat) {};
+    LatencyTest(int local_device, int remote_device, int repeat = 5)
+        : SMReadTest<elem_num, perform_random_read_int32>(local_device, remote_device, repeat) {};
     virtual void Statistic() override {
         cout << "Latency Test Result:\n";
         cout << "--------------------\n";
@@ -322,6 +322,35 @@ public:
     }
 };
 
+template<size_t elem_num = (1ULL << 28)>
+class RandomBandwidth : public SMReadTest<elem_num, perform_random_read> {
+public:
+    RandomBandwidth(int local_device, int remote_device, int repeat = 5)
+        : SMReadTest<elem_num, perform_random_read>(local_device, remote_device, repeat) {}
+    virtual void Statistic() override {
+        cout << "RandomBandwidth Test Result:\n";
+        cout << "----------------------------\n";
+        cout.setf(ios::left, ios::adjustfield);
+        string l = "MemoryType", r = "RandomBandwidth(GB/s)";
+        size_t fw1 = l.size();
+        size_t fw2 = r.size();
+        for(auto &e : this->env) {
+            fw1 = std::max(fw1, e->name.size());
+        }
+        fw1 += 4, fw2 += 4;
+        cout.width(fw1); cout << l << "| ";
+        cout.widen(fw2); cout << r << "\n";
+        for(auto &e : this->env) {
+            auto time = e->Time();
+            auto bandwidth = 1.0 * e->ReadSize() / 1024 / 1024 / 1024 / time * 1000; // gb/s
+            bandwidth *= this->repeat;
+            cout.width(fw1); cout << e->name << "|  ";
+            cout.width(fw2); cout << bandwidth << "\n";
+        }
+        cout << "\n";
+    }
+};
+
 int main() {
     BandWitdhTest bandwidth_test(0, 1, 1);
     bandwidth_test.Run();
@@ -330,4 +359,8 @@ int main() {
     LatencyTest latency_test(0, 1, 100);
     latency_test.Run();
     latency_test.Statistic();
+
+    RandomBandwidth random_bandwidth_test(0, 1, 1);
+    random_bandwidth_test.Run();
+    random_bandwidth_test.Statistic();
 }

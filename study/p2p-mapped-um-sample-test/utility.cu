@@ -2,6 +2,8 @@
 #include <cassert>
 #include <cstring>
 #include <random>
+#include <curand.h>
+#include <curand_kernel.h>
 #include "utility.h"
 
 __global__ void delay(volatile int* flag) {
@@ -16,6 +18,19 @@ __global__ void read(int* __restrict__ arr, int len, int* __restrict__ result, i
 #pragma unroll(5)
     for(size_t i = idx; i < len; i += grid_size) {
         result[rid] += arr[i];
+    }
+}
+
+__global__ void random_rand(int* __restrict__ arr, int len, int* __restrict__ result, int result_len, int seed) {
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
+    curandState state;
+    curand_init(seed + idx, 0, 0, &state);
+#pragma unroll(5)
+    for(size_t i = 0; i < len; i += grid_size) {
+        int x = curand(&state) % len;
+        result[rid] += arr[x];
     }
 }
 
@@ -34,6 +49,15 @@ void perform_random_read_int32(
     std::mt19937 gen(rd());
     uniform_int_distribution<> dist(0, len - 1);
     read<<<1, 1, 0, stream>>>(arr + dist(gen), 1, result, result_len);
+}
+
+void perform_random_read(
+    int grid_size, int block_size, cudaStream_t stream,
+    int* arr, int len, int* result, int result_len
+) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    random_rand<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len, gen());
 }
 
 tuple<double, double, double> sum_avg_std(const vector<size_t> &vec) {
