@@ -337,9 +337,9 @@ int main() {
 
     dataset.p2p(local_device, remote_device);
     {
-        sample_time = Test(dataset, InputType::FromFile,0, 5, local_device, 
-            SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
-        printf("p2p FromFile %f\n\n", sample_time);
+        // sample_time = Test(dataset, InputType::FromFile,0, 5, local_device, 
+        //     SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
+        // printf("p2p FromFile %f\n\n", sample_time);
 
         sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
             SampleType::VertexParallel, "", 1, true);
@@ -360,9 +360,9 @@ int main() {
 
     dataset.hostAllocMapped(local_device);
     {
-        sample_time = Test(dataset, InputType::FromFile,0, 5, 0, 
-            SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
-        printf("mapped FromFile %f\n\n", sample_time);
+        // sample_time = Test(dataset, InputType::FromFile,0, 5, 0, 
+        //     SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
+        // printf("mapped FromFile %f\n\n", sample_time);
 
         sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
             SampleType::VertexParallel, "", 1, true);

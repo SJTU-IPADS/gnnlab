@@ -34,6 +34,19 @@ __global__ void random_rand(int* __restrict__ arr, int len, int* __restrict__ re
     }
 }
 
+__global__ void random_read_overhead(int* __restrict__ arr, int len, int* __restrict__ result, int result_len, int seed) {
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
+    curandState state;
+    curand_init(seed + idx, 0, 0, &state);
+#pragma unroll(5)
+    for(size_t i = 0; i < len; i += grid_size) {
+        int x = curand(&state) % len;
+        result[rid] += x;
+    }
+}
+
 void perform_sequential_read(
     int grid_size, int block_size, cudaStream_t stream, 
     int* arr, int len, int* result, int result_len
@@ -58,6 +71,15 @@ void perform_random_read(
     std::random_device rd;
     std::mt19937 gen(rd());
     random_rand<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len, gen());
+}
+
+void perform_random_read_overhead(
+    int grid_size, int block_size, cudaStream_t stream,
+    int* arr, int len, int* result, int result_len
+) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    random_read_overhead<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len, gen());
 }
 
 tuple<double, double, double> sum_avg_std(const vector<size_t> &vec) {

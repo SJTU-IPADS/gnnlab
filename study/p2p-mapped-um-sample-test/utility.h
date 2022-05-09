@@ -24,6 +24,8 @@ void perform_random_read_int32(int grid_size, int block_size, cudaStream_t strea
     int* arr, int len, int* result, int result_len);
 void perform_random_read(int grid_size, int block_size, cudaStream_t stream,
     int* arr, int len, int* result, int result_lne);
+void perform_random_read_overhead(int grid_size, int block_size, cudaStream_t stream,
+    int* arr, int len, int* result, int result_lne);
 
 tuple<double, double, double> sum_avg_std(const vector<size_t> &vec);
 

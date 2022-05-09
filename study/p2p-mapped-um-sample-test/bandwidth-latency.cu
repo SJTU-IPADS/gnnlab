@@ -181,7 +181,7 @@ public:
     }
 }; 
 
-template<size_t elem_num, auto perform_read>
+template<size_t elem_num, auto perform_read, decltype(perform_read) overhead = nullptr>
 class SMReadTest {
 public:
     SMReadTest(int local_device, int remote_deivce, int repeat = 5) 
@@ -203,37 +203,50 @@ public:
         volatile int* start_flag;
         cudaHostAlloc(&start_flag, sizeof(int), cudaHostAllocPortable);
         vector<cudaEvent_t> start(env.size()), end(env.size());
+        vector<cudaEvent_t> start_oh(env.size()), end_oh(env.size());
         for(int i = 0; i < env.size(); i++) {
             // cout << env[i]->name << " " << env[i]->device << "\n";
             CUDA_CALL(cudaSetDevice(env[i]->device));
             CUDA_CALL(cudaEventCreate(&start[i]));
             CUDA_CALL(cudaEventCreate(&end[i]));
+            CUDA_CALL(cudaEventCreate(&start_oh[i]));
+            CUDA_CALL(cudaEventCreate(&end_oh[i]));
         }
         int block_size = 0, grid_size = 0;
         CUDA_CALL(cudaOccupancyMaxPotentialBlockSize(&block_size, &grid_size, read));
+
+        auto measure_kernel = [&](
+            MemoryTestCase* env, cudaEvent_t start, cudaEvent_t end, decltype(perform_read) kernel
+        ) -> float {
+            *start_flag = 0;
+            CUDA_CALL(cudaSetDevice(env->device));
+            CUDA_CALL(cudaStreamSynchronize(env->stream));
+            delay<<<1, 1, 0, env->stream>>>(start_flag);
+            CUDA_CALL(cudaEventRecord(start, env->stream));
+            for(int r = 0; r < this->repeat; r++) {
+                kernel(grid_size, block_size, env->stream, 
+                    env->read_buf.data, env->read_buf.size, 
+                    env->read_result.data, env->read_result.size);
+            }
+            CUDA_CALL(cudaEventRecord(end, env->stream));
+
+            *start_flag = 1;
+            CUDA_CALL(cudaStreamSynchronize(env->stream));
+            float ms;
+            CUDA_CALL(cudaEventElapsedTime(&ms, start, end));
+            return ms;
+        };
+
         for(int i = 0; i < env.size(); i++) {
             report_process(i);
-            *start_flag = 0;
             env[i]->Init();
-            CUDA_CALL(cudaSetDevice(env[i]->device));
-            CUDA_CALL(cudaStreamSynchronize(env[i]->stream));
-            delay<<<1, 1, 0, env[i]->stream>>>(start_flag);
-            CUDA_CALL(cudaEventRecord(start[i], env[i]->stream));
-            for(int r = 0; r < repeat; r++) {
-                // read<<<grid_size, block_size, 0, env[i]->stream>>>(
-                //     env[i]->read_buf.data, env[i]->read_buf.size, 
-                //     env[i]->read_result.data, env[i]->read_result.size);
-                perform_read(grid_size, block_size, env[i]->stream, 
-                    env[i]->read_buf.data, env[i]->read_buf.size, 
-                    env[i]->read_result.data, env[i]->read_result.size);
+            float kernel_ms = measure_kernel(env[i].get(), start[i], end[i], perform_read);
+            if (overhead != nullptr) {
+                float overhead_ms = measure_kernel(env[i].get(), start_oh[i], end_oh[i], overhead);
+                // cout << "\n" << env[i]->name << " overhead_ms " << overhead_ms << " kernel_ms " << kernel_ms << "\n";
+                kernel_ms -= overhead_ms;
             }
-            CUDA_CALL(cudaEventRecord(end[i], env[i]->stream));
-            
-            *start_flag = 1;
-            CUDA_CALL(cudaStreamSynchronize(env[i]->stream));
-            float ms;
-            CUDA_CALL(cudaEventElapsedTime(&ms, start[i], end[i]));
-            env[i]->Clear(ms);
+            env[i]->Clear(kernel_ms);
         }
         report_process(env.size());
         cudaFree((void*)start_flag);
@@ -241,6 +254,8 @@ public:
             CUDA_CALL(cudaSetDevice(env[i]->device));
             CUDA_CALL(cudaEventDestroy(start[i]));
             CUDA_CALL(cudaEventDestroy(end[i]));
+            CUDA_CALL(cudaEventDestroy(start_oh[i]));
+            CUDA_CALL(cudaEventDestroy(end_oh[i]))
         }
     }
     virtual void Statistic() = 0;
@@ -266,18 +281,18 @@ public:
     BandWitdhTest(int local_device, int remote_device, int repeat = 5)
         : SMReadTest<elem_num, perform_sequential_read>(local_device, remote_device, repeat) {}
     virtual void Statistic() override {
-        cout << "BandWidth Test Result:\n";
+        cout << "Sequential Thpt Test Result:\n";
         cout << "----------------------\n";
         cout.setf(ios::left, ios::adjustfield);
         size_t fwid1 = string{"MemoryType"}.size();
         for(auto &e : this->env) {
             fwid1 = std::max(fwid1, e->name.size());
         }
-        size_t fwid2 = string{"BandWidth(GB/s)"}.size();
+        size_t fwid2 = string{"Throughput(GB/s)"}.size();
         fwid1 += 4;
         fwid2 += 4;
         cout.width(fwid1); cout << "MemoryType" << "|  ";
-        cout.width(fwid2); cout << "BandWidth(GB/s)" << "\n";
+        cout.width(fwid2); cout << "Throughput(GB/s)" << "\n";
         for(auto &e : this->env) {
             auto time = e->Time();
             auto bandwidth = 1.0 * e->ReadSize() / 1024 / 1024 / 1024 / time * 1000; // gb/s
@@ -323,15 +338,15 @@ public:
 };
 
 template<size_t elem_num = (1ULL << 28)>
-class RandomBandwidth : public SMReadTest<elem_num, perform_random_read> {
+class RandomBandwidth : public SMReadTest<elem_num, perform_random_read, perform_random_read_overhead> {
 public:
     RandomBandwidth(int local_device, int remote_device, int repeat = 5)
-        : SMReadTest<elem_num, perform_random_read>(local_device, remote_device, repeat) {}
+        : SMReadTest<elem_num, perform_random_read, perform_random_read_overhead>(local_device, remote_device, repeat) {}
     virtual void Statistic() override {
-        cout << "RandomBandwidth Test Result:\n";
+        cout << "Random Thpt Test Result:\n";
         cout << "----------------------------\n";
         cout.setf(ios::left, ios::adjustfield);
-        string l = "MemoryType", r = "RandomBandwidth(GB/s)";
+        string l = "MemoryType", r = "Throughput(GB/s)";
         size_t fw1 = l.size();
         size_t fw2 = r.size();
         for(auto &e : this->env) {
