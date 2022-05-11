@@ -138,7 +138,8 @@ default_meta_list = ['app', 'dataset', 'cache_policy', 'cache_percentage',
               ]
 class BenchInstance:
   def __init__(self):
-    pass
+    self.vals = {}
+    self.fname = ""
   def init_from_cfg(self, cfg):
     try:
       fname = cfg.get_log_fname() + '.log'
@@ -348,7 +349,8 @@ class BenchInstance:
     for inst in inst_list:
       try:
         inst.to_formated_str()
-        print(sep.join([str(inst.vals[meta]) for meta in meta_list]), file=outf)
+        # '{:.2f}'.format(inst.vals[meta]) if isinstance(inst.vals[meta], float) else str(inst.vals[meta])
+        print(sep.join(['{:.6f}'.format(inst.vals[meta]) if isinstance(inst.vals[meta], float) else str(inst.vals[meta]) for meta in meta_list]), file=outf)
       except KeyError:
         print("error when ", inst.fname)
         # print(sys.exc_info())
