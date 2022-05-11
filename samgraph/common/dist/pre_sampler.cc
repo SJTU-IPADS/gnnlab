@@ -133,26 +133,28 @@ void PreSampler::DoPreSample(){
 TensorPtr PreSampler::GetFreq() {
   auto ranking_freq = Tensor::Empty(DataType::kI32, {_num_nodes}, CPU(), "");
   auto ranking_freq_ptr = static_cast<IdType*>(ranking_freq->MutableData());
+  GetFreq(ranking_freq_ptr);
+  return ranking_freq;
+}
+
+void PreSampler::GetFreq(IdType* ranking_freq_ptr) {
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_nodes; i++) {
     auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
     ranking_freq_ptr[i] = *(nid_ptr + 1);
   }
-  return ranking_freq;
 }
 TensorPtr PreSampler::GetRankNode() {
   auto ranking_nodes = Tensor::Empty(DataType::kI32, {_num_nodes}, CPU(), "");
-  auto ranking_nodes_ptr = static_cast<IdType*>(ranking_nodes->MutableData());
-  Timer t_prepare_rank;
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
-  for (size_t i = 0; i < _num_nodes; i++) {
-    auto nid_ptr = reinterpret_cast<IdType*>(&freq_table[i]);
-    ranking_nodes_ptr[i] = *(nid_ptr);
-  }
-  Profiler::Get().LogInit(kLogInitL3PresampleGetRank, t_prepare_rank.Passed());
+  GetRankNode(ranking_nodes);
   return ranking_nodes;
 }
 void PreSampler::GetRankNode(TensorPtr& ranking_nodes) {
   auto ranking_nodes_ptr = static_cast<IdType*>(ranking_nodes->MutableData());
+  GetRankNode(ranking_nodes_ptr);
+}
+
+void PreSampler::GetRankNode(IdType* ranking_nodes_ptr) {
   Timer t_prepare_rank;
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (size_t i = 0; i < _num_nodes; i++) {

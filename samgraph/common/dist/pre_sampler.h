@@ -30,8 +30,10 @@ class PreSampler {
   ~PreSampler();
   void DoPreSample();
   TensorPtr GetFreq();
+  void GetFreq(IdType*);
   TensorPtr GetRankNode();
   void GetRankNode(TensorPtr &);
+  void GetRankNode(IdType *);
   static inline void SetSingleton(PreSampler* p) { singleton = p; }
   static inline PreSampler* Get() { return singleton; }
   TaskPtr DoPreSampleShuffle();
