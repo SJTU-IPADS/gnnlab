@@ -28,6 +28,17 @@
 #include "../profiler.h"
 #include "../timer.h"
 #include "collaborative_cache_manager.h"
+#define SWITCH_TYPE(type, func)      \
+  switch(type) {                     \
+    case kF32: func(float);   break; \
+    case kF64: func(double);  break; \
+    case kF16: func(short);   break; \
+    case kU8:  func(uint8_t); break; \
+    case kI32: func(int32_t); break; \
+    case kI64: func(int64_t); break; \
+    default: CHECK(false);           \
+  }
+
 
 #define SAM_CUDA_PREPARE_1D(num_item) \
   const size_t num_tiles = RoundUpDiv((num_item), Constant::kCudaTileSize); \
@@ -67,7 +78,6 @@ __device__ static inline IdType dst(const SrcHolder *s, const DstHolder *d, cons
 };
 template<>
 struct OffsetGetter<SrcKey, DstVal> {
-__device__ static inline int location(const SrcKey *s, const DstVal *, const size_t idx) { return s[idx]._location_id; }
 __device__ static inline IdType src(const SrcKey *, const DstVal *d, const size_t idx) { return d[idx]._src_offset; }
 __device__ static inline IdType dst(const SrcKey *, const DstVal *d, const size_t idx) { return d[idx]._dst_offset; }
 };
@@ -257,7 +267,9 @@ CollCacheManager::CollCacheManager(Context trainer_ctx, DataType dtype, size_t d
       _dtype(dtype),
       _dim(dim),
       _num_location(num_gpu+1),
-      _cpu_location_id(num_gpu) { }
+      _cpu_location_id(num_gpu) {
+  LOG(INFO) << "Coll cache init with " << num_gpu << " gpus, " << _num_location << " locations";
+}
 
 void CollCacheManager::GetMissCacheIndex(
     SrcKey* & output_src_index, DstVal* & output_dst_index,
@@ -275,16 +287,19 @@ void CollCacheManager::GetMissCacheIndex(
   const size_t num_tiles = RoundUpDiv(num_nodes, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
-  LOG(INFO) << "CollCacheManager: GetMissCacheIndex - getting miss/hit index...";
+  LOG(DEBUG) << "CollCacheManager: GetMissCacheIndex - getting miss/hit index...";
+  Timer t0;
   get_miss_cache_index<Constant::kCudaBlockSize, Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
     output_src_index, output_dst_index, nodes, num_nodes, this->_hash_table_location, this->_hash_table_offset);
   device->StreamSync(_trainer_ctx, stream);
+  // std::cout << "coll get index "<< t0.Passed() << "\n";
   
+  Timer t1;
   cub::DoubleBuffer<int> keys(reinterpret_cast<int*>(output_src_index), reinterpret_cast<int*>(output_src_index_alter));
   cub::DoubleBuffer<Id64Type> vals(reinterpret_cast<Id64Type*>(output_dst_index), reinterpret_cast<Id64Type*>(output_dst_index_alter));
 
   size_t workspace_bytes;
-  LOG(INFO) << "CollCacheManager: GetMissCacheIndex - sorting according to group...";
+  LOG(DEBUG) << "CollCacheManager: GetMissCacheIndex - sorting according to group...";
   CUDA_CALL(cub::DeviceRadixSort::SortPairs(
       nullptr, workspace_bytes, keys, vals, num_nodes, 0, sizeof(SrcKey) * 8,
       cu_stream));
@@ -294,14 +309,17 @@ void CollCacheManager::GetMissCacheIndex(
       workspace, workspace_bytes, keys, vals, num_nodes, 0, sizeof(SrcKey) * 8,
       cu_stream));
   device->StreamSync(_trainer_ctx, stream);
-  LOG(INFO) << "CollCacheManager: GetMissCacheIndex - sorting according to group - done...";
+  LOG(DEBUG) << "CollCacheManager: GetMissCacheIndex - sorting according to group - done...";
+  // std::cout << "coll sort index "<< t1.Passed() << "\n";
 
+  Timer t2;
   output_src_index = reinterpret_cast<SrcKey*>(keys.Current());
   output_dst_index = reinterpret_cast<DstVal*>(vals.Current());
 
   device->FreeWorkspace(_trainer_ctx, keys.Alternate());
   device->FreeWorkspace(_trainer_ctx, vals.Alternate());
   device->FreeWorkspace(_trainer_ctx, workspace);
+  // std::cout << "coll free workspace "<< t2.Passed() << "\n";
 }
 
 void CollCacheManager::SplitGroup(const SrcKey * src_index, const size_t len, IdType * & group_offset, StreamHandle stream){
@@ -312,19 +330,21 @@ void CollCacheManager::SplitGroup(const SrcKey * src_index, const size_t len, Id
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
 
+  Timer t0;
   group_offset = (IdType*)Device::Get(cpu_ctx)->AllocWorkspace(cpu_ctx, sizeof(IdType) * (this->_num_location + 1));
   std::memset(group_offset, 0, sizeof(IdType) * (this->_num_location + 1));
   group_offset[this->_num_location] = len;
-  LOG(INFO) << "CollCache: SplitGroup: legacy finding offset...";
+  LOG(DEBUG) << "CollCache: SplitGroup: legacy finding offset...";
   find_boundary<><<<grid, block, 0, cu_stream>>>(src_index, len, group_offset);
   device->StreamSync(_trainer_ctx, stream);
-  LOG(INFO) << "CollCache: SplitGroup: legacy fixing offset...";
+  LOG(DEBUG) << "CollCache: SplitGroup: legacy fixing offset...";
   for (int i = this->_num_location - 1; i > 0; i--) {
     if (group_offset[i] < group_offset[i-1]) {
       group_offset[i] = group_offset[i+1];
     }
   }
-  LOG(INFO) << "CollCache: SplitGroup: legacy fixing done...";
+  // std::cout << "coll split group "<< t0.Passed() << "\n";
+  LOG(DEBUG) << "CollCache: SplitGroup: legacy fixing done...";
 }
 
 namespace {
@@ -355,6 +375,11 @@ void Combine(const SrcT * src_index, const DstT * dst_index, const size_t num_no
     block.y *= 2;
   }
   const dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y)));
+
+  // #define FUNC(type) \
+  // combine_data<type, src_getter, dst_getter><<<grid, block, 0, cu_stream>>>(output, src_index, dst_index, nodes, num_node, src_data, _dim);
+  // SWITCH_TYPE(_dtype, FUNC);
+  // #undef FUNC
 
   switch (_dtype) {
     case kF32:
@@ -402,7 +427,13 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
       Profiler::Get().LogStep(task_key, kLogL1FeatureBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
       Profiler::Get().LogStep(task_key, kLogL1MissBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
       // Profiler::Get().LogStep(task_key, kLogL3CacheGetIndexTime, get_index_time);
-      Profiler::Get().LogStep(task_key, kLogL3CacheCombineMissTime,combine_time);
+      if (_cpu_location_id == -1) {
+        // full cache
+        Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_time);
+      } else {
+        // no cache
+        Profiler::Get().LogStep(task_key, kLogL3CacheCombineMissTime,combine_time);
+      }
       // Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_cache_time);
       Profiler::Get().LogEpochAdd(task_key, kLogEpochFeatureBytes,GetTensorBytes(_dtype, {num_nodes, _dim}));
       Profiler::Get().LogEpochAdd(task_key, kLogEpochMissBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
@@ -415,10 +446,13 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
     LOG(DEBUG) << "CollCache: ExtractFeat: legacy, get miss cache index... ";
     Timer t0;
     GetMissCacheIndex(src_index, dst_index, nodes, num_nodes, stream);
+    // std::cout << "Get Idx " << t0.Passed() << "\n";
+    Timer t1;
     IdType * group_offset = nullptr;
     LOG(DEBUG) << "CollCache: ExtractFeat: legacy, splitting group... ";
     SplitGroup(src_index, num_nodes, group_offset, stream);
     double get_index_time = t0.Passed();
+    // std::cout << "Split GrOup " <<t1.Passed() << "\n";
     double combine_times[2];
     for (int src_device_id = 1; src_device_id >= 0; src_device_id --) {
       LOG(DEBUG) << "CollCache: ExtractFeat: legacy, combining group " << src_device_id << " [" << group_offset[src_device_id] << "," << group_offset[src_device_id+1] << ")...";
@@ -459,11 +493,12 @@ CollCacheManager CollCacheManager::BuildLegacy(Context trainer_ctx,
                   void* cpu_src_data, DataType dtype, size_t dim,
                   TensorPtr cache_node_ptr, size_t num_total_nodes,
                   double cache_percentage, StreamHandle stream) {
-  if (cache_node_ptr == nullptr) {
-    CHECK(cache_percentage == 0);
-    return BuildNoCache(trainer_ctx, cpu_src_data, dtype, dim, stream);
+  LOG(ERROR) << "Building Legacy Cache...";
+  if (cache_percentage == 0 || cache_percentage == 1) {
+    return BuildLegacy(trainer_ctx, cpu_src_data, dtype, dim, nullptr, num_total_nodes, cache_percentage, stream);
   }
-  const IdType* cache_node_list = (const IdType*)cache_node_ptr->Data();
+  IdType* cache_node_list = (IdType*)cache_node_ptr->Data();
+  CHECK_NE(cache_node_list, nullptr);
   return BuildLegacy(trainer_ctx, cpu_src_data, dtype, dim, cache_node_list, num_total_nodes, cache_percentage, stream);
 }
 
@@ -476,6 +511,7 @@ CollCacheManager CollCacheManager::BuildLegacy(Context trainer_ctx,
   } else if (cache_percentage == 1) {
     return BuildFullCache(trainer_ctx, cpu_src_data, dtype, dim, num_total_nodes, stream);
   }
+  CHECK_NE(cache_node_list, nullptr);
   CollCacheManager cm(trainer_ctx, dtype, dim, 1);
 
   Timer t;
@@ -544,6 +580,7 @@ CollCacheManager CollCacheManager::BuildNoCache(Context trainer_ctx,
                   void* cpu_src_data, DataType dtype, size_t dim,
                   StreamHandle stream) {
   CollCacheManager cm(trainer_ctx, dtype, dim, 0);
+  cm._cpu_location_id = 0;
 
   Timer t;
 

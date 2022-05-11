@@ -22,6 +22,7 @@
 
 #include "../common.h"
 #include "../logging.h"
+#include <cuda_runtime.h>
 
 namespace samgraph {
 namespace common {
@@ -96,6 +97,7 @@ class CollCacheManager {
 
   int _num_location = -1;
   int _cpu_location_id = -1;
+  int _local_location_id = -1;
 
   size_t _cache_nbytes = 0;
 
