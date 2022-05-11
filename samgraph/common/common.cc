@@ -120,6 +120,11 @@ void Tensor::ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std
   _shape = shape;
   _nbytes = GetTensorBytes(dt, shape.begin(), shape.end());
 }
+void Tensor::ReShape(std::vector<size_t> new_shape) {
+  CHECK(Defined());
+  CHECK(GetTensorBytes(kI8, _shape) == GetTensorBytes(kI8, new_shape));
+  _shape = new_shape;
+}
 
 TensorPtr Tensor::Null() { return std::make_shared<Tensor>(); }
 

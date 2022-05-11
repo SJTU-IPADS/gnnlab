@@ -197,6 +197,7 @@ bool RunDataCopySubLoopOnce() {
 #ifdef SAMGRAPH_COLL_CACHE_VALIDATE
     CollCacheManager::CheckCudaEqual(backup_feat->Data(), task->input_feat->Data(), backup_feat->NumBytes());
     CollCacheManager::CheckCudaEqual(backup_label->Data(), task->output_label->Data(), backup_label->NumBytes());
+    LOG(INFO) << "Coll Cache Validate success " << task->key;
 #endif
 
     LOG(DEBUG) << "Submit: process task with key " << task->key;
@@ -266,6 +267,7 @@ bool RunCacheDataCopySubLoopOnce() {
 #ifdef SAMGRAPH_COLL_CACHE_VALIDATE
     CollCacheManager::CheckCudaEqual(backup_feat->Data(), task->input_feat->Data(), backup_feat->NumBytes());
     CollCacheManager::CheckCudaEqual(backup_label->Data(), task->output_label->Data(), backup_label->NumBytes());
+    LOG(INFO) << "Coll Cache Validate success " << task->key;
 #endif
 
     LOG(DEBUG) << "Submit with cache: process task with key " << task->key;

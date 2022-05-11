@@ -190,6 +190,7 @@ class Tensor {
   void Scale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
   // force scale the tensor without checking whether fits, since the size querying may be slow.
   void ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
+  void ReShape(std::vector<size_t> new_shape);
 
   static TensorPtr Null();
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
