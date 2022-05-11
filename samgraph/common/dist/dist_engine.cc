@@ -106,7 +106,9 @@ void DistEngine::Init() {
   _gpu_cache_manager = nullptr;
 #endif
   _frequency_hashmap = nullptr;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   _cache_hashtable = nullptr;
+#endif
 
   // Check whether the ctx configuration is allowable
   DistEngine::ArchCheck();
@@ -121,6 +123,7 @@ void DistEngine::Init() {
       case kCacheByPreSample: {
         size_t nbytes = sizeof(IdType) * _dataset->num_node;
         void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+        CHECK_NE(shared_ptr, MAP_FAILED);
         _dataset->ranking_nodes = Tensor::FromBlob(
             shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
         break;
@@ -227,6 +230,7 @@ void DistEngine::UMSampleLoadGraph() {
   LOG(DEBUG) << "samplers load graph to um";
 }
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DistEngine::SampleCacheTableInit() {
   size_t num_nodes = _dataset->num_node;
   auto nodes = static_cast<const IdType*>(_dataset->ranking_nodes->Data());
@@ -264,6 +268,7 @@ void DistEngine::SampleCacheTableInit() {
   LOG(INFO) << "GPU cache (policy: " << RunConfig::cache_policy
             << ") " << num_cached_nodes << " / " << num_nodes;
 }
+#endif
 
 void DistEngine::UMSampleCacheTableInit() {
   size_t num_nodes = _dataset->num_node;
@@ -306,7 +311,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _dist_type = DistType::Sample;
   RunConfig::sampler_ctx = ctx;
   _sampler_ctx = RunConfig::sampler_ctx;
-  LOG_MEM_USAGE(WARNING, "before sample initialization", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "before sample initialization", _sampler_ctx);
   double time_cuda_context = t0.Passed();
 
   Timer t_pin_memory;
@@ -314,7 +319,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     _memory_queue->PinMemory();
   }
   double time_pin_memory = t_pin_memory.Passed();
-  LOG_MEM_USAGE(WARNING, "before sample pin memory", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "before sample pin memory", _sampler_ctx);
   Timer t_create_stream;
   if (_sampler_ctx.device_type == kGPU) {
     _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
@@ -325,12 +330,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
   }
   double time_create_stream = t_create_stream.Passed();
-  LOG_MEM_USAGE(WARNING, "after create sampler stream", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "after create sampler stream", _sampler_ctx);
 
   Timer t_load_graph_ds_copy;
   SampleDataCopy(_sampler_ctx, _sample_stream);
   double time_load_graph_ds_copy = t_load_graph_ds_copy.Passed();
-  LOG_MEM_USAGE(WARNING, "after sample data copy", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "after sample data copy", _sampler_ctx);
 
   Timer t_sam_interal_state;
   _shuffler = nullptr;
@@ -358,7 +363,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   }
   // initialize _num_step before fork
   // _num_step = _shuffler->NumStep();
-  LOG_MEM_USAGE(WARNING, "after create shuffler", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "after create shuffler", _sampler_ctx);
 
   // XXX: map the _hash_table to difference device
   //       _hashtable only support GPU device
@@ -369,12 +374,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _hashtable = new cuda::OrderedHashTable(
       _dataset->num_node, _sampler_ctx, _sampler_copy_stream, 1);
 #endif
-  LOG_MEM_USAGE(WARNING, "after create hashtable", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "after create hashtable", _sampler_ctx);
 
   // Create CUDA random states for sampling
   _random_states = new cuda::GPURandomStates(RunConfig::sample_type, _fanout,
                                        _batch_size, _sampler_ctx);
-  LOG_MEM_USAGE(WARNING, "after create random states", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "after create random states", _sampler_ctx);
 
   if (RunConfig::sample_type == kRandomWalk) {
     size_t max_nodes =
@@ -410,10 +415,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       }
       default: ;
     }
-    LOG_MEM_USAGE(WARNING, "after presample", _sampler_ctx);
+    LOG_MEM_USAGE(INFO, "after presample", _sampler_ctx);
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     Timer t_cache_table_init;
     SampleCacheTableInit();
     time_cache_table = t_cache_table_init.Passed();
+#endif
   }
   double time_sampler_init = t0.Passed();
   Profiler::Get().LogInit   (kLogInitL1Sampler,         time_sampler_init);
@@ -432,7 +439,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   Profiler::Get().LogInit   (kLogInitL3InternalStateCreateStream,    time_create_stream);
   Profiler::Get().LogInit(kLogInitL3LoadDatasetCopy, time_load_graph_ds_copy);
 
-  LOG_MEM_USAGE(WARNING, "after finish sample initialization", _sampler_ctx);
+  LOG_MEM_USAGE(INFO, "after finish sample initialization", _sampler_ctx);
   _initialize = true;
 }
 
@@ -534,7 +541,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
 
-  LOG_MEM_USAGE(WARNING, "before train initialization", _trainer_ctx);
+  LOG_MEM_USAGE(INFO, "before train initialization", _trainer_ctx);
   double time_create_cuda_ctx = t0.Passed();
 
   Timer t_pin_memory;
@@ -542,7 +549,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
     _memory_queue->PinMemory();
   }
   double time_pin_memory = t_pin_memory.Passed();
-  LOG_MEM_USAGE(WARNING, "after pin memory", _trainer_ctx);
+  LOG_MEM_USAGE(INFO, "after pin memory", _trainer_ctx);
 
   // Create CUDA streams
   // XXX: create cuda streams that training needs
@@ -764,10 +771,12 @@ void DistEngine::Shutdown() {
     delete _frequency_hashmap;
   }
 
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   if (_cache_hashtable != nullptr) {
     if (RunConfig::run_arch != RunArch::kArch9)
       Device::Get(_sampler_ctx)->FreeDataSpace(_sampler_ctx, _cache_hashtable);
   }
+#endif
 
   if (_sampler_barrier != nullptr) {
     delete _sampler_barrier;

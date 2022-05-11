@@ -95,7 +95,9 @@ class DistEngine : public Engine {
   CollCacheManager* GetCollLabelManager() { return _coll_label_manager; }
 #endif
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   IdType *GetCacheHashtable() { return _cache_hashtable; }
+#endif
   DistType GetDistType() { return _dist_type; }
 
   GraphPool* GetGraphPool() override {
@@ -130,7 +132,9 @@ class DistEngine : public Engine {
   // Copy data sampling needed for subprocess
   void SampleDataCopy(Context sampler_ctx, StreamHandle stream);
   void UMSampleLoadGraph();
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   void SampleCacheTableInit();
+#endif
   void UMSampleCacheTableInit();
   // Copy data training needed for subprocess
   void TrainDataCopy(Context trainer_ctx, StreamHandle stream);
@@ -161,8 +165,10 @@ class DistEngine : public Engine {
 #endif
   // Frequency hashmap
   cuda::FrequencyHashmap* _frequency_hashmap;
+#ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   // vertices cache hash table
   IdType *_cache_hashtable;
+#endif
 
   void ArchCheck() override;
   std::unordered_map<std::string, Context> GetGraphFileCtx() override;
