@@ -72,6 +72,7 @@ enum LogStepItem {
   kLogL1IdBytes,
   kLogL1GraphBytes,
   kLogL1MissBytes,
+  kLogL1RemoteBytes,
   kLogL1PrefetchAdvanced,
   kLogL1GetNeighbourTime,
   kLogL1SamplerId, // for arch9
@@ -111,6 +112,7 @@ enum LogStepItem {
   kLogL3CacheCopyMissTime,
   kLogL3CacheCombineMissTime,
   kLogL3CacheCombineCacheTime,
+  kLogL3CacheCombineRemoteTime,
   // Number of items
   kNumLogStepItems
 };

@@ -188,6 +188,7 @@ kLogL1LabelBytes       = _get_next_enum_val(_step_log_val)
 kLogL1IdBytes          = _get_next_enum_val(_step_log_val)
 kLogL1GraphBytes       = _get_next_enum_val(_step_log_val)
 kLogL1MissBytes        = _get_next_enum_val(_step_log_val)
+kLogL1RemoteBytes      = _get_next_enum_val(_step_log_val)
 kLogL1PrefetchAdvanced = _get_next_enum_val(_step_log_val)
 kLogL1GetNeighbourTime = _get_next_enum_val(_step_log_val)
 kLogL1SamplerId        = _get_next_enum_val(_step_log_val)
@@ -227,6 +228,7 @@ kLogL3CacheExtractMissTime       = _get_next_enum_val(_step_log_val)
 kLogL3CacheCopyMissTime          = _get_next_enum_val(_step_log_val)
 kLogL3CacheCombineMissTime       = _get_next_enum_val(_step_log_val)
 kLogL3CacheCombineCacheTime      = _get_next_enum_val(_step_log_val)
+kLogL3CacheCombineRemoteTime     = _get_next_enum_val(_step_log_val)
 
 # Epoch Log
 _epoch_log_val = [0]

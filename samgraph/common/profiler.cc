@@ -402,9 +402,9 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
   if (level >= 1 && !RunConfig::UseGPUCache() && !RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
-        "        L1  sample         %10.4lf | send         %10.4lf\n"
-        "        L1  recv           %10.4lf | copy         %10.4lf | "
-        "convert time %.4lf | train  %.4lf\n"
+        "        L1  sample         %10.6lf | send         %10.6lf\n"
+        "        L1  recv           %10.6lf | copy         %10.6lf | "
+        "convert time %.6lf | train  %.6lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
         "        L1  num nodes      %10.0lf | num samples  %10.0lf\n",
@@ -420,14 +420,14 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
   } else if (level >= 1 && RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
-        "        L1  sample         %10.4lf | send         %10.4lf\n"
-        "        L1  recv           %10.4lf | copy         %10.4lf | "
-        "convert time %.4lf | train  %.4lf\n"
+        "        L1  sample         %10.6lf | send         %10.6lf\n"
+        "        L1  recv           %10.6lf | copy         %10.6lf | "
+        "convert time %.6lf | train  %.6lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
         "        L1  miss nbytes    %10s | hit rate %10s \n"
         "        L1  nodes          %10.0lf | cache rate %10s \n"
-        "        L1  prefetch adv   %10.4lf | get nbr time %10.4lf\n",
+        "        L1  prefetch adv   %10.6lf | get nbr time %10.6lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
         _step_buf[kLogL1CopyTime], _step_buf[kLogL1ConvertTime],
@@ -444,12 +444,12 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
   } else if (level >= 1) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
-        "        L1  sample         %10.4lf | send         %10.4lf\n"
-        "        L1  recv           %10.4lf | copy         %10.4lf | "
-        "convert time %.4lf | train  %.4lf\n"
+        "        L1  sample         %10.6lf | send         %10.6lf\n"
+        "        L1  recv           %10.6lf | copy         %10.6lf | "
+        "convert time %.6lf | train  %.6lf\n"
         "        L1  feature nbytes %10s | label nbytes %10s\n"
         "        L1  id nbytes      %10s | graph nbytes %10s\n"
-        "        L1  miss nbytes    %10s\n"
+        "        L1  miss nbytes    %10s | remote nbytes %10s\n"
         "        L1  num nodes      %10.0lf | num samples  %10.0lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL1SampleTime],
         _step_buf[kLogL1SendTime], _step_buf[kLogL1RecvTime],
@@ -460,16 +460,17 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1MissBytes]).c_str(),
+        ToReadableSize(_step_buf[kLogL1RemoteBytes]).c_str(),
         _step_buf[kLogL1NumNode],_step_buf[kLogL1NumSample]);
   }
 
   if (level >= 2 && !RunConfig::UseGPUCache()) {
     printf(
         "    [%s Profiler Level 2 E%u S%u]\n"
-        "        L2  shuffle     %.4lf | core sample  %.4lf | id remap  %.4lf\n"
-        "        L2  graph copy  %.4lf | id copy      %.4lf | extract   %.4lf |"
-        " feat copy %.4lf\n"
-        "        L2  last layer sample time %.4lf | size %.4lf\n",
+        "        L2  shuffle     %.6lf | core sample  %.6lf | id remap  %.6lf\n"
+        "        L2  graph copy  %.6lf | id copy      %.6lf | extract   %.6lf |"
+        " feat copy %.6lf\n"
+        "        L2  last layer sample time %.6lf | size %.6lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL2ShuffleTime],
         _step_buf[kLogL2CoreSampleTime], _step_buf[kLogL2IdRemapTime],
         _step_buf[kLogL2GraphCopyTime], _step_buf[kLogL2IdCopyTime],
@@ -478,11 +479,11 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
   } else if (level >= 2) {
     printf(
         "    [%s Profiler Level 2 E%u S%u]\n"
-        "        L2  shuffle     %.4lf | core sample  %.4lf | "
-        "id remap        %.4lf\n"
-        "        L2  graph copy  %.4lf | id copy      %.4lf | "
-        "cache feat copy %.4lf\n"
-        "        L2  last layer sample time %.4lf | size %.4lf\n",
+        "        L2  shuffle     %.6lf | core sample  %.6lf | "
+        "id remap        %.6lf\n"
+        "        L2  graph copy  %.6lf | id copy      %.6lf | "
+        "cache feat copy %.6lf\n"
+        "        L2  last layer sample time %.6lf | size %.6lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL2ShuffleTime],
         _step_buf[kLogL2CoreSampleTime], _step_buf[kLogL2IdRemapTime],
         _step_buf[kLogL2GraphCopyTime], _step_buf[kLogL2IdCopyTime],
@@ -493,15 +494,15 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
   if (level >= 3 && !RunConfig::UseGPUCache()) {
     printf(
         "     [%s Profiler Level 3 E%u S%u]\n"
-        "        L3  khop sample coo  %.4lf | khop sort coo     %.4lf | "
-        "khop count edge   %.4lf | khop compact edge %.4lf\n"
-        "        L3  walk sample coo  %.4lf | walk topk total   %.4lf | "
-        "walk topk step1   %.4lf | walk topk step2   %.4lf\n"
-        "        L3  walk topk step3  %.4lf | walk topk step4   %.4lf | "
-        "walk topk step5   %.4lf\n"
-        "        L3  walk topk step6  %.4lf | walk topk step7   %.4lf\n"
-        "        L3  remap unique     %.4lf | remap populate    %.4lf | "
-        "remap mapnode     %.4lf | remap mapedge     %.4lf\n",
+        "        L3  khop sample coo  %.6lf | khop sort coo     %.6lf | "
+        "khop count edge   %.6lf | khop compact edge %.6lf\n"
+        "        L3  walk sample coo  %.6lf | walk topk total   %.6lf | "
+        "walk topk step1   %.6lf | walk topk step2   %.6lf\n"
+        "        L3  walk topk step3  %.6lf | walk topk step4   %.6lf | "
+        "walk topk step5   %.6lf\n"
+        "        L3  walk topk step6  %.6lf | walk topk step7   %.6lf\n"
+        "        L3  remap unique     %.6lf | remap populate    %.6lf | "
+        "remap mapnode     %.6lf | remap mapedge     %.6lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL3KHopSampleCooTime],
         _step_buf[kLogL3KHopSampleSortCooTime],
         _step_buf[kLogL3KHopSampleCountEdgeTime],
@@ -521,19 +522,19 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
   } else if (level >= 3) {
     printf(
         "    [%s Profiler Level 3 E%u S%u]\n"
-        "        L3  khop sample coo  %.4lf | khop sort coo      %.4lf | "
-        "khop count edge     %.4lf | khop compact edge %.4lf\n"
-        "        L3  walk sample coo  %.4lf | walk topk total    %.4lf | "
-        "walk topk step1     %.4lf | walk topk step2   %.4lf\n"
-        "        L3  walk topk step3  %.4lf | walk topk step4    %.4lf | "
-        "walk topk step5     %.4lf\n"
-        "        L3  walk topk step6  %.4lf | walk topk step7    %.4lf\n"
-        "        L3  remap unique     %.4lf | remap populate     %.4lf | "
-        "remap mapnode       %.4lf | remap mapedge     %.4lf\n"
-        "        L3  cache get_index  %.4lf | cache copy_index   %.4lf | "
-        "cache extract_miss  %.4lf\n"
-        "        L3  cache copy_miss  %.4lf | cache combine_miss %.4lf | "
-        "cache combine cache %.4lf\n",
+        "        L3  khop sample coo  %.6lf | khop sort coo      %.6lf | "
+        "khop count edge     %.6lf | khop compact edge %.6lf\n"
+        "        L3  walk sample coo  %.6lf | walk topk total    %.6lf | "
+        "walk topk step1     %.6lf | walk topk step2   %.6lf\n"
+        "        L3  walk topk step3  %.6lf | walk topk step4    %.6lf | "
+        "walk topk step5     %.6lf\n"
+        "        L3  walk topk step6  %.6lf | walk topk step7    %.6lf\n"
+        "        L3  remap unique     %.6lf | remap populate     %.6lf | "
+        "remap mapnode       %.6lf | remap mapedge     %.6lf\n"
+        "        L3  cache get_index  %.6lf | cache copy_index   %.6lf | "
+        "cache extract_miss  %.6lf\n"
+        "        L3  cache copy_miss  %.6lf | cache combine_miss %.6lf | "
+        "cache combine cache %.6lf | cache combine remote %.6lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL3KHopSampleCooTime],
         _step_buf[kLogL3KHopSampleSortCooTime],
         _step_buf[kLogL3KHopSampleCountEdgeTime],
@@ -554,14 +555,15 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL3CacheExtractMissTime],
         _step_buf[kLogL3CacheCopyMissTime],
         _step_buf[kLogL3CacheCombineMissTime],
-        _step_buf[kLogL3CacheCombineCacheTime]);
+        _step_buf[kLogL3CacheCombineCacheTime],
+        _step_buf[kLogL3CacheCombineRemoteTime]);
   }
 }
 
 void Profiler::OutputEpoch(uint64_t epoch, std::string type) {
   printf(
       "  [%s Profiler E%u]\n"
-      "      total %.4lf | sample %.4lf | copy %.4lf | train %.4lf\n",
+      "      total %.6lf | sample %.6lf | copy %.6lf | train %.6lf\n",
       type.c_str(), static_cast<uint32_t>(epoch),
       _epoch_buf[kLogEpochTotalTime], _epoch_buf[kLogEpochSampleTime],
       _epoch_buf[kLogEpochCopyTime], _epoch_buf[kLogEpochTrainTime]);
