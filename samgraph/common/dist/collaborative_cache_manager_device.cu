@@ -338,9 +338,15 @@ void CollCacheManager::SplitGroup(const SrcKey * src_index, const size_t len, Id
   find_boundary<><<<grid, block, 0, cu_stream>>>(src_index, len, group_offset);
   device->StreamSync(_trainer_ctx, stream);
   LOG(DEBUG) << "CollCache: SplitGroup: legacy fixing offset...";
-  for (int i = this->_num_location - 1; i > 0; i--) {
-    if (group_offset[i] < group_offset[i-1]) {
-      group_offset[i] = group_offset[i+1];
+  /** Old implementation is buggy */
+  // for (int i = this->_num_location - 1; i > 0; i--) {
+  //   if (group_offset[i] < group_offset[i-1]) {
+  //     group_offset[i] = group_offset[i+1];
+  //   }
+  // }
+  for (int i = 1; i < this->_num_location; i++) {
+    if (group_offset[i+1] == 0) {
+      group_offset[i+1] = group_offset[i];
     }
   }
   // std::cout << "coll split group "<< t0.Passed() << "\n";
