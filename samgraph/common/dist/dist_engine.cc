@@ -41,6 +41,8 @@
 #include "dist_shuffler_aligned.h"
 #include "pre_sampler.h"
 #include "dist_um_sampler.h"
+#include "../coll_cache/optimal_solver.h"
+#include "../coll_cache/ndarray.h"
 
 namespace samgraph {
 namespace common {
@@ -128,6 +130,52 @@ void DistEngine::Init() {
             shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
         break;
       }
+      case kCollCache: {
+#ifndef SAMGRAPH_COLL_CACHE_ENABLE
+        CHECK(false) << "coll cache not enabled.";
+#endif
+#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
+        {
+          size_t nbytes = sizeof(IdType) * _dataset->num_node;
+          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+          CHECK_NE(shared_ptr, MAP_FAILED);
+          _dataset->ranking_nodes = Tensor::FromBlob(
+              shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
+        }
+#endif
+        // since we have only one global queue, allow only one ranking now.
+        size_t num_stream = 1;
+        {
+          size_t nbytes = sizeof(IdType) * _dataset->num_node * num_stream;
+          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+          CHECK_NE(shared_ptr, MAP_FAILED);
+          _dataset->ranking_nodes_list = Tensor::FromBlob(
+              shared_ptr, DataType::kI32, {num_stream, _dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
+        }
+        {
+          size_t nbytes = sizeof(IdType) * _dataset->num_node * num_stream;
+          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+          CHECK_NE(shared_ptr, MAP_FAILED);
+          _dataset->ranking_nodes_freq_list = Tensor::FromBlob(
+              shared_ptr, DataType::kI32, {num_stream, _dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes_freq");
+        }
+        {
+          size_t nbytes = sizeof(IdType) * _dataset->num_node;
+          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+          CHECK_NE(shared_ptr, MAP_FAILED);
+          _dataset->nid_to_block = Tensor::FromBlob(
+              shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes_freq");
+        }
+        {
+          size_t num_blocks = coll_cache::num_blocks(num_stream, RunConfig::coll_cache_num_slot);
+          size_t nbytes = sizeof(uint8_t) * num_blocks;
+          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+          CHECK_NE(shared_ptr, MAP_FAILED);
+          _dataset->block_placement = Tensor::FromBlob(
+              shared_ptr, DataType::kU8, {num_blocks}, Context{kMMAP, 0}, "ranking_nodes_freq");
+        }
+        break;
+      }
       default: ;
     }
   }
@@ -180,6 +228,7 @@ void DistEngine::Init() {
 
   LOG(DEBUG) << "create sampler barrier with " << RunConfig::num_sample_worker << " samplers";
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
+  _trainer_barrier = new DistSharedBarrier(RunConfig::num_train_worker);
 
   double init_time = t_l1_init.Passed();
 
@@ -413,6 +462,36 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         time_presample = tp.Passed();
         break;
       }
+      case kCollCache: {
+        Timer tp;
+        // allow only one node stream for now, since we are using global queue
+        if (worker_id == 0) {
+          auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
+          PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
+          PreSampler::Get()->DoPreSample();
+          coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);
+          coll_cache::TensorView<IdType> ranking_nodes_freq_view(_dataset->ranking_nodes_freq_list);
+          PreSampler::Get()->GetRankNode(ranking_nodes_view[worker_id]._data);
+          PreSampler::Get()->GetFreq(ranking_nodes_freq_view[worker_id]._data);
+#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
+          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache";
+          PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
+          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache done";
+#endif
+        }
+        if (worker_id == 0) {
+          std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
+          std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
+          coll_cache::solve(
+              _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
+              _dataset->num_node, trainer_to_stream, trainer_cache_percent,
+              _dataset->nid_to_block, _dataset->block_placement, "BIN",
+              RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+        }
+        _sampler_barrier->Wait();
+        time_presample = tp.Passed();
+        break;
+      }
       default: ;
     }
     LOG_MEM_USAGE(INFO, "after presample", _sampler_ctx);
@@ -583,10 +662,18 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
     CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
   }
   _coll_cache_manager = new CollCacheManager();
-  *_coll_cache_manager = CollCacheManager::BuildLegacy(_trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
-            _dataset->feat->Shape()[1],
-            _dataset->ranking_nodes,
-            _dataset->num_node, RunConfig::cache_percentage, _trainer_copy_stream);
+  if (RunConfig::cache_policy == kCollCache && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {
+    * _coll_cache_manager = CollCacheManager::BuildCollCache(
+              _dataset->nid_to_block, _dataset->block_placement, RunConfig::num_train_worker,
+              _trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
+              _dataset->feat->Shape()[1],
+              worker_id, RunConfig::cache_percentage, _trainer_copy_stream);
+  } else {
+    *_coll_cache_manager = CollCacheManager::BuildLegacy(_trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
+              _dataset->feat->Shape()[1],
+              _dataset->ranking_nodes,
+              _dataset->num_node, RunConfig::cache_percentage, _trainer_copy_stream);
+  }
   _coll_label_manager = new CollCacheManager();
   *_coll_label_manager = CollCacheManager::BuildNoCache(_trainer_ctx, _dataset->label->MutableData(), _dataset->label->Type(),
             1, _trainer_copy_stream);

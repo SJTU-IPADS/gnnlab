@@ -82,6 +82,7 @@ void PreSampler::DoPreSample(){
       Timer t0;
       auto task = DoPreSampleShuffle();
       switch (RunConfig::cache_policy) {
+        case kCollCache:
         case kCacheByPreSample:
           DoGPUSample(task);
           break;

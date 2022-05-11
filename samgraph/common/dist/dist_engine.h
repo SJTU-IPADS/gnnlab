@@ -125,6 +125,7 @@ class DistEngine : public Engine {
   // because sampler is a process originally, 
   // there will be a lot modification if pass sampler pointer to sample function
   DistUMSampler* GetUMSamplerByTid(std::thread::id tid);
+  DistSharedBarrier* GetTrainerBarrier() { return _trainer_barrier; }
 
   static DistEngine* Get() { return dynamic_cast<DistEngine*>(Engine::_engine); }
 
@@ -179,6 +180,7 @@ class DistEngine : public Engine {
   DistSharedBarrier *_sampler_barrier;
 
   std::vector<DistUMSampler*> _um_samplers;
+  DistSharedBarrier *_trainer_barrier;
 };
 
 }  // namespace dist

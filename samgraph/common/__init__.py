@@ -73,6 +73,7 @@ kCacheByPreSampleStatic = 4
 kCacheByFakeOptimal     = 5
 kDynamicCache           = 6
 kCacheByRandom          = 7
+kCollCache              = 8
 
 
 def cpu(device_id=0):
@@ -141,6 +142,7 @@ cache_policies = {
     'fake_optimal'    : kCacheByFakeOptimal,
     'dynamic_cache'   : kDynamicCache,
     'random'          : kCacheByRandom,
+    'coll_cache'      : kCollCache,
 }
 
 _init_log_val = [0]

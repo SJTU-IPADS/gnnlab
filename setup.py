@@ -75,6 +75,7 @@ cxx_flags = [
     '-Wall', '-fopenmp', '-march=native'
 ]
 cuda_flags = [
+    '-Wno-deprecated-gpu-targets',
     '-std=c++14',
     '-g',
     # '-G',
@@ -171,6 +172,8 @@ setup(
                 'samgraph/common/cuda/cuda_shuffler.cc',
                 'samgraph/common/cuda/pre_sampler.cc',
                 'samgraph/common/cuda/um_pre_sampler.cc',
+                'samgraph/common/coll_cache/optimal_solver.cc',
+                'samgraph/common/dist/collaborative_cache_manager_device.cu',
                 'samgraph/common/dist/dist_engine.cc',
                 'samgraph/common/dist/dist_loops.cc',
                 'samgraph/common/dist/dist_loops_arch5.cc',
@@ -185,8 +188,12 @@ setup(
             ],
             include_dirs=[
                 # os.path.join(here, '3rdparty/cub'),
-                os.path.join(here, '3rdparty/parallel-hashmap')],
-            libraries=['cudart'],
+                os.path.join(here, '3rdparty/parallel-hashmap'),
+                '/home/songxiaoniu/local/gurobi-optimizer/gurobi951/linux64/include'],
+            libraries=['cudart', 'gurobi95', 'gurobi_c++'],
+            library_dirs=[
+                '/home/songxiaoniu/local/gurobi-optimizer/gurobi951/linux64/lib',
+            ],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
             # these custom march may should be remove and merged
             extra_compile_args={

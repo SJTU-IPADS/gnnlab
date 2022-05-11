@@ -92,6 +92,12 @@ std::vector<double>  RunConfig::unified_memory_percentages;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kDefault;
 std::vector<Context> RunConfig::unified_memory_ctxes;
 
+size_t               RunConfig::coll_cache_num_slot    = 100;
+double               RunConfig::coll_cache_coefficient = 1.05;
+double               RunConfig::coll_cache_hyperparam_T_local  = 1;
+double               RunConfig::coll_cache_hyperparam_T_remote = 438 / (double)213;  // performance on A100
+double               RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)11.8; // performance on A100
+
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {
     RunConfig::option_samback_cuda_launch_blocking = true;

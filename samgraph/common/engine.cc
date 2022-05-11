@@ -335,6 +335,7 @@ void Engine::LoadGraphDataset() {
             ctx_map[Constant::kCacheByRandomFile], "dataset.ranking_nodes");
         break;
       case kDynamicCache:
+      case kCollCache:
         break;
       default:
         CHECK(0);

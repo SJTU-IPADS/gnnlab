@@ -596,6 +596,9 @@ std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
     case kCacheByRandom:
       os << "random";
       break;
+    case kCollCache:
+      os << "coll_cache";
+      break;
     default:
       CHECK(false);
   }

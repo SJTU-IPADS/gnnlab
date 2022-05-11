@@ -34,6 +34,7 @@ policy_str = {
   5 : "fake_optimal",
   6 : "dynamic_cache",
   7 : "random",
+  8 : "coll_cache",
 
   11: "presample_1",
   12: "presample_2",
@@ -41,8 +42,9 @@ policy_str = {
   14: "presample_4",
   15: "presample_5",
   16: "presample_6",
-  17: "presample_max",
-  20: "no_cache",
+  20: "presample_10",
+  40: "coll_cache_10",
+  50: "no_cache",
 }
 policy_str_short = {
   0 : "Deg",
@@ -53,6 +55,7 @@ policy_str_short = {
   # 5 : "fake_optimal",
   # 6 : "dynamic_cache",
   7 : "Rand",
+  8 : "Coll",
 
   11: "PreS_1",
   12: "PreS_2",
@@ -60,6 +63,8 @@ policy_str_short = {
   14: "PreS_4",
   15: "PreS_5",
   16: "PreS_6",
+  20: "PreS_10",
+  40: "Coll_10",
   # 17: "presample_max",
   # 20: "no_cache",
 }
@@ -144,11 +149,11 @@ class BenchInstance:
       self.prepare_epoch_eval(cfg)
       self.prepare_profiler_log(cfg)
       self.vals['optimal_hit_percent'] = self.get_optimal()
-    except Exception:
+    except Exception as e:
       print("error when ", fname)
       print(traceback.format_exc())
       traceback.print_exc()
-      sys.exit(1)
+      raise e
     return self
 
   def prepare_config(self, cfg):
@@ -258,8 +263,8 @@ class BenchInstance:
       self.vals['epoch_time'] = self.vals['epoch_time:sample_total'] + self.vals['epoch_time:copy_time'] + self.vals['epoch_time:train_total']
       self.vals['train_process_time'] = self.vals['epoch_time:copy_time'] + self.vals['epoch_time:train_total']
 
-    self.vals['epoch_time'] = '{:.2f}'.format(self.vals['epoch_time'])
-    self.vals['train_process_time'] = '{:.2f}'.format(self.vals['train_process_time'])
+    self.vals['epoch_time'] = '{:.4f}'.format(self.vals['epoch_time'])
+    self.vals['train_process_time'] = '{:.4f}'.format(self.vals['train_process_time'])
 
   @staticmethod
   def prepare_profiler_log_merge_groups(result_map_list, cfg):
@@ -329,11 +334,11 @@ class BenchInstance:
         self.vals[key] = '{:.4f}'.format(self.vals[key])
       self.vals['step_miss_KB']    = '{:.0f}'.format(self.vals['step_miss_KB'])
       self.vals['step_feature_KB'] = '{:.0f}'.format(self.vals['step_feature_KB'])
-      self.vals['step_miss_MB']    = '{:.2f}'.format(self.vals['step_miss_MB'])
-      self.vals['step_feature_MB'] = '{:.2f}'.format(self.vals['step_feature_MB'])
+      self.vals['step_miss_MB']    = '{:.4f}'.format(self.vals['step_miss_MB'])
+      self.vals['step_feature_MB'] = '{:.4f}'.format(self.vals['step_feature_MB'])
     self.vals['dataset_short'] = dataset_str_short[self.vals['dataset']]
     for key in ['init:presample','init:load_dataset:mmap','init:load_dataset:copy','init:dist_queue','init:internal','init:cache','init:other','init:copy']:
-      self.vals[key] = '{:.2f}'.format(self.vals[key])
+      self.vals[key] = '{:.4f}'.format(self.vals[key])
 
   @staticmethod
   def print_dat(inst_list: list, outf, meta_list = default_meta_list, custom_col_title_list=None, sep='\t'):

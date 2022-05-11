@@ -43,6 +43,7 @@ class CachePolicy(Enum):
   cache_by_fake_optimal = 5
   dynamic_cache = 6
   cache_by_random = 7
+  coll_cache = 8
 
   cache_by_presample_1 = 11
   cache_by_presample_2 = 12
@@ -50,11 +51,30 @@ class CachePolicy(Enum):
   cache_by_presample_4 = 14
   cache_by_presample_5 = 15
   cache_by_presample_6 = 16
-  cache_by_presample_max = 17
-  no_cache = 20
+  cache_by_presample_7 = 17
+  cache_by_presample_8 = 18
+  cache_by_presample_9 = 19
+  cache_by_presample_10 = 20
+  cache_by_presample_max = 21
+
+  coll_cache_1 = 31
+  coll_cache_2 = 32
+  coll_cache_3 = 33
+  coll_cache_4 = 34
+  coll_cache_5 = 35
+  coll_cache_6 = 36
+  coll_cache_7 = 37
+  coll_cache_8 = 38
+  coll_cache_9 = 39
+  coll_cache_10 = 40
+  coll_cache_max = 41
+
+  no_cache = 50
   def get_samgraph_policy_param_name(self):
     if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
       return "pre_sample"
+    if self.value in range(CachePolicy.coll_cache_1.value, CachePolicy.coll_cache_max.value):
+      return "coll_cache"
     name_list = [
       'degree',
       'heuristic',
@@ -64,15 +84,20 @@ class CachePolicy(Enum):
       'fake_optimal',
       'dynamic_cache',
       'random',
+      'coll_cache',
     ]
     return name_list[self.value]
   def get_presample_epoch(self):
     if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
       return self.value - CachePolicy.cache_by_presample_1.value + 1
+    if self.value in range(CachePolicy.coll_cache_1.value, CachePolicy.coll_cache_max.value):
+      return self.value - CachePolicy.coll_cache_1.value + 1
     return 1
   def get_log_fname(self):
     if self is CachePolicy.cache_by_presample:
       return CachePolicy.cache_by_presample_1.name
+    if self is CachePolicy.coll_cache:
+      return CachePolicy.coll_cache_1.name
     return self.name
 
 class Arch(Enum):

@@ -107,6 +107,7 @@ enum CachePolicy {
   kCacheByFakeOptimal,
   kDynamicCache,
   kCacheByRandom,
+  kCollCache,
 };
 
 enum class UMPolicy {
@@ -246,6 +247,10 @@ struct Dataset {
 
   // Decide nodes' feature store in GPU or CPU
   TensorPtr ranking_nodes;
+  // for coll cache
+  TensorPtr ranking_nodes_list;
+  TensorPtr ranking_nodes_freq_list;
+  TensorPtr nid_to_block, block_placement;
 
   // Node feature and label
   size_t num_class;

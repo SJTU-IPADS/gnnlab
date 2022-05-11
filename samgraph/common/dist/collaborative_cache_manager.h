@@ -121,6 +121,12 @@ class CollCacheManager {
                   void* cpu_src_data, DataType dtype, size_t dim,
                   size_t num_total_nodes,
                   StreamHandle stream = nullptr);
+  static CollCacheManager BuildCollCache(
+      TensorPtr node_to_block, TensorPtr block_placement, size_t num_device,
+      Context trainer_ctx, 
+      void* cpu_src_data, DataType dtype, size_t dim,
+      int local_location_id,
+      double cache_percentage, StreamHandle stream = nullptr);
 
   static void CheckCudaEqual(const void* a, const void* b, const size_t nbytes, StreamHandle stream = nullptr);
 };
