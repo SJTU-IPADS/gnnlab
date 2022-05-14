@@ -63,6 +63,16 @@ policy_str_short = {
   # 17: "presample_max",
   # 20: "no_cache",
 }
+dataset_str_short = {
+  'papers100M':'PA',
+  'papers100M-undir':'PA_U',
+  'mag240m-homo':'MAG2_H',
+  'products':'PR',
+  'uk-2006-05':'UK',
+  'twitter':'TW',
+  'papers100M_300':'PR_3',
+  'papers100M_600':'PR_6'
+}
 
 size_unit_to_coefficient = {
   'GB':1024*1024*1024,
@@ -320,7 +330,7 @@ class BenchInstance:
       self.vals['step_feature_KB'] = '{:.0f}'.format(self.vals['step_feature_KB'])
       self.vals['step_miss_MB']    = '{:.2f}'.format(self.vals['step_miss_MB'])
       self.vals['step_feature_MB'] = '{:.2f}'.format(self.vals['step_feature_MB'])
-    self.vals['dataset_short'] = {'papers100M':'PA', 'products':'PR', 'uk-2006-05':'UK', 'twitter':'TW', 'papers100M_300':'PR_3', 'papers100M_600':'PR_6'}[self.vals['dataset']]
+    self.vals['dataset_short'] = dataset_str_short[self.vals['dataset']]
     for key in ['init:presample','init:load_dataset:mmap','init:load_dataset:copy','init:dist_queue','init:internal','init:cache','init:other','init:copy']:
       self.vals[key] = '{:.2f}'.format(self.vals[key])
 

@@ -51,6 +51,7 @@ const std::string GraphLoader::kTrainSet64File = "train_set64.bin";
 const std::string GraphLoader::kTestSet64File = "test_set64.bin";
 const std::string GraphLoader::kValidSet64File = "valid_set64.bin";
 
+const std::string GraphLoader::kMetaFeatDataType = "FEAT_DATA_TYPE";
 const std::string GraphLoader::kMetaNumNode = "NUM_NODE";
 const std::string GraphLoader::kMetaNumEdge = "NUM_EDGE";
 const std::string GraphLoader::kMetaFeatDim = "FEAT_DIM";
@@ -176,7 +177,12 @@ GraphPtr GraphLoader::GetGraphDataset(std::string graph, bool is64type) {
       break;
     }
 
-    meta[kv[0]] = std::stoull(kv[1]);
+    if (kv[0] == kMetaFeatDataType) {
+      // toolkit does not use feature type for now?
+      continue;
+    } else {
+      meta[kv[0]] = std::stoull(kv[1]);
+    }
   }
 
   Check(meta.count(kMetaNumNode) > 0, kMetaNumNode + " not exist");

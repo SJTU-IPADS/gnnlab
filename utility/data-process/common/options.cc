@@ -36,6 +36,8 @@ void Options::InitOptions(std::string app_name) {
           "reddit",
           "products",
           "papers100M",
+          "papers100M-undir",
+          "mag240m-homo",
           "com-friendster",
           "uk-2006-05",
           "twitter",
