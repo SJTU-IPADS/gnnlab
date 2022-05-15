@@ -10,3 +10,5 @@ add_executable(simulate simulate.cu utility.cu)
 
 add_executable(simple-test simple-test.cu utility.cu)
 
+add_executable(latency latency.cu utility.cu)
+

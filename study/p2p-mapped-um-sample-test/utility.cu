@@ -11,7 +11,7 @@ __global__ void delay(volatile int* flag) {
     }
 } 
 
-__global__ void read(int* __restrict__ arr, int len, int* __restrict__ result, int result_len) {
+__global__ void read(int* __restrict__ arr, int len, int* result, int result_len) {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t grid_size = blockDim.x * gridDim.x;
     size_t rid = idx % result_len;
@@ -21,7 +21,7 @@ __global__ void read(int* __restrict__ arr, int len, int* __restrict__ result, i
     }
 }
 
-__global__ void random_rand(int* __restrict__ arr, int len, int* __restrict__ result, int result_len, int seed) {
+__global__ void random_rand(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t grid_size = blockDim.x * gridDim.x;
     size_t rid = idx % result_len;
@@ -34,7 +34,7 @@ __global__ void random_rand(int* __restrict__ arr, int len, int* __restrict__ re
     }
 }
 
-__global__ void random_read_overhead(int* __restrict__ arr, int len, int* __restrict__ result, int result_len, int seed) {
+__global__ void random_read_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     size_t grid_size = blockDim.x * gridDim.x;
     size_t rid = idx % result_len;
@@ -94,6 +94,32 @@ tuple<double, double, double> sum_avg_std(const vector<size_t> &vec) {
     var -= avg * avg;
     assert(var >= 0);
     return {sum, avg, sqrt(var)};
+}
+
+ostream& operator<<(ostream& os, const MemoryType &memory_type) {
+    switch (memory_type)
+    {
+    case MemoryType::CPU:
+        os << "CPU";
+        return os;    
+    case MemoryType::HostAllocMapped:
+        os << "HostAllocMapped";
+        return os;
+    case MemoryType::Local:
+        os << "Local";
+        return os;
+    case MemoryType::P2P:
+        os << "P2P";
+        return os;
+    case MemoryType::UM_CUDA_CPU:
+        os << "UM_CUDA_CPU";
+        return os;
+    case MemoryType::UM_CUDA_CUDA:
+        os << "UM_CUDA_CUDA";
+        return os;
+    default:
+        assert(false);
+    }
 }
 
 string Dataset::root_path = "/graph-learning/samgraph/";

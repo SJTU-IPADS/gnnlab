@@ -243,7 +243,7 @@ public:
             float kernel_ms = measure_kernel(env[i].get(), start[i], end[i], perform_read);
             if (overhead != nullptr) {
                 float overhead_ms = measure_kernel(env[i].get(), start_oh[i], end_oh[i], overhead);
-                // cout << "\n" << env[i]->name << " overhead_ms " << overhead_ms << " kernel_ms " << kernel_ms << "\n";
+                cout << "\n" << env[i]->name << " overhead_ms " << overhead_ms << " kernel_ms " << kernel_ms << "\n";
                 kernel_ms -= overhead_ms;
             }
             env[i]->Clear(kernel_ms);

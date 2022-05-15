@@ -31,11 +31,14 @@ tuple<double, double, double> sum_avg_std(const vector<size_t> &vec);
 
 enum class MemoryType {
     CPU,
+    Local,
     P2P,
     HostAllocMapped,
     UM_CUDA_CUDA,
     UM_CUDA_CPU
 };
+
+ostream& operator<<(ostream& os, const MemoryType &memory_type);
 
 class Dataset {
 public:
