@@ -138,6 +138,7 @@ def run():
     model.train()
 
     epoch_sample_times = [0 for i in range(num_epoch)]
+    epoch_sample_coo_times = [0 for i in range(num_epoch)]
     epoch_copy_times = [0 for i in range(num_epoch)]
     epoch_convert_times = [0 for i in range(num_epoch)]
     epoch_train_times = [0 for i in range(num_epoch)]
@@ -158,7 +159,7 @@ def run():
     # convert_times = [0 for i in range(num_epoch * num_step)]
     # train_times   = [0 for i in range(num_epoch * num_step)]
     # total_times   = [0 for i in range(num_epoch * num_step)]
-    # num_nodes     = [0 for i in range(num_epoch * num_step)]
+    num_nodes     = [0 for i in range(num_epoch * num_step)]
     num_samples = [0 for i in range(num_epoch * num_step)]
     sample_kernel_times = [0 for i in range(num_epoch * num_step)]
     sample_compact_edge_times = [0 for i in range(num_epoch * num_step)]
@@ -212,13 +213,14 @@ def run():
             remap_time = sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime)
             # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
             sample_kernel_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime)
+            print(f"_debug sample_kernel_time ({epoch}:{step})", sample_kernel_time)
             sample_compact_edge_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCompactEdgesTime) + \
                 sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCountEdgeTime)
             convert_time = t2 - t1
             train_time = t3 - t2
             total_time = t3 - t0
 
-            # num_node = sam.get_log_step_value(epoch, step, sam.kLogL1NumNode)
+            num_node = sam.get_log_step_value(epoch, step, sam.kLogL1NumNode)
             # num_sample = sam.get_log_step_value(epoch, step, sam.kLogL1NumSample)
 
             sam.log_step(epoch, step, sam.kLogL1TrainTime,   train_time)
@@ -239,7 +241,7 @@ def run():
             sample_compact_edge_times[cur_step_key] = sample_compact_edge_time
 
             # num_samples.append(num_sample)
-            # num_nodes     [cur_step_key] = num_node
+            num_nodes     [cur_step_key] = num_node
             num_samples[cur_step_key] = num_sample
 
             # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
@@ -271,6 +273,7 @@ def run():
         epoch_total_times_python.append(toc - tic)
         epoch_sample_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochSampleTime)
+        epoch_sample_coo_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochSampleCooTime)
         epoch_copy_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochCopyTime)
         epoch_convert_times[epoch] = sam.get_log_epoch_value(
@@ -292,6 +295,7 @@ def run():
     test_result = []
     test_result.append(
         ('epoch_time:sample_time', np.mean(epoch_sample_times[1:])))
+    test_result.append(('epoch_time:sample_coo_time', np.mean(epoch_sample_coo_times[1:])))
     test_result.append(('epoch_time:copy_time',
                     np.mean(epoch_copy_times[1:])))
     test_result.append(('convert_time', np.mean(epoch_convert_times[1:])))
@@ -308,6 +312,7 @@ def run():
     test_result.append(('batch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])/num_step))
     test_result.append(('batch_copy_time', np.mean(epoch_copy_times[1:])/num_step))
     test_result.append(('um_sample_hit_rate', np.mean(epoch_um_hit_rate[1:])))
+    test_result.append(('num_nodes', np.mean(num_nodes[num_step:])))
     test_result.append(('step_time:sample_time', np.mean(sample_times[num_step:])))
     test_result.append(('step_time:core_sample_time', np.mean(core_sample_times[num_step:])))
     test_result.append(('step_time:fill_sample_input_time', np.mean(fill_sample_input_times[num_step:])))
@@ -316,6 +321,8 @@ def run():
     test_result.append(('step_time:sample_compact_edge_time', np.mean(sample_compact_edge_times[num_step:])))
     for k, v in test_result:
         print('test_result:{:}={:.4f}'.format(k, v))
+
+    print(sample_kernel_times)
 
     sam.report_init()
 

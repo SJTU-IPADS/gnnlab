@@ -34,7 +34,7 @@ cases = TestCase(
     percentage=['0', '0.25', '0.50', '0.75', '1'],
     policy=[
         'default', 
-        'presample',
+        # 'presample',
     ],
     ctx=[
         'cuda:1 cpu', 
@@ -53,8 +53,8 @@ def test_env(case:dict):
 if __name__ == '__main__':
     for i, case in enumerate(cases):
         env = test_env(case)
-        print(f'TESTING: {100 * i / len(cases)}%')
-        print('\t', case)
+        print(f'TESTING: {100 * i / len(cases)}%', flush=True)
+        print('\t', case, flush=True)
         subprocess.run(args=[
             'bash',
             'example/samgraph/unified_memory/single_sampler_um_multi_gpu.sh',

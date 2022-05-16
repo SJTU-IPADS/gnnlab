@@ -60,6 +60,15 @@ eval $cmd
 
 if [ -f "${log_file}" ]; then
     cat $log_file | grep "test_result:epoch_time:sample_time"
+    cat $log_file | grep "test_result:epoch_time:sample_coo_time"
+    
+    cat $log_file | grep "test_result:step_time:sample_time"
+    cat $log_file | grep "test_result:step_time:core_sample_time"
+    cat $log_file | grep "test_result:step_time:fill_sample_input_time"
+    cat $log_file | grep "test_result:step_time:remap_time"
+    cat $log_file | grep "test_result:step_time:sample_kernel_time"
+    cat $log_file | grep "test_result:step_time:sample_compact_edge_time"
+
     cat $log_file | grep "test_result:um_sample_hit_rate"
 fi
 

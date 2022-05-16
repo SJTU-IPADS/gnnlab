@@ -329,7 +329,9 @@ float Test(Dataset& dataset, InputType input_type ,size_t input_num, size_t fano
 }
 
 int main() {
-    Dataset dataset("papers100M");
+    // Dataset dataset("papers100M");
+    // Dataset dataset("uk-2006-05");
+    Dataset dataset("com-friendster");
     float sample_time;
 
     int local_device = 0;
@@ -341,43 +343,43 @@ int main() {
         //     SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
         // printf("p2p FromFile %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
-            SampleType::VertexParallel, "", 1, true);
-        printf("p2p SequentialTrainset %f\n\n", sample_time);
+        // sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
+        //     SampleType::VertexParallel, "", 1, true);
+        // printf("p2p SequentialTrainset %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::RandomTrainset, 500000, 5, local_device, 
-            SampleType::VertexParallel, "", 2, true);
-        printf("p2p RandomTrainset %f\n\n", sample_time);
+        // sample_time = Test(dataset, InputType::RandomTrainset, 500000, 5, local_device, 
+        //     SampleType::VertexParallel, "", 2, true);
+        // printf("p2p RandomTrainset %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::SequantialVertex, 500000, 5, local_device,
-            SampleType::VertexParallel, "", 1, true);
-        printf("p2p SequantialVertex %f\n\n", sample_time);
+        // sample_time = Test(dataset, InputType::SequantialVertex, 500000, 5, local_device,
+        //     SampleType::VertexParallel, "", 1, true);
+        // printf("p2p SequantialVertex %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::RandomVertex, 500000, 5, local_device,
+        sample_time = Test(dataset, InputType::RandomVertex, 20000, 5, local_device,
             SampleType::VertexParallel, "", 2, true );
         printf("p2p RandomVertex %f\n\n", sample_time);
     }
 
-    dataset.hostAllocMapped(local_device);
-    {
-        // sample_time = Test(dataset, InputType::FromFile,0, 5, 0, 
-        //     SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
-        // printf("mapped FromFile %f\n\n", sample_time);
+    // dataset.hostAllocMapped(local_device);
+    // {
+    //     // sample_time = Test(dataset, InputType::FromFile,0, 5, 0, 
+    //     //     SampleType::VertexParallel, "/disk1/wjl/samgraph/input-fanout-5.bin", 1, true);
+    //     // printf("mapped FromFile %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
-            SampleType::VertexParallel, "", 1, true);
-        printf("mapped SequentialTrainset %f\n\n", sample_time);
+    //     sample_time = Test(dataset, InputType::SequentialTrainset, 500000, 5, local_device,
+    //         SampleType::VertexParallel, "", 1, true);
+    //     printf("mapped SequentialTrainset %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::RandomTrainset, 500000, 5, local_device, 
-            SampleType::VertexParallel, "", 2, true);
-        printf("mapped RandomTrainset %f\n\n", sample_time);
+    //     sample_time = Test(dataset, InputType::RandomTrainset, 500000, 5, local_device, 
+    //         SampleType::VertexParallel, "", 2, true);
+    //     printf("mapped RandomTrainset %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::SequantialVertex, 500000, 5, local_device,
-            SampleType::VertexParallel, "", 1, true);
-        printf("mapped SequantialVertex %f\n\n", sample_time);
+    //     sample_time = Test(dataset, InputType::SequantialVertex, 500000, 5, local_device,
+    //         SampleType::VertexParallel, "", 1, true);
+    //     printf("mapped SequantialVertex %f\n\n", sample_time);
 
-        sample_time = Test(dataset, InputType::RandomVertex, 500000, 5, local_device,
-            SampleType::VertexParallel, "", 2, true );
-        printf("mapped RandomVertex %f\n\n", sample_time);
-    }
+    //     sample_time = Test(dataset, InputType::RandomVertex, 500000, 5, local_device,
+    //         SampleType::VertexParallel, "", 2, true );
+    //     printf("mapped RandomVertex %f\n\n", sample_time);
+    // }
 }
