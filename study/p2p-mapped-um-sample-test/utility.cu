@@ -47,11 +47,6 @@ __global__ void random_read_overhead(int* __restrict__ arr, int len, int* result
     }
 }
 
-__global__ void random_off_sequentail_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
-    
-}
-
-
 void perform_random_read_int32(
     int grid_size, int block_size, cudaStream_t stream,
     int* arr, int len, int* result, int result_len

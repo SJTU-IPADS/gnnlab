@@ -200,7 +200,6 @@ public:
         env.push_back(make_unique<UM_CUDA_CPU>(local_device, elem_num));
     }
     void Run() {
-        cout << __LINE__ << "\n";
         volatile int* start_flag;
         cudaHostAlloc(&start_flag, sizeof(int), cudaHostAllocPortable);
         vector<cudaEvent_t> start(env.size()), end(env.size());
@@ -283,23 +282,27 @@ public:
         : SMReadTest<elem_num, perform_sequential_read>(local_device, remote_device, repeat) {}
     virtual void Statistic() override {
         cout << "Sequential Thpt Test Result:\n";
-        cout << "----------------------\n";
+        cout << "----------------------------\n";
         cout.setf(ios::left, ios::adjustfield);
         size_t fwid1 = string{"MemoryType"}.size();
         for(auto &e : this->env) {
             fwid1 = std::max(fwid1, e->name.size());
         }
         size_t fwid2 = string{"Throughput(GB/s)"}.size();
+        size_t fwid3 = string{"Time(ms)"}.size();
         fwid1 += 4;
         fwid2 += 4;
+        fwid3 += 4;
         cout.width(fwid1); cout << "MemoryType" << "|  ";
-        cout.width(fwid2); cout << "Throughput(GB/s)" << "\n";
+        cout.width(fwid2); cout << "Throughput(GB/s)" << "| ";
+        cout.width(fwid3); cout << "Time(ms)" << "\n";
         for(auto &e : this->env) {
             auto time = e->Time();
             auto bandwidth = 1.0 * e->ReadSize() / 1024 / 1024 / 1024 / time * 1000; // gb/s
             bandwidth *= this->repeat;
             cout.width(fwid1); cout << e->name << "|  ";
-            cout.width(fwid2); cout << bandwidth << "\n";
+            cout.width(fwid2); cout << bandwidth << "| ";
+            cout.widen(fwid3); cout << time / this->repeat << "\n";
         }
         cout << "\n";
     }
@@ -319,10 +322,13 @@ public:
             fwid1 = std::max(fwid1, e->name.size());
         }
         size_t fwid2 = string{"Latency(us)"}.size();
+        size_t fwid3 = string{"Time(ms)"}.size();
         fwid1 += 4;
         fwid2 += 4;
+        fwid3 += 4;
         cout.width(fwid1); cout << "MemoryType" << "|  ";
-        cout.width(fwid2); cout << "Latency(us)" << "\n";
+        cout.width(fwid2); cout << "Latency(us)" << "| ";
+        cout.width(fwid3); cout << "Time(ms)" << "\n";
         for(auto &e : this->env) {
             auto time = e->Time();
             auto latency = time * 1e3; // us
@@ -330,7 +336,9 @@ public:
             cout.width(fwid1);
             cout << e->name << "|  ";
             cout.width(fwid2);
-            cout << latency << "\n";
+            cout << latency << "| ";
+            cout.width(fwid3);
+            cout << time / this->repeat << "\n";
             // cout << "\t" << e->name << "\t|"
             //      << "\t" << latency << "\t\n";
         }
@@ -347,21 +355,24 @@ public:
         cout << "Random Thpt Test Result:\n";
         cout << "----------------------------\n";
         cout.setf(ios::left, ios::adjustfield);
-        string l = "MemoryType", r = "Throughput(GB/s)";
+        string l = "MemoryType", r = "Throughput(GB/s)", t = "Time(ms)";
         size_t fw1 = l.size();
         size_t fw2 = r.size();
+        size_t fw3 = t.size();
         for(auto &e : this->env) {
             fw1 = std::max(fw1, e->name.size());
         }
-        fw1 += 4, fw2 += 4;
+        fw1 += 4, fw2 += 4, fw3 += 4;
         cout.width(fw1); cout << l << "| ";
-        cout.widen(fw2); cout << r << "\n";
+        cout.width(fw2); cout << r << "| ";
+        cout.width(fw3); cout << t << "\n";
         for(auto &e : this->env) {
             auto time = e->Time();
             auto bandwidth = 1.0 * e->ReadSize() / 1024 / 1024 / 1024 / time * 1000; // gb/s
             bandwidth *= this->repeat;
             cout.width(fw1); cout << e->name << "|  ";
-            cout.width(fw2); cout << bandwidth << "\n";
+            cout.width(fw2); cout << bandwidth << "| ";
+            cout.width(fw3); cout << time / this->repeat << "\n";
         }
         cout << "\n";
     }
@@ -370,10 +381,11 @@ public:
 template<auto perform_kerenl, size_t elem_num = (1ULL << 28), decltype(perform_kerenl) overhead = nullptr> 
 class KernelTimeTest : public SMReadTest<elem_num, perform_kerenl, overhead> {
 public:
-    KernelTimeTest(int local_device, int remote_device, int repeat = 5) 
-        : SMReadTest<elem_num, perform_kerenl, overhead>(local_device, remote_device, repeat) {}
+    KernelTimeTest(string test_name, int local_device, int remote_device, int repeat = 5) 
+        : test_name(test_name), SMReadTest<elem_num, perform_kerenl, overhead>(local_device, remote_device, repeat) {}
     virtual void Statistic() override {
-        std::string title = std::string(test_name(perform_kerenl)) + " Time Test:\n";
+        std::string title = test_name + " Time Test:";
+        cout << title << "\n";
         cout << string(title.size(), '-') << "\n";
         cout.setf(ios::left, ios::adjustfield);
         string l = "MemoryType", r = "Time(ms)";
@@ -393,14 +405,49 @@ public:
         }
         cout << "\n";
     }
+    string test_name;
 };
 
-template<size_t page_size>
-using RoffRlookbehindTime = KernelTimeTest<perform_random_off_random_lookbehind<page_size>>;
+
+template<size_t lkbehind>
+using RoffSlookbehindTime = KernelTimeTest<perform_random_off_sequentail_lookbehind<lkbehind>>;
+
+template<size_t page_size, size_t lkbehind>
+using RoffRlookbehindTime = KernelTimeTest<perform_random_off_random_lookbehind<page_size, lkbehind>>;
+
+template<size_t page_size, size_t lkbehind>
+using RoffDlookbehindTime = KernelTimeTest<perform_random_off_divergence_lookbehind<page_size, lkbehind>>;
+
+std::string sz2str(size_t sz) {
+    stringstream ss;
+    if (sz < 1024ULL) {
+        return std::to_string(sz);
+    } else if (sz < 1024ULL * 1024ULL) {
+        ss << std::fixed << std::setprecision(1) << 1.0 * sz / 1024 << "K";
+        return ss.str();
+    } else if (sz < 1024ULL * 1024ULL * 1024ULL) {
+        ss << std::fixed << std::setprecision(1) << 1.0 * sz / 1024 / 1024 << "M";
+        return ss.str();
+    } else {
+        ss << std::fixed << std::setprecision(1) << 1.0 * sz / 1024 / 1024 / 1024 << "G";
+        return ss.str();
+    }
+}
+
+template<size_t N>
+struct iter { static constexpr auto value = N; };
+
+template<typename Fn, size_t... Is>
+void static_for(Fn fn, std::index_sequence<Is...>) {
+    (fn(iter<Is>{}), ...);
+}
+
+template<size_t N, typename Fn>
+void static_for(Fn fn) {
+    static_for(fn, std::make_index_sequence<N>());
+}
 
 int main() {
-    cout << __LINE__ << "\n";
-
     BandWitdhTest bandwidth_test(0, 1, 1);
     bandwidth_test.Run();
     bandwidth_test.Statistic();
@@ -413,11 +460,44 @@ int main() {
     random_bandwidth_test.Run();
     random_bandwidth_test.Statistic();
 
-    RoffRlookbehindTime<4096> random_off_random_lookbehind_test(0, 1, 1);
-    random_off_random_lookbehind_test.Run();
-    random_off_random_lookbehind_test.Statistic();
-
-    // RandomDivergenceTime random_divergence_time_test(0, 1, 1);
-    // random_divergence_time_test.Run();
-    // random_divergence_time_test.Statistic();
+    {
+        constexpr std::array<size_t, 3> vec = {{
+            1, 8, 32
+        }};
+        static_for<vec.size()>([&](auto i) {
+            constexpr size_t lkbehind = vec[i.value];
+            RoffSlookbehindTime<lkbehind> random_off_sequential_lookbehind_test(
+                "random_off_sequential_lookbehind<"+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_sequential_lookbehind_test.Run();
+            random_off_sequential_lookbehind_test.Statistic();
+        });
+    }
+    {
+        constexpr std::array<std::pair<size_t, size_t>, 3> vec = {{
+            {128, 32}, {1024, 32}, {1024 * 1024 * 2, 32}
+        }};
+        static_for<vec.size()>([&](auto i) {
+            // cout << vec[i.value].first << " " << vec[i.value].second << "\n";
+            // constexpr auto [page_sz, lkbehind] = vec[i.value];
+            constexpr size_t page_sz = vec[i.value].first;
+            constexpr size_t lkbehind = vec[i.value].second;
+            RoffRlookbehindTime<page_sz, lkbehind> random_off_random_lookbehind_test(
+                "random_off_random_lookbehind<"+sz2str(page_sz)+", "+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_random_lookbehind_test.Run();
+            random_off_random_lookbehind_test.Statistic();
+        });
+    }
+    {
+        constexpr std::array<std::pair<size_t, size_t>, 3> vec = {{
+            {128, 32}, {1024, 32}, {1024 * 1024 * 2, 32}
+        }};
+        static_for<vec.size()>([&](auto i) {
+            constexpr size_t page_sz = vec[i.value].first;
+            constexpr size_t lkbehind = vec[i.value].second;
+            RoffDlookbehindTime<page_sz, lkbehind> random_off_divergence_lookbehind_test(
+                "random_off_divergence_lookbehind<"+sz2str(page_sz)+", "+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_divergence_lookbehind_test.Run();
+            random_off_divergence_lookbehind_test.Statistic();
+        });
+    }
 }

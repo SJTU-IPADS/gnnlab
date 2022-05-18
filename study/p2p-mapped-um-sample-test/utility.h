@@ -18,20 +18,50 @@ using namespace std;
     }                                           \
  }
 
- #define test_name(kernel) #kernel
-
 __global__ void delay(volatile int* flag);
 __global__ void read(int* arr, int len, int* result, int result_len);
 __global__ void random_rand(int* __restrict__ arr, int len, int* result, int result_len, int seed);
 __global__ void random_read_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed);
-__global__ void random_off_sequentail_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed);
 
-template<size_t _page_size>
+template<size_t lkbehind>
+__global__ void random_off_sequentail_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    // constexpr size_t warp_size = 32;
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // size_t wtid = idx % warp_size;
+    size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
+    curandState state;
+    curand_init(seed + idx, 0, 0, &state);
+#pragma unroll(5)
+    for (size_t i = 0; i < len; i += grid_size) {
+        size_t off = curand(&state) % len;
+        size_t lk = curand(&state) % (lkbehind + 1);
+        // size_t lk = lkbehind;
+        for (size_t j = 0; j < lk; j++) {
+            result[(rid + j) % result_len] += arr[(off + j) % len];
+        }
+    }
+//     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+//     size_t grid_size = blockDim.x * gridDim.x;
+//     size_t rid = idx % result_len;
+//     curandState state;
+//     curand_init(seed + idx, 0, 0, &state);
+// #pragma unroll(5)
+//     for(size_t i = 0; i < len; i += grid_size) {
+//         int x = curand(&state) % len;
+//         for (size_t j = 0; j < lkbehind; j++) {
+//             result[(rid + j) % result_len] += arr[(x + j) % len];
+//         }
+//     }
+}
+
+
+template<size_t _page_size, size_t lkbehind>
 __global__ void random_off_random_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
     constexpr int warp_size = 32;
     constexpr size_t page_size = _page_size / sizeof(int);
     size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    size_t wtid = idx % warp_size;
+    // size_t wtid = idx % warp_size;
     size_t grid_size = blockDim.x * gridDim.x;
     size_t rid = idx % result_len;
     curandState t_state;
@@ -39,11 +69,13 @@ __global__ void random_off_random_lookbehind(int* __restrict__ arr, int len, int
 #pragma unroll(5)
     for (size_t i = 0; i < len; i += grid_size) {
         size_t off = curand(&t_state) % len;
-        size_t rand = curand(&t_state) % warp_size;
-        for (size_t j = 0; j < wtid; j++) {
+        size_t lk = curand(&t_state) % (lkbehind + 1);
+        // size_t lk = lkbehind;
+        for (size_t j = 0; j < lk; j++) {
             result[(rid + j) % result_len] += arr[(off + (curand(&t_state) % page_size)) % len];
         }
 
+        // size_t rand = curand(&t_state) % warp_size;
         // if (wtid < rand) {
         //     for (size_t j = 0; j < rand; j++) {
         //         result[(rid + j) % result_len] += arr[(off + j) % len];
@@ -59,6 +91,33 @@ __global__ void random_off_random_lookbehind(int* __restrict__ arr, int len, int
     }
 }
 
+template<size_t _page_size, size_t lkbehind>
+__global__ void random_off_divergence_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    constexpr int warp_size = 32;
+    constexpr size_t page_size = _page_size / sizeof(int);
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t wtid = idx % warp_size;
+    size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
+    curandState state;
+    curand_init(seed + idx, 0, 0, &state);
+#pragma unroll(5)
+    for (size_t i = 0; i < len; i += grid_size) {
+        size_t off = curand(&state) % len;
+        size_t lk = curand(&state) % (lkbehind + 1);
+        // size_t lk = lkbehind;
+        size_t rand = curand(&state) % warp_size;
+        if (wtid < rand) {
+            for (size_t j = 0; j < lk; j++) {
+                result[(rid + j) % result_len] += arr[(off + j) % len];
+            }
+        } else {
+            for (size_t j = 0; j < lk; j++) {
+                result[(rid + j) % result_len] += arr[(off + (curand(&state) % page_size)) % len];
+            }
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------------
 
@@ -89,10 +148,12 @@ constexpr auto perform_random_read = \
     perform_kernel_with_seed<random_rand>;
 constexpr auto perform_random_read_overhead = \
     perform_kernel_with_seed<random_read_overhead>;
-template<size_t page_size> constexpr auto perform_random_off_random_lookbehind = \
-    perform_kernel_with_seed<random_off_random_lookbehind<page_size>>;
-constexpr auto perform_random_off_sequentail_lookbehind = \
-    perform_kernel_with_seed<random_off_sequentail_lookbehind>;
+template<size_t page_size, size_t lkbehind> constexpr auto perform_random_off_random_lookbehind = \
+    perform_kernel_with_seed<random_off_random_lookbehind<page_size, lkbehind>>;
+template<size_t lkbehind> constexpr auto perform_random_off_sequentail_lookbehind = \
+    perform_kernel_with_seed<random_off_sequentail_lookbehind<lkbehind>>;
+template<size_t page_size, size_t lkbehind> constexpr auto perform_random_off_divergence_lookbehind = \
+    perform_kernel_with_seed<random_off_divergence_lookbehind<page_size, lkbehind>>;
 
 tuple<double, double, double> sum_avg_std(const vector<size_t> &vec);
 
