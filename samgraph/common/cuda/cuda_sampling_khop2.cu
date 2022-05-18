@@ -302,6 +302,7 @@ void GPUSampleKHop2(const IdType *indptr, IdType *indices,
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
 #ifndef DGL_PARALLEL_KHOP2
+  Timer _kt;
   sample_khop2<Constant::kCudaBlockSize, Constant::kCudaTileSize>
       <<<grid, block, 0, cu_stream>>>(
           indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
@@ -313,11 +314,15 @@ void GPUSampleKHop2(const IdType *indptr, IdType *indices,
   const int TILE_SIZE = BLOCK_WARP * 16;
   const dim3 block_t(WARP_SIZE, BLOCK_WARP);
   const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
+  Timer _kt;
   sample_khop2<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
           indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
           random_states->GetStates(), random_states->NumStates());
 #endif
   sampler_device->StreamSync(ctx, stream);
+  double kernel_time = _kt.Passed();
+  LOG(DEBUG) << "sample_khop0 input=" << num_input 
+             << " fanout=" << fanout << " " << kernel_time << "s";
   double sample_time = t0.Passed();
 
   Timer t1;
@@ -358,7 +363,11 @@ void GPUSampleKHop2(const IdType *indptr, IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
+  LOG(DEBUG) << "_debug sample time (key " << task_key << ") " << sample_time;
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCooTime, sample_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleKernelTime, kernel_time);
+  Profiler::Get().LogEpochAdd(task_key, kLogEpochSampleCooTime, sample_time);
+  Profiler::Get().LogEpochAdd(task_key, kLogEpochSampleKernelTime, kernel_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCountEdgeTime,
                              count_edge_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCompactEdgesTime,

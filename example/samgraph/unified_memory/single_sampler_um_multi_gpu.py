@@ -31,7 +31,13 @@ cases = TestCase(
         'uk-2006-05',
         'com-friendster',
     ], 
-    percentage=['0', '0.25', '0.50', '0.75', '1'],
+    percentage=[
+        '0', 
+        # '0.25', 
+        '0.50', 
+        # '0.75', 
+        '1'
+    ],
     policy=[
         'default', 
         # 'presample',

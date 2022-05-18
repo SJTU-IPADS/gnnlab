@@ -5,7 +5,7 @@ log_path=./run_logs/single-sampler-um-multi-gpu/
 # dataset=reddit
 dataset=uk-2006-05
 
-sample_type=khop0
+sample_type=khop2
 sampler=gpu
 um=1
 um_policy=default
@@ -61,15 +61,21 @@ eval $cmd
 if [ -f "${log_file}" ]; then
     cat $log_file | grep "test_result:epoch_time:sample_time"
     cat $log_file | grep "test_result:epoch_time:sample_coo_time"
+    cat $log_file | grep "test_result:epoch_time:sample_kernel_time"
     
     cat $log_file | grep "test_result:step_time:sample_time"
     cat $log_file | grep "test_result:step_time:core_sample_time"
     cat $log_file | grep "test_result:step_time:fill_sample_input_time"
     cat $log_file | grep "test_result:step_time:remap_time"
+    cat $log_file | grep "test_result:step_time:sample_coo_time"
     cat $log_file | grep "test_result:step_time:sample_kernel_time"
     cat $log_file | grep "test_result:step_time:sample_compact_edge_time"
 
     cat $log_file | grep "test_result:um_sample_hit_rate"
+    cat $log_file | grep "test_result:num_nodes"
+    cat $log_file | grep "test_result:num_samples"
+    cat $log_file | grep "test_result:sample_thpts(node/sec)"
+    cat $log_file | grep "test_result:sample_thpts(gb/sec)"
 fi
 
     
