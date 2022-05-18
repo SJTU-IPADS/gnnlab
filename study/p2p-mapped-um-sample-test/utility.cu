@@ -47,12 +47,10 @@ __global__ void random_read_overhead(int* __restrict__ arr, int len, int* result
     }
 }
 
-void perform_sequential_read(
-    int grid_size, int block_size, cudaStream_t stream, 
-    int* arr, int len, int* result, int result_len
-) {
-    read<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len);
+__global__ void random_off_sequentail_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    
 }
+
 
 void perform_random_read_int32(
     int grid_size, int block_size, cudaStream_t stream,
@@ -64,23 +62,6 @@ void perform_random_read_int32(
     read<<<1, 1, 0, stream>>>(arr + dist(gen), 1, result, result_len);
 }
 
-void perform_random_read(
-    int grid_size, int block_size, cudaStream_t stream,
-    int* arr, int len, int* result, int result_len
-) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    random_rand<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len, gen());
-}
-
-void perform_random_read_overhead(
-    int grid_size, int block_size, cudaStream_t stream,
-    int* arr, int len, int* result, int result_len
-) {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    random_read_overhead<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len, gen());
-}
 
 tuple<double, double, double> sum_avg_std(const vector<size_t> &vec) {
     double sum = 0;

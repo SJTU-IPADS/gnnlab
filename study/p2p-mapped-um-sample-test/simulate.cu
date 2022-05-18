@@ -14,7 +14,8 @@ using namespace std;
 
 enum class SampleType {
     VertexParallel,
-    SampleParallel
+    SampleParallel,
+    KHop2,
 };
 
 namespace std_sample {
@@ -141,7 +142,62 @@ __global__ void sample_parallel_khop0(
     }
 }
 
+template <size_t TILE_SIZE>
+__global__ void sample_khop2(const IdType *indptr, IdType *indices,
+                             const IdType *input, const size_t num_input,
+                             const size_t fanout, IdType *tmp_src,
+                             IdType *tmp_dst
+                            //  , curandState *random_states,
+                            //  size_t num_random_states
+                             ) {
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+//   assert(i < num_random_states);
+//   curandState local_state = random_states[i];
+  curandState local_state;
+  curand_init(i, 0, 0, &local_state);
+
+  for (size_t index = threadIdx.x + block_start; index < block_end;
+       index += blockDim.x) {
+    if (index < num_input) {
+      const IdType rid = input[index];
+      const IdType off = indptr[rid];
+      const IdType len = indptr[rid + 1] - indptr[rid];
+
+      if (len <= fanout) {
+        size_t j = 0;
+        for (; j < len; ++j) {
+          tmp_src[index * fanout + j] = rid;
+          tmp_dst[index * fanout + j] = indices[off + j];
+        }
+
+        for (; j < fanout; ++j) {
+          tmp_src[index * fanout + j] = -1;
+          tmp_dst[index * fanout + j] = -1;
+        }
+      } else {
+        for (size_t j = 0; j < fanout; ++j) {
+          // now we have $len - j$ cancidate
+          size_t selected_j = curand(&local_state) % (len - j);
+          IdType selected_node_id = indices[off + selected_j];
+          tmp_src[index * fanout + j] = rid;
+          tmp_dst[index * fanout + j] = selected_node_id;
+          // swap indices[off+len-j-1] with indices[off+ selected_j];
+          indices[off + selected_j] = indices[off+len-j-1];
+          indices[off+len-j-1] = selected_node_id;
+        }
+      }
+    }
+  }
+
+//   random_states[i] = local_state;
 }
+
+}
+
+
 
 enum class InputType {
     RandomTrainset,
@@ -303,6 +359,17 @@ float Test(Dataset& dataset, InputType input_type ,size_t input_num, size_t fano
         } else if (sample_type == SampleType::SampleParallel) {
             std_sample::sample_parallel_khop0<TILE_SIZE><<<grid_t, block_t, 0, stream>>>(
                 dataset.indptr, dataset.indices, input, input_num, fanout, out_src, out_dst);
+        } else if (sample_type == SampleType::KHop2) {
+            // const size_t num_tiles = RoundUpDiv(input_num, Constant::kCudaTileSize);
+            const size_t kCudaTileSize = 1024;
+            const size_t kCudaBlockSize = 256;
+            const size_t num_tiles = (input_num + kCudaTileSize - 1) / kCudaTileSize;
+            const dim3 grid(num_tiles);
+            const dim3 block(kCudaBlockSize);
+            std_sample::sample_khop2<TILE_SIZE> <<<grid, block, 0, stream>>> (
+                dataset.indptr, dataset.indices, input, input_num, fanout, out_src, out_dst);
+        } else {
+            assert(false);
         }
         CUDA_CALL(cudaEventRecord(end[r], stream));
         

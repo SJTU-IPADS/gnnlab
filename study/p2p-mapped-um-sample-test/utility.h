@@ -1,6 +1,9 @@
 #include <iostream>
 #include <memory>
 #include <vector>
+#include <random>
+#include <curand.h>
+#include <curand_kernel.h>
 using namespace std;
 
 #define CUDA_CALL(func)                         \
@@ -15,17 +18,81 @@ using namespace std;
     }                                           \
  }
 
+ #define test_name(kernel) #kernel
+
 __global__ void delay(volatile int* flag);
 __global__ void read(int* arr, int len, int* result, int result_len);
+__global__ void random_rand(int* __restrict__ arr, int len, int* result, int result_len, int seed);
+__global__ void random_read_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed);
+__global__ void random_off_sequentail_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed);
 
-void perform_sequential_read(int grid_size, int block_size, cudaStream_t stream, 
-    int* arr, int len, int* result, int result_len);
+template<size_t _page_size>
+__global__ void random_off_random_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    constexpr int warp_size = 32;
+    constexpr size_t page_size = _page_size / sizeof(int);
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t wtid = idx % warp_size;
+    size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
+    curandState t_state;
+    curand_init(seed + idx, 0, 0, &t_state);
+#pragma unroll(5)
+    for (size_t i = 0; i < len; i += grid_size) {
+        size_t off = curand(&t_state) % len;
+        size_t rand = curand(&t_state) % warp_size;
+        for (size_t j = 0; j < wtid; j++) {
+            result[(rid + j) % result_len] += arr[(off + (curand(&t_state) % page_size)) % len];
+        }
+
+        // if (wtid < rand) {
+        //     for (size_t j = 0; j < rand; j++) {
+        //         result[(rid + j) % result_len] += arr[(off + j) % len];
+        //     }
+        // } else {
+        //     rand = curand(&t_state) % warp_size;
+        //     for (size_t j = 0; j < wtid; j++) {
+        //         // result[(rid + j) % result_len] += arr[curand(&t_state) % len];
+        //         // result[(rid + j) % result_len] += arr[(rand + j) % len];
+        //         result[(rid + j) % result_len] += arr[(off + (curand(&t_state) % page_size)) % len];
+        //     }
+        // }
+    }
+}
+
+
+// ---------------------------------------------------------------------------------
+
+template<auto kernel>
+void perform_kernel_with_seed(
+    int grid_size, int block_size, cudaStream_t stream,
+    int* arr, int len, int* result, int result_len
+) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    kernel<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len, gen());
+}
+
+template<auto kernel>
+void perform_kernel(
+    int grid_size, int block_size, cudaStream_t stream,
+    int* arr, int len, int* result, int result_len
+) {
+    kernel<<<grid_size, block_size, 0, stream>>>(arr, len, result, result_len);
+}
+
 void perform_random_read_int32(int grid_size, int block_size, cudaStream_t stream, 
     int* arr, int len, int* result, int result_len);
-void perform_random_read(int grid_size, int block_size, cudaStream_t stream,
-    int* arr, int len, int* result, int result_lne);
-void perform_random_read_overhead(int grid_size, int block_size, cudaStream_t stream,
-    int* arr, int len, int* result, int result_lne);
+
+constexpr auto perform_sequential_read = \
+    perform_kernel<read>;
+constexpr auto perform_random_read = \
+    perform_kernel_with_seed<random_rand>;
+constexpr auto perform_random_read_overhead = \
+    perform_kernel_with_seed<random_read_overhead>;
+template<size_t page_size> constexpr auto perform_random_off_random_lookbehind = \
+    perform_kernel_with_seed<random_off_random_lookbehind<page_size>>;
+constexpr auto perform_random_off_sequentail_lookbehind = \
+    perform_kernel_with_seed<random_off_sequentail_lookbehind>;
 
 tuple<double, double, double> sum_avg_std(const vector<size_t> &vec);
 

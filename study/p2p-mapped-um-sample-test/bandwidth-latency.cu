@@ -200,6 +200,7 @@ public:
         env.push_back(make_unique<UM_CUDA_CPU>(local_device, elem_num));
     }
     void Run() {
+        cout << __LINE__ << "\n";
         volatile int* start_flag;
         cudaHostAlloc(&start_flag, sizeof(int), cudaHostAllocPortable);
         vector<cudaEvent_t> start(env.size()), end(env.size());
@@ -243,7 +244,7 @@ public:
             float kernel_ms = measure_kernel(env[i].get(), start[i], end[i], perform_read);
             if (overhead != nullptr) {
                 float overhead_ms = measure_kernel(env[i].get(), start_oh[i], end_oh[i], overhead);
-                cout << "\n" << env[i]->name << " overhead_ms " << overhead_ms << " kernel_ms " << kernel_ms << "\n";
+                // cout << "\n" << env[i]->name << " overhead_ms " << overhead_ms << " kernel_ms " << kernel_ms << "\n";
                 kernel_ms -= overhead_ms;
             }
             env[i]->Clear(kernel_ms);
@@ -366,7 +367,40 @@ public:
     }
 };
 
+template<auto perform_kerenl, size_t elem_num = (1ULL << 28), decltype(perform_kerenl) overhead = nullptr> 
+class KernelTimeTest : public SMReadTest<elem_num, perform_kerenl, overhead> {
+public:
+    KernelTimeTest(int local_device, int remote_device, int repeat = 5) 
+        : SMReadTest<elem_num, perform_kerenl, overhead>(local_device, remote_device, repeat) {}
+    virtual void Statistic() override {
+        std::string title = std::string(test_name(perform_kerenl)) + " Time Test:\n";
+        cout << string(title.size(), '-') << "\n";
+        cout.setf(ios::left, ios::adjustfield);
+        string l = "MemoryType", r = "Time(ms)";
+        size_t fw1 = l.size();
+        size_t fw2 = r.size();
+        for (auto &e : this->env) {
+            fw1 = std::max(fw1, e->name.size());
+        }
+        fw1 += 4, fw2 += 4;
+        cout.width(fw1); cout << l << "| ";
+        cout.width(fw2); cout << r << "\n";
+        for (auto &e: this->env) {
+            auto time = e->Time();
+            time /= this->repeat;
+            cout.width(fw1); cout << e->name << "| ";
+            cout.width(fw2); cout << time << "\n";
+        }
+        cout << "\n";
+    }
+};
+
+template<size_t page_size>
+using RoffRlookbehindTime = KernelTimeTest<perform_random_off_random_lookbehind<page_size>>;
+
 int main() {
+    cout << __LINE__ << "\n";
+
     BandWitdhTest bandwidth_test(0, 1, 1);
     bandwidth_test.Run();
     bandwidth_test.Statistic();
@@ -378,4 +412,12 @@ int main() {
     RandomBandwidth random_bandwidth_test(0, 1, 1);
     random_bandwidth_test.Run();
     random_bandwidth_test.Statistic();
+
+    RoffRlookbehindTime<4096> random_off_random_lookbehind_test(0, 1, 1);
+    random_off_random_lookbehind_test.Run();
+    random_off_random_lookbehind_test.Statistic();
+
+    // RandomDivergenceTime random_divergence_time_test(0, 1, 1);
+    // random_divergence_time_test.Run();
+    // random_divergence_time_test.Statistic();
 }
