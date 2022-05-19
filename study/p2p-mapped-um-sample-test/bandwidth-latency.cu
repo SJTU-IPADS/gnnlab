@@ -409,14 +409,20 @@ public:
 };
 
 
-template<size_t lkbehind>
-using RoffSlookbehindTime = KernelTimeTest<perform_random_off_sequentail_lookbehind<lkbehind>>;
+template<size_t lkbehind> using RoffSlookbehindTime = \
+    KernelTimeTest<perform_random_off_sequentail_lookbehind<lkbehind>>;
+template<size_t page_size, size_t lkbehind> using RoffRlookbehindTime = \
+    KernelTimeTest<perform_random_off_random_lookbehind<page_size, lkbehind>>;
+template<size_t page_size, size_t lkbehind> using RoffDlookbehindTime = \
+    KernelTimeTest<perform_random_off_divergence_lookbehind<page_size, lkbehind>>;
 
-template<size_t page_size, size_t lkbehind>
-using RoffRlookbehindTime = KernelTimeTest<perform_random_off_random_lookbehind<page_size, lkbehind>>;
+template<size_t lkbehind> using RoffSsmlookbehindTime = \
+    KernelTimeTest<perform_random_off_sequentail_same_lookbehind<lkbehind>>;
+template<size_t page_size, size_t lkbehind> using RoffRsmlookbehindTime = \
+    KernelTimeTest<perform_random_off_random_same_lookbehind<page_size, lkbehind>>;
+template<size_t page_size, size_t lkbehind> using RoffDsmlookbehindTime = \
+    KernelTimeTest<perform_random_off_divergence_same_lookbehind<page_size, lkbehind>>;
 
-template<size_t page_size, size_t lkbehind>
-using RoffDlookbehindTime = KernelTimeTest<perform_random_off_divergence_lookbehind<page_size, lkbehind>>;
 
 std::string sz2str(size_t sz) {
     stringstream ss;
@@ -471,6 +477,13 @@ int main() {
             random_off_sequential_lookbehind_test.Run();
             random_off_sequential_lookbehind_test.Statistic();
         });
+        static_for<vec.size()>([&](auto i) {
+            constexpr size_t lkbehind = vec[i.value];
+            RoffSsmlookbehindTime<lkbehind> random_off_sequentail_same_lookbehind_test(
+                "random_off_sequentail_same_lookbehind<"+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_sequentail_same_lookbehind_test.Run();
+            random_off_sequentail_same_lookbehind_test.Statistic();
+        });
     }
     {
         constexpr std::array<std::pair<size_t, size_t>, 3> vec = {{
@@ -486,6 +499,14 @@ int main() {
             random_off_random_lookbehind_test.Run();
             random_off_random_lookbehind_test.Statistic();
         });
+        static_for<vec.size()>([&](auto i) {
+            constexpr size_t page_sz = vec[i.value].first;
+            constexpr size_t lkbehind = vec[i.value].second;
+            RoffRsmlookbehindTime<page_sz, lkbehind> random_off_random_same_lookbehind_test(
+                "random_off_random_same_lookbehind<"+sz2str(page_sz)+", "+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_random_same_lookbehind_test.Run();
+            random_off_random_same_lookbehind_test.Statistic();
+        });
     }
     {
         constexpr std::array<std::pair<size_t, size_t>, 3> vec = {{
@@ -498,6 +519,14 @@ int main() {
                 "random_off_divergence_lookbehind<"+sz2str(page_sz)+", "+to_string(lkbehind)+">", 0, 1, 1);
             random_off_divergence_lookbehind_test.Run();
             random_off_divergence_lookbehind_test.Statistic();
+        });
+        static_for<vec.size()>([&](auto i) {
+            constexpr size_t page_sz = vec[i.value].first;
+            constexpr size_t lkbehind = vec[i.value].second;
+            RoffDsmlookbehindTime<page_sz, lkbehind> random_off_divergence_same_lookbehind_test(
+                "random_off_divergence_same_lookbehind<"+sz2str(page_sz)+", "+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_divergence_same_lookbehind_test.Run();
+            random_off_divergence_same_lookbehind_test.Statistic();
         });
     }
 }
