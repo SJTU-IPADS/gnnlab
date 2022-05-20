@@ -22,6 +22,8 @@ __global__ void delay(volatile int* flag);
 __global__ void read(int* arr, int len, int* result, int result_len);
 __global__ void random_rand(int* __restrict__ arr, int len, int* result, int result_len, int seed);
 __global__ void random_read_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed);
+__global__ void random_read_with_local_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed);
+__global__ void random_read_coalesced(int* __restrict__ arr, int len, int* result, int result_len, int seed);
 
 template<bool same_lkbehind>
 __inline__ __device__ size_t get_lookbehind(uint32_t rand, size_t lkbehind) {
@@ -161,6 +163,10 @@ constexpr auto perform_random_read = \
     perform_kernel_with_seed<random_rand>;
 constexpr auto perform_random_read_overhead = \
     perform_kernel_with_seed<random_read_overhead>;
+constexpr auto perform_random_read_with_local_overhead = \
+    perform_kernel_with_seed<random_read_with_local_overhead>;
+constexpr auto perform_random_read_coalesced = \
+    perform_kernel_with_seed<random_read_coalesced>;
 
 template<size_t lkbehind> constexpr auto perform_random_off_sequentail_lookbehind = \
     perform_kernel_with_seed<random_off_sequentail_lookbehind<lkbehind, false>>;

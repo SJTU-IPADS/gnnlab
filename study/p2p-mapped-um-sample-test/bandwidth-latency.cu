@@ -408,6 +408,10 @@ public:
     string test_name;
 };
 
+// using RandomWithLocaloverheadTime = \
+//     KernelTimeTest<perform_random_read_with_local_overhead>;
+using RandomCoalescedTime = \
+    KernelTimeTest<perform_random_read_coalesced>;
 
 template<size_t lkbehind> using RoffSlookbehindTime = \
     KernelTimeTest<perform_random_off_sequentail_lookbehind<lkbehind>>;
@@ -466,6 +470,14 @@ int main() {
     random_bandwidth_test.Run();
     random_bandwidth_test.Statistic();
 
+    // RandomWithLocaloverheadTime random_with_local_overhead_test("random_with_local_overhead", 0, 1, 1);
+    // random_with_local_overhead_test.Run();
+    // random_with_local_overhead_test.Statistic();
+
+    RandomCoalescedTime random_coalesced_test("random_coalesced", 0, 1, 1);
+    random_coalesced_test.Run();
+    random_coalesced_test.Statistic();
+
     {
         constexpr std::array<size_t, 3> vec = {{
             1, 8, 32
@@ -488,6 +500,7 @@ int main() {
     {
         constexpr std::array<std::pair<size_t, size_t>, 3> vec = {{
             {128, 32}, {1024, 32}, {1024 * 1024 * 2, 32}
+            // {128, 16}
         }};
         static_for<vec.size()>([&](auto i) {
             // cout << vec[i.value].first << " " << vec[i.value].second << "\n";

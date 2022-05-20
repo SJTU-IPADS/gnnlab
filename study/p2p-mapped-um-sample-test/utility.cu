@@ -47,6 +47,35 @@ __global__ void random_read_overhead(int* __restrict__ arr, int len, int* result
     }
 }
 
+__global__ void random_read_with_local_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t grid_size = blockDim.x * gridDim.x;
+    curandState state;
+    curand_init(seed + idx, 0, 0, &state);
+#pragma unroll(5)
+    for(size_t i = 0; i < len; i += grid_size) {
+        // size_t rid = idx % result_len;
+        uint32_t rand = curand(&state);
+        result[rand % result_len] += arr[rand % len];
+    }
+}
+
+__global__ void random_read_coalesced(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    constexpr int warp_size = 32;
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t wtid = idx % warp_size;
+    size_t wid = idx / warp_size;
+    size_t grid_size = blockDim.x * gridDim.x;
+    curandState state;
+    curand_init(seed + wid, 0, 0, &state);
+    size_t rid = idx % result_len;
+#pragma unroll(5)
+    for(size_t i = 0; i < len; i += grid_size) {
+        uint32_t rand = curand(&state);
+        result[rid] += arr[(rand + wtid) % len];
+    }
+}
+
 void perform_random_read_int32(
     int grid_size, int block_size, cudaStream_t stream,
     int* arr, int len, int* result, int result_len

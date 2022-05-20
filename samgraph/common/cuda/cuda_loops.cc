@@ -557,6 +557,7 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   double prefetch_improved =  prefetc_improved.Passed();
   LOG(DEBUG) << "edge remapping done " << task->key;
 
+  LOG(DEBUG) << "task_key=" << task->key << " total_num_samples " << total_num_samples;
   Profiler::Get().LogStep(task->key, kLogL1NumNode, num_input);
   Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
   Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
