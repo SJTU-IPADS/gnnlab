@@ -68,6 +68,26 @@ __global__ void random_off_sequentail_lookbehind(int* __restrict__ arr, int len,
 //     }
 }
 
+template<size_t lkbehind, bool same_lkbehind>
+__global__ void random_off_sequentail_lookbehind_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    // constexpr size_t warp_size = 32;
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // size_t wtid = idx % warp_size;
+    size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
+    curandState state;
+    curand_init(seed + idx, 0, 0, &state);
+#pragma unroll(5)
+    for (size_t i = 0; i < len; i += grid_size) {
+        size_t off = curand(&state) % len;
+        // size_t lk = curand(&state) % (lkbehind + 1);
+        // size_t lk = lkbehind;
+        size_t lk = get_lookbehind<same_lkbehind>(curand(&state), lkbehind);
+        for (size_t j = 0; j < lk; j++) {
+            result[(rid + j) % result_len] += (off + j) % len;
+        }
+    }
+}
 
 template<size_t _page_size, size_t lkbehind, bool same_lkbehind>
 __global__ void random_off_random_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
@@ -104,6 +124,29 @@ __global__ void random_off_random_lookbehind(int* __restrict__ arr, int len, int
         // }
     }
 }
+
+template<size_t _page_size, size_t lkbehind, bool same_lkbehind>
+__global__ void random_off_random_lookbehind_overhead(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
+    constexpr int warp_size = 32;
+    constexpr size_t page_size = _page_size / sizeof(int);
+    size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // size_t wtid = idx % warp_size;
+    size_t grid_size = blockDim.x * gridDim.x;
+    size_t rid = idx % result_len;
+    curandState t_state;
+    curand_init(seed + idx, 0, 0, &t_state);
+#pragma unroll(5)
+    for (size_t i = 0; i < len; i += grid_size) {
+        size_t off = curand(&t_state) % len;
+        // size_t lk = curand(&t_state) % (lkbehind + 1);
+        // size_t lk = lkbehind;
+        size_t lk = get_lookbehind<same_lkbehind>(curand(&t_state), lkbehind);
+        for (size_t j = 0; j < lk; j++) {
+            result[(rid + j) % result_len] += (off + (curand(&t_state) % page_size)) % len;
+        }
+    }
+}
+
 
 template<size_t _page_size, size_t lkbehind, bool same_lkbehind>
 __global__ void random_off_divergence_lookbehind(int* __restrict__ arr, int len, int* result, int result_len, int seed) {
@@ -177,8 +220,12 @@ template<size_t page_size, size_t lkbehind> constexpr auto perform_random_off_di
 
 template<size_t lkbehind> constexpr auto perform_random_off_sequentail_same_lookbehind = \
     perform_kernel_with_seed<random_off_sequentail_lookbehind<lkbehind, true>>;
+template<size_t lkbehind> constexpr auto perform_random_off_sequential_same_lookbehind_overhead = 
+    perform_kernel_with_seed<random_off_sequentail_lookbehind_overhead<lkbehind, true>>;
 template<size_t page_size, size_t lkbehind> constexpr auto perform_random_off_random_same_lookbehind = \
     perform_kernel_with_seed<random_off_random_lookbehind<page_size, lkbehind, true>>;
+template<size_t page_size, size_t lkbehind> constexpr auto perform_random_off_random_same_lookbehind_overhead = \
+    perform_kernel_with_seed<random_off_random_lookbehind_overhead<page_size, lkbehind, true>>;
 template<size_t page_size, size_t lkbehind> constexpr auto perform_random_off_divergence_same_lookbehind = \
     perform_kernel_with_seed<random_off_divergence_lookbehind<page_size, lkbehind, true>>;
 

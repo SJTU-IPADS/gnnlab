@@ -378,7 +378,7 @@ public:
     }
 };
 
-template<auto perform_kerenl, size_t elem_num = (1ULL << 28), decltype(perform_kerenl) overhead = nullptr> 
+template<auto perform_kerenl, decltype(perform_kerenl) overhead = nullptr, size_t elem_num = (1ULL << 28)> 
 class KernelTimeTest : public SMReadTest<elem_num, perform_kerenl, overhead> {
 public:
     KernelTimeTest(string test_name, int local_device, int remote_device, int repeat = 5) 
@@ -422,8 +422,12 @@ template<size_t page_size, size_t lkbehind> using RoffDlookbehindTime = \
 
 template<size_t lkbehind> using RoffSsmlookbehindTime = \
     KernelTimeTest<perform_random_off_sequentail_same_lookbehind<lkbehind>>;
+template<size_t lkbehind> using RoffSsmlookbehindNOHTime = \
+    KernelTimeTest<perform_random_off_sequentail_same_lookbehind<lkbehind>, perform_random_off_sequential_same_lookbehind_overhead<lkbehind>>;
 template<size_t page_size, size_t lkbehind> using RoffRsmlookbehindTime = \
     KernelTimeTest<perform_random_off_random_same_lookbehind<page_size, lkbehind>>;
+template<size_t page_size, size_t lkbehind> using RoffRsmlookbehindNOHTime = \
+    KernelTimeTest<perform_random_off_random_same_lookbehind<page_size, lkbehind>, perform_random_off_random_same_lookbehind_overhead<page_size, lkbehind>>;
 template<size_t page_size, size_t lkbehind> using RoffDsmlookbehindTime = \
     KernelTimeTest<perform_random_off_divergence_same_lookbehind<page_size, lkbehind>>;
 
@@ -478,6 +482,7 @@ int main() {
     random_coalesced_test.Run();
     random_coalesced_test.Statistic();
 
+#if 1
     {
         constexpr std::array<size_t, 3> vec = {{
             1, 8, 32
@@ -496,9 +501,19 @@ int main() {
             random_off_sequentail_same_lookbehind_test.Run();
             random_off_sequentail_same_lookbehind_test.Statistic();
         });
+        static_for<vec.size()>([&](auto i) {
+            constexpr size_t lkbehind = vec[i.value];
+            RoffSsmlookbehindNOHTime<lkbehind> random_off_sequentail_same_lookbehind_noh_test(
+                "random_off_sequentail_same_lookbehind_no_overhead<"+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_sequentail_same_lookbehind_noh_test.Run();
+            random_off_sequentail_same_lookbehind_noh_test.Statistic();
+        });
     }
+#endif
     {
-        constexpr std::array<std::pair<size_t, size_t>, 3> vec = {{
+        constexpr std::array<std::pair<size_t, size_t>, 9> vec = {{
+            {128, 8},  {1024, 8},  {1024 * 1024 * 2, 8},
+            {128, 16}, {1024, 16}, {1024 * 1024 * 2, 16},
             {128, 32}, {1024, 32}, {1024 * 1024 * 2, 32}
             // {128, 16}
         }};
@@ -520,7 +535,16 @@ int main() {
             random_off_random_same_lookbehind_test.Run();
             random_off_random_same_lookbehind_test.Statistic();
         });
+        static_for<vec.size()>([&](auto i) {
+            constexpr size_t page_sz = vec[i.value].first;
+            constexpr size_t lkbehind = vec[i.value].second;
+            RoffRsmlookbehindNOHTime<page_sz, lkbehind> random_off_random_same_lookbehind_noh_test(
+                "random_off_random_same_lookbehind_no_overhead<"+sz2str(page_sz)+", "+to_string(lkbehind)+">", 0, 1, 1);
+            random_off_random_same_lookbehind_noh_test.Run();
+            random_off_random_same_lookbehind_noh_test.Statistic();
+        });
     }
+#if 1
     {
         constexpr std::array<std::pair<size_t, size_t>, 3> vec = {{
             {128, 32}, {1024, 32}, {1024 * 1024 * 2, 32}
@@ -542,4 +566,5 @@ int main() {
             random_off_divergence_same_lookbehind_test.Statistic();
         });
     }
+#endif
 }
