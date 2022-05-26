@@ -49,7 +49,7 @@ enum DataType {
   kI64 = 6,
 };
 
-enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM = 3, kGPU_MAPPED = 4, kGPU_P2P = 5};
+enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM = 3};
 
 enum SampleType {
   kKHop0 = 0,  // vertex-parallel

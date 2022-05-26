@@ -72,10 +72,6 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
         CUDA_CALL(cudaMemAdvise(ret + ctx0_nbytes, ctx1_nbytes,
             cudaMemAdviseSetAccessedBy, ctx0.GetCudaDeviceId()));
     }
-  } else if (ctx.device_type == DeviceType::kGPU_P2P) {
-    LOG(INFO) << "sampler" << RunConfig::sampler_ctx.device_id << " accessp2p from " << ctx.device_id;
-    CUDA_CALL(cudaMalloc(&ret, nbytes));
-    CUDA_CALL(cudaSetDevice(RunConfig::sampler_ctx.device_id));
   } else {
       LOG(FATAL) << "device_type is not supported";
   }
@@ -99,10 +95,10 @@ void GPUDevice::CopyDataFromTo(const void *from, size_t from_offset, void *to,
   cudaStream_t cu_stream = static_cast<cudaStream_t>(stream);
   from = static_cast<const char *>(from) + from_offset;
   to = static_cast<char *>(to) + to_offset;
-  if(ctx_from.device_type == DeviceType::kGPU_UM || ctx_from.device_type == DeviceType::kGPU_P2P) {
+  if(ctx_from.device_type == DeviceType::kGPU_UM) {
     ctx_from.device_type = DeviceType::kGPU;
   }
-  if(ctx_to.device_type == DeviceType::kGPU_UM || ctx_to.device_type == DeviceType::kGPU_P2P) {
+  if(ctx_to.device_type == DeviceType::kGPU_UM) {
     ctx_to.device_type = DeviceType::kGPU;
   }
   if (ctx_from.device_type == kGPU && ctx_to.device_type == kGPU) {

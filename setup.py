@@ -89,11 +89,6 @@ cuda_flags = [
     '-gencode=arch=compute_80,code=sm_80',  # A100
 ]
 
-if os.getenv('MAPPED_MM'):
-    cxx_flags.append('-DMAPPED_MM')
-if os.getenv('P2P'):
-    cxx_flags.append('-DP2P')
-
 setup(
     name=NAME,
     version=about['__version__'],

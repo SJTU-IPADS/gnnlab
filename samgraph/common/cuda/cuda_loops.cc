@@ -167,20 +167,6 @@ void DoGPUSample(TaskPtr task) {
         CHECK(0);
     }
 
-    // {
-    //   if(fanout == 5) {
-    //     std::ofstream ofs("input-fanout-5.bin", std::ios::binary);
-    //     if(ofs) {
-    //       auto cpu_input = Tensor::CopyTo(cur_input, CPU());
-    //       std::cout << cpu_input->NumBytes() << " " << cpu_input->Shape()[0] << "\n";
-    //       ofs.write((const char*)cpu_input->Data(), sizeof(IdType) * cpu_input->Shape()[0]);
-    //       ofs.close();
-    //       CHECK(ofs.good());
-    //     }
-    //     CHECK(false);
-    //   }
-    // }
-
     // Get nnz
     sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),
                                    sampler_ctx, CPU(), sample_stream);
