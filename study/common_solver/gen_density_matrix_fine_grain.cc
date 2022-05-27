@@ -57,7 +57,6 @@ int main(int argc, char** argv) {
   } catch (const CLI::ParseError &e) {
     return _app.exit(e);
   }
-
   if (method == "exp") {
     freq_to_slot = freq_to_slot_1;
   } else if (method == "num") {
@@ -80,18 +79,21 @@ int main(int argc, char** argv) {
     stream_id_list[i] = (uint32_t*)mmap(nullptr, num_node * sizeof(uint32_t), PROT_READ, MAP_PRIVATE, fd_id, 0);
     stream_freq_list[i] = (float*)mmap(nullptr, num_node * sizeof(float), PROT_READ, MAP_PRIVATE, fd_freq, 0);
   }
+
+  ndarray<uint32_t> nid_to_rank({num_node, num_stream});
+  ndarray<uint32_t> nid_to_slot({num_node, num_stream});
+  ndarray<uint32_t> nid_to_block({num_node});
+  auto cube = std::vector<uint32_t>(num_stream, num_slot);
+  ndarray<double> block_density_array(cube);
+  cube.push_back(num_stream);
+  ndarray<double> block_freq_array(cube);
+
   // identify freq boundary of first slot
   for (uint i = 0; i < num_stream; i++) {
     if (alpha < stream_freq_list[i][(num_node - 1) / 100]) {
       alpha = stream_freq_list[i][(num_node - 1) / 100];
     }
   }
-
-  ndarray<uint32_t> nid_to_rank({num_node, num_stream});
-  auto cube = std::vector<uint32_t>(num_stream, num_slot);
-  ndarray<double> block_density_array(cube);
-  cube.push_back(num_stream);
-  ndarray<double> block_freq_array(cube);
 
   /**
    * Map each node to a rank for each stream.
@@ -105,27 +107,41 @@ int main(int argc, char** argv) {
       nid_to_rank[nid][stream_idx].ref() = orig_rank;
     }
   }
+  auto slot_list_to_sequential_id = [&block_density_array](const ndarray_view<uint32_t>& slot_array){
+    return block_density_array[slot_array]._data - block_density_array._data;
+  };
+#pragma omp parallel for num_threads(NUM_THREAD)
+  for (uint32_t nid = 0; nid < num_node; nid++) {
+    // for each nid, prepare a slot list
+    for (uint32_t stream_idx = 0; stream_idx < num_stream; stream_idx++) {
+      uint32_t orig_rank = nid_to_rank[nid][stream_idx].ref();
+      double freq = stream_freq_list[stream_idx][orig_rank];
+      int slot_id = freq_to_slot(freq, orig_rank);
+      nid_to_slot[nid][stream_idx].ref() = slot_id;
+    }
+    // map the slot list to block
+    nid_to_block[nid].ref() = slot_list_to_sequential_id(nid_to_slot[nid]);
+  }
+
   /**
    * Sum frequency & density of each block
    */
   std::cerr << "counting freq and density...\n";
+  // flattern block list
+  block_density_array.reshape({block_density_array._num_elem});
+  block_freq_array.reshape({block_density_array._num_elem, num_stream});
 #pragma omp parallel for num_threads(NUM_THREAD)
   for (uint32_t thread_idx = 0; thread_idx < NUM_THREAD; thread_idx++) {
-    std::vector<uint32_t> block_idx(num_stream);
     for (uint32_t nid = 0; nid < num_node; nid++) {
-      for (uint32_t stream_idx = 0; stream_idx < num_stream; stream_idx++) {
-        uint32_t orig_rank = nid_to_rank[nid][stream_idx].ref();
-        block_idx[stream_idx] = freq_to_slot(stream_freq_list[stream_idx][orig_rank], orig_rank);
-      }
-      double * density_ptr = &block_density_array[block_idx].ref();
-      if (std::hash<uint64_t>()(density_ptr - block_density_array._data) % NUM_THREAD != thread_idx) {
+      uint32_t block_id = nid_to_block[nid].ref();
+      if (std::hash<uint64_t>()(block_id) % NUM_THREAD != thread_idx) {
         continue;
       }
-      *density_ptr += 1;
+      block_density_array[block_id].ref() += 1;
       for (uint32_t stream_idx = 0; stream_idx < num_stream; stream_idx++) {
         uint32_t orig_rank = nid_to_rank[nid][stream_idx].ref();
         float freq = stream_freq_list[stream_idx][orig_rank];
-        block_freq_array[block_idx][stream_idx].ref() += freq;
+        block_freq_array[block_id][stream_idx].ref() += freq;
       }
     }
   }
@@ -136,11 +152,11 @@ int main(int argc, char** argv) {
   std::cerr << "averaging freq and density...\n";
 #pragma omp parallel for num_threads(NUM_THREAD)
   for (uint32_t block_id = 0; block_id < block_density_array._num_elem; block_id++) {
-    if (block_density_array._data[block_id] == 0) continue; 
+    if (block_density_array[block_id].ref() == 0) continue; 
     for (uint32_t stream_id = 0; stream_id < num_stream; stream_id++) {
-      block_freq_array._data[block_id* num_stream + stream_id] /= block_density_array._data[block_id] ;
+      block_freq_array[{block_id,stream_id}].ref() /= block_density_array[block_id].ref() ;
     }
-    block_density_array._data[block_id] *= 100/(double)num_node ;
+    block_density_array[block_id].ref() *= 100/(double)num_node ;
     std::cout << block_density_array[block_id].ref() << " ";
   }
   std::cout << "\n";

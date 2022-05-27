@@ -24,7 +24,18 @@ struct ndarray {
     _data = new T[_num_elem] {0};
     _num_shape = _shape.size();
   }
-
+  void reshape(const std::vector<uint32_t> & shape) {
+    uint32_t new_num_elem = std::accumulate(shape.begin(), shape.end(), 1ul, std::multiplies<size_t>());
+    assert(new_num_elem == _num_elem);
+    _shape = shape;
+    _num_elem = new_num_elem;
+    _len_of_each_dim.resize(shape.size());
+    _len_of_each_dim.back() = 1;
+    for (int i = _shape.size() - 1; i > 0; i--) {
+      _len_of_each_dim[i - 1] = _len_of_each_dim[i] * _shape[i];
+    }
+    _num_shape = _shape.size();
+  }
   T& at(const std::vector<uint32_t> & idx) {
     assert(idx.size() <= _num_shape);
     return this->at(idx.data(), idx.size());
@@ -59,8 +70,8 @@ struct ndarray_view {
   ndarray_view(ndarray<T> & array) {
     _data = array._data;
     _shape = array._shape.data();
-    _len_of_each_dim = array._len_of_each_dim.data();
     _num_shape = array._shape.size();
+    _len_of_each_dim = array._len_of_each_dim.data();
   }
   ndarray_view(const ndarray_view<T> & view, const uint32_t first_idx) {
     _data = view._data + first_idx * view._len_of_each_dim[0];
@@ -68,11 +79,21 @@ struct ndarray_view {
     _len_of_each_dim = view._len_of_each_dim + 1;
     _num_shape = view._num_shape - 1;
   }
+  void rebuild(ndarray<T> & array) {
+    _data = array._data;
+    _shape =  array._shape.data();
+    _num_shape = array._shape.size();
+    _len_of_each_dim = array._len_of_each_dim.data();
+  }
   ndarray_view<T> operator[](const uint32_t idx) {
     return ndarray_view<T>(*this, idx);
   }
   ndarray_view<T> operator[](const std::vector<uint32_t> & idx_array) {
     return _sub_array(idx_array.data(), idx_array.size());
+  }
+  template<typename IDX_T>
+  ndarray_view<T> operator[](std::initializer_list<IDX_T> idx_array) {
+    return _sub_array(idx_array.begin(), idx_array.size());
   }
   ndarray_view<T> operator[](const ndarray_view<uint32_t> & idx_array) {
     assert(idx_array._num_shape == 1);
@@ -84,7 +105,8 @@ struct ndarray_view {
     return *_data;
   }
  private:
-  ndarray_view<T> _sub_array(const uint32_t * const idx_array, const uint32_t num_idx) {
+  template<typename IDX_T>
+  ndarray_view<T> _sub_array(const IDX_T * const idx_array, const uint32_t num_idx) {
     ndarray_view<T> ret = *this;
     ret._shape += num_idx;
     ret._len_of_each_dim += num_idx;
