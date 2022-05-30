@@ -166,14 +166,14 @@ void DistEngine::Init() {
           _dataset->nid_to_block = Tensor::FromBlob(
               shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes_freq");
         }
-        {
-          size_t num_blocks = coll_cache::num_blocks(num_stream, RunConfig::coll_cache_num_slot);
-          size_t nbytes = sizeof(uint8_t) * num_blocks;
-          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
-          CHECK_NE(shared_ptr, MAP_FAILED);
-          _dataset->block_placement = Tensor::FromBlob(
-              shared_ptr, DataType::kU8, {num_blocks}, Context{kMMAP, 0}, "ranking_nodes_freq");
-        }
+        // {
+        //   size_t num_blocks = coll_cache::num_blocks(num_stream, RunConfig::coll_cache_num_slot);
+        //   size_t nbytes = sizeof(uint8_t) * num_blocks;
+        //   void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+        //   CHECK_NE(shared_ptr, MAP_FAILED);
+        //   _dataset->block_placement = Tensor::FromBlob(
+        //       shared_ptr, DataType::kU8, {num_blocks}, Context{kMMAP, 0}, "ranking_nodes_freq");
+        // }
         break;
       }
       default: ;
@@ -663,6 +663,24 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   }
   _coll_cache_manager = new CollCacheManager();
   if (RunConfig::cache_policy == kCollCache && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {
+
+    {
+      int fd = shm_open("coll_cache_block_placement", O_RDWR, 0);
+      CHECK_NE(fd, -1) << " errno is " << errno << "\n";
+
+      struct stat st;
+      fstat(fd, &st);
+      size_t file_nbytes = st.st_size;
+
+      size_t num_blocks = file_nbytes;
+
+      void* shared_memory = mmap(NULL, file_nbytes, PROT_READ, MAP_SHARED, fd, 0);
+      CHECK_NE(shared_memory, MAP_FAILED);
+      _dataset->block_placement = Tensor::FromBlob(
+        shared_memory, DataType::kU8, {num_blocks}, Context{kMMAP, 0}, "coll_cache_block_placement");
+    }
+
+
     * _coll_cache_manager = CollCacheManager::BuildCollCache(
               _dataset->nid_to_block, _dataset->block_placement, RunConfig::num_train_worker,
               _trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
