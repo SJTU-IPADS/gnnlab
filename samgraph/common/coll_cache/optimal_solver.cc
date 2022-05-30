@@ -314,7 +314,12 @@ class Solver {
 // #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     FOR_LOOP(block_id, num_block) {
       block_placement_array[block_id].ref() = 0;
-      std::cerr << "block " << block_id << ", density=" << block_density_array[block_id] << ", freq=" << block_freq_array[block_id][0].ref() << "\n";
+      std::ios_base::fmtflags f( std::cerr.flags() );
+      std::cerr << "block " << block_id
+                << std::fixed << std::setw(8) << std::setprecision(6)
+                << ", density=" << block_density_array[block_id]
+                << std::fixed << std::setw(8) << std::setprecision(3)
+                << ", freq=" << block_freq_array[block_id][0].ref();
       if (!ignore_block(block_id, block_density_array[block_id])) {
         FOR_LOOP(device_id, num_device) {
           uint8_t x_result = (uint8_t)std::round(x_list[block_id][device_id].ref().get(GRB_DoubleAttr::GRB_DoubleAttr_X));
@@ -323,6 +328,7 @@ class Solver {
       }
       std::bitset<8> bs(block_placement_array[block_id].ref());
       std::cerr << "  storage is " << bs << "\n";
+      std::cerr.flags(f);
     }
     LOG(INFO) << "Coll Cache init block placement array done";
     model.reset(1);
