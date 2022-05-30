@@ -78,7 +78,8 @@ enum RunArch {
   kArch4,
   kArch5,
   kArch6,
-  kArch7
+  kArch7,
+  kArch8,
 };
 
 // cache by degree: cache the nodes with large degree
@@ -285,6 +286,7 @@ constexpr static int MMAP_RW_DEVICE = 1;
 Context CPU(int device_id = CPU_CUDA_HOST_MALLOC_DEVICE);
 Context CPU_CLIB(int device_id = CPU_CLIB_MALLOC_DEVICE);
 Context GPU(int device_id = 0);
+Context GPU_UM(int device_id = 0);
 Context MMAP(int device_id = MMAP_RO_DEVICE);
 
 DataType DataTypeParseName(std::string name);

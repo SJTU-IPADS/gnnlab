@@ -79,6 +79,7 @@ void Engine::Create() {
       break;
     case kArch5:
     case kArch6:
+    case kArch8:
       LOG(INFO) << "Use Dist Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new dist::DistEngine();
       break;

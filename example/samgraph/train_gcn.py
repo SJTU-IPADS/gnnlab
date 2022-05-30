@@ -339,8 +339,8 @@ def run():
     sam.dump_trace()
     sam.shutdown()
 
-    print(sample_coo_times)
-    print(sample_kernel_times)
+    # print(sample_coo_times)
+    # print(sample_kernel_times)
 
 if __name__ == '__main__':
     run()

@@ -384,6 +384,14 @@ class SamGraphBasics(object):
         )
 
     '''
+     for um sampler sample
+    '''
+    def um_sample_init(self, num_workers):
+        return self.C_LIB_CTYPES.samgraph_um_sample_init(
+            ctypes.c_int(num_workers)
+        )
+
+    '''
      for multi-GPUs train
     '''
     def train_init(self, worker_id, ctx):

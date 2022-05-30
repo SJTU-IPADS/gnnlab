@@ -161,19 +161,8 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
       break;
     case kGPU_UM: {
       tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
-      // constexpr size_t page_size = 4096;
-      // nbytes = (nbytes + page_size - 1) / page_size * page_size;
       Context ctx0 = RunConfig::unified_memory_ctxes[0];
       Context ctx1 = RunConfig::unified_memory_ctxes[1];
-      // LOG(INFO) << __func__ << " nbytes " << nbytes;
-      // size_t ctx0_nbytes = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
-      // // round to page
-      // ctx0_nbytes = ((ctx0_nbytes + page_size - 1) / (page_size)) * page_size;
-      // ctx0_nbytes = std::min(ctx0_nbytes, nbytes);
-      // size_t ctx1_nbytes = nbytes - ctx0_nbytes;
-      // LOG(INFO) << ctx0 << " " << ctx0_nbytes << " | " << ctx1 << " " << ctx1_nbytes;
-      // Device::Get(ctx0)->CopyDataFromTo(data, 0, tensor->_data, 0, ctx0_nbytes, CPU(), ctx0);
-      // Device::Get(ctx1)->CopyDataFromTo(data + ctx0_nbytes, 0, tensor->_data, 0, ctx1_nbytes, CPU(), ctx1);
       for (auto &ctx : {ctx0, ctx1}) {
         if(ctx.device_type == DeviceType::kGPU || ctx.device_type == DeviceType::kGPU_UM) {
           Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx);
@@ -260,6 +249,7 @@ TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
 
 Context CPU(int device_id) { return {kCPU, device_id}; }
 Context GPU(int device_id) { return {kGPU, device_id}; }
+Context GPU_UM(int device_id) { return {kGPU_UM, device_id}; }
 Context MMAP(int device_id) { return {kMMAP, device_id}; }
 
 TensorPtr Tensor::FromBlob(void *data, DataType dtype,
@@ -319,11 +309,17 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   tensor->_data =
       Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
   tensor->_name = source->_name;
-  if ((source->Ctx().device_type == kGPU || source->Ctx().device_type == kGPU_UM) && ctx.device_type != kGPU) {
-    Device::Get(source->Ctx())->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
+  if (RunConfig::run_arch == kArch8 && ctx.device_type == DeviceType::kGPU_UM) {
+    for (auto um_ctx : RunConfig::unified_memory_ctxes) {
+        Device::Get(um_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, um_ctx);
+    }
   } else {
-    Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
-                                    nbytes, source->_ctx, tensor->_ctx, stream);
+    if ((source->Ctx().device_type == kGPU || source->Ctx().device_type == kGPU_UM) && ctx.device_type != kGPU) {
+      Device::Get(source->Ctx())->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
+    } else {
+      Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
+                                      nbytes, source->_ctx, tensor->_ctx, stream);
+    }
   }
   Device::Get(tensor->_ctx)->StreamSync(tensor->_ctx, stream);
 

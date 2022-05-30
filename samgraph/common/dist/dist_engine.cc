@@ -40,6 +40,7 @@
 #include "dist_shuffler.h"
 #include "dist_shuffler_aligned.h"
 #include "pre_sampler.h"
+#include "dist_um_sampler.h"
 
 namespace samgraph {
 namespace common {
@@ -188,6 +189,26 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
     }
   }
   LOG(DEBUG) << "SampleDataCopy finished!";
+}
+
+void DistEngine::UMSampleLoadGraph() {
+  _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU());
+  _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU());
+  _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU());
+  _dataset->indptr = Tensor::CopyTo(_dataset->indptr, 
+      GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+  _dataset->indices = Tensor::CopyTo(_dataset->indices, 
+      GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+  if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
+    _dataset->prob_table = Tensor::CopyTo(_dataset->prob_table, 
+        GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+    _dataset->alias_table = Tensor::CopyTo(_dataset->alias_table, 
+        GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+  } else if (RunConfig::sample_type == kWeightedKHopPrefix) {
+    _dataset->prob_prefix_table = Tensor::CopyTo(_dataset->prob_prefix_table, 
+        GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+  }
+  LOG(DEBUG) << "samplers load graph to um";
 }
 
 void DistEngine::SampleCacheTableInit() {
@@ -361,6 +382,47 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
 
   LOG_MEM_USAGE(WARNING, "after finish sample initialization", _sampler_ctx);
   _initialize = true;
+}
+
+void DistEngine::UMSampleInit(int num_workers) {
+  if (_initialize) {
+    LOG(FATAL) << "DistEngine already initialized!";
+  }
+  if (!RunConfig::unified_memory) {
+    LOG(FATAL) << "UMSampleInit is used for unified memory sampling";
+  }
+  if (RunConfig::unified_memory_ctxes.size() != num_workers) {
+    LOG(FATAL) << "unified memory ctx size != num workers";
+  }
+  for (auto ctx : RunConfig::unified_memory_ctxes) {
+    if (ctx.device_type != DeviceType::kGPU && ctx.device_type != DeviceType::kGPU_UM) {
+      LOG(FATAL) << "expected unified memory sampler ctx is gpu, found " << ctx.device_type;
+    }
+  }
+  LOG(DEBUG) << "UMSampleInit with " << num_workers << " workers" ;
+  Timer t0;
+  _dist_type = DistType::Sample;
+  for (auto ctx : RunConfig::unified_memory_ctxes) {
+    std::stringstream ss;
+    ss << "before sampler " << ctx << " initialization";
+    LOG_MEM_USAGE(WARNING, ss.str(), ctx);
+  }
+  double time_cuda_context = t0.Passed();
+
+  Timer t_pin_memory;
+  if (_memory_queue) {
+    _memory_queue->PinMemory();
+  }
+  double time_pin_memory = t_pin_memory.Passed();
+
+  UMSampleLoadGraph();
+
+  LOG(FATAL) << "load data down";
+  for (int i = 0; i < RunConfig::unified_memory_ctxes.size(); i++) {
+    _um_samplers.push_back(new DistUMSampler(i));
+  }
+
+  
 }
 
 void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
@@ -604,7 +666,7 @@ void DistEngine::RunSampleOnce() {
 }
 
 void DistEngine::ArchCheck() {
-  CHECK(RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch6);
+  CHECK(RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch6 || RunConfig::run_arch == kArch8);
   CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
 }
 

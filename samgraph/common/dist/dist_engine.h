@@ -35,6 +35,7 @@
 #include "../logging.h"
 #include "../task_queue.h"
 #include "dist_cache_manager.h"
+#include "dist_um_sampler.h"
 
 namespace samgraph {
 namespace common {
@@ -63,6 +64,7 @@ class DistEngine : public Engine {
   void RunSampleOnce() override;
   void SampleInit(int worker_id, Context ctx);
   void TrainInit(int worker_id, Context ctx, DistType dist_type);
+  void UMSampleInit(int num_workers);
   /**
    * @param count: the total times to loop extract
    */
@@ -88,6 +90,7 @@ class DistEngine : public Engine {
  private:
   // Copy data sampling needed for subprocess
   void SampleDataCopy(Context sampler_ctx, StreamHandle stream);
+  void UMSampleLoadGraph();
   void SampleCacheTableInit();
   // Copy data training needed for subprocess
   void TrainDataCopy(Context trainer_ctx, StreamHandle stream);
@@ -121,6 +124,8 @@ class DistEngine : public Engine {
 
   MessageTaskQueue *_memory_queue;
   DistSharedBarrier *_sampler_barrier;
+
+  std::vector<DistUMSampler*> _um_samplers;
 };
 
 }  // namespace dist

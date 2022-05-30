@@ -48,29 +48,47 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   } else if (ctx.device_type == kGPU_UM) {
     LOG(INFO) << "alloc unified memory " << ToReadableSize(nbytes);
     CUDA_CALL(cudaMallocManaged(&ret, nbytes));
-    // advice gpu um
-    LOG(INFO) << "use 2 device store graph!";
-    CHECK(RunConfig::unified_memory_ctxes.size() >= 2);
-    auto ctx0 = RunConfig::unified_memory_ctxes[0];
-    auto ctx1 = RunConfig::unified_memory_ctxes[1];
-    size_t ctx0_nbytes = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
-    // round to page
-    // ctx0_nbytes = ((ctx0_nbytes + 4096 - 1) / (4096)) * 4096;
-    // ctx0_nbytes = std::min(ctx0_nbytes, nbytes);
-    size_t ctx1_nbytes = nbytes - ctx0_nbytes;
-    LOG(INFO) << "unified_memory: in " << ctx0  << " " << ToReadableSize(ctx0_nbytes)
-              << ", in " << ctx1 << " " << ToReadableSize(ctx1_nbytes);
-    if (ctx0_nbytes != 0) {
-        CUDA_CALL(cudaMemAdvise(ret, ctx0_nbytes,
-            cudaMemAdviseSetPreferredLocation, ctx0.GetCudaDeviceId()));
-        CUDA_CALL(cudaMemAdvise(ret, ctx0_nbytes,
-            cudaMemAdviseSetAccessedBy, ctx0.GetCudaDeviceId()));
-    }
-    if (ctx1_nbytes != 0) {
-        CUDA_CALL(cudaMemAdvise(ret + ctx0_nbytes, ctx1_nbytes,
-            cudaMemAdviseSetPreferredLocation, ctx1.GetCudaDeviceId()));
-        CUDA_CALL(cudaMemAdvise(ret + ctx0_nbytes, ctx1_nbytes,
-            cudaMemAdviseSetAccessedBy, ctx0.GetCudaDeviceId()));
+    if (RunConfig::run_arch != RunArch::kArch8) {
+      // advice gpu um
+      LOG(INFO) << "use 2 device store graph!";
+      CHECK(RunConfig::unified_memory_ctxes.size() >= 2);
+      auto ctx0 = RunConfig::unified_memory_ctxes[0];
+      auto ctx1 = RunConfig::unified_memory_ctxes[1];
+      size_t ctx0_nbytes = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
+      // round to page
+      // ctx0_nbytes = ((ctx0_nbytes + 4096 - 1) / (4096)) * 4096;
+      // ctx0_nbytes = std::min(ctx0_nbytes, nbytes);
+      size_t ctx1_nbytes = nbytes - ctx0_nbytes;
+      LOG(INFO) << "unified_memory: in " << ctx0  << " " << ToReadableSize(ctx0_nbytes)
+                << ", in " << ctx1 << " " << ToReadableSize(ctx1_nbytes);
+      if (ctx0_nbytes != 0) {
+          CUDA_CALL(cudaMemAdvise(ret, ctx0_nbytes,
+              cudaMemAdviseSetPreferredLocation, ctx0.GetCudaDeviceId()));
+          CUDA_CALL(cudaMemAdvise(ret, ctx0_nbytes,
+              cudaMemAdviseSetAccessedBy, ctx0.GetCudaDeviceId()));
+      }
+      if (ctx1_nbytes != 0) {
+          CUDA_CALL(cudaMemAdvise(ret + ctx0_nbytes, ctx1_nbytes,
+              cudaMemAdviseSetPreferredLocation, ctx1.GetCudaDeviceId()));
+          CUDA_CALL(cudaMemAdvise(ret + ctx0_nbytes, ctx1_nbytes,
+              cudaMemAdviseSetAccessedBy, ctx0.GetCudaDeviceId()));
+      }
+    } else {
+      std::stringstream ss;
+      for (auto ctx : RunConfig::unified_memory_ctxes) {
+        ss << ctx << " ";
+      }
+      LOG(INFO) << "use " << ss.str() << "store graph!";
+      size_t avg_nbytes = static_cast<size_t>(1.0 * nbytes / RunConfig::unified_memory_ctxes.size());
+      for (size_t i = 0, off = 0; i < RunConfig::unified_memory_ctxes.size(); i++, off += avg_nbytes) {
+        size_t cur_nbytes = i + 1 == RunConfig::unified_memory_ctxes.size() ? nbytes - off : avg_nbytes;
+        LOG(INFO) << "unified_memory in: " << RunConfig::unified_memory_ctxes[i] << " "
+                  << ToReadableSize(cur_nbytes);
+        CUDA_CALL(cudaMemAdvise(ret + off, cur_nbytes,
+           cudaMemAdviseSetPreferredLocation, RunConfig::unified_memory_ctxes[i].device_id));
+        CUDA_CALL(cudaMemAdvise(ret, nbytes, 
+          cudaMemAdviseSetAccessedBy, RunConfig::unified_memory_ctxes[i].device_id));
+      }
     }
   } else {
       LOG(FATAL) << "device_type is not supported";

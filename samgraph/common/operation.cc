@@ -132,6 +132,14 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       RC::sampler_ctx = Context(configs["sampler_ctx"]);
       RC::trainer_ctx = Context(configs["trainer_ctx"]);
       break;
+    case kArch8:
+      CHECK(configs.count("num_sample_worker"));
+      CHECK(configs.count("num_train_worker"));
+      RC::num_sample_worker = std::stoi(configs["num_sample_worker"]);
+      RC::num_train_worker = std::stoi(configs["num_train_worker"]);
+      CHECK(configs.count("unified_memory"));
+      CHECK(configs.count("unified_memory_ctx"));
+      break;
     default:
       CHECK(false);
   }
@@ -217,7 +225,6 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
           RunConfig::unified_memory_ctxes.push_back(CPU());
         }
       }
-      CHECK(RunConfig::unified_memory_ctxes[0] == RunConfig::sampler_ctx);
     } else {
       RunConfig::unified_memory_ctxes.push_back(RunConfig::sampler_ctx);
       RunConfig::unified_memory_ctxes.push_back(CPU());
@@ -230,6 +237,24 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
                   ss << first << " ";
                   return init + ss.str();
                 });
+  }
+  // check unified memory based on run arch
+  if (RC::run_arch == RunArch::kArch8) {
+    if (!RC::unified_memory) {
+      LOG(FATAL) << "Arch8 should use unified memory for sampling";
+    }
+    if (RC::unified_memory_ctxes.size() != RC::num_sample_worker) {
+      LOG(FATAL) << "UM sampler worker conflicts";
+    }
+    for (auto ctx : RC::unified_memory_ctxes) {
+      if (ctx.device_type != DeviceType::kGPU && ctx.device_type != DeviceType::kGPU_UM) {
+        LOG(FATAL) << "UM sampler ctx should be GPU, but find " << ctx; 
+      }
+    }
+  } else if (RC::run_arch == RunArch::kArch3) {
+    if (RunConfig::unified_memory) {
+      CHECK(RunConfig::unified_memory_ctxes[0] == RunConfig::sampler_ctx);
+    }
   }
 
   RC::LoadConfigFromEnv();
@@ -424,6 +449,13 @@ void samgraph_sample_init(int worker_id, const char*ctx) {
   dist::DistEngine::Get()->SampleInit(worker_id, Context(std::string(ctx)));
 
   LOG(INFO) << "SamGraph sample has been initialized successfully";
+}
+
+void samgraph_um_sample_init(int num_workers) {
+  CHECK(RunConfig::is_configured);
+  dist::DistEngine::Get()->UMSampleInit(num_workers);
+
+  LOG(INFO) << "SamGraph um sample has been initialized successfully";
 }
 
 void samgraph_train_init(int worker_id, const char*ctx) {

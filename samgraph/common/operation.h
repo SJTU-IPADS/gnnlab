@@ -95,6 +95,8 @@ void samgraph_data_init();
 
 void samgraph_sample_init(int worker_id, const char*ctx);
 
+void samgraph_um_sample_init(int num_workers);
+
 void samgraph_train_init(int worker_id, const char*ctx);
 
 void samgraph_sample();
