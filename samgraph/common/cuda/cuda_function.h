@@ -78,6 +78,17 @@ void GPUSampleWeightedKHopHashDedup(const IdType *indptr, const IdType *indices,
                            StreamHandle stream, GPURandomStates *random_states,
                            uint64_t task_key);
 
+void GPUSampleSaintWalk(const IdType *indptr, const IdType *indices,
+                         const IdType *input, const size_t num_input,
+                         const size_t random_walk_length,
+                         const double random_walk_restart_prob,
+                         const size_t num_random_walk,
+                         IdType *out_dst,
+                        //  IdType *out_data,
+                         size_t *num_out,
+                         Context ctx, StreamHandle stream,
+                         GPURandomStates *random_states, uint64_t task_key);
+
 void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
                  const IdType *const global_dst, IdType *const new_global_dst,
                  const size_t num_edges, DeviceOrderedHashTable mapping,

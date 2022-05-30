@@ -152,6 +152,16 @@ void DoGPUSample(TaskPtr task) {
         GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
         num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
         break;
+      case kSaint:
+        CHECK(num_layers == 1);
+        CHECK(fanout == RunConfig::random_walk_length + 1);
+        GPUSampleSaintWalk(indptr, indices, input, num_input, 
+            RunConfig::random_walk_length, RunConfig::random_walk_restart_prob,
+            RunConfig::num_random_walk, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
+        // hack: no graph now, only nodes. make a fake graph with src=dst
+        sampler_device->CopyDataFromTo(out_dst, 0, out_src, 0, sizeof(IdType) * num_input * fanout,
+                                      sampler_ctx, sampler_ctx, sample_stream);
+        break;
       default:
         CHECK(0);
     }

@@ -71,6 +71,7 @@ enum SampleType {
   kWeightedKHopPrefix,
   kKHop2,
   kWeightedKHopHashDedup,
+  kSaint,
 };
 
 // arch0: vanilla mode(CPU sampling + GPU training)

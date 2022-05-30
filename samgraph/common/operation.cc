@@ -144,19 +144,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       CHECK(false);
   }
 
-  if (RC::sample_type != kRandomWalk) {
-    // configure khop
-    CHECK(configs.count("num_fanout"));
-    CHECK(configs.count("fanout"));
-
-    size_t num_fanout = std::stoull(configs["num_fanout"]);
-    std::stringstream ss(configs["fanout"]);
-    for (size_t i = 0; i < num_fanout; i++) {
-      size_t fanout;
-      ss >> fanout;
-      RC::fanout.push_back(fanout);
-    }
-  } else {
+  if (RC::sample_type == kRandomWalk) {
     // configure random walk
     CHECK(configs.count("random_walk_length"));
     CHECK(configs.count("random_walk_restart_prob"));
@@ -169,6 +157,29 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
     RC::num_random_walk = std::stoull(configs["num_random_walk"]);
     RC::num_neighbor = std::stoull(configs["num_neighbor"]);
     RC::fanout = std::vector<size_t>(RC::num_layer, RC::num_neighbor);
+  } else if (RC::sample_type == kSaint) {
+    // configure random walk
+    CHECK(configs.count("random_walk_length"));
+    CHECK(configs.count("random_walk_restart_prob"));
+    CHECK(configs.count("num_random_walk"));
+    CHECK(RC::num_layer == 1);
+
+    RC::random_walk_length = std::stoull(configs["random_walk_length"]);
+    RC::random_walk_restart_prob = std::stod(configs["random_walk_restart_prob"]);
+    RC::num_random_walk = std::stoull(configs["num_random_walk"]);
+    RC::fanout = std::vector<size_t>(1, RC::random_walk_length + 1);
+  } else {
+    // configure khop
+    CHECK(configs.count("num_fanout"));
+    CHECK(configs.count("fanout"));
+
+    size_t num_fanout = std::stoull(configs["num_fanout"]);
+    std::stringstream ss(configs["fanout"]);
+    for (size_t i = 0; i < num_fanout; i++) {
+      size_t fanout;
+      ss >> fanout;
+      RC::fanout.push_back(fanout);
+    }
   }
 
   if (configs.count("barriered_epoch") > 0) {

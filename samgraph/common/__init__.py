@@ -55,6 +55,7 @@ kRandomWalk            = 3
 kWeightedKHopPrefix    = 4
 kKHop2                 = 5
 kWeightedKHopHashDedup = 6
+kSaint                 = 7
 
 kArch0 = 0
 kArch1 = 1
@@ -91,7 +92,8 @@ sample_types = {
     'random_walk'             : kRandomWalk,
     'weighted_khop'           : kWeightedKHop,
     'weighted_khop_prefix'    : kWeightedKHopPrefix,
-    'weighted_khop_hash_dedup': kWeightedKHopHashDedup
+    'weighted_khop_hash_dedup': kWeightedKHopHashDedup,
+    'saint'                   : kSaint,
 }
 
 

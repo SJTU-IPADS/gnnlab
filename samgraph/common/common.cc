@@ -565,6 +565,9 @@ std::ostream &operator<<(std::ostream &os, const SampleType type) {
     case kWeightedKHopHashDedup:
       os << "WeightedKHopHashDedup";
       break;
+    case kSaint:
+      os << "Saint";
+      break;
     default:
       CHECK(false);
   }

@@ -17,6 +17,7 @@ std::unordered_map<std::string, samgraph::common::SampleType> sample_type_strs =
   {"weighted_khop_prefix",     samgraph::common::kWeightedKHopPrefix},
   {"khop2",                    samgraph::common::kKHop2},
   {"weighted_khop_hash_dedup", samgraph::common::kWeightedKHopHashDedup},
+  {"saint",                    samgraph::common::kSaint},
 };
 
 std::unordered_map<std::string, samgraph::common::CachePolicy> cache_policy_strs = {
