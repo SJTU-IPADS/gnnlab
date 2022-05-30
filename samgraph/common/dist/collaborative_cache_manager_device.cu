@@ -281,6 +281,7 @@ __global__ void check_eq(const uint32_t * a, const uint32_t * b, const size_t n_
 
 template <size_t BLOCK_SIZE=Constant::kCudaBlockSize, size_t TILE_SIZE=Constant::kCudaTileSize>
 __global__ void decide_source_location(const IdType* nid_to_block_id, const uint8_t* block_is_stored, 
+    const int *bit_array_to_src_location,
     HashTableEntryLocation* hash_table_location, HashTableEntryOffset* hash_table_offset, 
     IdType num_total_nodes, IdType num_blocks, 
     IdType local_location_id, IdType cpu_location_id) {
@@ -292,16 +293,20 @@ __global__ void decide_source_location(const IdType* nid_to_block_id, const uint
     if (nid < num_total_nodes) {
       IdType block_id = nid_to_block_id[nid];
       uint8_t is_stored_bit_array = block_is_stored[block_id];
-      if (is_stored_bit_array == 0) {
-        hash_table_location[nid] = cpu_location_id;
-        hash_table_offset[nid]   = nid;
-      } else if (is_stored_bit_array & (1 << local_location_id)) {
-        hash_table_location[nid] = local_location_id;
-        hash_table_offset[nid]   = nid;
-      } else {
-        hash_table_location[nid] = log2(is_stored_bit_array & ((~is_stored_bit_array) + 1));
-        hash_table_offset[nid]   = nid;
-      }
+      hash_table_location[nid] = bit_array_to_src_location[is_stored_bit_array];
+      hash_table_offset[nid] = nid;
+      // assert((is_stored_bit_array == 0 && bit_array_to_src_location[is_stored_bit_array] == cpu_location_id) ||
+      //        ((is_stored_bit_array & (1 << bit_array_to_src_location[is_stored_bit_array])) != 0));
+      // if (is_stored_bit_array == 0) {
+      //   hash_table_location[nid] = cpu_location_id;
+      //   hash_table_offset[nid]   = nid;
+      // } else if (is_stored_bit_array & (1 << local_location_id)) {
+      //   hash_table_location[nid] = local_location_id;
+      //   hash_table_offset[nid]   = nid;
+      // } else {
+      //   hash_table_location[nid] = log2(is_stored_bit_array & ((~is_stored_bit_array) + 1));
+      //   hash_table_offset[nid]   = nid;
+      // }
     }
   }
 }
@@ -355,6 +360,39 @@ void _SplitGroup(const Location_t * src_index, const size_t len, IdType * & grou
   LOG(INFO) << ss1.str();
   LOG(INFO) << ss2.str();
   LOG(DEBUG) << "CollCache: SplitGroup: legacy fixing done...";
+}
+
+void PreDecideSrc(int num_bits, int local_id, int cpu_location_id, int * placement_to_src) {
+  auto g = std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count());
+  auto count_bits_fn = [](int a) {
+    int count = 0;
+    while (a) {
+      a &= a-1;
+      count ++;
+    }
+    return count;
+  };
+  for (int placement = 0; placement < (1 << num_bits); placement++) {
+    if (placement == 0) {
+      placement_to_src[placement] = cpu_location_id;
+    } else if (placement & (1 << local_id)) {
+      placement_to_src[placement] = local_id;
+    } else {
+      // randomly choose a 1...
+      int num_nz = count_bits_fn(placement);
+      int location = 0;
+      for (; location < num_bits; location++) {
+        if ((placement & (1 << location)) == 0) continue;
+        int choice = std::uniform_int_distribution<int>(1, num_nz)(g);
+        if (choice == 1) {
+          break;
+        } else {
+          num_nz --;
+        }
+      }
+      placement_to_src[placement] = location;
+    }
+  }
 }
 
 }  // namespace
@@ -871,11 +909,23 @@ CollCacheManager CollCacheManager::BuildCollCache(
   TensorPtr node_to_block_gpu   = Tensor::CopyTo(node_to_block, trainer_ctx, stream);
   TensorPtr block_placement_gpu = Tensor::CopyTo(block_placement, trainer_ctx, stream);
   {
+    // build a map from placement combinations to source decision
+    size_t placement_to_src_nbytes = sizeof(int) * (1 << num_device);
+    int * placement_to_src_cpu = (int*) cpu_device->AllocWorkspace(CPU(), placement_to_src_nbytes);
+    PreDecideSrc(num_device, local_location_id, cm._cpu_location_id, placement_to_src_cpu);
+    int * placement_to_src_gpu = (int*) trainer_gpu_device->AllocWorkspace(trainer_ctx, placement_to_src_nbytes);
+    trainer_gpu_device->CopyDataFromTo(placement_to_src_cpu, 0, placement_to_src_gpu, 0, placement_to_src_nbytes, CPU(), trainer_ctx, stream);
+
     SAM_CUDA_PREPARE_1D(num_total_nodes);
     decide_source_location<Constant::kCudaBlockSize, Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
       (const IdType*)node_to_block_gpu->Data(), (const uint8_t*)block_placement_gpu->Data(),
+      placement_to_src_gpu,
       cm._hash_table_location, cm._hash_table_offset, num_total_nodes,
       num_blocks, local_location_id, cm._cpu_location_id);
+    trainer_gpu_device->StreamSync(trainer_ctx, stream);
+    cpu_device->FreeWorkspace(CPU(), placement_to_src_cpu);
+    trainer_gpu_device->FreeWorkspace(trainer_ctx, placement_to_src_gpu);
+
   }
   LOG(INFO) << "CollCacheManager: Initializing hashtable location done";
 
