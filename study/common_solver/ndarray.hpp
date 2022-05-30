@@ -21,7 +21,7 @@ struct ndarray {
     for (int i = _shape.size() - 1; i > 0; i--) {
       _len_of_each_dim[i - 1] = _len_of_each_dim[i] * _shape[i];
     }
-    _data = new T[_num_elem] {0};
+    _data = new T[_num_elem] {};
     _num_shape = _shape.size();
   }
   void reshape(const std::vector<uint32_t> & shape) {

@@ -137,24 +137,41 @@ struct TensorView {
   uint32_t _num_shape;
   T* _data;
   std::vector<uint32_t> _len_of_each_dim_storage;
+  std::vector<size_t> _shape_storage;
   TensorView() {}
   TensorView(TensorPtr tensor) {
-    CHECK(sizeof(T) == GetDataTypeBytes(tensor->Type()));
-    _data = reinterpret_cast<T*>(tensor->MutableData());
-    _shape =  tensor->Shape().data();
-    _num_shape = tensor->Shape().size();
-    _len_of_each_dim_storage.resize(_num_shape);
-    _len_of_each_dim_storage.back() = 1;
-    for (int i = _num_shape - 1; i > 0; i--) {
-      _len_of_each_dim_storage[i - 1] = _len_of_each_dim_storage[i] * _shape[i];
-    }
-    _len_of_each_dim = _len_of_each_dim_storage.data();
+    rebuild(tensor);
+    // CHECK(sizeof(T) == GetDataTypeBytes(tensor->Type()));
+    // _data = reinterpret_cast<T*>(tensor->MutableData());
+    // _shape =  tensor->Shape().data();
+    // _num_shape = tensor->Shape().size();
+    // _len_of_each_dim_storage.resize(_num_shape);
+    // _len_of_each_dim_storage.back() = 1;
+    // for (int i = _num_shape - 1; i > 0; i--) {
+    //   _len_of_each_dim_storage[i - 1] = _len_of_each_dim_storage[i] * _shape[i];
+    // }
+    // _len_of_each_dim = _len_of_each_dim_storage.data();
+  }
+  TensorView(T* raw_data, std::vector<size_t> shape) {
+    rebuild(raw_data, shape);
   }
   TensorView(const TensorView<T> & view, const uint32_t first_idx) {
     _data = view._data + first_idx * view._len_of_each_dim[0];
     _shape = view._shape + 1;
     _len_of_each_dim = view._len_of_each_dim + 1;
     _num_shape = view._num_shape - 1;
+  }
+  void rebuild(T* raw_data, std::vector<size_t> shape) {
+    _data = raw_data;
+    _shape_storage = shape;
+    _shape =  _shape_storage.data();
+    _num_shape = _shape_storage.size();
+    _len_of_each_dim_storage.resize(_num_shape);
+    _len_of_each_dim_storage.back() = 1;
+    for (int i = _num_shape - 1; i > 0; i--) {
+      _len_of_each_dim_storage[i - 1] = _len_of_each_dim_storage[i] * _shape[i];
+    }
+    _len_of_each_dim = _len_of_each_dim_storage.data();
   }
   void rebuild(TensorPtr tensor) {
     CHECK(sizeof(T) == GetDataTypeBytes(tensor->Type()));
