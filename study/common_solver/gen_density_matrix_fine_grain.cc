@@ -10,6 +10,7 @@
 #include <functional>
 #include <fstream>
 #include <omp.h>
+#include <atomic>
 
 #include <CLI/App.hpp>
 #include <CLI/Config.hpp>
@@ -41,6 +42,33 @@ int freq_to_slot_bin(float freq, uint32_t rank) {
 }
 std::function<int(float, uint32_t)> freq_to_slot = freq_to_slot_1;
 // std::function<int(float, uint32_t)> freq_to_slot = freq_to_slot_2;
+
+static std::atomic_uint32_t next_free_block(0);
+auto alloc_block = []() {
+  return next_free_block.fetch_add(1);
+};
+static uint32_t max_size_per_block = 10000;
+
+struct block_identifer {
+  uint32_t current_block_id = -1;
+  uint32_t current_num = 0;
+  std::atomic_flag latch;
+  block_identifer() : latch() {}
+  uint32_t add_node() {
+    while (latch.test_and_set()) {}
+    uint32_t selected_block = -1;
+    if (current_num < max_size_per_block) {
+      selected_block = current_block_id;
+      current_num ++;
+    } else {
+      current_block_id = alloc_block();
+      selected_block = current_block_id;
+      current_num = 1;
+    }
+    latch.clear();
+    return selected_block;
+  }
+};
 
 int main(int argc, char** argv) {
   std::vector<std::string> bin_filename_list;
@@ -83,10 +111,13 @@ int main(int argc, char** argv) {
   ndarray<uint32_t> nid_to_rank({num_node, num_stream});
   ndarray<uint32_t> nid_to_slot({num_node, num_stream});
   ndarray<uint32_t> nid_to_block({num_node});
-  auto cube = std::vector<uint32_t>(num_stream, num_slot);
-  ndarray<double> block_density_array(cube);
-  cube.push_back(num_stream);
-  ndarray<double> block_freq_array(cube);
+
+  ndarray<block_identifer> slot_array_to_full_block(std::vector<uint32_t>(num_stream, num_slot));
+#pragma omp parallel for num_threads(NUM_THREAD)
+  for (uint32_t slot_array_seq_id = 0; slot_array_seq_id < slot_array_to_full_block._num_elem; slot_array_seq_id++) {
+    slot_array_to_full_block._data[slot_array_seq_id].current_block_id = slot_array_seq_id;
+  }
+  next_free_block.store(slot_array_to_full_block._num_elem);
 
   // identify freq boundary of first slot
   for (uint i = 0; i < num_stream; i++) {
@@ -107,9 +138,6 @@ int main(int argc, char** argv) {
       nid_to_rank[nid][stream_idx].ref() = orig_rank;
     }
   }
-  auto slot_list_to_sequential_id = [&block_density_array](const ndarray_view<uint32_t>& slot_array){
-    return block_density_array[slot_array]._data - block_density_array._data;
-  };
 #pragma omp parallel for num_threads(NUM_THREAD)
   for (uint32_t nid = 0; nid < num_node; nid++) {
     // for each nid, prepare a slot list
@@ -120,16 +148,16 @@ int main(int argc, char** argv) {
       nid_to_slot[nid][stream_idx].ref() = slot_id;
     }
     // map the slot list to block
-    nid_to_block[nid].ref() = slot_list_to_sequential_id(nid_to_slot[nid]);
+    nid_to_block[nid].ref() = slot_array_to_full_block[nid_to_slot[nid]].ref().add_node();
   }
 
   /**
    * Sum frequency & density of each block
    */
   std::cerr << "counting freq and density...\n";
-  // flattern block list
-  block_density_array.reshape({block_density_array._num_elem});
-  block_freq_array.reshape({block_density_array._num_elem, num_stream});
+  uint32_t total_num_blocks = next_free_block.load();
+  ndarray<double> block_density_array({total_num_blocks});
+  ndarray<double> block_freq_array({total_num_blocks, num_stream});
 #pragma omp parallel for num_threads(NUM_THREAD)
   for (uint32_t thread_idx = 0; thread_idx < NUM_THREAD; thread_idx++) {
     for (uint32_t nid = 0; nid < num_node; nid++) {
@@ -151,7 +179,7 @@ int main(int argc, char** argv) {
    */
   std::cerr << "averaging freq and density...\n";
 #pragma omp parallel for num_threads(NUM_THREAD)
-  for (uint32_t block_id = 0; block_id < block_density_array._num_elem; block_id++) {
+  for (uint32_t block_id = 0; block_id < total_num_blocks; block_id++) {
     if (block_density_array[block_id].ref() == 0) continue; 
     for (uint32_t stream_id = 0; stream_id < num_stream; stream_id++) {
       block_freq_array[{block_id,stream_id}].ref() /= block_density_array[block_id].ref() ;

@@ -305,7 +305,7 @@ int main(int argc, char** argv) {
   env.set(GRB_IntParam_Presolve, 0);
   env.set(GRB_IntParam_Method, 2);
   env.set(GRB_IntParam_Threads, NUM_THREADS);
-  env.set(GRB_DoubleParam_BarConvTol, 1e-2);
+  env.set(GRB_DoubleParam_BarConvTol, 1e-1);
   env.set(GRB_DoubleParam_OptimalityTol, 1e-2);
   env.start();
 
@@ -394,7 +394,7 @@ int main(int argc, char** argv) {
     if (ignore_block(block_id, density_array[block_id])) {
       continue;
     }
-    fs << "block_" << std::setw(3) << std::left << block_id;
+    fs << "block_" << std::setw(6) << std::left << block_id;
     fs.flags(f);
     fs << std::fixed << std::setw(6) << std::setprecision(4);
     fs << density_array[block_id] << " | ";
