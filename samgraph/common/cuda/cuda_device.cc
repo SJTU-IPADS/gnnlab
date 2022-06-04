@@ -48,7 +48,7 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   } else if (ctx.device_type == kGPU_UM) {
     LOG(INFO) << "alloc unified memory " << ToReadableSize(nbytes);
     CUDA_CALL(cudaMallocManaged(&ret, nbytes));
-    if (RunConfig::run_arch != RunArch::kArch8) {
+    if (RunConfig::run_arch != RunArch::kArch9) {
       // advice gpu um
       LOG(INFO) << "use 2 device store graph!";
       CHECK(RunConfig::unified_memory_ctxes.size() >= 2);

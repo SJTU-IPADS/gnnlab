@@ -73,6 +73,7 @@ enum LogStepItem {
   kLogL1MissBytes,
   kLogL1PrefetchAdvanced,
   kLogL1GetNeighbourTime,
+  kLogL1SamplerId, // for arch9
   // L2
   kLogL2ShuffleTime,
   kLogL2LastLayerTime,

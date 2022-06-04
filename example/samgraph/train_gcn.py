@@ -248,6 +248,7 @@ def run():
             num_nodes     [cur_step_key] = num_node
             num_samples[cur_step_key] = num_sample
 
+            # print(f"key {cur_step_key}, kernel time {sample_kernel_time}, tag {sam.kLogL3KHopSampleKernelTime}", flush=True)
             sample_node_thpts[cur_step_key] = num_sample / sample_kernel_time
             # print('Epoch {:05d} | Step {:05d} | Nodes {:.0f} | Samples {:.0f} | Time {:.4f} secs | Sample Time {:.4f} secs | Copy Time {:.4f} secs |  Train Time {:.4f} secs (Convert Time {:.4f} secs) | Loss {:.4f} '.format(
             #     epoch, step, num_node, num_sample, total_time,
@@ -339,8 +340,9 @@ def run():
     sam.dump_trace()
     sam.shutdown()
 
-    # print(sample_coo_times)
-    # print(sample_kernel_times)
+    print('sample_times', sample_times[num_step:])
+    print('coo_times', sample_coo_times[num_step:])
+    print('remap_time', remap_times[num_step:])
 
 if __name__ == '__main__':
     run()

@@ -31,6 +31,9 @@ __device__ void spinlock_increase(int* arr, int idx, cuda::atomic<int, cuda::thr
     while (!leave) {
         if (!mux.exchange(1, cuda::std::memory_order_acquire)) {
             arr[idx]++;
+            // for (int i = 0; i < 32; i++) {
+            //     arr[idx] = (arr[idx] * arr[idx] + 1) % 100007;
+            // }
             leave = true;
             mux.store(0, cuda::std::memory_order_release);
         }
@@ -42,6 +45,9 @@ __device__ void atomic_wait_increase(int* arr, int idx, cuda::atomic<int, cuda::
     while (!leave) {
         if (!mux.exchange(1, cuda::std::memory_order_acquire)) {
             arr[idx]++;
+            // for (int i = 0; i < 32; i++) {
+            //     arr[idx] = (arr[idx] * arr[idx] + 1) % 100007;
+            // }
             leave = true;
             mux.store(0, cuda::std::memory_order_release);
             mux.notify_all();
@@ -52,7 +58,11 @@ __device__ void atomic_wait_increase(int* arr, int idx, cuda::atomic<int, cuda::
 }
 
 __device__ void race_increase(int* arr, int idx, cuda::atomic<int, cuda::thread_scope_system> &mux) {
+    // for (int i = 0; i < 32; i++) {
+    //     arr[idx] = (arr[idx] * arr[idx] + 1) % 100007;
+    // }
     arr[idx]++;
+
 }
 
 template<auto sync_increase>
@@ -226,6 +236,7 @@ void test(int len, int elem_per_mux, int repeat = 10) {
             CUDA_CALL(cudaSetDevice(i));
             delay<<<1, 1, 0, s[i]>>>(flag);
             CUDA_CALL(cudaEventRecord(start[i], s[i]));
+            // if (i == 0)
             switch (kernels[k].type)
             {
             case KernelType::SparseAtomicWait_device:
@@ -335,14 +346,14 @@ void test(int len, int elem_per_mux, int repeat = 10) {
 }
 
 int main() {
-    test(128, 1);
-    test(128, 128);
+    // test(128, 1);
+    // test(128, 128);
 
-    test(1024, 1);
-    test(1024, 1024);
+    // test(1024, 1);
+    // test(1024, 1024);
 
-    test(1024 * 1024, 1);
-    test(1024 * 1024, 1024);
+    // test(1024 * 1024, 1);
+    // test(1024 * 1024, 1024);
 
     test(1024 * 1024 * 1024, 1);
 }

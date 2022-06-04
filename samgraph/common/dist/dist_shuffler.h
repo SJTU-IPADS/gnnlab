@@ -43,6 +43,7 @@ class DistShuffler : public Shuffler {
   // return the total steps for each epoch
   // reasons: profiler needs this to create total space
   size_t NumStep() override { return _epoch_step; }
+  size_t NumLocalStep() override { return _num_step; }
   bool IsLastBatch() { return _cur_step == (_num_step - 1); }
 
   void Reset() {

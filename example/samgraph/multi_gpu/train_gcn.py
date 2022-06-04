@@ -123,6 +123,11 @@ def run_sample(worker_id, run_config):
     epoch_get_cache_miss_index_times = []
     epoch_enqueue_samples_times = []
 
+    sampler0_step_sample_time = []
+    sampler0_step_coo_time = []
+    sampler0_step_remap_time = []
+    sampler0_step_num_samples = []
+
     print('[Sample Worker {:d}] run sample for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
 
@@ -165,6 +170,14 @@ def run_sample(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
         )
 
+        if worker_id == 0:
+            # worker 0 offset is 0, so use local step
+            for step in range(num_step):
+                sampler0_step_sample_time.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime))
+                sampler0_step_coo_time.append(sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime))
+                sampler0_step_remap_time.append(sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime))
+                sampler0_step_num_samples.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumSample))
+
     if worker_id == 0:
         sam.report_step_average(epoch - 1, step - 1)
 
@@ -197,8 +210,13 @@ def run_sample(worker_id, run_config):
         test_result.append(('init:dist_queue:pin:sampler', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
         test_result.append(('init:internal:sampler', sam.get_log_init_value(sam.kLogInitL2InternalState)))
         test_result.append(('init:cache:sampler', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
+
+        test_result.append((f'step_sample_time:sampler({worker_id})', np.mean(sampler0_step_sample_time[num_step:])))
+        test_result.append((f'step_coo_time:sampler({worker_id})', np.mean(sampler0_step_coo_time[num_step:])))
+        test_result.append((f'step_remap_time:sampler({worker_id})', np.mean(sampler0_step_remap_time[num_step:])))
+        test_result.append((f'step_num_samples:sampler({worker_id})', np.mean(sampler0_step_num_samples[num_step:])))
         for k, v in test_result:
-            print('test_result:{:}={:.2f}'.format(k, v))
+            print('test_result:{:}={:.6f}'.format(k, v))
 
     global_barrier.wait()  # barrier for pretty print
     # trainer print result

@@ -29,6 +29,7 @@ namespace dist {
 
 void RunArch5LoopsOnce(DistType dist_type);
 void RunArch6LoopsOnce();
+void RunArch9LoopsOnce(DistType dist_type);
 
 // common steps
 TaskPtr DoShuffle();

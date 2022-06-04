@@ -116,6 +116,9 @@ class LogMessageFatal : public LogMessage {
 #define GET_LOG(_1, _2, NAME, ...) NAME
 #define LOG(...) GET_LOG(__VA_ARGS__, _LOG_RANK, _LOG)(__VA_ARGS__)
 
+#define DEBUG_PREFIX "\033[1;33mDEBUG: \033[0m"
+#define WARNING_PREFIX "\033[38;5;215mWARNING: \033[0m"
+
 LogLevel MinLogLevelFromEnv();
 bool LogTimeFromEnv();
 

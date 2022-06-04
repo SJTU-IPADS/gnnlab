@@ -79,7 +79,7 @@ enum RunArch {
   kArch5,
   kArch6,
   kArch7,
-  kArch8,
+  kArch9,
 };
 
 // cache by degree: cache the nodes with large degree
@@ -139,7 +139,9 @@ struct Context {
       return os;
     default:
       LOG(FATAL) << "not support device type "
-                 << static_cast<int>(ctx.device_id) << ":" << ctx.device_id;
+                 << static_cast<int>(ctx.device_type) << ":" << ctx.device_id;
+      // os << "not supprt:" << static_cast<int>(ctx.device_type) << ":" << ctx.device_id;
+      return os;
     }
   }
 };

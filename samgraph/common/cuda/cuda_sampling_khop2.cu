@@ -364,6 +364,7 @@ void GPUSampleKHop2(const IdType *indptr, IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
   LOG(DEBUG) << "_debug sample time (key " << task_key << ") " << sample_time;
+  // LOG(DEBUG) << "kernel time tag " << kLogL3KHopSampleKernelTime << " val " << kernel_time;
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCooTime, sample_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleKernelTime, kernel_time);
   Profiler::Get().LogEpochAdd(task_key, kLogEpochSampleCooTime, sample_time);

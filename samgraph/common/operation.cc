@@ -132,7 +132,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       RC::sampler_ctx = Context(configs["sampler_ctx"]);
       RC::trainer_ctx = Context(configs["trainer_ctx"]);
       break;
-    case kArch8:
+    case kArch9:
       CHECK(configs.count("num_sample_worker"));
       CHECK(configs.count("num_train_worker"));
       RC::num_sample_worker = std::stoi(configs["num_sample_worker"]);
@@ -239,9 +239,9 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
                 });
   }
   // check unified memory based on run arch
-  if (RC::run_arch == RunArch::kArch8) {
+  if (RC::run_arch == RunArch::kArch9) {
     if (!RC::unified_memory) {
-      LOG(FATAL) << "Arch8 should use unified memory for sampling";
+      LOG(FATAL) << "Arch9 should use unified memory for sampling";
     }
     if (RC::unified_memory_ctxes.size() != RC::num_sample_worker) {
       LOG(FATAL) << "UM sampler worker conflicts";

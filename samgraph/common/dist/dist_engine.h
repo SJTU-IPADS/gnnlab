@@ -73,17 +73,49 @@ class DistEngine : public Engine {
   // XXX: decide CPU or GPU to shuffling, sampling and id remapping
   Shuffler* GetShuffler() { return _shuffler; }
   TaskQueue* GetTaskQueue(cuda::QueueType qt) { return _queues[qt]; }
-  cuda::OrderedHashTable* GetHashtable() { return _hashtable; }
-  cuda::GPURandomStates* GetRandomStates() { return _random_states; }
+  cuda::OrderedHashTable* GetHashtable() { 
+    if (RunConfig::run_arch == RunArch::kArch9) {
+      LOG(FATAL) << "arch9 should not use this function";
+    }
+    return _hashtable; 
+  }
+  cuda::GPURandomStates* GetRandomStates() {
+    if (RunConfig::run_arch == RunArch::kArch9) {
+      LOG(FATAL) << "arch9 should not use this function";
+    }
+    return _random_states; 
+  }
   DistCacheManager* GetCacheManager() { return _cache_manager; }
   cuda::GPUCacheManager* GetGPUCacheManager() { return _gpu_cache_manager; }
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
   IdType *GetCacheHashtable() { return _cache_hashtable; }
   DistType GetDistType() { return _dist_type; }
 
-  StreamHandle GetSampleStream() { return _sample_stream; }
-  StreamHandle GetSamplerCopyStream() { return _sampler_copy_stream; }
+  GraphPool* GetGraphPool() override {
+    if (RunConfig::run_arch == RunArch::kArch9 && _dist_type == DistType::Sample) {
+      LOG(WARNING) << WARNING_PREFIX << "arch9 sampler should not use this function";
+    }
+    return _graph_pool;
+  }
+
+  StreamHandle GetSampleStream() { 
+    if (RunConfig::run_arch == RunArch::kArch9) {
+      LOG(WARNING) << WARNING_PREFIX << "arch9: get sample stream";
+    }
+    return _sample_stream; 
+  }
+  StreamHandle GetSamplerCopyStream() {
+    if (RunConfig::run_arch == RunArch::kArch9) {
+      LOG(WARNING) << WARNING_PREFIX << "arch9: get sampler copy stream";
+    }
+    return _sampler_copy_stream; 
+  }
   StreamHandle GetTrainerCopyStream() { return _trainer_copy_stream; }
+
+  std::vector<DistUMSampler*>& GetUMSamplers() { return _um_samplers; } 
+  // because sampler is a process originally, 
+  // there will be a lot modification if pass sampler pointer to sample function
+  DistUMSampler* GetUMSamplerByTid(std::thread::id tid);
 
   static DistEngine* Get() { return dynamic_cast<DistEngine*>(Engine::_engine); }
 
@@ -92,6 +124,7 @@ class DistEngine : public Engine {
   void SampleDataCopy(Context sampler_ctx, StreamHandle stream);
   void UMSampleLoadGraph();
   void SampleCacheTableInit();
+  void UMSampleCacheTableInit();
   // Copy data training needed for subprocess
   void TrainDataCopy(Context trainer_ctx, StreamHandle stream);
   // Task queue

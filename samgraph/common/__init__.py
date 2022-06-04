@@ -189,6 +189,7 @@ kLogL1GraphBytes       = _get_next_enum_val(_step_log_val)
 kLogL1MissBytes        = _get_next_enum_val(_step_log_val)
 kLogL1PrefetchAdvanced = _get_next_enum_val(_step_log_val)
 kLogL1GetNeighbourTime = _get_next_enum_val(_step_log_val)
+kLogL1SamplerId        = _get_next_enum_val(_step_log_val)
 # Step L2 Log
 kLogL2ShuffleTime    = _get_next_enum_val(_step_log_val)
 kLogL2LastLayerTime  = _get_next_enum_val(_step_log_val)

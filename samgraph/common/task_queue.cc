@@ -130,7 +130,15 @@ namespace {
 
   void CopyGPUToCPU(const TensorPtr &from, void *to) {
     auto from_ctx = from->Ctx();
-    auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+    StreamHandle stream;
+    if (RunConfig::run_arch == RunArch::kArch9 && 
+      dist::DistEngine::Get()->GetDistType() == dist::DistType::Sample
+    ) {
+      auto tid = std::this_thread::get_id();
+      stream = dist::DistEngine::Get()->GetUMSamplerByTid(tid)->CopyStream();
+    } else {
+      stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+    }
     CHECK_EQ(from_ctx.device_type, kGPU);
     Device::Get(from_ctx)->CopyDataFromTo(
         from->Data(), 0, to, 0, from->NumBytes(), from_ctx, CPU(), stream);
@@ -221,8 +229,19 @@ namespace {
     }
 
     // sync data copy last step
-    auto source_ctx = dist::DistEngine::Get()->GetSamplerCtx();
-    auto stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+    Context source_ctx;
+    StreamHandle stream;
+    if (RunConfig::run_arch == RunArch::kArch9 &&
+      dist::DistEngine::Get()->GetDistType() == dist::DistType::Sample
+    ) {
+      auto tid = std::this_thread::get_id();
+      auto sampler = dist::DistEngine::Get()->GetUMSamplerByTid(tid);
+      source_ctx = sampler->Ctx();
+      stream = sampler->CopyStream();
+    } else {
+      source_ctx = dist::DistEngine::Get()->GetSamplerCtx();
+      stream = dist::DistEngine::Get()->GetSamplerCopyStream();
+    }
     Device::Get(source_ctx)->StreamSync(source_ctx, stream);
   }
 

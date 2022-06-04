@@ -97,7 +97,9 @@ void DoGPUSample(TaskPtr task) {
     const size_t fanout = fanouts[i];
     const IdType *input = static_cast<const IdType *>(cur_input->Data());
     const size_t num_input = cur_input->Shape()[0];
-    LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
+    LOG(DEBUG) << "DoGPUSample: begin sample layer=" << i 
+               << " ctx=" << sampler_ctx
+               << " num_input=" << num_input;
 
     IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_input * fanout * sizeof(IdType)));
@@ -114,11 +116,11 @@ void DoGPUSample(TaskPtr task) {
 
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
-    LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
+    LOG(TRACE) << "DoGPUSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGPUSample: cuda out_dst malloc "
+    LOG(TRACE) << "DoGPUSample: cuda out_dst malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGPUSample: cuda num_out malloc "
+    LOG(TRACE) << "DoGPUSample: cuda num_out malloc "
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
@@ -203,9 +205,9 @@ void DoGPUSample(TaskPtr task) {
         sampler_ctx, num_samples * sizeof(IdType)));
 
     LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
-    LOG(DEBUG) << "GPUSample: cuda new_src malloc "
+    LOG(TRACE) << "GPUSample: cuda new_src malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
-    LOG(DEBUG) << "GPUSample: cuda new_dst malloc "
+    LOG(TRACE) << "GPUSample: cuda new_dst malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
 
     GPUMapEdges(out_src, new_src, out_dst, new_dst, num_samples,
@@ -248,6 +250,11 @@ void DoGPUSample(TaskPtr task) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerSize,
                                    num_unique);
     }
+    LOG(DEBUG) << "_debug task_key=" << task->key << " layer=" << i << " ctx=" << sampler_ctx
+               << " num_unique=" << num_unique << " num_sample=" << num_samples
+               << " remap_time ( " << remap_time << " )"
+               << " = populate_time ( " << populate_time << " )"
+               << " + edge_map_time ( " << map_edges_time << " )";
     Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
                                core_sample_time);
     Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);

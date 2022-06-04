@@ -33,7 +33,14 @@ namespace common {
 namespace dist {
 
 TaskPtr DoShuffle() {
-  auto s = DistEngine::Get()->GetShuffler();
+  // auto s = DistEngine::Get()->GetShuffler();
+  Shuffler* s;
+  if (RunConfig::run_arch != RunArch::kArch9) {
+    s = DistEngine::Get()->GetShuffler();
+  } else {
+    auto tid = std::this_thread::get_id();
+    s = DistEngine::Get()->GetUMSamplerByTid(tid)->GetShuffler();
+  }
   auto batch = s->GetBatch();
 
   if (batch) {
@@ -54,14 +61,44 @@ void DoGPUSample(TaskPtr task) {
   auto last_layer_idx = num_layers - 1;
 
   auto dataset = DistEngine::Get()->GetGraphDataset();
-  auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
-  auto sampler_device = Device::Get(sampler_ctx);
-  auto sample_stream = DistEngine::Get()->GetSampleStream();
+  // auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+  // auto sampler_device = Device::Get(sampler_ctx);
+  // auto sample_stream = DistEngine::Get()->GetSampleStream();
 
-  auto random_states = DistEngine::Get()->GetRandomStates();
-  auto frequency_hashmap = DistEngine::Get()->GetFrequencyHashmap();
+  // auto random_states = DistEngine::Get()->GetRandomStates();
+  // auto frequency_hashmap = DistEngine::Get()->GetFrequencyHashmap();
 
-  cuda::OrderedHashTable *hash_table = DistEngine::Get()->GetHashtable();
+//   cuda::OrderedHashTable *hash_table = DistEngine::Get()->GetHashtable();
+  Context sampler_ctx;
+  Device* sampler_device;
+  StreamHandle sample_stream;
+
+  cuda::GPURandomStates* random_states = nullptr;
+  cuda::FrequencyHashmap* frequency_hashmap = nullptr;
+  cuda::OrderedHashTable *hash_table = nullptr;
+
+  if (RunConfig::run_arch != RunArch::kArch9) {
+    sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+    sampler_device = Device::Get(sampler_ctx);
+    sample_stream = DistEngine::Get()->GetSampleStream();
+    random_states = DistEngine::Get()->GetRandomStates();
+    frequency_hashmap = DistEngine::Get()->GetFrequencyHashmap();
+    hash_table = DistEngine::Get()->GetHashtable();
+  } else {
+    DistUMSampler* sampler;
+    if (!DistEngine::Get()->IsInitialized()) {
+     sampler = DistEngine::Get()->GetUMSamplers()[0];
+    } else {
+      auto tid= std::this_thread::get_id();
+      sampler = DistEngine::Get()->GetUMSamplerByTid(tid);
+    }
+    sampler_ctx = sampler->Ctx();
+    sampler_device = Device::Get(sampler_ctx);
+    sample_stream = sampler->SampleStream();
+    random_states = sampler->GetGPURandomStates();
+    frequency_hashmap = sampler->GetFrequencyHashmap();
+    hash_table = sampler->GetHashTable();
+  }
   hash_table->Reset(sample_stream);
 
   Timer t;
@@ -91,7 +128,9 @@ void DoGPUSample(TaskPtr task) {
     const size_t fanout = fanouts[i];
     const IdType *input = static_cast<const IdType *>(cur_input->Data());
     const size_t num_input = cur_input->Shape()[0];
-    LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
+    LOG(DEBUG) << "DoGPUSample: begin sample layer=" << i 
+               << " ctx=" << sampler_ctx
+               << " num_input=" << num_input;
 
     IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_input * fanout * sizeof(IdType)));
@@ -107,11 +146,11 @@ void DoGPUSample(TaskPtr task) {
     size_t num_samples;
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
-    LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
+    LOG(TRACE) << "DoGPUSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGPUSample: cuda out_dst malloc "
+    LOG(TRACE) << "DoGPUSample: cuda out_dst malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGPUSample: cuda num_out malloc "
+    LOG(TRACE) << "DoGPUSample: cuda num_out malloc "
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
@@ -178,7 +217,7 @@ void DoGPUSample(TaskPtr task) {
         sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
     IdType num_unique;
 
-    LOG(DEBUG) << "GPUSample: cuda unique malloc "
+    LOG(TRACE) << "GPUSample: cuda unique malloc "
                << ToReadableSize((num_samples + +hash_table->NumItems()) *
                                  sizeof(IdType));
 
@@ -196,9 +235,9 @@ void DoGPUSample(TaskPtr task) {
         sampler_ctx, num_samples * sizeof(IdType)));
 
     LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
-    LOG(DEBUG) << "GPUSample: cuda new_src malloc "
+    LOG(TRACE) << "GPUSample: cuda new_src malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
-    LOG(DEBUG) << "GPUSample: cuda new_dst malloc "
+    LOG(TRACE) << "GPUSample: cuda new_dst malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
 
     cuda::GPUMapEdges(out_src, new_src, out_dst, new_dst, num_samples,
@@ -241,6 +280,11 @@ void DoGPUSample(TaskPtr task) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerSize,
                                    num_unique);
     }
+    LOG(DEBUG) << "_debug task_key=" << task->key << " layer=" << i << " ctx=" << sampler_ctx
+               << " num_unique=" << num_unique << " num_sample=" << num_samples
+               << " remap_time ( " << remap_time << " )"
+               << " = populate_time ( " << populate_time << " )"
+               << " + edge_map_time ( " << map_edges_time << " )";
     Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
                                core_sample_time);
     Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
@@ -265,15 +309,31 @@ void DoGPUSample(TaskPtr task) {
   Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
                              fill_unique_time);
 
-  LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
+  LOG(DEBUG) << " sampler(" << sampler_ctx << ") "
+             << "SampleLoop: process task with key " << task->key;
 }
 
 void DoGetCacheMissIndex(TaskPtr task) {
   // Get index of miss data and cache data
   // Timer t4;
-  auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
-  auto sampler_device = Device::Get(sampler_ctx);
-  auto sample_stream = DistEngine::Get()->GetSampleStream();
+  // auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+  // auto sampler_device = Device::Get(sampler_ctx);
+  // auto sample_stream = DistEngine::Get()->GetSampleStream();
+  Context sampler_ctx;
+  Device* sampler_device;
+  StreamHandle sample_stream;
+  if (RunConfig::run_arch != RunArch::kArch9) {
+    sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+    sampler_device = Device::Get(sampler_ctx);
+    sample_stream = DistEngine::Get()->GetSampleStream();
+  } else {
+    auto tid = std::this_thread::get_id();
+    auto sampler = DistEngine::Get()->GetUMSamplerByTid(tid);
+    sampler_ctx = sampler->Ctx();
+    sampler_device = sampler->GetDevice();
+    sample_stream = sampler->SampleStream();
+  }
+
   if (RunConfig::UseGPUCache() && DistEngine::Get()->IsInitialized()) {
     auto input_nodes =
         reinterpret_cast<const IdType *>(task->input_nodes->Data());
@@ -291,8 +351,16 @@ void DoGetCacheMissIndex(TaskPtr task) {
     size_t num_output_miss;
     size_t num_output_cache;
 
+    IdType* cache_hash_tb;
+    if (RunConfig::run_arch != RunArch::kArch9) {
+      cache_hash_tb = DistEngine::Get()->GetCacheHashtable();
+    } else {
+      cache_hash_tb = DistEngine::Get()
+        ->GetUMSamplerByTid(std::this_thread::get_id())
+        ->GetCacheHashTable();
+    }
     cuda::GetMissCacheIndex(
-        DistEngine::Get()->GetCacheHashtable(), sampler_ctx,
+        cache_hash_tb, sampler_ctx,
         sampler_output_miss_src_index, sampler_output_miss_dst_index,
         &num_output_miss, sampler_output_cache_src_index,
         sampler_output_cache_dst_index, &num_output_cache, input_nodes, num_input,

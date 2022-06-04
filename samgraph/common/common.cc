@@ -309,7 +309,7 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   tensor->_data =
       Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
   tensor->_name = source->_name;
-  if (RunConfig::run_arch == kArch8 && ctx.device_type == DeviceType::kGPU_UM) {
+  if (RunConfig::run_arch == kArch9 && ctx.device_type == DeviceType::kGPU_UM) {
     for (auto um_ctx : RunConfig::unified_memory_ctxes) {
         Device::Get(um_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, um_ctx);
     }
