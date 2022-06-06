@@ -35,6 +35,8 @@ class OrderedHashTable;
 class DeviceOrderedHashTable {
  public:
   struct alignas(unsigned long long) BucketO2N {
+    // don't change the position of version and key
+    //   which used for efficient insert operation
     IdType version;
     IdType key;
     IdType local;
