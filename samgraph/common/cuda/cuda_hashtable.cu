@@ -50,25 +50,28 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
                                             const IdType index,
                                             const IdType version) {
     auto iter = GetMutableO2N(pos);
-    IdType old_version = iter->version;
 #ifndef SXN_NAIVE_HASHMAP
-    if (old_version == version) {
-      return (iter->key == id);
-    }
     // FIXME: only support sizeof(IdType) == 4
-    assert(sizeof(IdType) == 4);
+    static_assert(sizeof(IdType) == 4);
+
     using ull = unsigned long long int;
-    // ull old = *(reinterpret_cast<ull*>(&iter->version));
-    ull old = ((static_cast<ull>(iter->key) << 32) + old_version);
+    ull old = *(reinterpret_cast<ull*>(&iter->version));
+    IdType old_version = static_cast<IdType>(old & 0xffffffff);
+    IdType old_key = static_cast<IdType>((old >> 32) & 0xffffffff);
+    if (old_version == version) {
+      return (old_key == id);
+    }
     ull new_val = ((static_cast<ull>(id) << 32) + version);
-    if (atomicCAS(reinterpret_cast<ull*>(&iter->version), old, new_val)
-        == old) {
+    ull ret_val = atomicCAS(reinterpret_cast<ull*>(&iter->version), old, new_val);
+    if (ret_val == old) {
       iter->local = Constant::kEmptyKey;
       iter->index = index;
       return true;
     }
-    return (iter->key == id);
+    IdType ret_key = static_cast<IdType>((ret_val >> 32) & 0xffffffff);
+    return (ret_key == id);
 #else
+    IdType old_version = iter->version;
     if (old_version == version) return true;
     if (atomicCAS(&(iter->version), old_version, version) == old_version) {
       iter->key = id;
