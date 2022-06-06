@@ -63,10 +63,12 @@ class DeviceOrderedHashTable {
   const BucketN2O *_n2o_table;
   const size_t _o2n_size;
   const size_t _n2o_size;
+  IdType _version;
 
   explicit DeviceOrderedHashTable(const BucketO2N *const o2n_table,
                                   const BucketN2O *const n2o_table,
-                                  const size_t o2n_size, const size_t n2o_size);
+                                  const size_t o2n_size, const size_t n2o_size,
+                                  const IdType version);
 
   inline __device__ IdType SearchForPositionO2N(const IdType id) const {
 #ifndef SXN_NAIVE_HASHMAP
@@ -75,7 +77,7 @@ class DeviceOrderedHashTable {
     // linearly scan for matching entry
     IdType delta = 1;
     while (_o2n_table[pos].key != id) {
-      assert(_o2n_table[pos].key != Constant::kEmptyKey);
+      assert(_o2n_table[pos].version == this->_version);
       pos = HashO2N(pos + delta);
       delta += 1;
     }

@@ -675,14 +675,17 @@ __global__ void compact_hashmap_neighbour_single_loop(
 DeviceOrderedHashTable::DeviceOrderedHashTable(const BucketO2N *const o2n_table,
                                                const BucketN2O *const n2o_table,
                                                const size_t o2n_size,
-                                               const size_t n2o_size)
+                                               const size_t n2o_size,
+                                               const IdType version)
     : _o2n_table(o2n_table),
       _n2o_table(n2o_table),
       _o2n_size(o2n_size),
-      _n2o_size(n2o_size) {}
+      _n2o_size(n2o_size),
+      _version(version) {}
 
 DeviceOrderedHashTable OrderedHashTable::DeviceHandle() const {
-  return DeviceOrderedHashTable(_o2n_table, _n2o_table, _o2n_size, _n2o_size);
+  return DeviceOrderedHashTable(_o2n_table, _n2o_table,
+      _o2n_size, _n2o_size, _version);
 }
 
 // OrderedHashTable implementation
