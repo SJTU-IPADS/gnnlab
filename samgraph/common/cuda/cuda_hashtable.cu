@@ -55,9 +55,10 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
     static_assert(sizeof(IdType) == 4);
 
     using ull = unsigned long long int;
+    constexpr ull kI32Mask = 0xffffffff;
     ull old = *(reinterpret_cast<ull*>(&iter->version));
-    IdType old_version = static_cast<IdType>(old & 0xffffffff);
-    IdType old_key = static_cast<IdType>((old >> 32) & 0xffffffff);
+    IdType old_version = static_cast<IdType>(old & kI32Mask);
+    IdType old_key = static_cast<IdType>((old >> 32) & kI32Mask);
     if (old_version == version) {
       return (old_key == id);
     }
@@ -68,7 +69,7 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
       iter->index = index;
       return true;
     }
-    IdType ret_key = static_cast<IdType>((ret_val >> 32) & 0xffffffff);
+    IdType ret_key = static_cast<IdType>((ret_val >> 32) & kI32Mask);
     return (ret_key == id);
 #else
     IdType old_version = iter->version;
