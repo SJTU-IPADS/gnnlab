@@ -97,6 +97,8 @@ void GPUEngine::Init() {
   _sample_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
   _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
   _trainer_copy_stream = Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx);
+  CHECK(cusparseCreate(&_cusparse_handle) == CUSPARSE_STATUS_SUCCESS);
+  CHECK(cusparseSetStream(_cusparse_handle, (cudaStream_t)_sample_stream) == CUSPARSE_STATUS_SUCCESS);
 
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
   Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);

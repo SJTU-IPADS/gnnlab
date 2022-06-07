@@ -21,7 +21,7 @@ from __future__ import print_function
 # Load all the necessary PyTorch C types.
 import dgl
 import torch
-from dgl.heterograph import DGLBlock
+from dgl.heterograph import DGLBlock, DGLHeteroGraph
 
 from samgraph.common import *
 from samgraph.common import _basics
@@ -102,6 +102,13 @@ def _create_dgl_block(data, num_src_nodes, num_dst_nodes):
 
     return g
 
+def _create_dgl_subgraph(data, num_src_nodes, num_dst_nodes):
+    row, col = data
+    gidx = dgl.heterograph_index.create_unitgraph_from_coo(1, num_src_nodes, num_dst_nodes, row, col, ['coo', 'csr', 'csc'])
+    # gidx = dgl.heterograph_index.create_unitgraph_from_coo(2, num_src_nodes, num_dst_nodes, row, col, ['coo'])
+    g = DGLHeteroGraph(gidx)
+    return g
+
 def get_dgl_blocks(batch_key, num_layers, with_feat=True):
     if with_feat:
         feat = get_graph_feat(batch_key)
@@ -122,6 +129,26 @@ def get_dgl_blocks(batch_key, num_layers, with_feat=True):
         #     row, col)}, num_src_nodes={'_N': num_src_nodes}, num_dst_nodes={'_N': num_dst_nodes}))
 
     return blocks, feat, label
+
+def get_dgl_subgraph(batch_key, num_layers, with_feat = True):
+    if with_feat:
+        feat = get_graph_feat(batch_key)
+        label = get_graph_label(batch_key)
+    else:
+        feat = None
+        label = None
+    assert(num_layers == 1)
+    row = get_graph_row(batch_key, 0)
+    col = get_graph_col(batch_key, 0)
+    num_src_nodes = get_graph_num_src(batch_key, 0)
+    num_dst_nodes = get_graph_num_dst(batch_key, 0)
+
+    subg = _create_dgl_subgraph((row, col), num_src_nodes, num_dst_nodes)
+
+        # blocks.append(dgl.create_block({('_N', '_E', '_N'): (
+        #     row, col)}, num_src_nodes={'_N': num_src_nodes}, num_dst_nodes={'_N': num_dst_nodes}))
+
+    return subg, feat, label
 
 
 def get_dgl_blocks_with_weights(batch_key, num_layers, with_feat=True):

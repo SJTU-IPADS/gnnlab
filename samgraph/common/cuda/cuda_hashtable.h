@@ -58,6 +58,44 @@ class DeviceOrderedHashTable {
     return &_o2n_table[pos];
   }
 
+  inline __device__ IdType SearchO2NToLocal(const IdType id) const {
+#ifndef SXN_NAIVE_HASHMAP
+    IdType pos = HashO2N(id);
+
+    IdType delta = 1;
+    while (_o2n_table[pos].key != id) {
+      if (_o2n_table[pos].key == Constant::kEmptyKey) {
+        return Constant::kEmptyKey;
+      }
+      pos = HashO2N(pos + delta);
+      delta += 1;
+    }
+    // fixme: is it possible that the search is in deadloop?
+    return _o2n_table[pos].local;
+#else
+    assert(false);
+#endif
+  }
+  inline __device__ bool SearchO2NIfExist(const IdType id) const {
+#ifndef SXN_NAIVE_HASHMAP
+    IdType pos = HashO2N(id);
+
+    IdType delta = 1;
+    while (_o2n_table[pos].key != id) {
+      if (_o2n_table[pos].key == Constant::kEmptyKey) {
+        return false;
+      }
+      pos = HashO2N(pos + delta);
+      delta += 1;
+    }
+    // fixme: is it possible that the search is in deadloop?
+    return true;
+#else
+    assert(false);
+#endif
+  }
+
+
  protected:
   const BucketO2N *_o2n_table;
   const BucketN2O *_n2o_table;

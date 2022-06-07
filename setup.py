@@ -191,7 +191,7 @@ setup(
                 # os.path.join(here, '3rdparty/cub'),
                 os.path.join(here, '3rdparty/parallel-hashmap'),
                 '/home/songxiaoniu/local/gurobi-optimizer/gurobi951/linux64/include'],
-            libraries=['cudart', 'gurobi95', 'gurobi_c++'],
+            libraries=['cudart', 'cusparse', 'gurobi95', 'gurobi_c++'],
             library_dirs=[
                 '/home/songxiaoniu/local/gurobi-optimizer/gurobi951/linux64/lib',
             ],

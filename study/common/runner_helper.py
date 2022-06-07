@@ -121,6 +121,7 @@ class SampleType(Enum):
   kWeightedKHopPrefix = 4
   kKHop2 = 5
   kWeightedKHopHashDedup = 6
+  kSaint = 7
 
   kDefaultForApp = 10
   def __str__(self):
@@ -132,6 +133,7 @@ class SampleType(Enum):
       "weighted_khop_prefix",
       "khop2",
       "weighted_khop_hash_dedup",
+      "saint"
     ]
     return name_list[self.value]
 

@@ -13,6 +13,7 @@ struct ndarray {
   uint32_t _num_shape, _num_elem;
   std::vector<uint32_t> _len_of_each_dim;
   T* _data;
+  ndarray() {}
   ndarray(const std::vector<uint32_t> & shape) {
     _shape = shape;
     _num_elem = std::accumulate(shape.begin(), shape.end(), 1ul, std::multiplies<size_t>());

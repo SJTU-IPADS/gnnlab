@@ -375,6 +375,9 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     // use sampler_ctx in task sending
     _sampler_copy_stream = Device::Get(_sampler_ctx)->CreateStream(_sampler_ctx);
 
+    CHECK(cusparseCreate(&_cusparse_handle) == CUSPARSE_STATUS_SUCCESS);
+    CHECK(cusparseSetStream(_cusparse_handle, (cudaStream_t)_sample_stream) == CUSPARSE_STATUS_SUCCESS);
+
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
   }

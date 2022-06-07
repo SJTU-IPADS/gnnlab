@@ -167,7 +167,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
     RC::random_walk_length = std::stoull(configs["random_walk_length"]);
     RC::random_walk_restart_prob = std::stod(configs["random_walk_restart_prob"]);
     RC::num_random_walk = std::stoull(configs["num_random_walk"]);
-    RC::fanout = std::vector<size_t>(1, RC::random_walk_length + 1);
+    RC::fanout = std::vector<size_t>(1, RC::random_walk_length);
   } else {
     // configure khop
     CHECK(configs.count("num_fanout"));

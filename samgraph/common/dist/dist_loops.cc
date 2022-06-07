@@ -58,7 +58,137 @@ TaskPtr DoShuffle() {
   }
 }
 
+void DoGPUSaintSample(TaskPtr task) {
+  auto fanouts = DistEngine::Get()->GetFanout();
+  auto num_layers = fanouts.size();
+  CHECK(num_layers == 1);
+  const size_t fanout = fanouts[0];
+  CHECK(fanout == RunConfig::random_walk_length);
+
+  auto dataset = DistEngine::Get()->GetGraphDataset();
+  auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  auto sample_stream = DistEngine::Get()->GetSampleStream();
+
+  auto random_states = DistEngine::Get()->GetRandomStates();
+
+  cuda::OrderedHashTable *hash_table = DistEngine::Get()->GetHashtable();
+  hash_table->Reset(sample_stream);
+
+  Timer t;
+  auto output_nodes = task->output_nodes;
+  size_t num_train_node = output_nodes->Shape()[0];
+  hash_table->FillWithUnique(static_cast<const IdType *const>(output_nodes->Data()), num_train_node, sample_stream);
+  task->graphs.resize(num_layers);
+  double fill_unique_time = t.Passed();
+
+  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
+  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
+
+  auto cur_input = task->output_nodes;
+
+    Timer tlayer;
+    Timer t0;
+    const IdType *input = static_cast<const IdType *>(cur_input->Data());
+    const size_t num_input = cur_input->Shape()[0];
+    LOG(DEBUG) << "DoGPUSample: begin sample layer " << 0;
+
+    IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(sampler_ctx, num_input * fanout * sizeof(IdType)));
+    size_t num_samples;
+
+    LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
+    LOG(DEBUG) << "DoGPUSample: cuda out_dst malloc " << ToReadableSize(num_input * fanout * sizeof(IdType));
+    LOG(DEBUG) << "DoGPUSample: cuda num_out malloc " << ToReadableSize(sizeof(size_t));
+
+    // Sample a compact coo graph
+    switch (RunConfig::sample_type) {
+      case kSaint:
+        cuda::GPUSampleSaintWalk(indptr, indices, input, num_input, 
+            RunConfig::random_walk_length, RunConfig::random_walk_restart_prob,
+            RunConfig::num_random_walk, out_dst, num_samples, sampler_ctx, sample_stream, random_states, task->key);
+        break;
+      default:
+        CHECK(0);
+    }
+
+    // Get nnz
+
+    LOG(DEBUG) << "DoGPUSample: " << "layer " << 0 << " number of samples " << num_samples;
+
+    double core_sample_time = t0.Passed();
+
+    Timer t1;
+    Timer t2;
+
+    // Populate the hash table with newly sampled nodes
+    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
+    IdType num_unique;
+
+    LOG(DEBUG) << "GPUSample: cuda unique malloc "
+               << ToReadableSize((num_samples + +hash_table->NumItems()) * sizeof(IdType));
+
+    hash_table->FillWithDuplicates(out_dst, num_samples, unique, &num_unique, sample_stream);
+
+    double populate_time = t2.Passed();
+
+    Timer t3;
+
+    // extract node sub graph
+    TensorPtr _no_use, src, dst;
+    cuda::CSRSliceMatrix(indptr, indices, unique, num_unique, hash_table->DeviceHandle(), _no_use, dst, src, sampler_ctx, sample_stream);
+
+    LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
+
+    double map_edges_time = t3.Passed();
+    double remap_time = t1.Passed();
+    double layer_time = tlayer.Passed();
+
+    auto train_graph = std::make_shared<TrainGraph>();
+    train_graph->num_src = num_unique;
+    train_graph->num_dst = num_unique;
+    train_graph->num_edge = src->Shape()[0];
+    train_graph->col = src;
+    // Tensor::FromBlob(
+    //     new_src, DataType::kI32, {num_samples}, sampler_ctx,
+    //     "train_graph.row_cuda_sample_" + std::to_string(task->key) + "_" +
+    //         std::to_string(i));
+    train_graph->row = dst;
+    //  Tensor::FromBlob(
+    //     new_dst, DataType::kI32, {num_samples}, sampler_ctx,
+    //     "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
+    //         std::to_string(i));
+
+    task->graphs[0] = train_graph;
+
+    // Do some clean jobs
+    sampler_device->FreeWorkspace(sampler_ctx, out_dst);
+    Profiler::Get().LogStep(task->key, kLogL2LastLayerTime, layer_time);
+    Profiler::Get().LogStep(task->key, kLogL2LastLayerSize, num_unique);
+    Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime, core_sample_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime, populate_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime, 0);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapEdgeTime, map_edges_time);
+
+    cur_input = Tensor::FromBlob(
+        (void *)unique, DataType::kI32, {num_unique}, sampler_ctx,
+        "cur_input_unique_cuda_" + std::to_string(task->key) + "_0");
+    LOG(DEBUG) << "GPUSample: finish layer 0";
+
+  task->input_nodes = cur_input;
+  task->output_nodes = cur_input;
+
+  Profiler::Get().LogStep(task->key, kLogL1NumNode, static_cast<double>(task->input_nodes->Shape()[0]));
+  Profiler::Get().LogStep(task->key, kLogL1NumSample, train_graph->num_edge);
+  Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime, fill_unique_time);
+
+  LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
+}
+
 void DoGPUSample(TaskPtr task) {
+  if (RunConfig::sample_type == kSaint) {
+    return DoGPUSaintSample(task);
+  }
   auto fanouts = DistEngine::Get()->GetFanout();
   auto num_layers = fanouts.size();
   auto last_layer_idx = num_layers - 1;
@@ -183,16 +313,6 @@ void DoGPUSample(TaskPtr task) {
       case kWeightedKHopHashDedup:
         cuda::GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
             num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
-        break;
-      case kSaint:
-        CHECK(num_layers == 1);
-        CHECK(fanout == RunConfig::random_walk_length + 1);
-        cuda::GPUSampleSaintWalk(indptr, indices, input, num_input, 
-            RunConfig::random_walk_length, RunConfig::random_walk_restart_prob,
-            RunConfig::num_random_walk, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
-        // hack: no graph now, only nodes. make a fake graph with src=dst
-        sampler_device->CopyDataFromTo(out_dst, 0, out_src, 0, sizeof(IdType) * num_input * fanout,
-                                      sampler_ctx, sampler_ctx, sample_stream);
         break;
       default:
         CHECK(0);

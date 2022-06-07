@@ -85,9 +85,14 @@ void GPUSampleSaintWalk(const IdType *indptr, const IdType *indices,
                          const size_t num_random_walk,
                          IdType *out_dst,
                         //  IdType *out_data,
-                         size_t *num_out,
+                         size_t &num_samples,
                          Context ctx, StreamHandle stream,
                          GPURandomStates *random_states, uint64_t task_key);
+
+void CSRSliceMatrix(const IdType* indptr, const IdType* indices, const IdType* input_nodes, const IdType num_input,
+    DeviceOrderedHashTable hashtable,
+    TensorPtr & matrix_slice_indptr, TensorPtr & matrix_slice_indices, TensorPtr & matrix_slice_coo_row, 
+    Context ctx, StreamHandle stream);
 
 void GPUMapEdges(const IdType *const global_src, IdType *const new_global_src,
                  const IdType *const global_dst, IdType *const new_global_dst,
