@@ -1,4 +1,5 @@
 #include <unordered_set>
+#include <functional>
 
 #include "gtest/gtest.h"
 #include "common/common.h"
@@ -12,168 +13,177 @@ using namespace samgraph;
 using namespace samgraph::common;
 
 using HashTablePtr = std::shared_ptr<cuda::OrderedHashTable>;
+using uset = std::unordered_set<IdType>;
+using vec = std::vector<IdType>;
 
-class OrderedHashTableTest: public ::testing::Test { 
-public: 
-  OrderedHashTableTest( ) { 
-    // initialization code here
-  } 
+// reuse the test class to run multiple test w/ or w/o reseting the table
+enum class ETearDown {
+  kDoReset,
+  kMakeNewTable,
+};
 
-  void SetUp( ) {
+class OrderedHashTableTest: public ::testing::TestWithParam<ETearDown> { 
+public:
+  static void SetUpTestSuite() {
     ctx = Context{kGPU, 0};
     cuda_device = Device::Get(ctx);
     stream = cuda_device->CreateStream(ctx);
     hash_table = std::make_shared<cuda::OrderedHashTable>(1024, ctx, stream);
   }
-  void _CheckResult(const std::vector<IdType> &input_data,
-                    const size_t expected_num_unique);
-  void _TestOrderedHashTable();
+  static void TearDownTestSuite() {
+    hash_table = nullptr;
+    cuda_device->FreeStream(ctx, stream);
+  }
 
-  Context ctx;
-  Device* cuda_device;
-  StreamHandle stream;
-  HashTablePtr hash_table;
+  void TearDown() override {
+    // reset the hashtable and reuse it, or make a new one
+    if (GetParam() == ETearDown::kDoReset) {
+      hash_table->Reset(stream);
+    } else {
+      hash_table = std::make_shared<cuda::OrderedHashTable>(1024, ctx, stream);
+    }
+  }
+
+  template<typename T>
+  static T* _CopyToDevice(const T* const ptr, size_t num_item) {
+    T* ret;
+    CUDA_CALL(cudaMalloc(&ret, num_item * sizeof(T)));
+    _CopyFromTo(ptr, ret, num_item);
+    return ret;
+  }
+  template<typename T>
+  static void _CopyFromTo(const T* const from, T* to, size_t num_item) {
+    // let cuda auto infer src & dst
+    CUDA_CALL(cudaMemcpy(to, from,num_item * sizeof(T), cudaMemcpyDefault));
+  }
+
+  template<typename Iter>
+  static void EXPECT_Contain(uset & set, Iter begin, Iter end) {
+    for (Iter i = begin; i != end; i++) {
+      EXPECT_EQ(set.count(*i), 1);
+    }
+  }
+
+  static Context ctx;
+  static Device* cuda_device;
+  static StreamHandle stream;
+  static HashTablePtr hash_table;
 };
 
-void OrderedHashTableTest::_CheckResult(
-    const std::vector<IdType> &input_data,
-    const size_t expected_num_unique) {
-
-  size_t num_items = hash_table->NumItems();
-  std::unordered_set<IdType> h_set(input_data.begin(), input_data.end());
-  EXPECT_TRUE(h_set.size() <= num_items)
-    << "size of h_set and device_hash_table: "
-    << h_set.size() << " vs " << num_items;
-  EXPECT_EQ(num_items, expected_num_unique);
-
-  const IdType *d_n2o;
-  IdType num_unique;
-  hash_table->RefUnique(d_n2o, &num_unique);
-  EXPECT_EQ(num_unique, expected_num_unique);
-
-  std::vector<IdType> h_n2o(num_items);
-  CUDA_CALL(cudaMemcpy(h_n2o.data(), d_n2o, num_items * sizeof(IdType),
-        cudaMemcpyDeviceToHost));
-  // should use multiset to make sure h_n2o is unique
-  std::unordered_multiset<IdType> check_set(h_n2o.begin(), h_n2o.end());
-  EXPECT_EQ(check_set.size(), h_n2o.size());
-
-  for (auto i : input_data) {
-    EXPECT_EQ(check_set.count(i), 1);
-  }
-}
-
-void OrderedHashTableTest::_TestOrderedHashTable() {
-  hash_table->Reset(stream);
-
-  { // check hash_table functions: NumItems, FillWithDupRevised, RefUnique
-
-  auto lambda_FillWithDupRevised = [&](std::vector<IdType> &h_insert_data) {
-    IdType *d_data;
-    CUDA_CALL(cudaMalloc(&d_data, h_insert_data.size() * sizeof(IdType)));
-    CUDA_CALL(cudaMemcpy(d_data, h_insert_data.data(),
-        h_insert_data.size() * sizeof(IdType),
-        cudaMemcpyHostToDevice));
-    hash_table->FillWithDupRevised(d_data, h_insert_data.size(), stream);
-    // stream sync
-    cuda_device->StreamSync(ctx, stream);
-    CUDA_CALL(cudaFree(d_data));
-  };
-
-  // insert data to hash_table
-  std::vector<IdType> h_data = {
-    1, 2, 3, 4, 5, 2, 5, 1, 10, 233};
-  lambda_FillWithDupRevised(h_data);
-  _CheckResult(h_data, 7);
-
-  std::vector<IdType> h_data2 = {
-    1, 2, 3, 6, 9, 2, 8, 1, 3, 7, 1023};
-  lambda_FillWithDupRevised(h_data2);
-  _CheckResult(h_data2, 12);
-
-  std::vector<IdType> h_data3;
-  h_data3.reserve(h_data.size() + h_data2.size());
-  h_data3.insert(h_data3.end(), h_data.begin(), h_data.end());
-  h_data3.insert(h_data3.end(), h_data2.begin(), h_data2.end());
-  lambda_FillWithDupRevised(h_data3);
-  _CheckResult(h_data3, 12);
-
-  } // check hash_table functions: NumItems, FillWithDupRevised, RefUnique
-
-  hash_table->Reset(stream);
-  cuda_device->StreamSync(ctx, stream);
-  EXPECT_EQ(hash_table->NumItems(), 0);
-
-  { // check functions:
-    //   FillWithDuplicates, NumItems, FillWithDupMutable, CopyUnique
-
-  // FillWithDuplicates
-  std::vector<IdType> h_data = { // unique items count: 13
-    1, 2, 3, 4, 5, 2, 5, 1, 10, 256,
-    6, 9, 2, 13, 5, 64, 512, 1021};
-  std::unordered_set<IdType> check_set = {
-    1, 2, 3, 4, 5, 10, 256, 6, 9, 13, 64, 512, 1021};
-  EXPECT_EQ(check_set.size(), 13);
-
-  IdType *d_data, *data_unique;
-  IdType num_unique;
-  CUDA_CALL(cudaMalloc(&d_data, h_data.size() * sizeof(IdType)));
-  CUDA_CALL(cudaMallocManaged(&data_unique,
-        1024 * sizeof(IdType)));
-  CUDA_CALL(cudaMemcpy(d_data, h_data.data(),
-        h_data.size() * sizeof(IdType),
-        cudaMemcpyHostToDevice));
-  hash_table->FillWithDuplicates(d_data, h_data.size(),
-        data_unique, &num_unique,
-        stream);
-  cuda_device->StreamSync(ctx, stream);
-
-  EXPECT_EQ(num_unique, 13);
-  for (IdType i = 0 ; i < num_unique; ++i) {
-    EXPECT_EQ(check_set.count(data_unique[i]), 1);
-  }
-  CUDA_CALL(cudaFree(d_data));
-  d_data = nullptr;
-
-  // FillWithDupMutable, CopyUnique
-  std::vector<IdType> h_data2(512);
-  for (int i = 1; i <= 512; ++i) {
-    h_data2[i - 1] = i;
-  }
-
-  CUDA_CALL(cudaMalloc(&d_data, h_data2.size() * sizeof(IdType)));
-  CUDA_CALL(cudaMemcpy(d_data, h_data2.data(),
-        h_data2.size() * sizeof(IdType),
-        cudaMemcpyHostToDevice));
-  hash_table->FillWithDupMutable(d_data, h_data2.size(), stream);
-  hash_table->CopyUnique(data_unique, stream);
-  cuda_device->StreamSync(ctx, stream);
-  num_unique = hash_table->NumItems();
-  EXPECT_EQ(num_unique, 513);
-  for (int i = 0; i < 13; ++i) {
-    EXPECT_EQ(check_set.count(data_unique[i]), 1);
-  }
-  check_set.insert(h_data2.begin(), h_data2.end());
-  EXPECT_EQ(check_set.size(), 513);
-  for (IdType i = 13; i < num_unique; ++i) {
-    EXPECT_EQ(check_set.count(data_unique[i]), 1);
-  }
-
-  for (IdType i = 0; i < num_unique; ++i) {
-    std::cout << data_unique[i] << " ";
-  }
-  std::cout << std::endl;
-
-  CUDA_CALL(cudaFree(data_unique));
-
-  } // check functions:
-    //   FillWithDuplicates, NumItems, FillWithDupMutable, CopyUnique
-
-  // TODO: check FillNeighbours, FillUniques
-}
-
+Context OrderedHashTableTest::ctx;
+Device* OrderedHashTableTest::cuda_device = nullptr;
+StreamHandle OrderedHashTableTest::stream = nullptr;
+HashTablePtr OrderedHashTableTest::hash_table = nullptr;
 } // namespace
 
-TEST_F(OrderedHashTableTest, TestCudaOrderedHashTable) {
-  this->_TestOrderedHashTable();
+TEST_P(OrderedHashTableTest, DupRevised_Ref) {
+  auto FillAndGetMethod = [](vec input, vec& output_uniq) {
+    IdType *d_data = _CopyToDevice(input.data(), input.size());
+    hash_table->FillWithDupRevised(d_data, input.size(), stream);
+    cuda_device->StreamSync(ctx, stream);
+    CUDA_CALL(cudaFree(d_data));
+
+    const IdType *data_unique;
+    IdType num_unique;
+    hash_table->RefUnique(data_unique, &num_unique);
+    output_uniq.resize(num_unique);
+    _CopyFromTo(data_unique, output_uniq.data(), num_unique);
+  };
+  /* ===================== First Insert ===================== */
+  vec h_data = {1, 2, 3, 4, 5, 2, 5, 1, 10, 233}, output_uniq;
+  FillAndGetMethod(h_data, output_uniq);
+
+  // make sure it's really unique and correct
+  auto d_set = uset(output_uniq.begin(), output_uniq.end());
+  uset h_set(h_data.begin(), h_data.end());
+  EXPECT_EQ(d_set, h_set);
+
+  /* ===================== Second Insert ===================== */
+  h_data = {1, 2, 3, 6, 9, 2, 8, 1, 3, 7, 1023};
+  FillAndGetMethod(h_data, output_uniq);
+
+  // validate the prefix is maintained
+  EXPECT_EQ(uset(output_uniq.begin(), output_uniq.begin() + h_set.size()),
+            h_set);
+  // make sure it's unique
+  d_set = uset(output_uniq.begin(), output_uniq.end());
+  EXPECT_EQ(d_set.size(), output_uniq.size());
+  h_set.insert(h_data.begin(), h_data.end());
+  EXPECT_EQ(d_set, h_set);
+
+  /* ===================== Third Insert ===================== */
+  // simply concat first 2 array
+  h_data = {1, 2, 3, 4, 5, 2, 5, 1, 10, 233,
+            1, 2, 3, 6, 9, 2, 8, 1, 3, 7, 1023};
+  FillAndGetMethod(h_data, output_uniq);
+
+  d_set = uset(output_uniq.begin(), output_uniq.end());
+  h_set = uset(h_data.begin(), h_data.end());
+  EXPECT_EQ(d_set, h_set);
 }
+
+TEST_P(OrderedHashTableTest, MixedFillMethod) {
+  auto FillAndGet_1 = [](vec input, vec&output_uniq) {
+    IdType *data_unique, num_unique;
+    CUDA_CALL(cudaMalloc(&data_unique, 1024 * sizeof(IdType)));
+    IdType *d_data = _CopyToDevice(input.data(), input.size());
+
+    hash_table->FillWithDuplicates(d_data, input.size(), data_unique, &num_unique, stream);
+    cuda_device->StreamSync(ctx, stream);
+
+    output_uniq.resize(num_unique);
+    _CopyFromTo(data_unique, output_uniq.data(), num_unique);
+    CUDA_CALL(cudaFree(d_data));
+    CUDA_CALL(cudaFree(data_unique));
+  };
+  auto FillAndGet_2 = [](vec input, vec& output_uniq) {
+    IdType *data_unique, num_unique;
+    CUDA_CALL(cudaMalloc(&data_unique, 1024 * sizeof(IdType)));
+    IdType *d_data = _CopyToDevice(input.data(), input.size());
+
+    hash_table->FillWithDupMutable(d_data, input.size(), stream);
+    hash_table->CopyUnique(data_unique, stream);
+    cuda_device->StreamSync(ctx, stream);
+    num_unique = hash_table->NumItems();
+
+    output_uniq.resize(num_unique);
+    _CopyFromTo(data_unique, output_uniq.data(), num_unique);
+
+    CUDA_CALL(cudaFree(d_data));
+    CUDA_CALL(cudaFree(data_unique));
+  };
+
+  vec h_data = { // unique items count: 13
+    1, 2, 3, 4, 5, 2, 5, 1, 10, 256,
+    6, 9, 2, 13, 5, 64, 512, 1021};
+  uset h_set(h_data.begin(), h_data.end());
+  EXPECT_EQ(h_set.size(), 13);
+  vec output_uniq;
+
+  // FillWithDuplicate
+  FillAndGet_1(h_data, output_uniq);
+
+  auto d_set = uset(output_uniq.begin(), output_uniq.end());
+  EXPECT_EQ(d_set, h_set);
+
+  h_data.resize(512);
+  for (int i = 1; i <= 512; ++i) {
+    h_data[i - 1] = i;
+  }
+
+  // FillWithDupMutable, CopyUnique
+  FillAndGet_2(h_data, output_uniq);
+
+  EXPECT_EQ(output_uniq.size(), 513);
+  // check prefix of unique array
+  EXPECT_EQ(uset(output_uniq.begin(), output_uniq.begin() + h_set.size()),
+            h_set);
+  // check entire unique array
+  d_set = uset(output_uniq.begin(), output_uniq.end());
+  EXPECT_EQ(d_set.size(), output_uniq.size());
+  h_set.insert(h_data.begin(), h_data.end());
+  EXPECT_EQ(d_set, h_set);
+}
+
+INSTANTIATE_TEST_SUITE_P(ResetTable, OrderedHashTableTest, 
+    ::testing::Values(ETearDown::kDoReset, ETearDown::kMakeNewTable));
