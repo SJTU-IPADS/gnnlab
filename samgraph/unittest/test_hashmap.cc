@@ -1,5 +1,6 @@
 #include <unordered_set>
 #include <functional>
+#include <random>
 
 #include "gtest/gtest.h"
 #include "common/common.h"
@@ -28,7 +29,8 @@ public:
     ctx = Context{kGPU, 0};
     cuda_device = Device::Get(ctx);
     stream = cuda_device->CreateStream(ctx);
-    hash_table = std::make_shared<cuda::OrderedHashTable>(1024, ctx, stream);
+    // max input in large test is 160,0000. hash table will scale itself
+    hash_table = std::make_shared<cuda::OrderedHashTable>(2000000, ctx, stream);
   }
   static void TearDownTestSuite() {
     hash_table = nullptr;
@@ -40,7 +42,7 @@ public:
     if (GetParam() == ETearDown::kDoReset) {
       hash_table->Reset(stream);
     } else {
-      hash_table = std::make_shared<cuda::OrderedHashTable>(1024, ctx, stream);
+      hash_table = std::make_shared<cuda::OrderedHashTable>(2000000, ctx, stream);
     }
   }
 
@@ -182,6 +184,67 @@ TEST_P(OrderedHashTableTest, MixedFillMethod) {
   // check entire unique array
   d_set = uset(output_uniq.begin(), output_uniq.end());
   EXPECT_EQ(d_set.size(), output_uniq.size());
+  h_set.insert(h_data.begin(), h_data.end());
+  EXPECT_EQ(d_set, h_set);
+}
+
+TEST_P(OrderedHashTableTest, Large) {
+  auto FillAndGet_1 = [](vec input, vec&output_uniq) {
+    IdType *data_unique, num_unique;
+    CUDA_CALL(cudaMalloc(&data_unique, 2000000 * sizeof(IdType)));
+    IdType *d_data = _CopyToDevice(input.data(), input.size());
+
+    hash_table->FillWithDuplicates(d_data, input.size(), data_unique, &num_unique, stream);
+    cuda_device->StreamSync(ctx, stream);
+
+    output_uniq.resize(num_unique);
+    _CopyFromTo(data_unique, output_uniq.data(), num_unique);
+    CUDA_CALL(cudaFree(d_data));
+    CUDA_CALL(cudaFree(data_unique));
+  };
+
+  vec h_data(1000000), output_uniq;
+  std::random_device dev;
+  std::mt19937 rng(dev());
+  std::uniform_int_distribution<uint32_t> distribution(1, 800000);
+  for (auto & v : h_data) {
+    v = distribution(rng);
+  }
+
+  // FillWithDuplicate
+  FillAndGet_1(h_data, output_uniq);
+
+  auto d_set = uset(output_uniq.begin(), output_uniq.end());
+  auto h_set = uset(h_data.begin(), h_data.end());
+  EXPECT_EQ(d_set, h_set);
+
+  distribution = std::uniform_int_distribution<uint32_t>(800001, 1600000);
+  for (auto & v : h_data) {
+    v = distribution(rng);
+  }
+  // FillWithDuplicate
+  FillAndGet_1(h_data, output_uniq);
+
+  // check prefix of unique array
+  EXPECT_EQ(uset(output_uniq.begin(), output_uniq.begin() + h_set.size()),
+            h_set);
+  // check entire unique array
+  d_set = uset(output_uniq.begin(), output_uniq.end());
+  h_set.insert(h_data.begin(), h_data.end());
+  EXPECT_EQ(d_set, h_set);
+
+  distribution = std::uniform_int_distribution<uint32_t>(1, 1600000);
+  for (auto & v : h_data) {
+    v = distribution(rng);
+  }
+  // FillWithDuplicate
+  FillAndGet_1(h_data, output_uniq);
+
+  // check prefix of unique array
+  EXPECT_EQ(uset(output_uniq.begin(), output_uniq.begin() + h_set.size()),
+            h_set);
+  // check entire unique array
+  d_set = uset(output_uniq.begin(), output_uniq.end());
   h_set.insert(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
 }
