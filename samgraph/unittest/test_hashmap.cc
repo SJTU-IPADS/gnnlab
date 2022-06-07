@@ -7,30 +7,55 @@
 #include "common/run_config.h"
 #include "common/cuda/cuda_hashtable.h"
 
+namespace {
 using namespace samgraph;
 using namespace samgraph::common;
 
 using HashTablePtr = std::shared_ptr<cuda::OrderedHashTable>;
 
-void _CheckResult(const std::vector<IdType> &input_data,
-    const HashTablePtr hash_table, const size_t check_item) {
+class OrderedHashTableTest: public ::testing::Test { 
+public: 
+  OrderedHashTableTest( ) { 
+    // initialization code here
+  } 
+
+  void SetUp( ) {
+    ctx = Context{kGPU, 0};
+    cuda_device = Device::Get(ctx);
+    stream = cuda_device->CreateStream(ctx);
+    hash_table = std::make_shared<cuda::OrderedHashTable>(1024, ctx, stream);
+  }
+  void _CheckResult(const std::vector<IdType> &input_data,
+                    const size_t expected_num_unique);
+  void _TestOrderedHashTable();
+
+  Context ctx;
+  Device* cuda_device;
+  StreamHandle stream;
+  HashTablePtr hash_table;
+};
+
+void OrderedHashTableTest::_CheckResult(
+    const std::vector<IdType> &input_data,
+    const size_t expected_num_unique) {
 
   size_t num_items = hash_table->NumItems();
   std::unordered_set<IdType> h_set(input_data.begin(), input_data.end());
   EXPECT_TRUE(h_set.size() <= num_items)
     << "size of h_set and device_hash_table: "
     << h_set.size() << " vs " << num_items;
-  EXPECT_EQ(num_items, check_item);
+  EXPECT_EQ(num_items, expected_num_unique);
 
   const IdType *d_n2o;
   IdType num_unique;
   hash_table->RefUnique(d_n2o, &num_unique);
-  EXPECT_EQ(num_unique, check_item);
+  EXPECT_EQ(num_unique, expected_num_unique);
 
   std::vector<IdType> h_n2o(num_items);
   CUDA_CALL(cudaMemcpy(h_n2o.data(), d_n2o, num_items * sizeof(IdType),
         cudaMemcpyDeviceToHost));
-  std::unordered_set<IdType> check_set(h_n2o.begin(), h_n2o.end());
+  // should use multiset to make sure h_n2o is unique
+  std::unordered_multiset<IdType> check_set(h_n2o.begin(), h_n2o.end());
   EXPECT_EQ(check_set.size(), h_n2o.size());
 
   for (auto i : input_data) {
@@ -38,12 +63,7 @@ void _CheckResult(const std::vector<IdType> &input_data,
   }
 }
 
-void _TestOrderedHashTable() {
-  auto ctx = Context{kGPU, 0};
-  auto cuda_device = Device::Get(ctx);
-  auto stream = cuda_device->CreateStream(ctx);
-  auto hash_table = std::make_shared<cuda::OrderedHashTable>(
-      1024, ctx, stream);
+void OrderedHashTableTest::_TestOrderedHashTable() {
   hash_table->Reset(stream);
 
   { // check hash_table functions: NumItems, FillWithDupRevised, RefUnique
@@ -64,19 +84,19 @@ void _TestOrderedHashTable() {
   std::vector<IdType> h_data = {
     1, 2, 3, 4, 5, 2, 5, 1, 10, 233};
   lambda_FillWithDupRevised(h_data);
-  _CheckResult(h_data, hash_table, 7);
+  _CheckResult(h_data, 7);
 
   std::vector<IdType> h_data2 = {
     1, 2, 3, 6, 9, 2, 8, 1, 3, 7, 1023};
   lambda_FillWithDupRevised(h_data2);
-  _CheckResult(h_data2, hash_table, 12);
+  _CheckResult(h_data2, 12);
 
   std::vector<IdType> h_data3;
   h_data3.reserve(h_data.size() + h_data2.size());
   h_data3.insert(h_data3.end(), h_data.begin(), h_data.end());
   h_data3.insert(h_data3.end(), h_data2.begin(), h_data2.end());
   lambda_FillWithDupRevised(h_data3);
-  _CheckResult(h_data3, hash_table, 12);
+  _CheckResult(h_data3, 12);
 
   } // check hash_table functions: NumItems, FillWithDupRevised, RefUnique
 
@@ -152,6 +172,8 @@ void _TestOrderedHashTable() {
   // TODO: check FillNeighbours, FillUniques
 }
 
-TEST(SamgraphTest, TestCudaOrderedHashTable) {
-  _TestOrderedHashTable();
+} // namespace
+
+TEST_F(OrderedHashTableTest, TestCudaOrderedHashTable) {
+  this->_TestOrderedHashTable();
 }
