@@ -55,6 +55,7 @@ public:
   static void _CopyFromTo(const T* const from, T* to, size_t num_item) {
     // let cuda auto infer src & dst
     CUDA_CALL(cudaMemcpy(to, from,num_item * sizeof(T), cudaMemcpyDefault));
+    CUDA_CALL(cudaDeviceSynchronize());
   }
 
   template<typename Iter>
