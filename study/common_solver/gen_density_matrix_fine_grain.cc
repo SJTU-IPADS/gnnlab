@@ -52,9 +52,18 @@ static uint32_t max_size_per_block = 10000;
 struct block_identifer {
   uint32_t current_block_id = -1;
   uint32_t current_num = 0;
+  bool ignore_limit = false;
   std::atomic_flag latch;
   block_identifer() : latch() {}
+  void set_ignore_limit() {
+    while (latch.test_and_set()) {}
+    ignore_limit = true;
+    latch.clear();
+  }
   uint32_t add_node() {
+    if (ignore_limit) {
+      return current_block_id;
+    }
     while (latch.test_and_set()) {}
     uint32_t selected_block = -1;
     if (current_num < max_size_per_block) {
@@ -116,8 +125,13 @@ int main(int argc, char** argv) {
 #pragma omp parallel for num_threads(NUM_THREAD)
   for (uint32_t slot_array_seq_id = 0; slot_array_seq_id < slot_array_to_full_block._num_elem; slot_array_seq_id++) {
     slot_array_to_full_block._data[slot_array_seq_id].current_block_id = slot_array_seq_id;
+    if (method == "bin") {
+      slot_array_to_full_block._data[slot_array_seq_id].set_ignore_limit();
+    }
   }
   next_free_block.store(slot_array_to_full_block._num_elem);
+  slot_array_to_full_block._data[slot_array_to_full_block._num_elem - 1].set_ignore_limit();
+
 
   // identify freq boundary of first slot
   for (uint i = 0; i < num_stream; i++) {

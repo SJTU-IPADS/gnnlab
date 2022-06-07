@@ -4,7 +4,7 @@ import sys, subprocess, numpy, os, re
 # from runner_helper import ConfigList
 
 
-num_threads = 108
+num_threads = 30
 coefficient = 1.05
 
 def try_and_throw(exp):

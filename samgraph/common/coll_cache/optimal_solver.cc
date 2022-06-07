@@ -307,6 +307,7 @@ class Solver {
     env.set(GRB_IntParam_Threads, solver_num_thread);
     env.set(GRB_DoubleParam_BarConvTol, 1e-2);
     env.set(GRB_DoubleParam_OptimalityTol, 1e-2);
+    env.set(GRB_DoubleParam_MIPGap, 1e-3);
     env.start();
 
     GRBModel model = GRBModel(env);
