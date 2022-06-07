@@ -125,7 +125,9 @@ def run_sample(run_config):
     num_epoch = sam.num_epoch()
     global_step = sam.steps_per_epoch()
 
-    num_step = (global_step + (num_worker - 1)) // num_worker 
+    #  num_step = (global_step + (num_worker - 1)) // num_worker 
+    num_step = (global_step - (global_step // num_worker) * (num_worker - 1))
+    assert num_step >= global_step // num_worker
 
     epoch_sample_total_times_python = []
     epoch_pipeline_sample_total_times_python = []
