@@ -79,6 +79,8 @@ StreamHandle OrderedHashTableTest::stream = nullptr;
 HashTablePtr OrderedHashTableTest::hash_table = nullptr;
 } // namespace
 
+void ValidateSearch(cuda::OrderedHashTable &table, StreamHandle stream);
+
 TEST_P(OrderedHashTableTest, DupRevised_Ref) {
   auto FillAndGetMethod = [](vec input, vec& output_uniq) {
     IdType *d_data = _CopyToDevice(input.data(), input.size());
@@ -100,6 +102,8 @@ TEST_P(OrderedHashTableTest, DupRevised_Ref) {
   auto d_set = uset(output_uniq.begin(), output_uniq.end());
   uset h_set(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 
   /* ===================== Second Insert ===================== */
   h_data = {1, 2, 3, 6, 9, 2, 8, 1, 3, 7, 1023};
@@ -113,6 +117,8 @@ TEST_P(OrderedHashTableTest, DupRevised_Ref) {
   EXPECT_EQ(d_set.size(), output_uniq.size());
   h_set.insert(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 
   /* ===================== Third Insert ===================== */
   // simply concat first 2 array
@@ -123,6 +129,8 @@ TEST_P(OrderedHashTableTest, DupRevised_Ref) {
   d_set = uset(output_uniq.begin(), output_uniq.end());
   h_set = uset(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 }
 
 TEST_P(OrderedHashTableTest, MixedFillMethod) {
@@ -156,6 +164,7 @@ TEST_P(OrderedHashTableTest, MixedFillMethod) {
     CUDA_CALL(cudaFree(data_unique));
   };
 
+  /* ===================== First Insert ===================== */
   vec h_data = { // unique items count: 13
     1, 2, 3, 4, 5, 2, 5, 1, 10, 256,
     6, 9, 2, 13, 5, 64, 512, 1021};
@@ -168,7 +177,10 @@ TEST_P(OrderedHashTableTest, MixedFillMethod) {
 
   auto d_set = uset(output_uniq.begin(), output_uniq.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 
+  /* ===================== Second Insert ===================== */
   h_data.resize(512);
   for (int i = 1; i <= 512; ++i) {
     h_data[i - 1] = i;
@@ -186,6 +198,8 @@ TEST_P(OrderedHashTableTest, MixedFillMethod) {
   EXPECT_EQ(d_set.size(), output_uniq.size());
   h_set.insert(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 }
 
 TEST_P(OrderedHashTableTest, Large) {
@@ -202,10 +216,11 @@ TEST_P(OrderedHashTableTest, Large) {
     CUDA_CALL(cudaFree(d_data));
     CUDA_CALL(cudaFree(data_unique));
   };
-
-  vec h_data(1000000), output_uniq;
   std::random_device dev;
   std::mt19937 rng(dev());
+
+  /* ===================== First Insert ===================== */
+  vec h_data(1000000), output_uniq;
   std::uniform_int_distribution<uint32_t> distribution(1, 800000);
   for (auto & v : h_data) {
     v = distribution(rng);
@@ -217,7 +232,10 @@ TEST_P(OrderedHashTableTest, Large) {
   auto d_set = uset(output_uniq.begin(), output_uniq.end());
   auto h_set = uset(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 
+  /* ===================== Second Insert ===================== */
   distribution = std::uniform_int_distribution<uint32_t>(800001, 1600000);
   for (auto & v : h_data) {
     v = distribution(rng);
@@ -232,7 +250,10 @@ TEST_P(OrderedHashTableTest, Large) {
   d_set = uset(output_uniq.begin(), output_uniq.end());
   h_set.insert(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 
+  /* ===================== Third Insert ===================== */
   distribution = std::uniform_int_distribution<uint32_t>(1, 1600000);
   for (auto & v : h_data) {
     v = distribution(rng);
@@ -247,6 +268,8 @@ TEST_P(OrderedHashTableTest, Large) {
   d_set = uset(output_uniq.begin(), output_uniq.end());
   h_set.insert(h_data.begin(), h_data.end());
   EXPECT_EQ(d_set, h_set);
+  ValidateSearch(*hash_table.get(), stream);
+  cuda_device->StreamSync(ctx, stream);
 }
 
 INSTANTIATE_TEST_SUITE_P(ResetTable, OrderedHashTableTest, 

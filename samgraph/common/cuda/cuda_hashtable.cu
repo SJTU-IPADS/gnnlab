@@ -818,13 +818,13 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
   _num_items = *num_unique;
 }
 
-void OrderedHashTable::CopyUnique(IdType *const unique, StreamHandle stream) {
+void OrderedHashTable::CopyUnique(IdType *const unique, StreamHandle stream) const {
   auto device = Device::Get(_ctx);
   device->CopyDataFromTo(_n2o_table, 0, unique, 0,
     sizeof(IdType) * _num_items, _ctx, _ctx, stream);
   device->StreamSync(_ctx, stream);
 }
-void OrderedHashTable::RefUnique(const IdType *&unique, IdType * const num_unique) {
+void OrderedHashTable::RefUnique(const IdType *&unique, IdType * const num_unique) const {
   unique = reinterpret_cast<const IdType*>(_n2o_table);
   *num_unique = _num_items;
 }

@@ -96,7 +96,10 @@ include(GoogleTest)
 enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR})
-file(GLOB_RECURSE TEST_SRC_FILES ${PROJECT_SOURCE_DIR}/unittest/*.cc)
+file(GLOB_RECURSE TEST_SRC_FILES 
+  ${PROJECT_SOURCE_DIR}/unittest/*.cc
+  ${PROJECT_SOURCE_DIR}/unittest/*.cu
+)
 add_executable(runUnitTests ${TEST_SRC_FILES})
 target_link_libraries(runUnitTests gtest gtest_main)
 target_link_libraries(runUnitTests samgraph_lib)

@@ -127,8 +127,8 @@ class OrderedHashTable {
                           StreamHandle stream);
   void FillWithDupMutable(IdType *const input, const size_t num_input,
                           StreamHandle stream);
-  void CopyUnique(IdType * const unique, StreamHandle stream);
-  void RefUnique(const IdType * &unique, IdType * const num_unique);
+  void CopyUnique(IdType * const unique, StreamHandle stream) const ;
+  void RefUnique(const IdType * &unique, IdType * const num_unique) const;
   /** add all neighbours of nodes in hashtable to hashtable */
   void FillNeighbours(const IdType *const indptr, const IdType *const indices,
                       StreamHandle stream);
