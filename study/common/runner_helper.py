@@ -254,14 +254,14 @@ class RunConfig:
     assert(self.system is System.samgraph)
     self.preprocess_sample_type()
     cmd_line = ''
-    cmd_line += f'export CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking}; '
-    cmd_line += 'export SAMGRAPH_LOG_NODE_ACCESS=0; '
-    cmd_line += f'export SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal}; '
-    cmd_line += f'export SAMGRAPH_DUMP_TRACE={self.dump_trace}; '
+    cmd_line += f'CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking} '
+    cmd_line += 'SAMGRAPH_LOG_NODE_ACCESS=0 '
+    cmd_line += f'SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal} '
+    cmd_line += f'SAMGRAPH_DUMP_TRACE={self.dump_trace} '
     if self.num_feat_dim_hack != None:
-      cmd_line += f'export SAMGRAPH_FAKE_FEAT_DIM={self.num_feat_dim_hack}; '
+      cmd_line += f'SAMGRAPH_FAKE_FEAT_DIM={self.num_feat_dim_hack} '
     if self.custom_env != '':
-      cmd_line += f'{self.custom_env}; '
+      cmd_line += f'{self.custom_env} '
     if self.multi_gpu:
       if self.async_train:
         cmd_line += f'python ../../example/samgraph/multi_gpu/async/train_{self.app.name}.py'
