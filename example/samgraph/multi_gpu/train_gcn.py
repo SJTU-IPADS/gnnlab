@@ -317,13 +317,13 @@ def run_train(worker_id, run_config):
 
             t3 = time.time()
 
-            copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
+            copy_time = sam.get_log_step_value_by_key(batch_key, sam.kLogL1CopyTime)
             convert_time = t2 - t1
             train_time = t3 - t2
             total_time = t3 - t1
 
-            sam.log_step(epoch, step, sam.kLogL1TrainTime, train_time)
-            sam.log_step(epoch, step, sam.kLogL1ConvertTime, convert_time)
+            sam.log_step_by_key(batch_key, sam.kLogL1TrainTime, train_time)
+            sam.log_step_by_key(batch_key, sam.kLogL1ConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
@@ -374,6 +374,7 @@ def run_train(worker_id, run_config):
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
+    sys.stdout.flush()
     global_barrier.wait()
     run_end = time.time()
 
