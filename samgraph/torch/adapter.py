@@ -96,7 +96,7 @@ def get_graph_data(batch_key, layer_idx):
 
 def _create_dgl_block(data, num_src_nodes, num_dst_nodes):
     row, col = data
-    gidx = dgl.heterograph_index.create_unitgraph_from_coo(2, num_src_nodes, num_dst_nodes, row, col, 'coo')
+    gidx = dgl.heterograph_index.create_unitgraph_from_coo(2, num_src_nodes, num_dst_nodes, row, col, ['coo', 'csr', 'csc'])
     g = DGLBlock(gidx, (['_N'], ['_N']), ['_E'])
 
     return g
