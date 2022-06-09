@@ -105,6 +105,7 @@ bool RunSample(sem_t* sem) {
   auto tid = std::this_thread::get_id();
   auto sampler = DistEngine::Get()->GetUMSamplerByTid(tid);
   auto ctx = sampler->Ctx();
+  CUDA_CALL(cudaSetDevice(ctx.device_id));
   CHECK(sampler != nullptr);
   while (1) {
     sem_wait(sem);
