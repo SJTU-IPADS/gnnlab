@@ -29,13 +29,15 @@ cur_common_base = (ConfigList()
 )
 
 cfg_list_collector = ConfigList.Empty()
+cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part1-0']).override('custom_env', ['export SAMGRAPH_TRAIN_SET_PART=0/1']).override('part_num', [1]).override('part_idx', [0]))
+
 # cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part2-0']).override('custom_env', ['export SAMGRAPH_TRAIN_SET_PART=0/2']).override('part_num', [2]).override('part_idx', [0]))
 # cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part2-1']).override('custom_env', ['export SAMGRAPH_TRAIN_SET_PART=1/2']).override('part_num', [2]).override('part_idx', [1]))
 
-cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-0']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=0/4']).override('part_num', [4]).override('part_idx', [0]))
-cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-1']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=1/4']).override('part_num', [4]).override('part_idx', [1]))
-cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-2']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=2/4']).override('part_num', [4]).override('part_idx', [2]))
-cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-3']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=3/4']).override('part_num', [4]).override('part_idx', [3]))
+# cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-0']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=0/4']).override('part_num', [4]).override('part_idx', [0]))
+# cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-1']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=1/4']).override('part_num', [4]).override('part_idx', [1]))
+# cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-2']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=2/4']).override('part_num', [4]).override('part_idx', [2]))
+# cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part4-3']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=3/4']).override('part_num', [4]).override('part_idx', [3]))
 
 # cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part8-0']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=0/8']).override('part_num', [8]).override('part_idx', [0]))
 # cfg_list_collector.concat(cur_common_base.copy().override('logdir', ['run-logs/part8-1']).override('custom_env', ['export SAMGRAPH_FAKE_FEAT_DIM=1; export SAMGRAPH_TRAIN_SET_PART=1/8']).override('part_num', [8]).override('part_idx', [1]))
@@ -54,8 +56,8 @@ cfg_list_collector.concat(cur_common_base.copy().override('app', [App.pinsage   
 cfg_list_collector.concat(cur_common_base.copy().override('app', [App.gcn       ]).override('sample_type', [SampleType.kWeightedKHopPrefix]))
 
 cfg_list_collector.override('dataset', [
-  # Dataset.twitter,
-  # Dataset.papers100M,
+  Dataset.twitter,
+  Dataset.papers100M,
   Dataset.uk_2006_05,
 ])
 

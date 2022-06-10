@@ -36,6 +36,8 @@ def get_dataset_list():
     return ['papers100M', 'com-friendster',
             'reddit', 'products', 'twitter', 'uk-2006-05', 'papers100M_empty',
             'papers100M_300', 'papers100M_600',
+            'papers100M-undir',
+            'mag240m-homo',
             'ppi']
 
 

@@ -85,6 +85,7 @@ class GraphLoader {
   static const std::string kTestSet64File;
   static const std::string kValidSet64File;
 
+  static const std::string kMetaFeatDataType;
   static const std::string kMetaNumNode;
   static const std::string kMetaNumEdge;
   static const std::string kMetaFeatDim;

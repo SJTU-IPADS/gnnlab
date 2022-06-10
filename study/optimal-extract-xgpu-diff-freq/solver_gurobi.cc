@@ -129,7 +129,16 @@ GRBVar z;
 ndarray<GRBVar> c_list;
 ndarray<GRBVar> x_list;
 std::vector<GRBLinExpr> time_list;
+std::vector<GRBLinExpr> local_weight_list;
+std::vector<GRBLinExpr> local_density_list;
+// std::vector<GRBLinExpr> remote_weight_list;
+std::vector<double> total_weight_list;
+std::vector<GRBLinExpr> cpu_weight_list;
+GRBLinExpr cpu_density;
 
+std::vector<int> stream_mapping;
+
+uint32_t num_stream;
 uint32_t num_part;
 uint32_t num_block;
 uint32_t cache_percent = 14;
@@ -210,6 +219,7 @@ void constraint_capacity(GRBModel & model, uint32_t part_id) {
   model.addConstr(exp <= cache_percent);
 }
 void constraint_time(GRBModel & model, uint32_t part_id) {
+  uint32_t stream_id = stream_mapping[part_id];
   double sum_weight = 0;
   // {
   //   uint32_t block_id = 0;
@@ -227,13 +237,23 @@ void constraint_time(GRBModel & model, uint32_t part_id) {
   // }, 1, num_block);
   GRBLinExpr &exp = time_list[part_id];
   FOR_LOOP(block_id, num_block) {
-    double weight = density_array[block_id] * block_freq_array[(block_id) * num_part + part_id];
+    double weight = density_array[block_id] * block_freq_array[(block_id) * num_stream + stream_id];
     if (weight == 0) continue;
     sum_weight += weight;
     exp += c_list[block_id].ref() * (weight * (T_cpu - T_remote)) - x_list[block_id][part_id].ref() * (weight * (T_remote - T_local));
+
+    local_weight_list[part_id] +=  weight * x_list[block_id][part_id].ref();
+    cpu_weight_list[part_id]   +=  weight * c_list[block_id].ref();
+    local_density_list[part_id] += x_list[block_id][part_id].ref() * density_array[block_id];
   }
   exp += sum_weight * T_remote;
+  total_weight_list[part_id] = sum_weight;
   model.addConstr(exp <= z, "time_" + std::to_string(part_id));
+  if (part_id != 0) return;
+  FOR_LOOP(block_id, num_block) {
+    if (ignore_block(block_id, density_array[block_id])) continue;
+    cpu_density += c_list[block_id].ref() * density_array[block_id];
+  }
 }
 
 int main(int argc, char** argv) {
@@ -247,6 +267,7 @@ int main(int argc, char** argv) {
   _app.add_option("--tc", T_cpu, "time cpu");
   _app.add_option("-m,--mode", mode, "BIN or CONT")->check(CLI::IsMember({"BIN","CONT"}));
   _app.add_option("-t,--thread", NUM_THREADS, "num of threads");
+  _app.add_option("--sm,--stream-mapping", stream_mapping, "mapping from part to stream. useful when stream is shared across different parts");
   try {
     _app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
@@ -258,14 +279,25 @@ int main(int argc, char** argv) {
   stat(bin_filename_list[0].c_str(), &st);
   num_block = st.st_size / sizeof(double);
   stat(bin_filename_list[1].c_str(), &st);
-  num_part = st.st_size / sizeof(double) / num_block;
+  num_stream = st.st_size / sizeof(double) / num_block;
+
+  if (stream_mapping.size() == 0) {
+    // by default, each stream is a part
+    num_part = num_stream;
+    stream_mapping.resize(num_stream);
+    for (int i = 0; i < num_part; i++) {
+      stream_mapping[i] = i;
+    }
+  } else {
+    num_part = stream_mapping.size();
+  }
 
   std::cerr << num_block << " blocks, " << num_part << "parts\n";
 
   int density_fd = open(bin_filename_list[0].c_str(), O_RDONLY);
   int block_freq_fd = open(bin_filename_list[1].c_str(), O_RDONLY);
-  density_array    = (double*)mmap(nullptr, num_block *            sizeof(double), PROT_READ, MAP_PRIVATE, density_fd, 0);
-  block_freq_array = (double*)mmap(nullptr, num_block * num_part * sizeof(double), PROT_READ, MAP_PRIVATE, block_freq_fd, 0);
+  density_array    = (double*)mmap(nullptr, num_block *              sizeof(double), PROT_READ, MAP_PRIVATE, density_fd, 0);
+  block_freq_array = (double*)mmap(nullptr, num_block * num_stream * sizeof(double), PROT_READ, MAP_PRIVATE, block_freq_fd, 0);
 
   GRBEnv env = GRBEnv(true);
   env.set("LogFile", "cppsolver.log");
@@ -284,6 +316,10 @@ int main(int argc, char** argv) {
   c_list = ndarray<GRBVar> ({num_block});
   x_list = ndarray<GRBVar> ({num_block, num_part});
   time_list.resize(num_part);
+  local_weight_list.resize(num_part);
+  total_weight_list.resize(num_part);
+  cpu_weight_list.resize(num_part);
+  local_density_list.resize(num_part);
 
   std::cerr << "Add Var...\n";
   char var_type = (mode == "BIN") ? GRB_BINARY : GRB_CONTINUOUS;
@@ -323,15 +359,34 @@ int main(int argc, char** argv) {
 
   std::ofstream fs("solver_gurobi.out");
   fs << z.get(GRB_DoubleAttr::GRB_DoubleAttr_X);
-  double max_gpu_time = 0;
+  double max_gpu_time = 0, min_gpu_time = std::numeric_limits<double>::max();
   FOR_LOOP(part_id, num_part) {
-    if (time_list[part_id].getValue() > max_gpu_time) {
-      max_gpu_time = time_list[part_id].getValue();
-    }
+    max_gpu_time = std::max(max_gpu_time, time_list[part_id].getValue());
+    min_gpu_time = std::min(min_gpu_time, time_list[part_id].getValue());
   }
   fs << " " << max_gpu_time;
   FOR_LOOP(part_id, num_part) {
     fs << " " << time_list[part_id].getValue();
   }
+  fs << " \n";
+  fs << "solver_time " << z.get(GRB_DoubleAttr::GRB_DoubleAttr_X) << "\n";
+  fs << "max_time " << max_gpu_time << "\n";
+  fs << "time_list";
+  FOR_LOOP(part_id, num_part) { fs << " " << time_list[part_id].getValue(); }
+  fs << "\n";
+
+  fs << "local_weight";
+  FOR_LOOP(part_id, num_part) { fs << " " << local_weight_list[part_id].getValue() / total_weight_list[part_id]; }
+  fs << "\n";
+
+  fs << "cpu_weight";
+  FOR_LOOP(part_id, num_part) { fs << " " << cpu_weight_list[part_id].getValue() / total_weight_list[part_id]; }
+  fs << "\n";
+
+  fs << "local_density";
+  FOR_LOOP(part_id, num_part) { fs << " " << local_density_list[part_id].getValue(); }
+  fs << "\n";
+
+  fs << "cpu_density " << cpu_density.getValue() << "\n";
   fs.close();
 }

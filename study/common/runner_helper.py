@@ -118,19 +118,21 @@ class Dataset(Enum):
   uk_2006_05 = 5
   twitter = 6
 
-  papers100M_part2_0 = 10
-  papers100M_part2_1 = 11
-  papers100M_part4_0 = 20
-  papers100M_part4_1 = 21
+  papers100M_undir = 7
+  mag240m_homo = 8
 
   def __str__(self):
     if self is Dataset.friendster:
       return 'com-friendster'
     elif self is Dataset.uk_2006_05:
       return 'uk-2006-05'
+    elif self is Dataset.papers100M_undir:
+      return 'papers100M-undir'
+    elif self is Dataset.mag240m_homo:
+      return 'mag240m-homo'
     return self.name
   def FeatGB(self):
-    return [0.522,0.912,52.96,34.22, None ,74.14,39.72][self.value]
+    return [0.522,0.912,52.96,34.22, None ,74.14,39.72, 52.96,349.27][self.value]
 
 class RunConfig:
   def __init__(self, app:App, dataset:Dataset, 
