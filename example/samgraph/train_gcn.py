@@ -139,6 +139,7 @@ def run():
 
     epoch_sample_times = [0 for i in range(num_epoch)]
     epoch_sample_coo_times = [0 for i in range(num_epoch)]
+    epoch_remap_times = [0 for i in range(num_epoch)]
     epoch_sample_kernel_times = [0 for i in range(num_epoch)]
     epoch_copy_times = [0 for i in range(num_epoch)]
     epoch_convert_times = [0 for i in range(num_epoch)]
@@ -280,6 +281,7 @@ def run():
         epoch_sample_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochSampleTime)
         epoch_sample_coo_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochSampleCooTime)
+        epoch_remap_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochIdRemapTime)
         epoch_sample_kernel_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochSampleKernelTime)
         epoch_copy_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochCopyTime)
@@ -303,6 +305,7 @@ def run():
     test_result.append(
         ('epoch_time:sample_time', np.mean(epoch_sample_times[1:])))
     test_result.append(('epoch_time:sample_coo_time', np.mean(epoch_sample_coo_times[1:])))
+    test_result.append(('epoch_time:remap_time', np.mean(epoch_remap_times[1:])))
     test_result.append(('epoch_time:sample_kernel_time', np.mean(epoch_sample_kernel_times[1:])))
     test_result.append(('epoch_time:copy_time',
                     np.mean(epoch_copy_times[1:])))
@@ -340,9 +343,9 @@ def run():
     sam.dump_trace()
     sam.shutdown()
 
-    print('sample_times', sample_times[num_step:])
-    print('coo_times', sample_coo_times[num_step:])
-    print('remap_time', remap_times[num_step:])
+    # print('sample_times', sample_times[num_step:])
+    # print('coo_times', sample_coo_times[num_step:])
+    # print('remap_time', remap_times[num_step:])
 
 if __name__ == '__main__':
     run()

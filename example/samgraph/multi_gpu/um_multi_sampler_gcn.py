@@ -264,9 +264,9 @@ def run_sample(run_config):
         test_result.append((f'step_time:sampler({ctx}):sample_coo_time', np.mean(my_coo_times)))
         test_result.append((f'step_time:sampler({ctx}):remap_time', np.mean(my_remap_times)))
 
-        print(f'sampler({ctx}) sample_time {my_sample_times.tolist()}')
-        print(f'sampler({ctx}) sample_coo_time {my_coo_times.tolist()}')
-        print(f'sampler({ctx}) remap_time {my_remap_times.tolist()}')
+        # print(f'sampler({ctx}) sample_time {my_sample_times.tolist()}')
+        # print(f'sampler({ctx}) sample_coo_time {my_coo_times.tolist()}')
+        # print(f'sampler({ctx}) remap_time {my_remap_times.tolist()}')
 
 
     for k, v in test_result:

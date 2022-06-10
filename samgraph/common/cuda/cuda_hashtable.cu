@@ -750,6 +750,8 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   IdType *item_prefix = static_cast<IdType *>(
       device->AllocWorkspace(_ctx, sizeof(IdType) * 2 * (grid.x + 1)));
+  // IdType* item_prefix = static_cast<IdType*>(
+  //       device->AllocDataSpace(_ctx, sizeof(IdType) * 2 * (grid.x + 1)));
   IdType *const item_prefix_out = &item_prefix[grid.x + 1];
   LOG(DEBUG) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
              << ToReadableSize(sizeof(IdType) * 2 * (grid.x + 1));
@@ -766,6 +768,7 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
   device->StreamSync(_ctx, stream);
 
   void *workspace = device->AllocWorkspace(_ctx, workspace_bytes);
+  // void *workspace = device->AllocDataSpace(_ctx, workspace_bytes);
   LOG(TRACE) << "OrderedHashTable::FillWithDuplicates cuda item_prefix malloc "
              << ToReadableSize(sizeof(IdType) * (num_input + 1));
 
@@ -776,6 +779,8 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
 
   IdType *gpu_num_unique =
       static_cast<IdType *>(device->AllocWorkspace(_ctx, sizeof(IdType)));
+  // IdType *gpu_num_unique = 
+  //       static_cast<IdType*>(device->AllocDataSpace(_ctx, sizeof(IdType)));
   LOG(TRACE)
       << "OrderedHashTable::FillWithDuplicates cuda gpu_num_unique malloc "
       << ToReadableSize(sizeof(IdType));
@@ -807,6 +812,9 @@ void OrderedHashTable::FillWithDuplicates(const IdType *const input,
   device->FreeWorkspace(_ctx, gpu_num_unique);
   device->FreeWorkspace(_ctx, item_prefix);
   device->FreeWorkspace(_ctx, workspace);
+  // device->FreeDataSpace(_ctx, gpu_num_unique);
+  // device->FreeDataSpace(_ctx, item_prefix);
+  // device->FreeDataSpace(_ctx, workspace);
 
   _version++;
   _num_items = *num_unique;

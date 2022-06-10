@@ -120,6 +120,7 @@ enum LogEpochItem {
   kLogEpochSampleSendTime,               // for arch5
   kLogEpochSampleTotalTime,              // for arch5
   kLogEpochSampleCooTime,
+  kLogEpochIdRemapTime,
   kLogEpochSampleKernelTime,
   kLogEpochCopyTime,
   kLogEpochConvertTime,

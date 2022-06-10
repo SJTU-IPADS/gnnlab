@@ -136,6 +136,12 @@ void DoGPUSample(TaskPtr task) {
         sampler_ctx, num_input * fanout * sizeof(IdType)));
     IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_input * fanout * sizeof(IdType)));
+    // Timer t_out_alloc;
+    // IdType *out_src = static_cast<IdType*>(sampler_device->AllocDataSpace(
+    //       sampler_ctx, num_input * fanout * sizeof(IdType)));
+    // IdType *out_dst = static_cast<IdType*>(sampler_device->AllocDataSpace(
+    //       sampler_ctx, num_input * fanout * sizeof(IdType)));
+    // LOG(INFO) << "alloc out time " << t_out_alloc.Passed();
     IdType *out_data = nullptr;
     if (RunConfig::sample_type == kRandomWalk) {
       out_data = static_cast<IdType *>(sampler_device->AllocWorkspace(
@@ -143,6 +149,8 @@ void DoGPUSample(TaskPtr task) {
     }
     size_t *num_out = static_cast<size_t *>(
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    // size_t *num_out = static_cast<size_t*>(sampler_device->AllocDataSpace(
+    //       sampler_ctx, sizeof(size_t)));
     size_t num_samples;
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
@@ -213,8 +221,11 @@ void DoGPUSample(TaskPtr task) {
     Timer t2;
 
     // Populate the hash table with newly sampled nodes
+    // double alloc_time = 0;
+    // Timer t_alloc_1;
     IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
+    // alloc_time += t_alloc_1.Passed();
     IdType num_unique;
 
     LOG(TRACE) << "GPUSample: cuda unique malloc "
@@ -229,10 +240,12 @@ void DoGPUSample(TaskPtr task) {
     Timer t3;
 
     // Mapping edges
+    // Timer t_alloc_2;
     IdType *new_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_samples * sizeof(IdType)));
     IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_samples * sizeof(IdType)));
+    // alloc_time += t_alloc_2.Passed();
 
     LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
     LOG(TRACE) << "GPUSample: cuda new_src malloc "
@@ -246,6 +259,7 @@ void DoGPUSample(TaskPtr task) {
     double map_edges_time = t3.Passed();
     double remap_time = t1.Passed();
     double layer_time = tlayer.Passed();
+    // LOG(INFO) << "alloc time during remap " << alloc_time;
 
     auto train_graph = std::make_shared<TrainGraph>();
     train_graph->num_src = num_unique;
@@ -274,6 +288,9 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
+    // sampler_device->FreeDataSpace(sampler_ctx, out_src);
+    // sampler_device->FreeDataSpace(sampler_ctx, out_dst);
+    // sampler_device->FreeDataSpace(sampler_ctx, num_out);
     if (i == (int)last_layer_idx) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
                                    layer_time);

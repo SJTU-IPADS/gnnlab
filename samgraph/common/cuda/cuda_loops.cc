@@ -101,10 +101,16 @@ void DoGPUSample(TaskPtr task) {
                << " ctx=" << sampler_ctx
                << " num_input=" << num_input;
 
+    // Timer t_out_alloc;
     IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_input * fanout * sizeof(IdType)));
     IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_input * fanout * sizeof(IdType)));
+    // IdType *out_src = static_cast<IdType*>(sampler_device->AllocDataSpace(
+    //       sampler_ctx, num_input * fanout * sizeof(IdType)));
+    // IdType *out_dst = static_cast<IdType*>(sampler_device->AllocDataSpace(
+    //       sampler_ctx, num_input * fanout * sizeof(IdType)));
+    // LOG(INFO) << "alloc out time " << t_out_alloc.Passed();
     IdType *out_data = nullptr;
     if (RunConfig::sample_type == kRandomWalk) {
       out_data = static_cast<IdType *>(sampler_device->AllocWorkspace(
@@ -216,6 +222,7 @@ void DoGPUSample(TaskPtr task) {
     double map_edges_time = t3.Passed();
     double remap_time = t1.Passed();
     double layer_time = tlayer.Passed();
+    // LOG(INFO) << "remap alloc time " << alloc_time;
 
     auto train_graph = std::make_shared<TrainGraph>();
     train_graph->num_src = num_unique;
@@ -244,6 +251,8 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
+    // sampler_device->FreeDataSpace(sampler_ctx, out_src);
+    // sampler_device->FreeDataSpace(sampler_ctx, out_dst);
     if (i == (int)last_layer_idx) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
                                    layer_time);
@@ -258,6 +267,7 @@ void DoGPUSample(TaskPtr task) {
     Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
                                core_sample_time);
     Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochIdRemapTime, remap_time);
     Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,
                                populate_time);
     Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime, 0);
