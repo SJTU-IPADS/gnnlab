@@ -205,6 +205,7 @@ class RunConfig:
     self.nv_prof = False
     self.mps_mode = None
     self.root_path="/graph-learning/samgraph/"
+    self.unsupervised = False
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -311,6 +312,9 @@ class RunConfig:
       if self.mps_mode != None:
         cmd_line += f' --mps-mode {self.mps_mode} '
 
+    if self.unsupervised:
+      cmd_line += f' --unsupervised'
+
     if self.pipeline:
       cmd_line += ' --pipeline'
     else:
@@ -351,6 +355,8 @@ class RunConfig:
     std_out_log = f'{self.logdir}/'
     if self.report_optimal == 1:
       std_out_log += "report_optimal_"
+    if self.unsupervised:
+      std_out_log += "unsupervised_"
     std_out_log += '_'.join(
       [self.system.name]+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 

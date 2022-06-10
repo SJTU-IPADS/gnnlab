@@ -96,6 +96,10 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   RC::dropout = std::stod(configs["dropout"]);
   RC::num_layer = std::stoull(configs["num_layer"]);
 
+  if (configs["unsupervised"] == "True") {
+    RC::unsupervised_sample = true;
+  }
+
   switch (RC::run_arch) {
     case kArch0:
     case kArch1:

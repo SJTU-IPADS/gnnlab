@@ -27,6 +27,7 @@
 #include "dist_engine.h"
 #include "../cuda/cuda_hashtable.h"
 #include "../cuda/cuda_function.h"
+#include "../cuda/cuda_utils.h"
 
 namespace samgraph {
 namespace common {
@@ -185,7 +186,239 @@ void DoGPUSaintSample(TaskPtr task) {
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
 
+void DoGPUUnsupervisedSample(TaskPtr task) {
+  auto fanouts = Engine::Get()->GetFanout();
+  auto num_layers = fanouts.size();
+  auto last_layer_idx = num_layers - 1;
+
+  auto dataset = Engine::Get()->GetGraphDataset();
+  auto sampler_ctx = Engine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  auto sample_stream = DistEngine::Get()->GetSampleStream();
+
+  auto random_states = DistEngine::Get()->GetRandomStates();
+  auto frequency_hashmap = DistEngine::Get()->GetFrequencyHashmap();
+
+  cuda::OrderedHashTable *hash_table = DistEngine::Get()->GetHashtable();
+  hash_table->Reset(sample_stream);
+
+
+  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
+  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
+  const float *prob_table =
+      static_cast<const float *>(dataset->prob_table->Data());
+  const IdType *alias_table =
+      static_cast<const IdType *>(dataset->alias_table->Data());
+  const float *prob_prefix_table =
+      static_cast<const float *>(dataset->prob_prefix_table->Data());
+
+
+  Timer t;
+  // first, different from old method, unsup should get node id from eid
+  auto seed_eids = task->output_nodes;
+  auto seed_nids = Tensor::Empty(kI32, {seed_eids->Shape()[0] * 2}, sampler_ctx, "");
+  cuda::GPUExtract(seed_nids->Ptr<IdType>(), indices, seed_eids->Ptr<IdType>(), seed_eids->Shape()[0], 1, kI32, sampler_ctx, sample_stream, task->key);
+  cuda::GPUGetRowFromEid(indptr, dataset->num_node, seed_eids->Ptr<IdType>(), seed_eids->Shape()[0], seed_nids->Ptr<IdType>() + seed_eids->Shape()[0], sample_stream);
+  {
+    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(sampler_ctx, (seed_nids->Shape()[0] + hash_table->NumItems()) * sizeof(IdType)));
+    IdType num_unique;
+    hash_table->FillWithDuplicates(seed_nids->Ptr<IdType>(), seed_nids->Shape()[0], unique, &num_unique, sample_stream);
+    task->output_nodes = Tensor::FromBlob(unique, DataType::kI32, {num_unique}, sampler_ctx, "unsup_output_nodes");
+  }
+  task->graphs.resize(num_layers);
+  double fill_unique_time = t.Passed();
+
+
+  auto cur_input = task->output_nodes;
+  size_t total_num_samples = 0;
+
+  for (int i = last_layer_idx; i >= 0; i--) {
+    Timer tlayer;
+    Timer t0;
+    const size_t fanout = fanouts[i];
+    const IdType *input = static_cast<const IdType *>(cur_input->Data());
+    const size_t num_input = cur_input->Shape()[0];
+    LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
+
+    IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+    IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_input * fanout * sizeof(IdType)));
+    IdType *out_data = nullptr;
+    if (RunConfig::sample_type == kRandomWalk) {
+      out_data = static_cast<IdType *>(sampler_device->AllocWorkspace(
+          sampler_ctx, num_input * fanout * sizeof(IdType)));
+    }
+    size_t *num_out = static_cast<size_t *>(
+        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    size_t num_samples;
+
+    LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
+    LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
+               << ToReadableSize(num_input * fanout * sizeof(IdType));
+    LOG(DEBUG) << "DoGPUSample: cuda out_dst malloc "
+               << ToReadableSize(num_input * fanout * sizeof(IdType));
+    LOG(DEBUG) << "DoGPUSample: cuda num_out malloc "
+               << ToReadableSize(sizeof(size_t));
+
+    // Sample a compact coo graph
+    switch (RunConfig::sample_type) {
+      case kKHop0:
+        cuda::GPUSampleKHop0(indptr, indices, input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
+        break;
+      case kKHop1:
+        cuda::GPUSampleKHop1(indptr, indices, input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
+        break;
+      case kWeightedKHop:
+        cuda::GPUSampleWeightedKHop(indptr, indices, prob_table, alias_table, input,
+                              num_input, fanout, out_src, out_dst, num_out,
+                              sampler_ctx, sample_stream, random_states,
+                              task->key);
+        break;
+      case kRandomWalk:
+        CHECK_EQ(fanout, RunConfig::num_neighbor);
+        cuda::GPUSampleRandomWalk(
+            indptr, indices, input, num_input, RunConfig::random_walk_length,
+            RunConfig::random_walk_restart_prob, RunConfig::num_random_walk,
+            RunConfig::num_neighbor, out_src, out_dst, out_data, num_out,
+            frequency_hashmap, sampler_ctx, sample_stream, random_states,
+            task->key);
+        break;
+      case kWeightedKHopPrefix:
+        cuda::GPUSampleWeightedKHopPrefix(indptr, indices, prob_prefix_table, input,
+                              num_input, fanout, out_src, out_dst, num_out,
+                              sampler_ctx, sample_stream, random_states,
+                              task->key);
+        break;
+      case kKHop2:
+        cuda::GPUSampleKHop2(indptr, const_cast<IdType*>(indices), input, num_input, fanout, out_src,
+                       out_dst, num_out, sampler_ctx, sample_stream,
+                       random_states, task->key);
+        break;
+      case kWeightedKHopHashDedup:
+        cuda::GPUSampleWeightedKHopHashDedup(indptr, const_cast<IdType*>(indices), const_cast<float*>(prob_table), alias_table, input,
+            num_input, fanout, out_src, out_dst, num_out, sampler_ctx, sample_stream, random_states, task->key);
+        break;
+      default:
+        CHECK(0);
+    }
+
+    // Get nnz
+    sampler_device->CopyDataFromTo(num_out, 0, &num_samples, 0, sizeof(size_t),
+                                   sampler_ctx, CPU(), sample_stream);
+    sampler_device->StreamSync(sampler_ctx, sample_stream);
+
+    LOG(DEBUG) << "DoGPUSample: "
+               << "layer " << i << " number of samples " << num_samples;
+
+    double core_sample_time = t0.Passed();
+
+    Timer t1;
+    Timer t2;
+
+    // Populate the hash table with newly sampled nodes
+    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
+    IdType num_unique;
+
+    LOG(DEBUG) << "GPUSample: cuda unique malloc "
+               << ToReadableSize((num_samples + +hash_table->NumItems()) *
+                                 sizeof(IdType));
+
+    hash_table->FillWithDuplicates(out_dst, num_samples, unique, &num_unique,
+                                   sample_stream);
+
+    double populate_time = t2.Passed();
+
+    Timer t3;
+
+    // Mapping edges
+    IdType *new_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_samples * sizeof(IdType)));
+    IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
+        sampler_ctx, num_samples * sizeof(IdType)));
+
+    LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
+    LOG(DEBUG) << "GPUSample: cuda new_src malloc "
+               << ToReadableSize(num_samples * sizeof(IdType));
+    LOG(DEBUG) << "GPUSample: cuda new_dst malloc "
+               << ToReadableSize(num_samples * sizeof(IdType));
+
+    cuda::GPUMapEdges(out_src, new_src, out_dst, new_dst, num_samples,
+                hash_table->DeviceHandle(), sampler_ctx, sample_stream);
+
+    double map_edges_time = t3.Passed();
+    double remap_time = t1.Passed();
+    double layer_time = tlayer.Passed();
+
+    auto train_graph = std::make_shared<TrainGraph>();
+    train_graph->num_src = num_unique;
+    train_graph->num_dst = num_input;
+    train_graph->num_edge = num_samples;
+    train_graph->col = Tensor::FromBlob(
+        new_src, DataType::kI32, {num_samples}, sampler_ctx,
+        "train_graph.row_cuda_sample_" + std::to_string(task->key) + "_" +
+            std::to_string(i));
+    train_graph->row = Tensor::FromBlob(
+        new_dst, DataType::kI32, {num_samples}, sampler_ctx,
+        "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
+            std::to_string(i));
+    if (out_data) {
+      train_graph->data = Tensor::FromBlob(
+          out_data, DataType::kI32, {num_samples}, sampler_ctx,
+          "train_graph.dst_cuda_sample_" + std::to_string(task->key) + "_" +
+              std::to_string(i));
+    }
+
+    task->graphs[i] = train_graph;
+
+    total_num_samples += num_samples;
+
+    // Do some clean jobs
+    sampler_device->FreeWorkspace(sampler_ctx, out_src);
+    sampler_device->FreeWorkspace(sampler_ctx, out_dst);
+    sampler_device->FreeWorkspace(sampler_ctx, num_out);
+    if (i == (int)last_layer_idx) {
+        Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
+                                   layer_time);
+        Profiler::Get().LogStep(task->key, kLogL2LastLayerSize,
+                                   num_unique);
+    }
+    Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
+                               core_sample_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,
+                               populate_time);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime, 0);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapEdgeTime,
+                               map_edges_time);
+
+    cur_input = Tensor::FromBlob(
+        (void *)unique, DataType::kI32, {num_unique}, sampler_ctx,
+        "cur_input_unique_cuda_" + std::to_string(task->key) + "_" +
+            std::to_string(i));
+    LOG(DEBUG) << "GPUSample: finish layer " << i;
+  }
+
+  task->input_nodes = cur_input;
+
+  Profiler::Get().LogStep(task->key, kLogL1NumNode,
+                          static_cast<double>(task->input_nodes->Shape()[0]));
+  Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
+  Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,
+                             fill_unique_time);
+
+  LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
+}
+
 void DoGPUSample(TaskPtr task) {
+  if (RunConfig::unsupervised_sample) {
+    return DoGPUUnsupervisedSample(task);
+  }
   if (RunConfig::sample_type == kSaint) {
     return DoGPUSaintSample(task);
   }

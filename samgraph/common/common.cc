@@ -36,6 +36,7 @@
 #include <string>   // string
 
 #include "constant.h"
+#include "run_config.h"
 #include "device.h"
 #include "logging.h"
 #include "run_config.h"
@@ -300,6 +301,7 @@ TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
 }
 
 Context CPU(int device_id) { return {kCPU, device_id}; }
+Context CPU_CLIB(int device_id) { return {kCPU, device_id}; }
 Context GPU(int device_id) { return {kGPU, device_id}; }
 Context GPU_UM(int device_id) { return {kGPU_UM, device_id}; }
 Context MMAP(int device_id) { return {kMMAP, device_id}; }
@@ -493,6 +495,10 @@ size_t PredictNumNodes(size_t batch_size, const std::vector<size_t> &fanout,
                        size_t num_fanout_to_comp) {
   CHECK_LE(num_fanout_to_comp, fanout.size());
   size_t count = batch_size;
+  if (RunConfig::unsupervised_sample) {
+    count *= 2;
+    // fixme: there may be negative sample, should add it
+  }
   for (int i = num_fanout_to_comp - 1; i >= 0; i--) {
     count += (count * fanout[i]);
   }

@@ -42,6 +42,7 @@ struct RunConfig {
   static Context              trainer_ctx;
   static CachePolicy          cache_policy;
   static double               cache_percentage;
+  static bool                 unsupervised_sample;
 
   static size_t               max_sampling_jobs;
   static size_t               max_copying_jobs;

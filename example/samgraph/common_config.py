@@ -165,6 +165,7 @@ def add_common_arguments(argparser, run_config):
                            '0', '1', '2', '3'], type=str, dest='_profile_level', default='0')
     argparser.add_argument('--empty-feat', type=str,
                            dest='_empty_feat', default='0')
+    argparser.add_argument('-unsup', '--unsupervised', action='store_true', default=False)
 
 
 def process_common_config(run_config):

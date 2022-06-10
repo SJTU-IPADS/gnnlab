@@ -41,6 +41,10 @@ class Constant {
   static const std::string kTestSetFile;
   static const std::string kValidSetFile;
 
+  static const std::string kLinkTrainSetFile;
+  static const std::string kLinkTestSetFile;
+  static const std::string kLinkValidSetFile;
+
   static const std::string kProbTableFile;
   static const std::string kAliasTableFile;
   static const std::string kProbPrefixTableFile;
@@ -62,6 +66,10 @@ class Constant {
   static const std::string kMetaNumTrainSet;
   static const std::string kMetaNumTestSet;
   static const std::string kMetaNumValidSet;
+
+  static const std::string kMetaNumLinkTrainSet;
+  static const std::string kMetaNumLinkTestSet;
+  static const std::string kMetaNumLinkValidSet;
 
   static constexpr size_t kCudaBlockSize = 256;
   static constexpr size_t kCudaTileSize = 1024;

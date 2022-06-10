@@ -29,6 +29,10 @@ const std::string Constant::kTrainSetFile = "train_set.bin";
 const std::string Constant::kTestSetFile = "test_set.bin";
 const std::string Constant::kValidSetFile = "valid_set.bin";
 
+const std::string Constant::kLinkTrainSetFile = "link_train_set.bin";
+const std::string Constant::kLinkTestSetFile = "link_test_set.bin";
+const std::string Constant::kLinkValidSetFile = "link_valid_set.bin";
+
 const std::string Constant::kProbTableFile = "prob_table.bin";
 const std::string Constant::kAliasTableFile = "alias_table.bin";
 const std::string Constant::kProbPrefixTableFile = "prob_prefix_table.bin";
@@ -49,6 +53,10 @@ const std::string Constant::kMetaNumClass = "NUM_CLASS";
 const std::string Constant::kMetaNumTrainSet = "NUM_TRAIN_SET";
 const std::string Constant::kMetaNumTestSet = "NUM_TEST_SET";
 const std::string Constant::kMetaNumValidSet = "NUM_VALID_SET";
+
+const std::string Constant::kMetaNumLinkTrainSet = "NUM_LINK_TRAIN_SET";
+const std::string Constant::kMetaNumLinkTestSet = "NUM_LINK_TEST_SET";
+const std::string Constant::kMetaNumLinkValidSet = "NUM_LINK_VALID_SET";
 
 const std::string Constant::kOMPNumThreads = "SAMGRAPH_OMP_NUM_THREADS";
 const std::string Constant::kEnvProfileLevel = "SAMGRAPH_PROFILE_LEVEL";

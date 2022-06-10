@@ -18,6 +18,7 @@
 #ifndef SAMGRAPH_CUDA_UTILS_H
 #define SAMGRAPH_CUDA_UTILS_H
 
+#include "../common.h"
 #include <cuda_runtime.h>
 
 namespace samgraph {
@@ -41,6 +42,11 @@ struct BlockPrefixCallbackOp {
     return old_prefix;
   }
 };
+
+template<typename T>
+void ArrangeArray(T* array, size_t array_len, T begin = 0, T step = 1, StreamHandle = nullptr);
+
+void GPUGetRowFromEid(const IdType * indptr, size_t n_row, const IdType *eid_list, size_t num_eid, IdType * output_row, StreamHandle stream);
 
 }  // namespace cuda
 }  // namespace common

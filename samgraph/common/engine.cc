@@ -40,6 +40,7 @@
 #include "run_config.h"
 #include "timer.h"
 #include "device.h"
+#include "utils.h"
 
 namespace samgraph {
 namespace common {
@@ -127,9 +128,6 @@ void Engine::LoadGraphDataset() {
   CHECK(meta.count(Constant::kMetaNumEdge) > 0);
   CHECK(meta.count(Constant::kMetaFeatDim) > 0);
   CHECK(meta.count(Constant::kMetaNumClass) > 0);
-  CHECK(meta.count(Constant::kMetaNumTrainSet) > 0);
-  CHECK(meta.count(Constant::kMetaNumTestSet) > 0);
-  CHECK(meta.count(Constant::kMetaNumValidSet) > 0);
 
   CHECK(ctx_map.count(Constant::kIndptrFile) > 0);
   CHECK(ctx_map.count(Constant::kIndicesFile) > 0);
@@ -147,6 +145,24 @@ void Engine::LoadGraphDataset() {
   CHECK(ctx_map.count(Constant::kCacheByDegreeHopFile) > 0);
   CHECK(ctx_map.count(Constant::kCacheByFakeOptimalFile) > 0);
   CHECK(ctx_map.count(Constant::kCacheByRandomFile) > 0);
+
+  if (!RunConfig::unsupervised_sample) {
+    CHECK(meta.count(Constant::kMetaNumTrainSet) > 0);
+    CHECK(meta.count(Constant::kMetaNumTestSet) > 0);
+    CHECK(meta.count(Constant::kMetaNumValidSet) > 0);
+  } else {
+    if (meta.count(Constant::kMetaNumLinkTrainSet) > 0) {
+      CHECK(meta.count(Constant::kMetaNumLinkTestSet) > 0);
+      CHECK(meta.count(Constant::kMetaNumLinkValidSet) > 0);
+    } else {
+      meta[Constant::kMetaNumLinkTrainSet] = 0.8 * meta[Constant::kMetaNumEdge];
+      meta[Constant::kMetaNumLinkTestSet]  = 0.1 * meta[Constant::kMetaNumEdge];
+      meta[Constant::kMetaNumLinkValidSet] = meta[Constant::kMetaNumEdge] - meta[Constant::kMetaNumLinkTrainSet] - meta[Constant::kMetaNumLinkTestSet];
+    }
+    meta[Constant::kMetaNumTrainSet] = meta[Constant::kMetaNumLinkTrainSet];
+    meta[Constant::kMetaNumTestSet]  = meta[Constant::kMetaNumLinkTestSet];
+    meta[Constant::kMetaNumValidSet] = meta[Constant::kMetaNumLinkValidSet];
+  }
 
   _dataset->num_node = meta[Constant::kMetaNumNode];
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
@@ -210,41 +226,62 @@ void Engine::LoadGraphDataset() {
                              ctx_map[Constant::kLabelFile], "dataset.label");
   }
 
-  _dataset->train_set =
-      Tensor::FromMmap(_dataset_path + Constant::kTrainSetFile, DataType::kI32,
-                       {meta[Constant::kMetaNumTrainSet]},
-                       ctx_map[Constant::kTrainSetFile], "dataset.train_set");
-  _dataset->test_set =
-      Tensor::FromMmap(_dataset_path + Constant::kTestSetFile, DataType::kI32,
-                       {meta[Constant::kMetaNumTestSet]},
-                       ctx_map[Constant::kTestSetFile], "dataset.test_set");
-  _dataset->valid_set =
-      Tensor::FromMmap(_dataset_path + Constant::kValidSetFile, DataType::kI32,
-                       {meta[Constant::kMetaNumValidSet]},
-                       ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+  if (RunConfig::unsupervised_sample == false) {
+    _dataset->train_set = Tensor::FromMmap(_dataset_path + Constant::kTrainSetFile, 
+        DataType::kI32, {meta[Constant::kMetaNumTrainSet]},
+        ctx_map[Constant::kTrainSetFile], "dataset.train_set");
+    _dataset->test_set = Tensor::FromMmap(_dataset_path + Constant::kTestSetFile, 
+        DataType::kI32, {meta[Constant::kMetaNumTestSet]},
+        ctx_map[Constant::kTestSetFile], "dataset.test_set");
+    _dataset->valid_set = Tensor::FromMmap(_dataset_path + Constant::kValidSetFile, 
+        DataType::kI32, {meta[Constant::kMetaNumValidSet]},
+        ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+  } else if (FileExist(_dataset_path + Constant::kLinkTrainSetFile)) {
+    _dataset->train_set = Tensor::FromMmap(_dataset_path + Constant::kLinkTrainSetFile, 
+        DataType::kI32, {meta[Constant::kMetaNumTrainSet]},
+        ctx_map[Constant::kTrainSetFile], "dataset.train_set");
+    _dataset->test_set = Tensor::FromMmap(_dataset_path + Constant::kLinkTestSetFile, 
+        DataType::kI32, {meta[Constant::kMetaNumTestSet]},
+        ctx_map[Constant::kTestSetFile], "dataset.test_set");
+    _dataset->valid_set = Tensor::FromMmap(_dataset_path + Constant::kLinkValidSetFile, 
+        DataType::kI32, {meta[Constant::kMetaNumValidSet]},
+        ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+  } else {
+    // no train set file. randomly generate from all edge
+    auto cpu_ctx = CPU_CLIB();
+    auto full_eid = Tensor::Empty(kI32, {_dataset->num_edge}, cpu_ctx, "full_eid");
+    cpu::ArrangeArray(full_eid->Ptr<IdType>(), _dataset->num_edge);
+    shuffle(full_eid->Ptr<IdType>(), _dataset->num_edge);
+    _dataset->train_set = Tensor::CopyBlob(full_eid->Ptr<IdType>(),
+        DataType::kI32, {meta[Constant::kMetaNumTrainSet]}, cpu_ctx, ctx_map[Constant::kTrainSetFile], "dataset.train_set");
+    _dataset->test_set  = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet],
+        DataType::kI32, {meta[Constant::kMetaNumTestSet]},  cpu_ctx, ctx_map[Constant::kTestSetFile], "dataset.test_set");
+    _dataset->valid_set = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet] +  + meta[Constant::kMetaNumTestSet],
+        DataType::kI32, {meta[Constant::kMetaNumValidSet]}, cpu_ctx, ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+  }
 
   if (RunConfig::option_train_set_slice_mode != "") {
+    const size_t full_set_size = RunConfig::unsupervised_sample ?
+        meta[Constant::kMetaNumEdge] : meta[Constant::kMetaNumNode];
     // first, create an writable copy of train set
     const uint32_t origin_num_train_set = meta[Constant::kMetaNumTrainSet];
     if (RunConfig::option_train_set_slice_mode == "percent" &&
-        meta[Constant::kMetaNumNode] * RunConfig::option_train_set_percent / 100 > origin_num_train_set) {
+        full_set_size * RunConfig::option_train_set_percent / 100 > origin_num_train_set) {
       // expected train set exceeds original train set. so we should rebuild one from entire nodes.
-      // degree cache file is a good choice...
-      _dataset->train_set = Tensor::FromMmap(
-          _dataset_path + Constant::kCacheByDegreeFile, DataType::kI32,
-          {meta[Constant::kMetaNumNode]}, CPU(CPU_CLIB_MALLOC_DEVICE), "dataset.train_set");
+      auto full_set = Tensor::Empty(kI32, {full_set_size}, CPU_CLIB(), "full_set");
+      cpu::ArrangeArray(full_set->Ptr<IdType>(), full_set_size);
     } else if (_dataset->train_set->Ctx().device_type != kCPU) {
       // the size of original train set meets our requirement.
       // but it is mapped and we cannot alter it, or it is in gpu.
-      _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU(CPU_CLIB_MALLOC_DEVICE));
+      _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU_CLIB());
     }
 
     // do a shuffle. because 1. original train set is sorted by id 2. cache file is also ranked
     // make sure train set is randomly spreaded.
-    shuffle(static_cast<uint32_t*>(_dataset->train_set->MutableData()), _dataset->train_set->Shape()[0]);
+    shuffle(_dataset->train_set->Ptr<IdType>(), _dataset->train_set->Shape()[0]);
     uint32_t begin = 0,end = 0;
     if (RunConfig::option_train_set_slice_mode == "percent") {
-      end = meta[Constant::kMetaNumNode] * RunConfig::option_train_set_percent / 100;
+      end = full_set_size * RunConfig::option_train_set_percent / 100;
     } else if (RunConfig::option_train_set_slice_mode == "part") {
       const uint32_t part_idx = RunConfig::option_train_set_part_idx;
       const uint32_t part_num = RunConfig::option_train_set_part_num;
@@ -257,11 +294,11 @@ void Engine::LoadGraphDataset() {
     }
     meta[Constant::kMetaNumTrainSet] = end - begin;
     _dataset->train_set = Tensor::CopyBlob(
-        _dataset->train_set->Data() + begin * GetDataTypeBytes(kI32),
-        DataType::kI32, {end - begin}, CPU(CPU_CLIB_MALLOC_DEVICE), ctx_map[Constant::kTrainSetFile], "dataset.train_set");
+        _dataset->train_set->Ptr<uint32_t>() + begin,
+        DataType::kI32, {end - begin}, CPU_CLIB(), ctx_map[Constant::kTrainSetFile], "dataset.train_set");
     std::cout << "reducing trainset from " << origin_num_train_set
               << " to " << meta[Constant::kMetaNumTrainSet]
-              << " (" << meta[Constant::kMetaNumTrainSet] * 100.0 / meta[Constant::kMetaNumNode] << ")\n";
+              << " (" << meta[Constant::kMetaNumTrainSet] * 100.0 / full_set_size << ")\n";
   }
 
   if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
