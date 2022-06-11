@@ -88,10 +88,6 @@ void DoGPUSample(TaskPtr task) {
   size_t total_num_samples = 0;
 
   for (int i = last_layer_idx; i >= 0; i--) {
-    if(RunConfig::unified_memory_statistic_hit_rate) {
-      StatisticUMSampleCacheHit(task->key, i, 
-        static_cast<const IdType*>(cur_input->Data()), cur_input->Shape()[0], cur_input->Ctx());
-    }
     Timer tlayer;
     Timer t0;
     const size_t fanout = fanouts[i];
@@ -266,6 +262,8 @@ void DoGPUSample(TaskPtr task) {
                << " + edge_map_time ( " << map_edges_time << " )";
     Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
                                core_sample_time);
+    // LOG(WARNING) << "sam.kLogEpochCoreSampleTime" << kLogEpochCoreSampleTime;
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochCoreSampleTime, core_sample_time);
     Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochIdRemapTime, remap_time);
     Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,

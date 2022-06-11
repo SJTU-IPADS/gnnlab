@@ -308,7 +308,7 @@ void RunArch9LoopsOnce(DistType dist_type) {
   }
 } 
 
-ExtractFunction GetArch8Loops() {
+ExtractFunction GetArch9Loops() {
   return DataCopySubLoop;
 }
 

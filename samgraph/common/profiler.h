@@ -119,8 +119,10 @@ enum LogEpochItem {
   KLogEpochSampleGetCacheMissIndexTime,  // for arch5
   kLogEpochSampleSendTime,               // for arch5
   kLogEpochSampleTotalTime,              // for arch5
+  kLogEpochCoreSampleTime,
   kLogEpochSampleCooTime,
   kLogEpochIdRemapTime,
+  kLogEpochShuffleTime,
   kLogEpochSampleKernelTime,
   kLogEpochCopyTime,
   kLogEpochConvertTime,

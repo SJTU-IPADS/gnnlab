@@ -141,11 +141,14 @@ def run_sample(run_config):
     step_coo_times = []
     step_core_sample_times = []
     step_remap_times = []
+    step_shuffle_times = []
     step_num_nodes = []
     step_num_samples = []
     sampler_epoch_sample_times = defaultdict(list)
+    sampler_epoch_core_sample_times = defaultdict(list)
     sampler_epoch_coo_times = defaultdict(list)
     sampler_epoch_remap_times = defaultdict(list)
+    sampler_epoch_shuffle_times = defaultdict(list)
 
     print('[Sample Worker (PID {}, ctx: {})] run sample for {} epochs with {} steps, global {} step'.format(
         os.getpid(), ctxes, num_epoch, num_step, global_step), flush=True)
@@ -191,25 +194,32 @@ def run_sample(run_config):
         )
 
         sampler_cur_epoch_sample_time = defaultdict(int)
+        sampler_cur_epoch_core_sample_time = defaultdict(int)
         sampler_cur_epoch_coo_time = defaultdict(int)
         sampler_cur_epoch_remap_time = defaultdict(int)
+        sampler_cur_epoch_shuffle_time = defaultdict(int)
         for step in range(global_step):
             step_sampler.append(int(sam.get_log_step_value(epoch, step, sam.kLogL1SamplerId)))
             step_sample_times.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime))
             step_core_sample_times.append(sam.get_log_step_value(epoch, step, sam.kLogL2CoreSampleTime))
             step_coo_times.append(sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime))
             step_remap_times.append(sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime))
+            step_shuffle_times.append(sam.get_log_step_value(epoch, step, sam.kLogL2ShuffleTime))
             step_num_nodes.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumNode))
             step_num_samples.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumSample))
             
             cur_sampler = step_sampler[-1]
             sampler_cur_epoch_sample_time[cur_sampler] += step_sample_times[-1]
+            sampler_cur_epoch_core_sample_time[cur_sampler] += step_core_sample_times[-1]
             sampler_cur_epoch_coo_time[cur_sampler] += step_coo_times[-1]
             sampler_cur_epoch_remap_time[cur_sampler] += step_remap_times[-1]
+            sampler_cur_epoch_shuffle_time[cur_sampler] += step_shuffle_times[-1]
         for k in sampler_cur_epoch_sample_time.keys():
             sampler_epoch_sample_times[k].append(sampler_cur_epoch_sample_time[k])
+            sampler_epoch_core_sample_times[k].append(sampler_cur_epoch_core_sample_time[k])
             sampler_epoch_coo_times[k].append(sampler_cur_epoch_coo_time[k])
             sampler_epoch_remap_times[k].append(sampler_cur_epoch_remap_time[k])
+            sampler_epoch_shuffle_times[k].append(sampler_cur_epoch_shuffle_time[k])
             
 
     sam.report_step_average(epoch - 1, step - 1)
@@ -244,8 +254,10 @@ def run_sample(run_config):
 
     for k in sampler_epoch_sample_times.keys():
         test_result.append((f'epoch_time:sampler({k}):sample_time', np.mean(sampler_epoch_sample_times[k][1:])))
+        test_result.append((f'epoch_time:sampler({k}):core_sample_time', np.mean(sampler_epoch_core_sample_times[k][1:])))
         test_result.append((f'epoch_time:sampler({k}):coo_time', np.mean(sampler_epoch_coo_times[k][1:])))
         test_result.append((f'epoch_time:sampler({k}):remap:time', np.mean(sampler_epoch_remap_times[k][1:])))
+        test_result.append((f'epoch_time:sampler({k}):shuffle_time', np.mean(sampler_epoch_shuffle_times[k][1:])))
 
     for ctx in ctxes:
         id = int(re.search(r'[0-9]+', ctx).group(0))
@@ -254,6 +266,7 @@ def run_sample(run_config):
         my_core_sample_times = (np.array(step_core_sample_times)[global_step:])[my_sampler == id]
         my_coo_times = (np.array(step_coo_times)[global_step:])[my_sampler == id]
         my_remap_times = (np.array(step_remap_times)[global_step:])[my_sampler == id]
+        my_shuffle_times = (np.array(step_shuffle_times)[global_step:])[my_sampler == id]
         my_num_nodes = (np.array(step_num_nodes)[global_step:])[my_sampler == id]
         my_num_samples = (np.array(step_num_samples)[global_step:])[my_sampler == id]
         test_result.append((f'sampler({ctx}):total_sample_task_cnt', len(my_sample_times)))
@@ -263,14 +276,15 @@ def run_sample(run_config):
         test_result.append((f'step_time:sampler({ctx}):sample_core_time', np.mean(my_core_sample_times)))
         test_result.append((f'step_time:sampler({ctx}):sample_coo_time', np.mean(my_coo_times)))
         test_result.append((f'step_time:sampler({ctx}):remap_time', np.mean(my_remap_times)))
+        test_result.append((f'step_time:sampler({ctx}):shuffle_time', np.mean(my_shuffle_times)))
 
         # print(f'sampler({ctx}) sample_time {my_sample_times.tolist()}')
         # print(f'sampler({ctx}) sample_coo_time {my_coo_times.tolist()}')
         # print(f'sampler({ctx}) remap_time {my_remap_times.tolist()}')
-
+        # print(f'sampler({ctx}) shuffle time {my_shuffle_times.tolist()}')
 
     for k, v in test_result:
-        print('test_result:{:}={:.6f}'.format(k, v))
+        print('test_result:{:}={:.6f}'.format(k, v), flush=True)
 
     global_barrier.wait()  # barrier for pretty print
     # trainer print result

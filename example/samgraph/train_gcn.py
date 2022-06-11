@@ -138,8 +138,10 @@ def run():
     model.train()
 
     epoch_sample_times = [0 for i in range(num_epoch)]
+    epoch_core_sample_times = [0 for i in range(num_epoch)]
     epoch_sample_coo_times = [0 for i in range(num_epoch)]
     epoch_remap_times = [0 for i in range(num_epoch)]
+    epoch_shuffle_times = [0 for i in range(num_epoch)]
     epoch_sample_kernel_times = [0 for i in range(num_epoch)]
     epoch_copy_times = [0 for i in range(num_epoch)]
     epoch_convert_times = [0 for i in range(num_epoch)]
@@ -158,6 +160,7 @@ def run():
     core_sample_times = [0 for i in range(num_epoch * num_step)]
     fill_sample_input_times = [0 for i in range(num_epoch * num_step)]
     remap_times   = [0 for i in range(num_epoch * num_step)]
+    shuffle_times = [0 for i in range(num_epoch * num_step)]
     # convert_times = [0 for i in range(num_epoch * num_step)]
     # train_times   = [0 for i in range(num_epoch * num_step)]
     # total_times   = [0 for i in range(num_epoch * num_step)]
@@ -215,6 +218,7 @@ def run():
             core_sample_time = sam.get_log_step_value(epoch, step, sam.kLogL2CoreSampleTime)
             fill_sample_input_time = sam.get_log_step_value(epoch, step, sam.kLogL3RemapFillUniqueTime)
             remap_time = sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime)
+            shuffle_time = sam.get_log_step_value(epoch, step, sam.kLogL2ShuffleTime)
             # copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
             sample_coo_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime)
             sample_kernel_time = sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleKernelTime)
@@ -237,6 +241,7 @@ def run():
             core_sample_times[cur_step_key] = core_sample_time
             fill_sample_input_times[cur_step_key] = fill_sample_input_time
             remap_times[cur_step_key] = remap_time
+            shuffle_times[cur_step_key] = shuffle_time
             # copy_times    [cur_step_key] = copy_time
             # convert_times [cur_step_key] = convert_time
             # train_times   [cur_step_key] = train_time
@@ -280,8 +285,10 @@ def run():
         epoch_total_times_python.append(toc - tic)
         epoch_sample_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochSampleTime)
+        epoch_core_sample_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochCoreSampleTime)
         epoch_sample_coo_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochSampleCooTime)
         epoch_remap_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochIdRemapTime)
+        epoch_shuffle_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochShuffleTime)
         epoch_sample_kernel_times[epoch] = sam.get_log_epoch_value(epoch, sam.kLogEpochSampleKernelTime)
         epoch_copy_times[epoch] = sam.get_log_epoch_value(
             epoch, sam.kLogEpochCopyTime)
@@ -304,8 +311,10 @@ def run():
     test_result = []
     test_result.append(
         ('epoch_time:sample_time', np.mean(epoch_sample_times[1:])))
+    test_result.append(('epoch_time:core_sample_time', np.mean(epoch_core_sample_times[1:])))
     test_result.append(('epoch_time:sample_coo_time', np.mean(epoch_sample_coo_times[1:])))
     test_result.append(('epoch_time:remap_time', np.mean(epoch_remap_times[1:])))
+    test_result.append(('epoch_time:shuffle_time', np.mean(epoch_shuffle_times[1:])))
     test_result.append(('epoch_time:sample_kernel_time', np.mean(epoch_sample_kernel_times[1:])))
     test_result.append(('epoch_time:copy_time',
                     np.mean(epoch_copy_times[1:])))
@@ -331,6 +340,7 @@ def run():
     test_result.append(('step_time:core_sample_time', np.mean(core_sample_times[num_step:])))
     test_result.append(('step_time:fill_sample_input_time', np.mean(fill_sample_input_times[num_step:])))
     test_result.append(('step_time:remap_time', np.mean(remap_times[num_step:])))
+    test_result.append(('step_time:shuffle_time', np.mean(shuffle_times[num_step:])))
     test_result.append(('step_time:sample_coo_time', np.mean(sample_coo_times[num_step:])))
     test_result.append(('step_time:sample_kernel_time', np.mean(sample_kernel_times[num_step:])))
     test_result.append(('step_time:sample_compact_edge_time', np.mean(sample_compact_edge_times[num_step:])))
@@ -346,6 +356,7 @@ def run():
     # print('sample_times', sample_times[num_step:])
     # print('coo_times', sample_coo_times[num_step:])
     # print('remap_time', remap_times[num_step:])
+    # print("shuffle time", shuffle_times[num_step:])
 
 if __name__ == '__main__':
     run()

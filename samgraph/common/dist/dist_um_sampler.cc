@@ -45,7 +45,7 @@ DistUMSampler::DistUMSampler(Dataset& dataset, IdType sampler_id)
   sem_init(&_sem, 0, 0);
 
   _shuffler = new DistShuffler(
-    dataset.train_set, 
+    Tensor::CopyTo(dataset.train_set, CPU()), 
     DistEngine::Get()->NumEpoch(), DistEngine::Get()->GetBatchSize(), 
     sampler_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
   if (_shuffler->NumStep() > mq_size) {
@@ -69,7 +69,6 @@ DistUMSampler::DistUMSampler(Dataset& dataset, IdType sampler_id)
   LOG_MEM_USAGE(WARNING, _sampler_ctx, "Iint UM Sampler after create random states");
 
   if (RunConfig::sample_type == SampleType::kRandomWalk) {
-    // LOG(FATAL) << "TODO: arch9 random walk";
     size_t max_nodes = PredictNumNodes(
       DistEngine::Get()->GetBatchSize(),
       DistEngine::Get()->GetFanout(),
