@@ -17,8 +17,8 @@ public:
 protected:
   void SetUp() override {
     std::unordered_map<std::string, std::string> config = {
-      // {"dataset_path",        "/disk1/graph-learning-copy/samgraph/reddit/"},
-      {"dataset_path",        "/graph-learning/samgraph//reddit/"},
+      // {"dataset_path",        "/graph-learning/samgraph/reddit/"},
+      {"dataset_path",        "/graph-learning/samgraph/papers100M/"},
 
       {"_arch",               std::to_string(static_cast<int>(RunArch::kArch9))},
       {"_sample_type",        std::to_string(static_cast<int>(SampleType::kKHop0))},
