@@ -372,7 +372,7 @@ namespace {
 MessageTaskQueue::MessageTaskQueue(size_t max_len) : TaskQueue(max_len) {
   // size_t mq_nbytes = GetMaxMQSize();
   // TODO: hardcode here to speedup the init time of FGNN
-  _mq = std::make_shared<MemoryQueue>(mq_nbytes);
+  _mq = std::make_shared<MemoryQueue>(mq_nbytes, max_len);
 }
 
 void MessageTaskQueue::Send(std::shared_ptr<Task> task) {
