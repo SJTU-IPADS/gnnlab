@@ -317,7 +317,7 @@ void Profiler::ReportStepAverage(uint64_t epoch, uint64_t step) {
       cnt --;
     }
     if (cnt == 0) {
-      CHECK_EQ(sum, 0);
+      CHECK_LE(std::abs(sum), 1e-8) << " sum is " << sum;
       cnt = 1;
     }
     _step_buf[i] = sum / cnt;
