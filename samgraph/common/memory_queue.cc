@@ -30,13 +30,13 @@ SharedData::~SharedData() {
 
 MemoryQueue* MemoryQueue::_mq = nullptr;
 
-MemoryQueue::MemoryQueue(size_t mq_nbytes) {
-  _meta_size = (sizeof(QueueMetaData) + mq_nbytes * mq_size);
+MemoryQueue::MemoryQueue(size_t mq_nbytes, size_t mq_size) {
+  _meta_size = QueueMetaData::GetRequiredNBytes(mq_nbytes, mq_size);
   _meta_data = reinterpret_cast<QueueMetaData*>(
       mmap(NULL, _meta_size, PROT_READ | PROT_WRITE,
            MAP_ANONYMOUS | MAP_SHARED | MAP_LOCKED, -1, 0));
   CHECK_NE(_meta_data, MAP_FAILED);
-  _meta_data->Init(mq_nbytes);
+  _meta_data->Init(mq_nbytes, mq_size);
   LOG(INFO) << "MemoryQueue initialized";
 }
 
@@ -50,7 +50,7 @@ void MemoryQueue::PinMemory() {
 
 void MemoryQueue::Create() {
   LOG(FATAL) << "Can not be used now!";
-  _mq = new MemoryQueue(1024);
+  // _mq = new MemoryQueue(1024);
 }
 
 void MemoryQueue::Destory() {

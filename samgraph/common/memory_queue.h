@@ -40,12 +40,12 @@
 namespace samgraph {
 namespace common {
 
-template <typename T, T N>
+template <typename T>
 struct MQ_MetaData;
 
-constexpr size_t mq_size = 170;
+// constexpr size_t mq_size = 1200;
 
-using QueueMetaData = MQ_MetaData<size_t, mq_size>;
+using QueueMetaData = MQ_MetaData<size_t>;
 
 
 class SharedData {
@@ -61,18 +61,27 @@ class SharedData {
   const void* Data() { return _data; }
 };
 
-template <typename T, T N>
+template <typename T>
 struct MQ_MetaData {
   T send_cnt;
   T recv_cnt;
   T max_size;
   T mq_nbytes;
-  sem_t sem_list[N];
-  sem_t release_list[N];
-  char data[0];
-  void Init(T mq_nbytes_t) {
-    send_cnt = 0; recv_cnt = 0; max_size = N;
+  sem_t *sem_list, *release_list;
+  char *data;
+  // sem_t sem_list[N];
+  // sem_t release_list[N];
+  // char data[0];
+  static size_t GetRequiredNBytes(T mq_nbytes_t, T max_size_t) {
+    return sizeof(MQ_MetaData<T>) + sizeof(sem_t) * max_size_t * 2 + mq_nbytes_t * max_size_t;
+  }
+  void Init(T mq_nbytes_t, T max_size_t) {
+    send_cnt = 0; recv_cnt = 0; max_size = max_size_t;
     mq_nbytes = mq_nbytes_t;
+    sem_list = (sem_t*)(&this[1]);
+    release_list = &sem_list[max_size_t];
+    data = (char*)&release_list[max_size_t];
+
     for (T i = 0; i < max_size; ++i) {
       sem_init(sem_list + i, 1, 0);
     }
@@ -114,7 +123,7 @@ struct MQ_MetaData {
 
 class MemoryQueue {
  public:
-  MemoryQueue(size_t mq_nbytes);
+  MemoryQueue(size_t mq_nbytes, size_t mq_size);
   ~MemoryQueue();
   static MemoryQueue* Get() { return _mq; }
   static void Create();
