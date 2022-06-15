@@ -119,6 +119,11 @@ enum class UMPolicy {
   kDefault,
 };
 
+enum NegativeSampleType {
+  kUniform = 0,
+  kSAGELike,
+};
+
 struct Context {
   DeviceType device_type;
   int device_id;
@@ -298,6 +303,9 @@ struct Task {
   TensorPtr input_feat;
   // Output label tensor
   TensorPtr output_label;
+  // combined pos & neg graph for unsupervised learning
+  std::shared_ptr<TrainGraph> unsupervised_graph = nullptr;
+  size_t unsupervised_positive_edges = 0;
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   // Multi-gpu miss cache index
   MissCacheIndex miss_cache_index;

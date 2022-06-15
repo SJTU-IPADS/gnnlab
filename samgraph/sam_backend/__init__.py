@@ -32,6 +32,7 @@ steps_per_epoch      = _basics.steps_per_epoch
 get_next_batch       = _basics.get_next_batch
 get_graph_num_src    = _basics.get_graph_num_src
 get_graph_num_dst    = _basics.get_graph_num_dst
+get_unsupervised_graph_num_node    = _basics.get_unsupervised_graph_num_node
 shutdown             = _basics.shutdown
 sample_once          = _basics.sample_once
 log_step             = _basics.log_step

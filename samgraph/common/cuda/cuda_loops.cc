@@ -25,6 +25,7 @@
 #include "../profiler.h"
 #include "../run_config.h"
 #include "../timer.h"
+#include "../cpu/cpu_utils.h"
 #include "cuda_common.h"
 #include "cuda_engine.h"
 #include "cuda_function.h"
@@ -178,7 +179,12 @@ void DoGPUSaintSample(TaskPtr task) {
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
 }
 
-void DoGPUUnsupervisedSample(TaskPtr task) {
+void DoGPUUnsupervisedSample(TaskPtr task,
+    StreamHandle sample_stream,
+    GPURandomStates *random_states,
+    FrequencyHashmap *frequency_hashmap,
+    OrderedHashTable *hash_table,
+    ArrayGenerator * negative_generator) {
   auto fanouts = Engine::Get()->GetFanout();
   auto num_layers = fanouts.size();
   auto last_layer_idx = num_layers - 1;
@@ -186,11 +192,6 @@ void DoGPUUnsupervisedSample(TaskPtr task) {
   auto dataset = Engine::Get()->GetGraphDataset();
   auto sampler_ctx = Engine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
-
-  auto sample_stream = GPUEngine::Get()->GetSampleStream();
-  auto random_states = GPUEngine::Get()->GetRandomStates();
-  auto frequency_hashmap = GPUEngine::Get()->GetFrequencyHashmap();
-  auto hash_table = GPUEngine::Get()->GetHashtable();
 
   hash_table->Reset(sample_stream);
 
@@ -205,16 +206,51 @@ void DoGPUUnsupervisedSample(TaskPtr task) {
 
 
   Timer t;
-  // first, different from old method, unsup should get node id from eid
-  auto seed_eids = task->output_nodes;
-  auto seed_nids = Tensor::Empty(kI32, {seed_eids->Shape()[0] * 2}, sampler_ctx, "");
-  cuda::GPUExtract(seed_nids->Ptr<IdType>(), indices, seed_eids->Ptr<IdType>(), seed_eids->Shape()[0], 1, kI32, sampler_ctx, sample_stream, task->key);
-  cuda::GPUGetRowFromEid(indptr, dataset->num_node, seed_eids->Ptr<IdType>(), seed_eids->Shape()[0], seed_nids->Ptr<IdType>() + seed_eids->Shape()[0], sample_stream);
   {
-    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(sampler_ctx, (seed_nids->Shape()[0] + hash_table->NumItems()) * sizeof(IdType)));
-    IdType num_unique;
-    hash_table->FillWithDuplicates(seed_nids->Ptr<IdType>(), seed_nids->Shape()[0], unique, &num_unique, sample_stream);
-    task->output_nodes = Tensor::FromBlob(unique, DataType::kI32, {num_unique}, sampler_ctx, "unsup_output_nodes");
+    // first, different from old method, unsup should get node id from eid
+    auto seed_eids = task->output_nodes;
+    size_t num_seed_eid = seed_eids->Shape().front();
+    auto output_src = Tensor::Empty(kI32, {num_seed_eid * (1 + RunConfig::negative_sample_K)}, sampler_ctx, "");
+    auto output_dst = Tensor::Empty(kI32, {num_seed_eid * (1 + RunConfig::negative_sample_K)}, sampler_ctx, "");
+    IdType * pos_dst = output_dst->Ptr<IdType>();
+    IdType * pos_src = output_src->Ptr<IdType>();
+    cuda::GPUExtract(pos_dst, indices, seed_eids->CPtr<IdType>(), num_seed_eid, 1, kI32, sampler_ctx, sample_stream, task->key);
+    cuda::GPUGetRowFromEid(indptr, dataset->num_node, seed_eids->CPtr<IdType>(), num_seed_eid, pos_src, sample_stream);
+    // negative sampling
+    if (RunConfig::negative_sample_K != 0) {
+      IdType * neg_dst = output_dst->Ptr<IdType>() + num_seed_eid;
+      IdType * neg_src = output_src->Ptr<IdType>() + num_seed_eid;
+      switch (RunConfig::negative_sample_type) {
+        case kUniform: {
+          negative_generator->byUniform<IdType>(neg_src, num_seed_eid * RunConfig::negative_sample_K, 0, Engine::Get()->GetGraphDataset()->num_node - 1, random_states->GetStates(), random_states->NumStates(), sample_stream);
+          if (RunConfig::negative_sample_reuse_src) {
+            // in dgl, the reused-src is original graph's src. but here, the src
+            // is the root of sampling, which is actually dst in the original graph.
+            negative_generator->byRepeat(neg_dst, pos_dst, num_seed_eid, RunConfig::negative_sample_K, sample_stream);
+          } else {
+            negative_generator->byUniform<IdType>(neg_dst, num_seed_eid * RunConfig::negative_sample_K, 0, Engine::Get()->GetGraphDataset()->num_node - 1, random_states->GetStates(), random_states->NumStates(), sample_stream);
+          }
+          break;
+        }
+        case kSAGELike:
+          CHECK(false) << "Unimplemented weighted negative sampler";
+      }
+    }
+    {
+      const IdType *unique; IdType num_unique;
+      hash_table->FillWithDupRevised(output_src->Ptr<IdType>(), output_src->Shape().front(), sample_stream);
+      hash_table->FillWithDupRevised(output_dst->Ptr<IdType>(), output_dst->Shape().front(), sample_stream);
+      hash_table->RefUnique(unique, &num_unique);
+      task->output_nodes = Tensor::CopyBlob(unique, DataType::kI32, {num_unique}, sampler_ctx, sampler_ctx, "unsup_output_nodes", sample_stream);
+    }
+    auto pair_graph = std::make_shared<TrainGraph>();
+    pair_graph->num_src = task->output_nodes->Shape().front();
+    pair_graph->num_dst = task->output_nodes->Shape().front();
+    pair_graph->num_edge = output_src->Shape()[0];
+    pair_graph->col = output_src;
+    pair_graph->row = output_dst;
+    task->unsupervised_graph = pair_graph;
+    task->unsupervised_positive_edges = num_seed_eid;
   }
   task->graphs.resize(num_layers);
   double fill_unique_time = t.Passed();
@@ -395,6 +431,19 @@ void DoGPUUnsupervisedSample(TaskPtr task) {
     LOG(DEBUG) << "GPUSample: finish layer " << i;
   }
 
+  {
+    auto & pair_graph = task->unsupervised_graph;
+    Timer t3;
+    cuda::GPUMapEdges(
+        pair_graph->row->CPtr<IdType>(), pair_graph->row->Ptr<IdType>(),
+        pair_graph->col->CPtr<IdType>(), pair_graph->col->Ptr<IdType>(),
+        pair_graph->num_edge, hash_table->DeviceHandle(), 
+        sampler_ctx, sample_stream);
+    double time_remap_edges = t3.Passed();
+    Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime, time_remap_edges);
+    Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapEdgeTime, time_remap_edges);
+  }
+
   task->input_nodes = cur_input;
 
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
@@ -407,9 +456,6 @@ void DoGPUUnsupervisedSample(TaskPtr task) {
 }
 
 void DoGPUSample(TaskPtr task) {
-  if (RunConfig::unsupervised_sample) {
-    return DoGPUUnsupervisedSample(task);
-  }
   if (RunConfig::sample_type == kSaint) {
     return DoGPUSaintSample(task);
   }
@@ -426,6 +472,11 @@ void DoGPUSample(TaskPtr task) {
   auto frequency_hashmap = GPUEngine::Get()->GetFrequencyHashmap();
 
   OrderedHashTable *hash_table = GPUEngine::Get()->GetHashtable();
+
+  if (RunConfig::unsupervised_sample) {
+    return DoGPUUnsupervisedSample(task, sample_stream, random_states, frequency_hashmap, hash_table, GPUEngine::Get()->GetNegativeGenerator());
+  }
+
   hash_table->Reset(sample_stream);
 
   Timer t;
@@ -971,6 +1022,13 @@ void DoGraphCopy(TaskPtr task) {
     Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
                                graph->row->NumBytes() + graph->col->NumBytes());
   }
+  if (task->unsupervised_graph != nullptr) {
+    task->unsupervised_graph->row = Tensor::CopyTo(task->unsupervised_graph->row, trainer_ctx, copy_stream);
+    task->unsupervised_graph->col = Tensor::CopyTo(task->unsupervised_graph->col, trainer_ctx, copy_stream);
+    Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
+                               task->unsupervised_graph->row->NumBytes() + task->unsupervised_graph->row->NumBytes());
+  }
+  sampler_device->StreamSync(sampler_ctx, copy_stream);
 
   LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
 }
@@ -1015,6 +1073,10 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto output_data = output_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
+  if (RunConfig::unsupervised_sample) {
+    num_ouput = task->unsupervised_graph->num_edge;
+    label_type = kF32;
+  }
 
   task->input_feat =
       Tensor::Empty(feat_type, {num_input, feat_dim}, CPU(),
@@ -1039,10 +1101,19 @@ void DoCPUFeatureExtract(TaskPtr task) {
                     feat_type);
   }
 
-  auto label_dst = task->output_label->MutableData();
-  auto label_src = dataset->label->Data();
+  if (RunConfig::unsupervised_sample == false) {
+    auto label_dst = task->output_label->MutableData();
+    auto label_src = dataset->label->Data();
 
-  cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
+    cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
+  } else {
+    CHECK_EQ(label_type, kF32);
+    auto label_dst = task->output_label->Ptr<float>();
+    size_t num_pos = task->unsupervised_positive_edges;
+    size_t num_neg = num_ouput - num_pos;
+    cpu::ArrangeArray<float>(label_dst, num_pos, 1, 0);
+    cpu::ArrangeArray<float>(label_dst + num_pos, num_neg, 0, 0);
+  }
 
   if (RunConfig::option_log_node_access || RunConfig::option_log_node_access_simple) {
     Profiler::Get().LogNodeAccess(task->key, input_data, num_input);
@@ -1070,6 +1141,10 @@ void DoGPUFeatureExtract(TaskPtr task) {
   auto output_data = output_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
+  if (RunConfig::unsupervised_sample) {
+    num_ouput = task->unsupervised_graph->num_edge;
+    label_type = kF32;
+  }
 
   task->input_feat =
       Tensor::Empty(feat_type, {num_input, feat_dim}, sampler_ctx,
@@ -1089,10 +1164,20 @@ void DoGPUFeatureExtract(TaskPtr task) {
               sampler_ctx, sample_stream, task->key);
   }
 
-  auto label_dst = task->output_label->MutableData();
-  auto label_src = dataset->label->Data();
-  GPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type,
-             sampler_ctx, sample_stream, task->key);
+  if (RunConfig::unsupervised_sample == false) {
+    auto label_dst = task->output_label->MutableData();
+    auto label_src = dataset->label->Data();
+    GPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type,
+              sampler_ctx, sample_stream, task->key);
+  } else {
+    CHECK_EQ(label_type, kF32);
+    auto label_dst = task->output_label->Ptr<float>();
+    size_t num_pos = task->unsupervised_positive_edges;
+    size_t num_neg = num_ouput - num_pos;
+    cuda::ArrangeArray<float>(label_dst, num_pos, 1, 0, sample_stream);
+    cuda::ArrangeArray<float>(label_dst + num_pos, num_neg, 0, 0, sample_stream);
+    Device::Get(sampler_ctx)->StreamSync(sampler_ctx, sample_stream);
+  }
 
   LOG(DEBUG) << "GPUFeatureExtract: process task with key " << task->key;
 }
@@ -1110,6 +1195,10 @@ void DoGPULabelExtract(TaskPtr task) {
 
   auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
+  if (RunConfig::unsupervised_sample) {
+    num_ouput = task->unsupervised_graph->num_edge;
+    label_type = kF32;
+  }
 
   auto train_label =
       Tensor::Empty(label_type, {num_ouput}, trainer_ctx,
@@ -1123,8 +1212,18 @@ void DoGPULabelExtract(TaskPtr task) {
   CHECK_EQ(dataset->label->Ctx().device_type, trainer_ctx.device_type);
   CHECK_EQ(dataset->label->Ctx().device_id, trainer_ctx.device_id);
 
-  GPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type,
-             trainer_ctx, trainer_copy_stream, task->key);
+  if (RunConfig::unsupervised_sample == false) {
+    GPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type,
+               trainer_ctx, trainer_copy_stream, task->key);
+  } else {
+    CHECK_EQ(label_type, kF32);
+    auto label_dst = task->output_label->Ptr<float>();
+    size_t num_pos = task->unsupervised_positive_edges;
+    size_t num_neg = num_ouput - num_pos;
+    cuda::ArrangeArray<float>(label_dst, num_pos, 1, 0, trainer_copy_stream);
+    cuda::ArrangeArray<float>(label_dst + num_pos, num_neg, 0, 0, trainer_copy_stream);
+    Device::Get(trainer_ctx)->StreamSync(trainer_ctx, trainer_copy_stream);
+  }
 
   LOG(DEBUG) << "HostFeatureExtract: process task with key " << task->key;
   /** SXN: this copy is buggy! */
@@ -1152,6 +1251,10 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
 
   auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
+  if (RunConfig::unsupervised_sample) {
+    num_ouput = task->unsupervised_graph->num_edge;
+    label_type = kF32;
+  }
 
   task->output_label =
       Tensor::Empty(label_type, {num_ouput}, CPU(),
@@ -1163,7 +1266,16 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   auto label_dst = task->output_label->MutableData();
   auto label_src = dataset->label->Data();
 
-  cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
+  if (RunConfig::unsupervised_sample == false) {
+    cpu::CPUExtract(label_dst, label_src, output_data, num_ouput, 1, label_type);
+  } else {
+    CHECK_EQ(label_type, kF32);
+    auto label_dst = task->output_label->Ptr<float>();
+    size_t num_pos = task->unsupervised_positive_edges;
+    size_t num_neg = num_ouput - num_pos;
+    cpu::ArrangeArray<float>(label_dst, num_pos, 1, 0);
+    cpu::ArrangeArray<float>(label_dst + num_pos, num_neg, 0, 0);
+  }
 
   // 2. Copy
   auto cpu_label = task->output_label;

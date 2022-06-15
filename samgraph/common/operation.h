@@ -56,6 +56,8 @@ size_t samgraph_get_graph_num_dst(uint64_t key, int graph_id);
 
 size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id);
 
+size_t samgraph_get_unsupervised_graph_num_node(uint64_t key);
+
 void samgraph_log_step(uint64_t epoch, uint64_t step, int item, double val);
 void samgraph_log_step_by_key(uint64_t key, int item, double val);
 

@@ -36,6 +36,9 @@ Context              RunConfig::trainer_ctx;
 CachePolicy          RunConfig::cache_policy;
 double               RunConfig::cache_percentage               = 0.0f;
 bool                 RunConfig::unsupervised_sample            = false;
+size_t               RunConfig::negative_sample_K              = 1;
+NegativeSampleType   RunConfig::negative_sample_type           = NegativeSampleType::kUniform;
+bool                 RunConfig::negative_sample_reuse_src      = true;
 
 size_t               RunConfig::max_sampling_jobs              = 10;
 size_t               RunConfig::max_copying_jobs               = 10;

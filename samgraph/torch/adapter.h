@@ -33,6 +33,8 @@ THCudaTensor samgraph_torch_get_graph_label(uint64_t key);
 THCudaTensor samgraph_torch_get_graph_row(uint64_t key, int layer_idx);
 THCudaTensor samgraph_torch_get_graph_col(uint64_t key, int layer_idx);
 THCudaTensor samgraph_torch_get_graph_data(uint64_t key, int layer_idx);
+THCudaTensor samgraph_torch_get_unsupervised_graph_row(uint64_t key);
+THCudaTensor samgraph_torch_get_unsupervised_graph_col(uint64_t key);
 
 THTensor samgraph_torch_get_dataset_feat();
 THTensor samgraph_torch_get_dataset_label();

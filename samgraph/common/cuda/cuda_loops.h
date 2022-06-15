@@ -21,6 +21,10 @@
 #include <vector>
 
 #include "../common.h"
+#include "cuda_hashtable.h"
+#include "cuda_frequency_hashmap.h"
+#include "cuda_random_states.h"
+#include "cuda_utils.h"
 
 namespace samgraph {
 namespace common {
@@ -40,6 +44,12 @@ std::vector<LoopFunction> GetArch4Loops();
 // common steps
 TaskPtr DoShuffle();
 void DoGPUSample(TaskPtr task);
+void DoGPUUnsupervisedSample(TaskPtr task,
+    StreamHandle sample_stream,
+    GPURandomStates *random_states,
+    FrequencyHashmap *frequency_hashmap,
+    OrderedHashTable *hash_table,
+    ArrayGenerator * negative_generator);
 void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> &neighbour_cb); 
 void DoGPUSampleAllNeighbour(TaskPtr task);
 void DoGraphCopy(TaskPtr task);

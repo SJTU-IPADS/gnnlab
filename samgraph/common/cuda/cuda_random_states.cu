@@ -96,6 +96,8 @@ GPURandomStates::GPURandomStates(SampleType sample_type,
       CHECK(0);
   }
 
+  _num_states = Max(_num_states, Constant::kCudaBlockSize);
+
   _states = static_cast<curandState *>(
       device->AllocDataSpace(_ctx, sizeof(curandState) * _num_states));
 

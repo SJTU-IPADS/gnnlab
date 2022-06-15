@@ -66,11 +66,12 @@ std::shared_ptr<Task> TaskQueue::GetTask() {
 namespace {
 
   struct TransData {
-    bool     have_data; // if have weight values
+    bool     have_data, have_unsup; // if have weight values
     int      num_layer;
     uint64_t key;
     size_t   input_size;
     size_t   output_size;
+    size_t   unsup_pos_edges;
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     size_t   num_miss;
 #endif
@@ -115,6 +116,11 @@ namespace {
       if (graph->data != nullptr) {
         ret += graph->data->NumBytes();
       }
+    }
+    if (task->unsupervised_graph != nullptr) {
+      ret += sizeof(GraphData);
+      ret += task->unsupervised_graph->row->NumBytes();
+      ret += task->unsupervised_graph->col->NumBytes();
     }
     return ret;
   }
@@ -238,6 +244,23 @@ namespace {
       } else {
         graph_data = reinterpret_cast<GraphData*>(graph_data->data + 2 * graph->num_edge);
       }
+    }
+
+    ptr->have_unsup = (task->unsupervised_graph != nullptr);
+    ptr->unsup_pos_edges = task->unsupervised_positive_edges;
+    if (RunConfig::unsupervised_sample) {
+      CHECK(ptr->have_unsup);
+    }
+    if (ptr->have_unsup) {
+      auto & graph = task->unsupervised_graph;
+      graph_data->num_src = graph->num_src;
+      graph_data->num_dst = graph->num_dst;
+      graph_data->num_edge = graph->num_edge;
+      CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->row->NumBytes());
+      CopyGPUToCPU(graph->row, graph_data->data);
+      CHECK_EQ(sizeof(IdType) * graph_data->num_edge, graph->col->NumBytes());
+      CopyGPUToCPU(graph->col, graph_data->data + graph_data->num_edge);
+      graph_data = reinterpret_cast<GraphData*>(graph_data->data + 2 * graph->num_edge);
     }
 
     // sync data copy last step
@@ -397,6 +420,25 @@ namespace {
       }
       task->graphs[layer] = graph;
     }
+    if (RunConfig::unsupervised_sample) {
+      CHECK(trans_data->have_unsup);
+    }
+    if (trans_data->have_unsup) {
+      auto graph = std::make_shared<TrainGraph>();
+      graph->num_src = graph_data->num_src;
+      graph->num_dst = graph_data->num_dst;
+      graph->num_edge = graph_data->num_edge;
+      graph->row = ToTensor(graph_data->data,
+          graph->num_edge * sizeof(IdType),"train_graph_unsup", ctx, stream);
+      graph->col = ToTensor(graph_data->data + graph->num_edge,
+          graph->num_edge * sizeof(IdType),"train_graph_unsup", ctx, stream);
+      graph->data = nullptr;
+      graph_data = reinterpret_cast<const GraphData*>(
+          graph_data->data + 2 * graph->num_edge);
+      task->unsupervised_graph = graph;
+      task->unsupervised_positive_edges = trans_data->unsup_pos_edges;
+    }
+
     // log_mem_usage("after paseData  in taskqueue");
     // sync stream
     Device::Get(ctx)->StreamSync(ctx, stream);

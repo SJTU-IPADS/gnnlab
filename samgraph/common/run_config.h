@@ -43,6 +43,9 @@ struct RunConfig {
   static CachePolicy          cache_policy;
   static double               cache_percentage;
   static bool                 unsupervised_sample;
+  static size_t               negative_sample_K;
+  static NegativeSampleType   negative_sample_type;
+  static bool                 negative_sample_reuse_src;
 
   static size_t               max_sampling_jobs;
   static size_t               max_copying_jobs;

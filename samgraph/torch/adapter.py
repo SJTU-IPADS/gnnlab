@@ -37,6 +37,7 @@ steps_per_epoch      = _basics.steps_per_epoch
 get_next_batch       = _basics.get_next_batch
 get_graph_num_src    = _basics.get_graph_num_src
 get_graph_num_dst    = _basics.get_graph_num_dst
+get_unsupervised_graph_num_node    = _basics.get_unsupervised_graph_num_node
 shutdown             = _basics.shutdown
 sample_once          = _basics.sample_once
 log_step             = _basics.log_step
@@ -91,6 +92,14 @@ def get_graph_col(batch_key, layer_idx):
     return c_lib.samgraph_torch_get_graph_col(batch_key, layer_idx)
 
 
+def get_unsupervised_graph_row(batch_key):
+    return c_lib.samgraph_torch_get_unsupervised_graph_row(batch_key)
+
+
+def get_unsupervised_graph_col(batch_key):
+    return c_lib.samgraph_torch_get_unsupervised_graph_col(batch_key)
+
+
 def get_graph_data(batch_key, layer_idx):
     return c_lib.samgraph_torch_get_graph_data(batch_key, layer_idx)
 
@@ -99,6 +108,13 @@ def _create_dgl_block(data, num_src_nodes, num_dst_nodes):
     row, col = data
     gidx = dgl.heterograph_index.create_unitgraph_from_coo(2, num_src_nodes, num_dst_nodes, row, col, ['coo', 'csr', 'csc'])
     g = DGLBlock(gidx, (['_N'], ['_N']), ['_E'])
+
+    return g
+
+def _create_dgl_homo_block(data, num_src_nodes, num_dst_nodes):
+    row, col = data
+    gidx = dgl.heterograph_index.create_unitgraph_from_coo(1, num_src_nodes, num_dst_nodes, row, col, ['coo', 'csr', 'csc'])
+    g = DGLHeteroGraph(gidx)
 
     return g
 
@@ -129,6 +145,13 @@ def get_dgl_blocks(batch_key, num_layers, with_feat=True):
         #     row, col)}, num_src_nodes={'_N': num_src_nodes}, num_dst_nodes={'_N': num_dst_nodes}))
 
     return blocks, feat, label
+
+def get_dgl_unsupervised_pair_graph(batch_key):
+    pair_graph_row = get_unsupervised_graph_row(batch_key)
+    pair_graph_col = get_unsupervised_graph_col(batch_key)
+    pair_graph_num_node = get_unsupervised_graph_num_node(batch_key)
+    pair_graph = _create_dgl_homo_block((pair_graph_row, pair_graph_col), pair_graph_num_node, pair_graph_num_node)
+    return pair_graph
 
 def get_dgl_subgraph(batch_key, num_layers, with_feat = True):
     if with_feat:

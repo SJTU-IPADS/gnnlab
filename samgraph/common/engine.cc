@@ -270,6 +270,7 @@ void Engine::LoadGraphDataset() {
       // expected train set exceeds original train set. so we should rebuild one from entire nodes.
       auto full_set = Tensor::Empty(kI32, {full_set_size}, CPU_CLIB(), "full_set");
       cpu::ArrangeArray(full_set->Ptr<IdType>(), full_set_size);
+      _dataset->train_set = full_set;
     } else if (_dataset->train_set->Ctx().device_type != kCPU) {
       // the size of original train set meets our requirement.
       // but it is mapped and we cannot alter it, or it is in gpu.

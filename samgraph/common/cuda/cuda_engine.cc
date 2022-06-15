@@ -143,6 +143,7 @@ void GPUEngine::Init() {
   } else {
     _frequency_hashmap = nullptr;
   }
+  _negative_generator = new ArrayGenerator();
 
   // Create queues
   for (int i = 0; i < QueueNum; i++) {

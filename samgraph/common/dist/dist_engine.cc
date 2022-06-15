@@ -443,6 +443,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   } else {
     _frequency_hashmap = nullptr;
   }
+  _negative_generator = new cuda::ArrayGenerator();
   double time_sam_internal_state = t_sam_interal_state.Passed();
 
   // batch results set

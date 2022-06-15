@@ -30,6 +30,7 @@
 #include "../cuda/cuda_frequency_hashmap.h"
 #include "../cuda/cuda_hashtable.h"
 #include "../cuda/cuda_random_states.h"
+#include "../cuda/cuda_utils.h"
 #include "../engine.h"
 #include "../graph_pool.h"
 #include "../logging.h"
@@ -86,6 +87,7 @@ class DistEngine : public Engine {
     }
     return _random_states; 
   }
+  cuda::ArrayGenerator* GetNegativeGenerator() { return _negative_generator; }
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   DistCacheManager* GetCacheManager() { return _cache_manager; }
   cuda::GPUCacheManager* GetGPUCacheManager() { return _gpu_cache_manager; }
@@ -153,6 +155,7 @@ class DistEngine : public Engine {
   cuda::OrderedHashTable* _hashtable;
   // CUDA random states
   cuda::GPURandomStates* _random_states;
+  cuda::ArrayGenerator* _negative_generator = nullptr;
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
   // Feature cache in GPU
   DistCacheManager* _cache_manager;

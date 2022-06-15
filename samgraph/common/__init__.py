@@ -282,10 +282,15 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES = ctypes.CDLL(full_path, mode=ctypes.RTLD_GLOBAL)
 
         self.C_LIB_CTYPES.samgraph_get_graph_num_src.argtypes = (
-            ctypes.c_uint64,)
+            ctypes.c_uint64,
+            ctypes.c_int)
         self.C_LIB_CTYPES.samgraph_get_graph_num_dst.argtypes = (
-            ctypes.c_uint64,)
+            ctypes.c_uint64,
+            ctypes.c_int)
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_int)
+        self.C_LIB_CTYPES.samgraph_get_unsupervised_graph_num_node.argtypes = (
             ctypes.c_uint64,)
         self.C_LIB_CTYPES.samgraph_log_step.argtypes = (
             ctypes.c_uint64,
@@ -353,6 +358,7 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_src.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_dst.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
+        self.C_LIB_CTYPES.samgraph_get_unsupervised_graph_num_node.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_log_init_value.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_step_value_by_key.restype = ctypes.c_double
@@ -467,6 +473,9 @@ class SamGraphBasics(object):
 
     def get_graph_num_dst(self, key, graph_id):
         return self.C_LIB_CTYPES.samgraph_get_graph_num_dst(key, graph_id)
+
+    def get_unsupervised_graph_num_node(self, key):
+        return self.C_LIB_CTYPES.samgraph_get_unsupervised_graph_num_node(key)
 
     def sample_once(self):
         return self.C_LIB_CTYPES.samgraph_sample_once()

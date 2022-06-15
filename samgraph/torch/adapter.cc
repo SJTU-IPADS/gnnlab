@@ -86,7 +86,7 @@ namespace torch {
   ::torch::Tensor tensor = ::torch::from_blob(
       label->MutableData(), {(long long)label->Shape()[0]},
       [label](void* data) {},
-      ::torch::TensorOptions().dtype(::torch::kI64).device(device));
+      ::torch::TensorOptions().dtype(to_torch_data_type(label->Type())).device(device));
 
   return tensor;
 }
@@ -108,6 +108,40 @@ namespace torch {
 ::torch::Tensor GetGraphCol(uint64_t key, int layer_idx) {
   auto graph_batch = common::Engine::Get()->GetGraphBatch();
   auto col = graph_batch->graphs[layer_idx]->col;
+  auto trainer_ctx = common::Engine::Get()->GetTrainerCtx();
+  auto device = "cuda:" + std::to_string(trainer_ctx.device_id);
+
+  CHECK_EQ(key, graph_batch->key);
+  ::torch::Tensor tensor = ::torch::from_blob(
+      col->MutableData(), {(long long)col->Shape()[0]}, [col](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI32).device(device));
+
+  return tensor;
+}
+
+::torch::Tensor GetUnsupervisedGraphRow(uint64_t key) {
+  auto graph_batch = common::Engine::Get()->GetGraphBatch();
+  CHECK_NE(graph_batch, nullptr);
+  CHECK_NE(graph_batch->unsupervised_graph, nullptr);
+  CHECK_NE(graph_batch->unsupervised_graph->row, nullptr);
+  auto row = graph_batch->unsupervised_graph->row;
+  auto trainer_ctx = common::Engine::Get()->GetTrainerCtx();
+  auto device = "cuda:" + std::to_string(trainer_ctx.device_id);
+
+  CHECK_EQ(key, graph_batch->key);
+  ::torch::Tensor tensor = ::torch::from_blob(
+      row->MutableData(), {(long long)row->Shape()[0]}, [row](void* data) {},
+      ::torch::TensorOptions().dtype(::torch::kI32).device(device));
+
+  return tensor;
+}
+
+::torch::Tensor GetUnsupervisedGraphCol(uint64_t key) {
+  auto graph_batch = common::Engine::Get()->GetGraphBatch();
+  CHECK_NE(graph_batch, nullptr);
+  CHECK_NE(graph_batch->unsupervised_graph, nullptr);
+  CHECK_NE(graph_batch->unsupervised_graph->col, nullptr);
+  auto col = graph_batch->unsupervised_graph->col;
   auto trainer_ctx = common::Engine::Get()->GetTrainerCtx();
   auto device = "cuda:" + std::to_string(trainer_ctx.device_id);
 
@@ -198,6 +232,9 @@ PYBIND11_MODULE(c_lib, m) {
   m.def("samgraph_torch_get_graph_row", &GetGraphRow);
   m.def("samgraph_torch_get_graph_col", &GetGraphCol);
   m.def("samgraph_torch_get_graph_data", &GetGraphData);
+
+  m.def("samgraph_torch_get_unsupervised_graph_row", &GetUnsupervisedGraphRow);
+  m.def("samgraph_torch_get_unsupervised_graph_col", &GetUnsupervisedGraphCol);
 
   m.def("samgraph_torch_get_dataset_feat", &GetDatasetFeature);
   m.def("samgraph_torch_get_dataset_label", &GetDatasetLabel);

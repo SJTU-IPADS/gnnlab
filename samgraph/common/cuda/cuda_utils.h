@@ -20,6 +20,8 @@
 
 #include "../common.h"
 #include <cuda_runtime.h>
+#include <curand.h>
+#include <curand_kernel.h>
 
 namespace samgraph {
 namespace common {
@@ -46,7 +48,35 @@ struct BlockPrefixCallbackOp {
 template<typename T>
 void ArrangeArray(T* array, size_t array_len, T begin = 0, T step = 1, StreamHandle = nullptr);
 
+// always with replacement
+template<typename T>
+void UniformFill(T* array, size_t array_len, StreamHandle = nullptr);
+
 void GPUGetRowFromEid(const IdType * indptr, size_t n_row, const IdType *eid_list, size_t num_eid, IdType * output_row, StreamHandle stream);
+
+class ArrayGenerator {
+ public:
+  template<typename T>
+  void byArrange(T* array, size_t array_len, T begin = 0, T step = 1, StreamHandle stream = nullptr) {
+    ArrangeArray(array, array_len, begin, step, stream);
+  }
+  template<typename T>
+  void byRepeat(T* array, const T* src_array, size_t src_len, const size_t repeats, StreamHandle stream = nullptr);
+
+
+  template<typename T>
+  void byUniform(T* array, size_t array_len, T min, T max, curandState *random_states, size_t num_random_states, StreamHandle = nullptr);
+
+  template<typename T>
+  void byWeightAlias(T* array, size_t array_len, StreamHandle = nullptr) = delete;
+  void InitWeightAlias(TensorPtr weight) = delete;
+
+  template<typename T>
+  void byWeightPrefix(T* array, size_t array_len, StreamHandle = nullptr) = delete;
+  void InitWeightPrefix(TensorPtr weight) = delete;
+ private:
+  TensorPtr prob, alias;
+};
 
 }  // namespace cuda
 }  // namespace common

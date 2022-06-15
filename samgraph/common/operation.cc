@@ -357,6 +357,11 @@ size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
   return batch->graphs[graph_id]->num_edge;
 }
 
+size_t samgraph_get_unsupervised_graph_num_node(uint64_t key) {
+  auto batch = Engine::Get()->GetGraphBatch();
+  return batch->unsupervised_graph->num_src;
+}
+
 void samgraph_shutdown() {
   Engine::Get()->Shutdown();
   if (RunConfig::option_profile_cuda) {
