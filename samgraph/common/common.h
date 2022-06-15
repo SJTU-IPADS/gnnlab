@@ -314,7 +314,7 @@ class Shuffler {
   virtual uint64_t Step() = 0;
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
-  virtual size_t NumLocalStep() { return 0; };
+  virtual size_t NumLocalStep() { CHECK(false) << "Unimplemented"; return 0; };
   virtual void Reset() {};
 };
 

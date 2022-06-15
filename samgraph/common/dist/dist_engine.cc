@@ -127,9 +127,11 @@ void DistEngine::Init() {
   }
   double init_load_ds_mmap_time = t_l2_init_load_ds_mmap.Passed();
 
+  // later when shuffler is initialized after fork, need to ensure num step is equal
   if (RunConfig::run_arch == kArch5) {
     _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) /
                  _batch_size);
+    // _num_local_step is initialized after fork, by shuffler
   } else {
     size_t num_data = _dataset->train_set->Shape().front();
     _num_local_step = RoundUpDiv(
@@ -270,10 +272,11 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     case kArch5:
       _shuffler = new DistShuffler(_dataset->train_set,
           _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
-      if (_shuffler->NumStep() > mq_size) {
-        LOG(FATAL) << "Num step exceeds max length of memory queue. Please increase `mq_size` and re-compile!";
-      }
+      // if (_shuffler->NumStep() > mq_size) {
+      //   LOG(FATAL) << "Num step exceeds max length of memory queue. Please increase `mq_size` and re-compile!";
+      // }
       CHECK_EQ(_num_step, _shuffler->NumStep());
+      _num_local_step = _shuffler->NumLocalStep();
       break;
     case kArch6:
       CHECK_EQ(RunConfig::num_sample_worker, RunConfig::num_train_worker);

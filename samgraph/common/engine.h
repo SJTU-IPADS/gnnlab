@@ -100,7 +100,7 @@ class Engine {
   std::vector<size_t> _fanout;
   // Sampling epoch
   size_t _num_epoch;
-  // Number of steps per epoch
+  // Number of steps per epoch. always global, even in dist engine
   size_t _num_step;
   // Number of steps per epoch in the view of the current worker
   size_t _num_local_step;
