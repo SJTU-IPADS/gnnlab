@@ -71,7 +71,8 @@ dataset_str_short = {
   'uk-2006-05':'UK',
   'twitter':'TW',
   'papers100M_300':'PR_3',
-  'papers100M_600':'PR_6'
+  'papers100M_600':'PR_6',
+  'com-friendster':'CF',
 }
 
 size_unit_to_coefficient = {

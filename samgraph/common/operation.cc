@@ -291,6 +291,10 @@ void samgraph_log_step(uint64_t epoch, uint64_t step, int item, double val) {
   uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
   Profiler::Get().LogStep(key, static_cast<LogStepItem>(item), val);
 }
+void samgraph_log_step_by_key(uint64_t key, int item, double val) {
+  CHECK_LT(item, kNumLogStepItems);
+  Profiler::Get().LogStep(key, static_cast<LogStepItem>(item), val);
+}
 
 void samgraph_log_step_add(uint64_t epoch, uint64_t step, int item,
                            double val) {
@@ -313,6 +317,10 @@ double samgraph_get_log_init_value(int item) {
 double samgraph_get_log_step_value(uint64_t epoch, uint64_t step, int item) {
   CHECK_LT(item, kNumLogStepItems);
   uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  return Profiler::Get().GetLogStepValue(key, static_cast<LogStepItem>(item));
+}
+double samgraph_get_log_step_value_by_key(uint64_t key, int item) {
+  CHECK_LT(item, kNumLogStepItems);
   return Profiler::Get().GetLogStepValue(key, static_cast<LogStepItem>(item));
 }
 

@@ -279,6 +279,11 @@ class SamGraphBasics(object):
             ctypes.c_int,
             ctypes.c_double
         )
+        self.C_LIB_CTYPES.samgraph_log_step_by_key.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_int,
+            ctypes.c_double
+        )
         self.C_LIB_CTYPES.samgraph_log_step_add.argtypes = (
             ctypes.c_uint64,
             ctypes.c_uint64,
@@ -294,6 +299,10 @@ class SamGraphBasics(object):
             ctypes.c_int,)
         self.C_LIB_CTYPES.samgraph_get_log_step_value.argtypes = (
             ctypes.c_uint64,
+            ctypes.c_uint64,
+            ctypes.c_int
+        )
+        self.C_LIB_CTYPES.samgraph_get_log_step_value_by_key.argtypes = (
             ctypes.c_uint64,
             ctypes.c_int
         )
@@ -332,6 +341,7 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_get_graph_num_edge.restype = ctypes.c_size_t
         self.C_LIB_CTYPES.samgraph_get_log_init_value.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_step_value.restype = ctypes.c_double
+        self.C_LIB_CTYPES.samgraph_get_log_step_value_by_key.restype = ctypes.c_double
         self.C_LIB_CTYPES.samgraph_get_log_epoch_value.restype = ctypes.c_double
 
         self.C_LIB_CTYPES.samgraph_num_local_step.restype = ctypes.c_size_t
@@ -442,6 +452,9 @@ class SamGraphBasics(object):
     def log_step(self, epoch, step, item, val):
         return self.C_LIB_CTYPES.samgraph_log_step(epoch, step, item, val)
 
+    def log_step_by_key(self, key, item, val):
+        return self.C_LIB_CTYPES.samgraph_log_step_by_key(key, item, val)
+
     def log_step_add(self, epoch, step, item, val):
         return self.C_LIB_CTYPES.samgraph_log_step_add(epoch, step, item, val)
 
@@ -453,6 +466,9 @@ class SamGraphBasics(object):
 
     def get_log_step_value(self, epoch, step, item):
         return self.C_LIB_CTYPES.samgraph_get_log_step_value(epoch, step, item)
+
+    def get_log_step_value_by_key(self, key, item):
+        return self.C_LIB_CTYPES.samgraph_get_log_step_value_by_key(key, item)
 
     def get_log_epoch_value(self, epoch, item):
         return self.C_LIB_CTYPES.samgraph_get_log_epoch_value(epoch, item)

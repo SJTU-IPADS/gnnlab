@@ -217,11 +217,11 @@ void Engine::LoadGraphDataset() {
       // degree cache file is a good choice...
       _dataset->train_set = Tensor::FromMmap(
           _dataset_path + Constant::kCacheByDegreeFile, DataType::kI32,
-          {meta[Constant::kMetaNumNode]}, CPU(), "dataset.train_set");
+          {meta[Constant::kMetaNumNode]}, CPU(CPU_CLIB_MALLOC_DEVICE), "dataset.train_set");
     } else if (_dataset->train_set->Ctx().device_type != kCPU) {
       // the size of original train set meets our requirement.
       // but it is mapped and we cannot alter it, or it is in gpu.
-      _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU());
+      _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU(CPU_CLIB_MALLOC_DEVICE));
     }
 
     // do a shuffle. because 1. original train set is sorted by id 2. cache file is also ranked
@@ -243,7 +243,7 @@ void Engine::LoadGraphDataset() {
     meta[Constant::kMetaNumTrainSet] = end - begin;
     _dataset->train_set = Tensor::CopyBlob(
         _dataset->train_set->Data() + begin * GetDataTypeBytes(kI32),
-        DataType::kI32, {end - begin}, CPU(), ctx_map[Constant::kTrainSetFile], "dataset.train_set");
+        DataType::kI32, {end - begin}, CPU(CPU_CLIB_MALLOC_DEVICE), ctx_map[Constant::kTrainSetFile], "dataset.train_set");
     std::cout << "reducing trainset from " << origin_num_train_set
               << " to " << meta[Constant::kMetaNumTrainSet]
               << " (" << meta[Constant::kMetaNumTrainSet] * 100.0 / meta[Constant::kMetaNumNode] << ")\n";

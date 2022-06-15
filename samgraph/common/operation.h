@@ -57,12 +57,14 @@ size_t samgraph_get_graph_num_dst(uint64_t key, int graph_id);
 size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id);
 
 void samgraph_log_step(uint64_t epoch, uint64_t step, int item, double val);
+void samgraph_log_step_by_key(uint64_t key, int item, double val);
 
 void samgraph_log_step_add(uint64_t epoch, uint64_t step, int item, double val);
 
 void samgraph_log_epoch_add(uint64_t epoch, int item, double val);
 
 double samgraph_get_log_step_value(uint64_t epoch, uint64_t step, int item);
+double samgraph_get_log_step_value_by_key(uint64_t key, int item);
 
 double samgraph_get_log_epoch_value(uint64_t epoch, int item);
 

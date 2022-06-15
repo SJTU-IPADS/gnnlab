@@ -58,6 +58,8 @@ trace_step_end_now   = _basics.trace_step_end_now
 dump_trace           = _basics.dump_trace
 forward_barrier      = _basics.forward_barrier
 wait_one_child       = _basics.wait_one_child
+log_step_by_key      = _basics.log_step_by_key
+get_log_step_value_by_key   = _basics.get_log_step_value_by_key
 
 # switch APIs
 switch_init   = _basics.switch_init
@@ -94,7 +96,7 @@ def get_graph_data(batch_key, layer_idx):
 
 def _create_dgl_block(data, num_src_nodes, num_dst_nodes):
     row, col = data
-    gidx = dgl.heterograph_index.create_unitgraph_from_coo(2, num_src_nodes, num_dst_nodes, row, col, 'coo')
+    gidx = dgl.heterograph_index.create_unitgraph_from_coo(2, num_src_nodes, num_dst_nodes, row, col, ['coo', 'csr', 'csc'])
     g = DGLBlock(gidx, (['_N'], ['_N']), ['_E'])
 
     return g
