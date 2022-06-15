@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 
+#include "logging.h"
+
 namespace samgraph {
 namespace common {
 
@@ -119,6 +121,7 @@ using StreamHandle = void*;
 class Tensor;
 using TensorPtr = std::shared_ptr<Tensor>;
 
+size_t GetDataTypeBytes(DataType dtype);
 class Tensor {
  public:
   Tensor();
@@ -129,6 +132,8 @@ class Tensor {
   DataType Type() const { return _dtype; }
   const std::vector<size_t>& Shape() const { return _shape; }
   const void* Data() const { return _data; }
+  template<typename T> T* Ptr(){ CHECK_EQ(sizeof(T), GetDataTypeBytes(_dtype)); return (T*)_data; }
+  template<typename T> const T* CPtr() const { return const_cast<Tensor*>(this)->Ptr<T>(); }
   void* MutableData() { return _data; }
   void ReplaceData(void* data);
   void Swap(TensorPtr tensor);
