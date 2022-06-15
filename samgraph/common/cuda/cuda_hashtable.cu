@@ -46,7 +46,12 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
     return GetMutableO2N(pos);
   }
 
-  inline __device__ bool AttemptInsertAtO2N(const IdType pos, const IdType id,
+  enum InsertStatus {
+    kConflict = 0,
+    kFirstSuccess,
+    kDupSuccess,
+  };
+  inline __device__ InsertStatus AttemptInsertAtO2N(const IdType pos, const IdType id,
                                             const IdType index,
                                             const IdType version) {
     auto iter = GetMutableO2N(pos);
@@ -60,30 +65,33 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
     IdType old_version = static_cast<IdType>(old & kI32Mask);
     IdType old_key = static_cast<IdType>((old >> 32) & kI32Mask);
     if (old_version == version) {
-      return (old_key == id);
+      return (old_key == id) ? kDupSuccess : kConflict;
     }
     ull new_val = ((static_cast<ull>(id) << 32) + version);
     ull ret_val = atomicCAS(reinterpret_cast<ull*>(&iter->version), old, new_val);
     if (ret_val == old) {
       iter->local = Constant::kEmptyKey;
       iter->index = index;
-      return true;
+      return kFirstSuccess;
     }
     IdType ret_key = static_cast<IdType>((ret_val >> 32) & kI32Mask);
-    return (ret_key == id);
+    return (ret_key == id) ? kDupSuccess : kConflict;
 #else
     IdType old_version = iter->version;
-    if (old_version == version) return true;
+    if (old_version == version) return kDupSuccess;
     if (atomicCAS(&(iter->version), old_version, version) == old_version) {
       iter->key = id;
       iter->index = index;
       iter->local = Constant::kEmptyKey;
-      return true;
+      return kFirstSuccess;
     }
-    return true;
+    return kDupSuccess;
 #endif
   }
 
+  /** Return corresponding bucket on first insertion.
+   *  Duplicate attemps return nullptr
+   */
   inline __device__ IteratorO2N InsertO2N(const IdType id, const IdType index,
                                           const IdType version) {
 #ifndef SXN_NAIVE_HASHMAP
@@ -91,17 +99,18 @@ class MutableDeviceOrderedHashTable : public DeviceOrderedHashTable {
 
     // linearly scan for an empty slot or matching entry
     IdType delta = 1;
-    while (!AttemptInsertAtO2N(pos, id, index, version)) {
+    InsertStatus ret;
+    while ((ret = AttemptInsertAtO2N(pos, id, index, version)) == kConflict) {
       pos = HashO2N(pos + delta);
       delta += 1;
     }
 
 #else
     IdType pos = id;
-    bool succ = AttemptInsertAtO2N(pos, id, index, version);
-    assert(succ);
+    ret = AttemptInsertAtO2N(pos, id, index, version);
+    assert(ret != kConflict);
 #endif
-    return GetMutableO2N(pos);
+    return (ret == kFirstSuccess) ? GetMutableO2N(pos) : nullptr;
   }
 
   inline __device__ IteratorN2O InsertN2O(const IdType pos,
@@ -240,8 +249,7 @@ __global__ void generate_count_hashmap_duplicates(
   for (size_t index = threadIdx.x + block_start; index < block_end;
        index += BLOCK_SIZE) {
     if (index < num_items) {
-      BucketO2N *iter = table.InsertO2N(items[index], index, version);
-      if (iter->index == index && iter->local == Constant::kEmptyKey) {
+      if (table.InsertO2N(items[index], index, version)) {
         ++count;
       }
     }
@@ -277,7 +285,7 @@ __global__ void generate_count_hashmap_duplicates_mutable(
        index += BLOCK_SIZE) {
     if (index < num_items) {
       BucketO2N *iter = table.InsertO2N(items[index], index, version);
-      if (iter->index == index && iter->local == Constant::kEmptyKey) {
+      if (iter) {
         ++count;
         items[index] = table.IterO2NToPos(iter);
       } else {
@@ -326,7 +334,7 @@ __global__ void gen_count_hashmap_neighbour(
       for (IdType j = off; j < off_end; j++) {
         const IdType nbr_orig_id = indices[j];
         BucketO2N *iter = table.InsertO2N(nbr_orig_id, index, version);
-        if (iter->index == index && iter->local == Constant::kEmptyKey) {
+        if (iter) {
           ++count;
         }
       }
@@ -384,8 +392,7 @@ __global__ void gen_count_hashmap_neighbour_single_loop(
     } else {
       const IdType nbr_orig_id = indices[cur_j + cur_off];
       BucketO2N *bucket = table.InsertO2N(nbr_orig_id, cur_index, version);
-      thread_count +=
-        (bucket->index == cur_index && bucket->local == Constant::kEmptyKey);
+      thread_count += (bucket != nullptr);
       cur_j++;
     }
   }
