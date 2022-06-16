@@ -82,6 +82,7 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
     default_common_config['presample_epoch'] = 1
     # 40 is faster than 80 in aliyun machine
     default_common_config['omp_thread_num'] = 40
+    default_common_config['unsupervised'] = False
 
     default_common_config.update(kwargs)
 
@@ -142,6 +143,8 @@ def add_common_arguments(argparser, run_config):
     argparser.add_argument('--max-copying-jobs', type=int,
                            default=run_config['max_copying_jobs'])
 
+    argparser.add_argument('--max-num-step', type=int, default=2**32)
+
     argparser.add_argument('--num-epoch', type=int,
                            default=run_config['num_epoch'])
     argparser.add_argument('--batch-size', type=int,
@@ -165,7 +168,8 @@ def add_common_arguments(argparser, run_config):
                            '0', '1', '2', '3'], type=str, dest='_profile_level', default='0')
     argparser.add_argument('--empty-feat', type=str,
                            dest='_empty_feat', default='0')
-    argparser.add_argument('-unsup', '--unsupervised', action='store_true', default=False)
+    argparser.add_argument('-unsup', '--unsupervised', action='store_true', default=run_config['unsupervised'])
+    argparser.add_argument('--no-unsupervised', action='store_false', dest='unsupervised', default=run_config['unsupervised'])
 
 
 def process_common_config(run_config):
