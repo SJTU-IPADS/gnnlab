@@ -42,7 +42,7 @@ class Device {
   virtual void FreeDataSpace(Context ctx, void *ptr) = 0;
   template<typename T>
   inline T *AllocArray(Context ctx, size_t n_elem, double scale = Constant::kAllocScale) {
-    return AllocWorkspace(ctx, n_elem * sizeof(T), scale);
+    return static_cast<T*>(AllocWorkspace(ctx, n_elem * sizeof(T), scale));
   }
   virtual void *AllocWorkspace(Context ctx, size_t nbytes,
                                double scale = Constant::kAllocScale);
