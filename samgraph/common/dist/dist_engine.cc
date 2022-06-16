@@ -185,12 +185,17 @@ void DistEngine::Init() {
   if (RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch9) {
     _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) /
                  _batch_size);
+    _num_step = std::min(_num_step, RunConfig::step_max_boundary);
     // _num_local_step is initialized after fork, by shuffler
   } else {
     size_t num_data = _dataset->train_set->Shape().front();
     _num_local_step = RoundUpDiv(
         RoundUpDiv(num_data, RunConfig::num_sample_worker), _batch_size);
     _num_step = _num_local_step * RunConfig::num_sample_worker;
+    // handle step boundary
+    _num_step = std::min(_num_step, RunConfig::step_max_boundary);
+    _num_step = RoundUp(_num_step, RunConfig::num_sample_worker);
+    _num_local_step = _num_local_step / RunConfig::num_sample_worker;
   }
 
   Timer t_l2_init_build_queue;

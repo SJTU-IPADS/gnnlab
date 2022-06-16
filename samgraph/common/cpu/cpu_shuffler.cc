@@ -24,6 +24,7 @@
 #include <numeric>
 #include <random>
 
+#include "../run_config.h"
 #include "../logging.h"
 
 namespace samgraph {
@@ -46,6 +47,7 @@ CPUShuffler::CPUShuffler(TensorPtr input, int num_epoch, size_t batch_size,
   } else {
     _num_step = (_num_data + batch_size - 1) / batch_size;
   }
+  _num_step = std::min(_num_step, RunConfig::step_max_boundary);
 
   _initialized = false;
   _cur_step = _num_step;
@@ -71,7 +73,7 @@ void CPUShuffler::ReShuffle() {
   auto g = std::default_random_engine(seed);
 
   for (size_t i = 0; i < _num_data - 1; i++) {
-    std::uniform_int_distribution<size_t> d(i, _num_data - 1);
+    std::uniform_int_distribution<size_t> d(i, _data->Shape().front() - 1);
     size_t candidate = d(g);
     switch (_data->Type()) {
       case kI32:

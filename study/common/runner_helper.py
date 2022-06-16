@@ -206,6 +206,7 @@ class RunConfig:
     self.mps_mode = None
     self.root_path="/graph-learning/samgraph/"
     self.unsupervised = False
+    self.max_num_step = None
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -314,6 +315,8 @@ class RunConfig:
 
     if self.unsupervised:
       cmd_line += f' --unsupervised'
+    if self.max_num_step:
+      cmd_line += f' --max-num-step {self.max_num_step}'
 
     if self.pipeline:
       cmd_line += ' --pipeline'

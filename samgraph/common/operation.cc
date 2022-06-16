@@ -99,6 +99,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   if (configs["unsupervised"] == "True") {
     RC::unsupervised_sample = true;
   }
+  RC::step_max_boundary = std::stoull(configs["max_num_step"]);
 
   switch (RC::run_arch) {
     case kArch0:

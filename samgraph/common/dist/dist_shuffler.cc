@@ -56,6 +56,9 @@ DistShuffler::DistShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
     _num_step = (_num_data + batch_size - 1) / batch_size;
   }
   _epoch_step = _num_step;
+  _epoch_step = std::min(_epoch_step, RunConfig::step_max_boundary);
+  // only consider the front
+  _num_data = std::min(_num_data, _epoch_step * batch_size);
 
   /* Simply _num_step / num_sampler would results in imbalance in smapler
    *    i.e. 15 step, 4 sampler -> 3,3,3,6
@@ -152,7 +155,7 @@ void DistShuffler::ReShuffle(StreamHandle stream) {
   auto g = std::default_random_engine(seed);
 
   for (size_t i = 0; i < _num_data - 1; i++) {
-    std::uniform_int_distribution<size_t> d(i, _num_data - 1);
+    std::uniform_int_distribution<size_t> d(i, _data->Shape().front() - 1);
     size_t candidate = d(g);
     switch (_data->Type()) {
       case kI32:

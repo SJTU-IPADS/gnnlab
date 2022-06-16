@@ -57,7 +57,13 @@ DistAlignedShuffler::DistAlignedShuffler(TensorPtr input, size_t num_epoch,
   _num_epoch = num_epoch;
   _num_local_data = _num_data / num_worker;
   _num_local_step = RoundUpDiv(_num_local_data, batch_size);
-  _num_global_step = _num_local_step * num_worker;
+
+  _num_global_step = std::min(_num_local_step * num_worker, RunConfig::step_max_boundary);
+  _num_global_step = RoundUp(_num_global_step, num_worker);
+  _num_local_step = _num_global_step / num_worker;
+  _num_local_data = std::min(_num_local_data, _num_local_step * batch_size);
+  CHECK(_num_local_data * num_worker <= _num_data);
+  _num_data = _num_local_data * num_worker;
 
   _global_step_offset = _num_local_step * worker_id;
   _global_data_offset = _num_local_data * worker_id;
@@ -94,7 +100,7 @@ void DistAlignedShuffler::ReShuffle(StreamHandle stream) {
   auto g = std::default_random_engine(seed);
 
   for (size_t i = 0; i < _num_data - 1; i++) {
-    std::uniform_int_distribution<size_t> d(i, _num_data - 1);
+    std::uniform_int_distribution<size_t> d(i, _data->Shape().front() - 1);
     size_t candidate = d(g);
     switch (_data->Type()) {
       case kI32:

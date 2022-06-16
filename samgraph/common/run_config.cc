@@ -31,6 +31,7 @@ RunArch              RunConfig::run_arch;
 SampleType           RunConfig::sample_type;
 size_t               RunConfig::batch_size;
 size_t               RunConfig::num_epoch;
+size_t               RunConfig::step_max_boundary              = std::numeric_limits<size_t>::max();
 Context              RunConfig::sampler_ctx;
 Context              RunConfig::trainer_ctx;
 CachePolicy          RunConfig::cache_policy;

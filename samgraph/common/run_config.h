@@ -38,6 +38,7 @@ struct RunConfig {
   static SampleType           sample_type;
   static size_t               batch_size;
   static size_t               num_epoch;
+  static size_t               step_max_boundary;
   static Context              sampler_ctx;
   static Context              trainer_ctx;
   static CachePolicy          cache_policy;

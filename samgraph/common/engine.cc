@@ -47,10 +47,13 @@ namespace common {
 
 namespace {
 
-void shuffle(uint32_t * data, size_t num_data, uint64_t seed= 0x1234567890abcdef) {
+void shuffle(uint32_t * data, size_t num_data, const size_t* shuffle_range=nullptr, uint64_t seed= 0x1234567890abcdef) {
   auto g = std::default_random_engine(seed);
-  for (size_t i = num_data - 1; i > 0; i--) {
-    std::uniform_int_distribution<size_t> d(0, i);
+  if (shuffle_range == nullptr) {
+    shuffle_range = & num_data;
+  }
+  for (size_t i = 0; i < *shuffle_range; i++) {
+    std::uniform_int_distribution<size_t> d(i, num_data - 1);
     size_t candidate = d(g);
     std::swap(data[i], data[candidate]);
   }
@@ -158,6 +161,10 @@ void Engine::LoadGraphDataset() {
       meta[Constant::kMetaNumLinkTrainSet] = 0.8 * meta[Constant::kMetaNumEdge];
       meta[Constant::kMetaNumLinkTestSet]  = 0.1 * meta[Constant::kMetaNumEdge];
       meta[Constant::kMetaNumLinkValidSet] = meta[Constant::kMetaNumEdge] - meta[Constant::kMetaNumLinkTrainSet] - meta[Constant::kMetaNumLinkTestSet];
+      if (meta[Constant::kMetaNumLinkTrainSet] / RunConfig::batch_size > RunConfig::step_max_boundary) {
+        meta[Constant::kMetaNumLinkTrainSet] = RunConfig::step_max_boundary * RunConfig::batch_size * 2;
+        meta[Constant::kMetaNumLinkTrainSet] = Min(meta[Constant::kMetaNumEdge] - meta[Constant::kMetaNumLinkTestSet] - meta[Constant::kMetaNumLinkValidSet], meta[Constant::kMetaNumLinkTrainSet]);
+      }
     }
     meta[Constant::kMetaNumTrainSet] = meta[Constant::kMetaNumLinkTrainSet];
     meta[Constant::kMetaNumTestSet]  = meta[Constant::kMetaNumLinkTestSet];
@@ -251,12 +258,13 @@ void Engine::LoadGraphDataset() {
     auto cpu_ctx = CPU_CLIB();
     auto full_eid = Tensor::Empty(kI32, {_dataset->num_edge}, cpu_ctx, "full_eid");
     cpu::ArrangeArray(full_eid->Ptr<IdType>(), _dataset->num_edge);
-    shuffle(full_eid->Ptr<IdType>(), _dataset->num_edge);
+    size_t efficient_shuffle_range = meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet] + meta[Constant::kMetaNumValidSet];
+    shuffle(full_eid->Ptr<IdType>(), _dataset->num_edge, &efficient_shuffle_range);
     _dataset->train_set = Tensor::CopyBlob(full_eid->Ptr<IdType>(),
         DataType::kI32, {meta[Constant::kMetaNumTrainSet]}, cpu_ctx, ctx_map[Constant::kTrainSetFile], "dataset.train_set");
     _dataset->test_set  = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet],
         DataType::kI32, {meta[Constant::kMetaNumTestSet]},  cpu_ctx, ctx_map[Constant::kTestSetFile], "dataset.test_set");
-    _dataset->valid_set = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet] +  + meta[Constant::kMetaNumTestSet],
+    _dataset->valid_set = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet],
         DataType::kI32, {meta[Constant::kMetaNumValidSet]}, cpu_ctx, ctx_map[Constant::kValidSetFile], "dataset.valid_set");
   }
 
