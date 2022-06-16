@@ -231,6 +231,9 @@ class Solver {
   TensorView<GRBVar> c_list;
   TensorView<GRBVar> x_list;
   std::vector<GRBLinExpr> time_list;
+  std::vector<GRBLinExpr> local_weight_list;
+  std::vector<double> total_weight_list;
+  std::vector<GRBLinExpr> cpu_weight_list;
 
   const int & solver_num_thread = RunConfig::omp_thread_num;
 
@@ -291,8 +294,12 @@ class Solver {
       if (weight == 0) continue;
       sum_weight += weight;
       expr += c_list[block_id].ref() * (weight * (T_cpu - T_remote)) - x_list[block_id][device_id].ref() * (weight * (T_remote - T_local));
+
+      local_weight_list[device_id] +=  weight * x_list[block_id][device_id].ref();
+      cpu_weight_list[device_id]   +=  weight * c_list[block_id].ref();
     }
     expr += sum_weight * T_remote;
+    total_weight_list[device_id] = sum_weight;
     model.addConstr(expr <= z, "time_" + std::to_string(device_id));
   }
  public:
@@ -320,6 +327,9 @@ class Solver {
     c_list.rebuild(c_list_tensor);
     x_list.rebuild(x_list_tensor);
     time_list.resize(num_device);
+    local_weight_list.resize(num_device);
+    total_weight_list.resize(num_device);
+    cpu_weight_list.resize(num_device);
 
     std::cerr << "Add Var...\n";
     char var_type = (mode == "BIN") ? GRB_BINARY : GRB_CONTINUOUS;
@@ -388,6 +398,15 @@ class Solver {
       std::cerr << "  storage is " << bs << "\n";
       std::cerr.flags(f);
     }
+    std::cout << "coll_cache:optimal_local_rate:";
+    FOR_LOOP(part_id, num_device) { std::cout << local_weight_list[part_id].getValue() / total_weight_list[part_id] << ","; }
+    std::cout << "\n";
+    std::cout << "coll_cache:optimal_remote_rate:";
+    FOR_LOOP(part_id, num_device) { std::cout << 1 - (local_weight_list[part_id].getValue() + cpu_weight_list[part_id].getValue()) / total_weight_list[part_id] << ","; }
+    std::cout << "\n";
+    std::cout << "coll_cache:optimal_cpu_rate:";
+    FOR_LOOP(part_id, num_device) { std::cout << cpu_weight_list[part_id].getValue() / total_weight_list[part_id] << ","; }
+    std::cout << "\n";
     LOG(INFO) << "Coll Cache init block placement array done";
     model.reset(1);
     LOG(INFO) << "Coll Cache model reset done";
