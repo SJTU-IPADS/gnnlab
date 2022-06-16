@@ -583,52 +583,28 @@ void DoGraphCopy(TaskPtr task) {
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
-    auto train_row =
-        Tensor::Empty(graph->row->Type(), graph->row->Shape(), trainer_ctx,
-                      "train_graph.row_cuda_train_" +
-                          std::to_string(task->key) + "_" + std::to_string(i));
-    auto train_col =
-        Tensor::Empty(graph->col->Type(), graph->col->Shape(), trainer_ctx,
-                      "train_graph.col_cuda_train_" +
-                          std::to_string(task->key) + "_" + std::to_string(i));
+    graph->row = Tensor::CopyTo(graph->row, trainer_ctx, copy_stream,
+        "train_graph.row_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
+    graph->col = Tensor::CopyTo(graph->col, trainer_ctx, copy_stream,
+        "train_graph.col_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
 
     LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
                << ToReadableSize(graph->row->NumBytes());
     LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
                << ToReadableSize(graph->col->NumBytes());
 
-    sampler_device->CopyDataFromTo(graph->row->Data(), 0,
-                                   train_row->MutableData(), 0,
-                                   graph->row->NumBytes(), graph->row->Ctx(),
-                                   train_row->Ctx(), copy_stream);
-    sampler_device->CopyDataFromTo(graph->col->Data(), 0,
-                                   train_col->MutableData(), 0,
-                                   graph->col->NumBytes(), graph->col->Ctx(),
-                                   train_col->Ctx(), copy_stream);
-
     if (RunConfig::sample_type == kRandomWalk) {
-      auto graph_data = Tensor::Empty(
-          graph->data->Type(), graph->data->Shape(), trainer_ctx,
-          "train_graph.data_cuda_train_" + std::to_string(task->key) + "_" +
-              std::to_string(i));
-
+      CHECK(graph->data != nullptr);
+      graph->data = Tensor::CopyTo(graph->data, trainer_ctx, copy_stream,
+        "train_graph.data_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
       LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda graph data malloc "
                  << ToReadableSize(graph->data->NumBytes());
-
-      sampler_device->CopyDataFromTo(
-          graph->data->Data(), 0, graph_data->MutableData(), 0,
-          graph->data->NumBytes(), graph->data->Ctx(), graph_data->Ctx(),
-          copy_stream);
-      graph->data = graph_data;
     }
 
     sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-    graph->row = train_row;
-    graph->col = train_col;
-
     Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
-                               train_row->NumBytes() + train_col->NumBytes());
+                               graph->row->NumBytes() + graph->col->NumBytes());
   }
 
   LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
@@ -639,34 +615,20 @@ void DoIdCopy(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
-  auto input_nodes =
-      Tensor::Empty(task->input_nodes->Type(), task->input_nodes->Shape(),
-                    CPU(), "task.input_nodes_cpu_" + std::to_string(task->key));
-  auto output_nodes = Tensor::Empty(
-      task->output_nodes->Type(), task->output_nodes->Shape(), CPU(),
+  task->input_nodes = Tensor::CopyTo(task->input_nodes, CPU(), copy_stream,
+      "task.input_nodes_cpu_" + std::to_string(task->key));
+  task->output_nodes = Tensor::CopyTo(task->output_nodes, CPU(), copy_stream,
       "task.output_nodes_cpu_" + std::to_string(task->key));
   LOG(DEBUG) << "IdCopyDevice2Host input_nodes cpu malloc "
-             << ToReadableSize(input_nodes->NumBytes());
+             << ToReadableSize(task->input_nodes->NumBytes());
   LOG(DEBUG) << "IdCopyDevice2Host output_nodes cpu malloc "
-             << ToReadableSize(output_nodes->NumBytes());
-
-  sampler_device->CopyDataFromTo(
-      task->input_nodes->Data(), 0, input_nodes->MutableData(), 0,
-      task->input_nodes->NumBytes(), task->input_nodes->Ctx(),
-      input_nodes->Ctx(), copy_stream);
-  sampler_device->CopyDataFromTo(
-      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
-      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
-      output_nodes->Ctx(), copy_stream);
+             << ToReadableSize(task->output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-  task->input_nodes = input_nodes;
-  task->output_nodes = output_nodes;
-
   Profiler::Get().LogStepAdd(
       task->key, kLogL1IdBytes,
-      input_nodes->NumBytes() + output_nodes->NumBytes());
+      task->input_nodes->NumBytes() + task->output_nodes->NumBytes());
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -841,12 +803,8 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   // 2. Copy
   auto cpu_label = task->output_label;
   CHECK_EQ(cpu_label->Ctx().device_type, CPU().device_type);
-  auto train_label =
-      Tensor::Empty(cpu_label->Type(), cpu_label->Shape(), trainer_ctx,
-                    "task.train_label_cuda" + std::to_string(task->key));
-  trainer_device->CopyDataFromTo(
-      cpu_label->Data(), 0, train_label->MutableData(), 0,
-      cpu_label->NumBytes(), cpu_label->Ctx(), train_label->Ctx(), copy_stream);
+  auto train_label = Tensor::CopyTo(cpu_label, trainer_ctx, copy_stream,
+      "task.train_label_cuda" + std::to_string(task->key));
   trainer_device->StreamSync(trainer_ctx, copy_stream);
 
   task->output_label = train_label;
@@ -867,18 +825,10 @@ void DoFeatureCopy(TaskPtr task) {
   CHECK_EQ(cpu_feat->Ctx().device_type, CPU().device_type);
   CHECK_EQ(cpu_label->Ctx().device_type, CPU().device_type);
 
-  auto train_feat =
-      Tensor::Empty(cpu_feat->Type(), cpu_feat->Shape(), trainer_ctx,
-                    "task.train_feat_cuda_" + std::to_string(task->key));
-  auto train_label =
-      Tensor::Empty(cpu_label->Type(), cpu_label->Shape(), trainer_ctx,
-                    "task.train_label_cuda" + std::to_string(task->key));
-  trainer_device->CopyDataFromTo(cpu_feat->Data(), 0, train_feat->MutableData(),
-                                 0, cpu_feat->NumBytes(), cpu_feat->Ctx(),
-                                 train_feat->Ctx(), copy_stream);
-  trainer_device->CopyDataFromTo(
-      cpu_label->Data(), 0, train_label->MutableData(), 0,
-      cpu_label->NumBytes(), cpu_label->Ctx(), train_label->Ctx(), copy_stream);
+  auto train_feat = Tensor::CopyTo(cpu_feat, trainer_ctx, copy_stream,
+      "task.train_feat_cuda_" + std::to_string(task->key));
+  auto train_label = Tensor::CopyTo(cpu_label, trainer_ctx, copy_stream,
+      "task.train_label_cuda" + std::to_string(task->key));
   trainer_device->StreamSync(trainer_ctx, copy_stream);
 
   task->input_feat = train_feat;
@@ -901,23 +851,15 @@ void DoCacheIdCopy(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
-  auto output_nodes = Tensor::Empty(
-      task->output_nodes->Type(), task->output_nodes->Shape(), trainer_ctx,
+  task->output_nodes = Tensor::CopyTo(task->output_nodes, trainer_ctx, copy_stream,
       "task.output_nodes_cuda_" + std::to_string(task->key));
   LOG(DEBUG) << "IdCopyDevice2Host output_nodes cuda malloc "
-             << ToReadableSize(output_nodes->NumBytes());
-
-  sampler_device->CopyDataFromTo(
-      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
-      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
-      output_nodes->Ctx(), copy_stream);
+             << ToReadableSize(task->output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-  task->output_nodes = output_nodes;
-
   Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes,
-                             output_nodes->NumBytes());
+                             task->output_nodes->NumBytes());
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -927,23 +869,15 @@ void DoCacheIdCopyToCPU(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
-  auto output_nodes = Tensor::Empty(
-      task->output_nodes->Type(), task->output_nodes->Shape(), CPU(),
+  task->output_nodes = Tensor::CopyTo(task->output_nodes, CPU(), copy_stream,
       "task.output_nodes_cuda_" + std::to_string(task->key));
   LOG(DEBUG) << "IdCopyDevice2Host output_nodes cuda malloc "
-             << ToReadableSize(output_nodes->NumBytes());
-
-  sampler_device->CopyDataFromTo(
-      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
-      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
-      output_nodes->Ctx(), copy_stream);
+             << ToReadableSize(task->output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-  task->output_nodes = output_nodes;
-
   Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes,
-                             output_nodes->NumBytes());
+                             task->output_nodes->NumBytes());
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -1046,33 +980,27 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   // 2. Extract the miss data
   Timer t2;
+  auto cpu_output_miss = Tensor::Empty(
+      feat_type, {num_output_miss, feat_dim}, CPU(), "");
 
-  void *cpu_output_miss = cpu_device->AllocWorkspace(
-      CPU(), GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-  void *trainer_output_miss = trainer_device->AllocWorkspace(
-      trainer_ctx, GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-
-  cache_manager->ExtractMissData(cpu_output_miss, cpu_output_miss_src_index,
-                                 num_output_miss);
+  cache_manager->ExtractMissData(cpu_output_miss->MutableData(),
+                                 cpu_output_miss_src_index, num_output_miss);
 
   double extract_miss_time = t2.Passed();
 
   // 3. Copy the miss data
   Timer t3;
-
-  trainer_device->CopyDataFromTo(
-      cpu_output_miss, 0, trainer_output_miss, 0,
-      GetTensorBytes(feat_type, {num_output_miss, feat_dim}), CPU(),
-      trainer_ctx, trainer_copy_stream);
+  auto trainer_output_miss = Tensor::CopyTo(
+      cpu_output_miss, trainer_ctx, trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
-  cpu_device->FreeWorkspace(CPU(), cpu_output_miss);
+  cpu_output_miss = nullptr;
 
   double copy_miss_time = t3.Passed();
 
   // 4. Combine miss data
   Timer t4;
-  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss,
+  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss->Data(),
                                  trainer_output_miss_dst_index, num_output_miss,
                                  trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
@@ -1092,7 +1020,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   // 5. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
+  trainer_output_miss = nullptr;
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
@@ -1221,32 +1149,25 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
   // 2. Extract the miss data
   Timer t2;
 
-  void *cpu_output_miss = cpu_device->AllocWorkspace(
-      CPU(), GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-  void *trainer_output_miss = trainer_device->AllocWorkspace(
-      trainer_ctx, GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-
-  cache_manager->ExtractMissData(cpu_output_miss, cpu_output_miss_src_index,
-                                 num_output_miss);
+  auto cpu_output_miss = Tensor::Empty(feat_type, {num_output_miss, feat_dim}, CPU(), ""); 
+  cache_manager->ExtractMissData(cpu_output_miss->MutableData(),
+                                 cpu_output_miss_src_index, num_output_miss);
 
   double extract_miss_time = t2.Passed();
 
   // 3. Copy the miss data
   Timer t3;
-
-  trainer_device->CopyDataFromTo(
-      cpu_output_miss, 0, trainer_output_miss, 0,
-      GetTensorBytes(feat_type, {num_output_miss, feat_dim}), CPU(),
-      trainer_ctx, trainer_copy_stream);
+  auto trainer_output_miss = Tensor::CopyTo(
+      cpu_output_miss, trainer_ctx, trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
-  cpu_device->FreeWorkspace(CPU(), cpu_output_miss);
+  cpu_output_miss = nullptr;
 
   double copy_miss_time = t3.Passed();
 
   // 4. Combine miss data
   Timer t4;
-  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss,
+  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss->Data(),
                                  trainer_output_miss_dst_index, num_output_miss,
                                  trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
@@ -1272,7 +1193,7 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
 
   // 7. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
+  trainer_output_miss = nullptr;
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
