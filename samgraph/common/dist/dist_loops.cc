@@ -34,7 +34,8 @@ namespace dist {
 
 TaskPtr DoShuffle() {
   auto s = DistEngine::Get()->GetShuffler();
-  auto batch = s->GetBatch();
+  auto sample_stream = DistEngine::Get()->GetSampleStream();
+  auto batch = s->GetBatch(sample_stream);
 
   if (batch) {
     auto task = std::make_shared<Task>();

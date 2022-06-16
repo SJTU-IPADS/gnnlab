@@ -59,7 +59,8 @@ PreSampler::~PreSampler() {
 
 TaskPtr PreSampler::DoPreSampleShuffle() {
   auto s = _shuffler;
-  auto batch = s->GetBatch();
+  auto stream = DistEngine::Get()->GetSampleStream();
+  auto batch = s->GetBatch(stream);
 
   if (batch) {
     auto task = std::make_shared<Task>();

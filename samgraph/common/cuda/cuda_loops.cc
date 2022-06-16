@@ -34,7 +34,8 @@ namespace cuda {
 
 TaskPtr DoShuffle() {
   auto s = GPUEngine::Get()->GetShuffler();
-  auto batch = s->GetBatch();
+  auto sample_stream = GPUEngine::Get()->GetSampleStream();
+  auto batch = s->GetBatch(sample_stream);
 
   if (batch) {
     auto task = std::make_shared<Task>();
