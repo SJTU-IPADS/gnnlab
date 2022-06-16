@@ -330,6 +330,8 @@ void DoGraphCopy(TaskPtr task) {
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
+    Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
+                               graph->row->NumBytes() + graph->col->NumBytes());
     if (graph->row->Ctx() == trainer_ctx) {
       CHECK(graph->col->Ctx() == trainer_ctx) << "col ctx needs equal row in graph";
       continue;
@@ -353,9 +355,6 @@ void DoGraphCopy(TaskPtr task) {
     }
 
     copy_device->StreamSync(copy_ctx, copy_stream);
-
-    Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
-                               train_row->NumBytes() + train_col->NumBytes());
   }
 
   LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
