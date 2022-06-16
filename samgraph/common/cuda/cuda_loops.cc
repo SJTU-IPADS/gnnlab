@@ -66,20 +66,16 @@ void DoGPUSample(TaskPtr task) {
   Timer t;
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
-  hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
+  hash_table->FillWithUnique(output_nodes->CPtr<IdType>(), num_train_node,
       sample_stream);
   task->graphs.resize(num_layers);
   double fill_unique_time = t.Passed();
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
-  const float *prob_table =
-      static_cast<const float *>(dataset->prob_table->Data());
-  const IdType *alias_table =
-      static_cast<const IdType *>(dataset->alias_table->Data());
-  const float *prob_prefix_table =
-      static_cast<const float *>(dataset->prob_prefix_table->Data());
+  const IdType *indptr = dataset->indptr->CPtr<IdType>();
+  const IdType *indices = dataset->indices->CPtr<IdType>();
+  const float *prob_table = dataset->prob_table->CPtr<float>();
+  const IdType *alias_table = dataset->alias_table->CPtr<IdType>();
+  const float *prob_prefix_table = dataset->prob_prefix_table->CPtr<float>();
 
   auto cur_input = task->output_nodes;
   size_t total_num_samples = 0;
@@ -88,7 +84,7 @@ void DoGPUSample(TaskPtr task) {
     Timer tlayer;
     Timer t0;
     const size_t fanout = fanouts[i];
-    const IdType *input = static_cast<const IdType *>(cur_input->Data());
+    const IdType *input = cur_input->CPtr<IdType>();
     const size_t num_input = cur_input->Shape()[0];
     LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
 
@@ -104,7 +100,6 @@ void DoGPUSample(TaskPtr task) {
     size_t *num_out = static_cast<size_t *>(
         sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
     size_t num_samples;
-
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
     LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
@@ -286,19 +281,16 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
   hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
-      sample_stream);
+      output_nodes->CPtr<IdType>(), num_train_node, sample_stream);
   task->graphs.resize(num_layers);
   double fill_unique_time = t.Passed();
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
-  const float *prob_table =
-      static_cast<const float *>(dataset->prob_table->Data());
-  const IdType *alias_table =
-      static_cast<const IdType *>(dataset->alias_table->Data());
+  const IdType *indptr = dataset->indptr->CPtr<IdType>();
+  const IdType *indices = dataset->indices->CPtr<IdType>();
+  const float *prob_table = dataset->prob_table->CPtr<float>();
+  const IdType *alias_table = dataset->alias_table->CPtr<IdType>();
 
-  const IdType* input = static_cast<IdType *>(task->output_nodes->MutableData());
+  const IdType* input = task->output_nodes->Ptr<IdType>();
   size_t num_input = task->output_nodes->Shape()[0];
 
   Timer prefetc_improved;
@@ -475,8 +467,8 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
     IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
         sampler_ctx, num_samples * sizeof(IdType)));
     std::shared_ptr<Tensor> col = train_graph->col;
-    IdType *old_src = static_cast<IdType *>(train_graph->col->MutableData());
-    IdType *old_dst = static_cast<IdType *>(train_graph->row->MutableData());
+    IdType *old_src = train_graph->col->Ptr<IdType>();
+    IdType *old_dst = train_graph->row->Ptr<IdType>();
     GPUMapEdges(old_src, new_src, old_dst, new_dst, num_samples, hash_table->DeviceHandle(), sampler_ctx, sample_stream);
     train_graph->col->ReplaceData(static_cast<void*>(new_src));
     train_graph->row->ReplaceData(static_cast<void*>(new_dst));
@@ -513,15 +505,13 @@ void DoGPUSampleAllNeighbour(TaskPtr task) {
   Timer t;
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
-  hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
-      sample_stream);
+  hash_table->FillWithUnique(output_nodes->CPtr<IdType>(), num_train_node, sample_stream);
   task->graphs.resize(num_layers);
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
+  const IdType *indptr = dataset->indptr->CPtr<IdType>();
+  const IdType *indices = dataset->indices->CPtr<IdType>();
 
-  const IdType* input = static_cast<IdType *>(task->output_nodes->MutableData());
+  const IdType* input = task->output_nodes->CPtr<IdType>();
   size_t num_input = task->output_nodes->Shape()[0];
 
   for (int i = last_layer_idx; i >= 0; i--) {
@@ -646,8 +636,8 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto feat_type = feat->Type();
   auto label_type = dataset->label->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
 
@@ -701,8 +691,8 @@ void DoGPUFeatureExtract(TaskPtr task) {
   auto feat_type = dataset->feat->Type();
   auto label_type = dataset->label->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
 
@@ -743,7 +733,7 @@ void DoGPULabelExtract(TaskPtr task) {
   auto label = dataset->label;
   auto label_type = dataset->label->Type();
 
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
 
   auto train_label =
@@ -785,7 +775,7 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   auto label = dataset->label;
   auto label_type = dataset->label->Type();
 
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
 
   task->output_label =
@@ -899,7 +889,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
   auto feat_dim = dataset->feat->Shape()[1];
   auto feat_type = dataset->feat->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
 
   CHECK_EQ(input_nodes->Ctx().device_type, sampler_ctx.device_type);
@@ -1067,7 +1057,7 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
   auto feat_dim = dataset->feat->Shape()[1];
   auto feat_type = dataset->feat->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
 
   CHECK_EQ(input_nodes->Ctx().device_type, sampler_ctx.device_type);

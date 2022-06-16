@@ -67,20 +67,16 @@ void DoGPUSample(TaskPtr task) {
   Timer t;
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
-  hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
+  hash_table->FillWithUnique(output_nodes->CPtr<IdType>(), num_train_node,
       sample_stream);
   task->graphs.resize(num_layers);
   double fill_unique_time = t.Passed();
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
-  const float *prob_table =
-      static_cast<const float *>(dataset->prob_table->Data());
-  const IdType *alias_table =
-      static_cast<const IdType *>(dataset->alias_table->Data());
-  const float *prob_prefix_table =
-      static_cast<const float *>(dataset->prob_prefix_table->Data());
+  const IdType *indptr = dataset->indptr->CPtr<IdType>();
+  const IdType *indices = dataset->indices->CPtr<IdType>();
+  const float *prob_table = dataset->prob_table->CPtr<float>();
+  const IdType *alias_table = dataset->alias_table->CPtr<IdType>();
+  const float *prob_prefix_table = dataset->prob_prefix_table->CPtr<float>();
 
   auto cur_input = task->output_nodes;
   size_t total_num_samples = 0;
@@ -89,7 +85,7 @@ void DoGPUSample(TaskPtr task) {
     Timer tlayer;
     Timer t0;
     const size_t fanout = fanouts[i];
-    const IdType *input = static_cast<const IdType *>(cur_input->Data());
+    const IdType *input = cur_input->CPtr<IdType>();
     const size_t num_input = cur_input->Shape()[0];
     LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
 
@@ -275,8 +271,7 @@ void DoGetCacheMissIndex(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto sample_stream = DistEngine::Get()->GetSampleStream();
   if (RunConfig::UseGPUCache() && DistEngine::Get()->IsInitialized()) {
-    auto input_nodes =
-        reinterpret_cast<const IdType *>(task->input_nodes->Data());
+    auto input_nodes = task->input_nodes->CPtr<IdType>();
     const size_t num_input = task->input_nodes->Shape()[0];
 
     IdType *sampler_output_miss_src_index = static_cast<IdType *>(
@@ -396,8 +391,8 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto feat_type = dataset->feat->Type();
   auto label_type = dataset->label->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
 
@@ -518,7 +513,7 @@ void DoSwitchCacheFeatureCopy(TaskPtr task) {
   auto feat_dim = dataset->feat->Shape()[1];
   auto feat_type = dataset->feat->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
 
   auto train_feat =
@@ -674,23 +669,19 @@ void DoCacheFeatureCopy(TaskPtr task) {
   const IdType *trainer_output_cache_src_index = nullptr;
   const IdType *trainer_output_cache_dst_index = nullptr;
   if (num_output_miss > 0) {
-    output_miss_src_index = static_cast<const IdType *>(
-        task->miss_cache_index.miss_src_index->Data());
+    output_miss_src_index = task->miss_cache_index.miss_src_index->CPtr<IdType>();
     CHECK_EQ(task->miss_cache_index.miss_dst_index->Ctx(), trainer_ctx)
       << "output_miss_dst_index should be in trainer GPU";
-    trainer_output_miss_dst_index = static_cast<const IdType *>(
-        task->miss_cache_index.miss_dst_index->Data());
+    trainer_output_miss_dst_index = task->miss_cache_index.miss_dst_index->CPtr<IdType>();
   }
 
   if (num_output_cache > 0) {
     CHECK_EQ(task->miss_cache_index.cache_src_index->Ctx(), trainer_ctx)
       << "output_cache_src_index should be in trainer GPU";
-    trainer_output_cache_src_index = static_cast<const IdType *>(
-        task->miss_cache_index.cache_src_index->Data());
+    trainer_output_cache_src_index = task->miss_cache_index.cache_src_index->CPtr<IdType>();
     CHECK_EQ(task->miss_cache_index.cache_dst_index->Ctx(), trainer_ctx)
       << "output_cache_dst_index should be in trainer GPU";
-    trainer_output_cache_dst_index = static_cast<const IdType *>(
-        task->miss_cache_index.cache_dst_index->Data());
+    trainer_output_cache_dst_index = task->miss_cache_index.cache_dst_index->CPtr<IdType>();
   }
 
   double get_index_time = t0.Passed();
@@ -782,7 +773,7 @@ void DoGPULabelExtract(TaskPtr task) {
   auto label = dataset->label;
   auto label_type = dataset->label->Type();
 
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
 
   auto train_label =
@@ -821,7 +812,7 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   auto label = dataset->label;
   auto label_type = dataset->label->Type();
 
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
 
   task->output_label =
@@ -859,7 +850,7 @@ void DoArch6GetCacheMissIndex(TaskPtr task) {
   auto input_nodes = task->input_nodes;
   auto feat = dataset->feat;
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
 
   IdType *trainer_output_miss_src_index = static_cast<IdType *>(
@@ -933,14 +924,14 @@ void DoArch6CacheFeatureCopy(TaskPtr task) {
   size_t num_output_miss = task->miss_cache_index.num_miss;
   size_t num_output_cache = task->miss_cache_index.num_cache;
 
-  IdType *trainer_output_miss_src_index = static_cast<IdType *>(
-      task->miss_cache_index.miss_src_index->MutableData());
-  IdType *trainer_output_miss_dst_index = static_cast<IdType *>(
-      task->miss_cache_index.miss_dst_index->MutableData());
-  IdType *trainer_output_cache_src_index = static_cast<IdType *>(
-      task->miss_cache_index.cache_src_index->MutableData());
-  IdType *trainer_output_cache_dst_index = static_cast<IdType *>(
-      task->miss_cache_index.cache_dst_index->MutableData());
+  IdType *trainer_output_miss_src_index = 
+      task->miss_cache_index.miss_src_index->Ptr<IdType>();
+  IdType *trainer_output_miss_dst_index = 
+      task->miss_cache_index.miss_dst_index->Ptr<IdType>();
+  IdType *trainer_output_cache_src_index = 
+      task->miss_cache_index.cache_src_index->Ptr<IdType>();
+  IdType *trainer_output_cache_dst_index = 
+      task->miss_cache_index.cache_dst_index->Ptr<IdType>();
 
   CHECK_EQ(num_output_miss + num_output_cache, num_input);
 
