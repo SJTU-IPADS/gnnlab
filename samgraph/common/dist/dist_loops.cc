@@ -89,17 +89,13 @@ void DoGPUSample(TaskPtr task) {
     const size_t num_input = cur_input->Shape()[0];
     LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
 
-    IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_input * fanout * sizeof(IdType)));
-    IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_input * fanout * sizeof(IdType)));
+    IdType *out_src = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
+    IdType *out_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
     IdType *out_data = nullptr;
     if (RunConfig::sample_type == kRandomWalk) {
-      out_data = static_cast<IdType *>(sampler_device->AllocWorkspace(
-          sampler_ctx, num_input * fanout * sizeof(IdType)));
+      out_data = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
     }
-    size_t *num_out = static_cast<size_t *>(
-        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    size_t *num_out = sampler_device->AllocArray<size_t>(sampler_ctx, 1);
     size_t num_samples;
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
@@ -170,8 +166,8 @@ void DoGPUSample(TaskPtr task) {
     Timer t2;
 
     // Populate the hash table with newly sampled nodes
-    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
+    IdType *unique = sampler_device->AllocArray<IdType>(
+        sampler_ctx, num_samples + hash_table->NumItems());
     IdType num_unique;
 
     LOG(DEBUG) << "GPUSample: cuda unique malloc "
@@ -186,10 +182,8 @@ void DoGPUSample(TaskPtr task) {
     Timer t3;
 
     // Mapping edges
-    IdType *new_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_samples * sizeof(IdType)));
-    IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_samples * sizeof(IdType)));
+    IdType *new_src = sampler_device->AllocArray<IdType>(sampler_ctx, num_samples);
+    IdType *new_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_samples);
 
     LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
     LOG(DEBUG) << "GPUSample: cuda new_src malloc "
@@ -274,14 +268,14 @@ void DoGetCacheMissIndex(TaskPtr task) {
     auto input_nodes = task->input_nodes->CPtr<IdType>();
     const size_t num_input = task->input_nodes->Shape()[0];
 
-    IdType *sampler_output_miss_src_index = static_cast<IdType *>(
-        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-    IdType *sampler_output_miss_dst_index = static_cast<IdType *>(
-        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-    IdType *sampler_output_cache_src_index = static_cast<IdType *>(
-        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-    IdType *sampler_output_cache_dst_index = static_cast<IdType *>(
-        sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+    IdType *sampler_output_miss_src_index =
+        sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+    IdType *sampler_output_miss_dst_index =
+        sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+    IdType *sampler_output_cache_src_index =
+        sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+    IdType *sampler_output_cache_dst_index =
+        sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
 
     size_t num_output_miss;
     size_t num_output_cache;
@@ -525,14 +519,14 @@ void DoSwitchCacheFeatureCopy(TaskPtr task) {
   // do get_miss_cache_index in trainer GPU
   Timer t0;
 
-  IdType *trainer_output_miss_src_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
-  IdType *trainer_output_miss_dst_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
-  IdType *trainer_output_cache_src_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
-  IdType *trainer_output_cache_dst_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
+  IdType *trainer_output_miss_src_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
+  IdType *trainer_output_miss_dst_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
+  IdType *trainer_output_cache_src_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
+  IdType *trainer_output_cache_dst_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
 
   size_t num_output_miss;
   size_t num_output_cache;
@@ -551,8 +545,8 @@ void DoSwitchCacheFeatureCopy(TaskPtr task) {
 
   Timer t1;
 
-  IdType *cpu_output_miss_src_index = static_cast<IdType *>(
-      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_output_miss));
+  IdType *cpu_output_miss_src_index =
+      cpu_device->AllocArray<IdType>(CPU(), num_output_miss);
   trainer_device->CopyDataFromTo(trainer_output_miss_src_index, 0,
                                  cpu_output_miss_src_index, 0,
                                  num_output_miss * sizeof(IdType), trainer_ctx,
@@ -853,14 +847,14 @@ void DoArch6GetCacheMissIndex(TaskPtr task) {
   auto input_data = input_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
 
-  IdType *trainer_output_miss_src_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
-  IdType *trainer_output_miss_dst_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
-  IdType *trainer_output_cache_src_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
-  IdType *trainer_output_cache_dst_index = static_cast<IdType *>(
-      trainer_device->AllocWorkspace(trainer_ctx, sizeof(IdType) * num_input));
+  IdType *trainer_output_miss_src_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
+  IdType *trainer_output_miss_dst_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
+  IdType *trainer_output_cache_src_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
+  IdType *trainer_output_cache_dst_index =
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_input);
 
   size_t num_output_miss;
   size_t num_output_cache;
@@ -941,8 +935,8 @@ void DoArch6CacheFeatureCopy(TaskPtr task) {
 
   Timer t1;
 
-  IdType *cpu_output_miss_src_index = static_cast<IdType *>(
-      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_output_miss));
+  IdType *cpu_output_miss_src_index =
+      cpu_device->AllocArray<IdType>(CPU(), num_output_miss);
 
   trainer_device->CopyDataFromTo(
       trainer_output_miss_src_index, 0, cpu_output_miss_src_index, 0,
