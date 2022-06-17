@@ -465,6 +465,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
           PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
           PreSampler::Get()->DoPreSample();
+          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault));
           PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
         }
         _sampler_barrier->Wait();
@@ -478,6 +479,8 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
           PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
           PreSampler::Get()->DoPreSample();
+          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_list->MutableData(), _dataset->ranking_nodes_list->NumBytes(), cudaHostRegisterDefault));
+          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_freq_list->MutableData(), _dataset->ranking_nodes_freq_list->NumBytes(), cudaHostRegisterDefault));
           coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);
           coll_cache::TensorView<IdType> ranking_nodes_freq_view(_dataset->ranking_nodes_freq_list);
           PreSampler::Get()->GetRankNode(ranking_nodes_view[worker_id]._data);

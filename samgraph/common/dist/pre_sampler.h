@@ -30,15 +30,18 @@ class PreSampler {
   ~PreSampler();
   void DoPreSample();
   TensorPtr GetFreq();
+  // please make sure ptr is accessible from gpu!
   void GetFreq(IdType*);
   TensorPtr GetRankNode();
   void GetRankNode(TensorPtr &);
+  // please make sure ptr is accessible from gpu!
   void GetRankNode(IdType *);
   static inline void SetSingleton(PreSampler* p) { singleton = p; }
   static inline PreSampler* Get() { return singleton; }
   TaskPtr DoPreSampleShuffle();
  private:
-  Id64Type * freq_table;
+  TensorPtr freq_table;
+  // Id64Type * freq_table;
   // TensorPtr freq_table;
   size_t _num_nodes, _num_step;
   static PreSampler* singleton;
