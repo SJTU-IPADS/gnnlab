@@ -78,7 +78,7 @@ struct MQ_MetaData {
   void Init(T mq_nbytes_t, T max_size_t) {
     send_cnt = 0; recv_cnt = 0; max_size = max_size_t;
     mq_nbytes = mq_nbytes_t;
-    char* suffix_buffer = static_cast<char*>(this) + sizeof(decltype(*this));
+    char* suffix_buffer = reinterpret_cast<char*>(this) + sizeof(decltype(*this));
     /* sem_list */
     sem_list = reinterpret_cast<sem_t*>(suffix_buffer);
     suffix_buffer += sizeof(sem_t) * max_size_t;
