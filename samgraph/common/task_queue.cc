@@ -29,7 +29,7 @@ namespace common {
 
 namespace {
 // TODO: hardcode mq bucket size
-size_t mq_nbytes = 50 * 1024 * 1024;
+size_t mq_nbytes = 180 * 1024 * 1024;
 } // namespace
 
 TaskQueue::TaskQueue(size_t max_len) { _max_len = max_len; }
@@ -93,9 +93,15 @@ namespace {
   size_t GetDataBytes(std::shared_ptr<Task> task) {
     size_t ret = 0;
     ret += task->output_nodes->NumBytes();
+#ifndef SAMGRAPH_COLL_CACHE_ENABLE
     if (!RunConfig::UseGPUCache() || RunConfig::have_switcher) {
+#else
+    {
+#endif
       ret += task->input_nodes->NumBytes();
+#ifndef SAMGRAPH_COLL_CACHE_ENABLE
     } else {
+#endif
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
       if (task->miss_cache_index.num_miss > 0) {
         ret += task->miss_cache_index.miss_src_index->NumBytes();

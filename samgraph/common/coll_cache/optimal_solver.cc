@@ -190,9 +190,9 @@ void split_blocks(TensorPtr stream_id_list, TensorPtr stream_freq_list, const Id
       block_freq_array[{block_id,stream_id}].ref() /= block_density_array[block_id].ref() ;
     }
     block_density_array[block_id].ref() *= 100/(double)num_node ;
-    std::cout << block_density_array[block_id].ref() << " ";
+    // std::cout << block_density_array[block_id].ref() << " ";
   }
-  std::cout << "\n";
+  // std::cout << "\n";
 }
 
 

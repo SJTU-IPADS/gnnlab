@@ -20,6 +20,7 @@
 
 #include <sstream>
 #include <string>
+#include <unistd.h>
 
 namespace samgraph {
 namespace common {
@@ -54,7 +55,7 @@ enum class LogLevel { TRACE, DEBUG, INFO, WARNING, ERROR, FATAL };
   {                                                          \
     cudaError_t e = (func);                                  \
     CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading) \
-        << "CUDA: " << cudaGetErrorString(e);                \
+        << "[" << getpid() << "]CUDA: " << cudaGetErrorString(e);                \
   }
 
 /*!

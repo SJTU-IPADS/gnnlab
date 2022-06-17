@@ -178,9 +178,9 @@ void GPUDevice::GPUCopy(const void *from, void *to, size_t nbytes,
 void GPUDevice::GPUCopyPeer(const void *from, int from_device, void *to,
                             int to_device, size_t nbytes, cudaStream_t stream) {
   if (stream != 0) {
-    cudaMemcpyPeerAsync(to, to_device, from, from_device, nbytes, stream);
+    CUDA_CALL(cudaMemcpyPeerAsync(to, to_device, from, from_device, nbytes, stream));
   } else {
-    cudaMemcpyPeer(to, to_device, from, from_device, nbytes);
+    CUDA_CALL(cudaMemcpyPeer(to, to_device, from, from_device, nbytes));
   }
 }
 
