@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 
+#include "logging.h"
+
 namespace samgraph {
 namespace common {
 
@@ -119,6 +121,7 @@ using StreamHandle = void*;
 class Tensor;
 using TensorPtr = std::shared_ptr<Tensor>;
 
+size_t GetDataTypeBytes(DataType dtype);
 class Tensor {
  public:
   Tensor();
@@ -129,6 +132,11 @@ class Tensor {
   DataType Type() const { return _dtype; }
   const std::vector<size_t>& Shape() const { return _shape; }
   const void* Data() const { return _data; }
+  template<typename T> T* Ptr(){ 
+    CHECK(_data == nullptr || (sizeof(T) == GetDataTypeBytes(_dtype))); 
+    return static_cast<T*>(_data);
+  }
+  template<typename T> const T* CPtr() const { return const_cast<Tensor*>(this)->Ptr<T>(); }
   void* MutableData() { return _data; }
   void ReplaceData(void* data);
   void Swap(TensorPtr tensor);
@@ -155,6 +163,7 @@ class Tensor {
                             std::vector<size_t> shape, Context ctx,
                             std::string name);
   static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr);
+  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name);
   static TensorPtr CopyBlob(const void * data, DataType dtype,
                             std::vector<size_t> shape, Context from_ctx,
                             Context to_ctx, std::string name, StreamHandle stream = nullptr);
@@ -309,7 +318,7 @@ class Shuffler {
   virtual uint64_t Step() = 0;
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
-  virtual size_t NumLocalStep() { return 0; };
+  virtual size_t NumLocalStep() { CHECK(false) << "Unimplemented"; return 0; };
   virtual void Reset() {};
 };
 

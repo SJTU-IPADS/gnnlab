@@ -40,6 +40,7 @@ DistShuffler::DistShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
   _num_data = input->Shape().front();
   CHECK_EQ(input->Shape().size(), 1);
   CHECK_GT(batch_size, 0);
+  CHECK_GT(_num_data, 0);
 
   _num_epoch = num_epoch;
   _cur_epoch = 0;
@@ -48,37 +49,52 @@ DistShuffler::DistShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
 
   _drop_last = drop_last;
   _batch_size = batch_size;
+  // calculate global num step, but store in _num_step
   if (drop_last) {
     _num_step = _num_data / batch_size;
-    _last_batch_size = batch_size;
   } else {
     _num_step = (_num_data + batch_size - 1) / batch_size;
-    _last_batch_size =
-        _num_data % batch_size == 0 ? batch_size : _num_data % batch_size;
-  }
-  if (sampler_id < (num_sampler - 1)) {
-    _last_batch_size = batch_size;
   }
   _epoch_step = _num_step;
-  // the train_set offset of each sampler
-  _dataset_offset = (_num_step / num_sampler * sampler_id) * batch_size;
-  // the train_set size of each sampler
-  size_t sampler_data_size = 0;
-  // special for last sampler
+
+  /* Simply _num_step / num_sampler would results in imbalance in smapler
+   *    i.e. 15 step, 4 sampler -> 3,3,3,6
+   * Solution: spread the unaligned steps to the front sampler:
+   *    i.e. 15 step, 4 sampler -> 4,4,4,3
+   *                               ^ ^ ^|^
+   *                       large_sampler|small_sampler
+   * if all equal step, then all is small sampler
+   */
+  const size_t num_large_sampler = _epoch_step % num_sampler;
+  const size_t small_sampler_num_step = _epoch_step / num_sampler;
+  const size_t large_sampler_num_step = small_sampler_num_step + 1;
+  auto is_large_sampler = [num_large_sampler](size_t sampler_id) 
+      {return sampler_id < num_large_sampler; };
+
+  /* tricky thing is how to find how many step belong to previous sampler
+   */
+  auto get_dataset_offset = [&](size_t sampler_id) {
+    if (is_large_sampler(sampler_id)) {
+      // if large sampler, all previous samplers are also large sampler
+      return batch_size * (large_sampler_num_step * sampler_id);
+    } else {
+      // if small sampler, all large samplers are at front
+      return batch_size * (small_sampler_num_step * sampler_id + num_large_sampler);
+    }
+  };
+
+  _num_step = is_large_sampler(sampler_id) ? large_sampler_num_step : small_sampler_num_step;
+  _dataset_offset = get_dataset_offset(sampler_id);
+  _num_local_data = _num_step * batch_size; // let's care about last batch later
+  CHECK_EQ(_dataset_offset + _num_local_data, get_dataset_offset(sampler_id + 1));
+  CHECK_EQ(_epoch_step * batch_size, get_dataset_offset(num_sampler));
+
+  // now take care that the last batch may be not full
   if (sampler_id == (num_sampler - 1)) {
-    size_t total_step = _num_step;
-    size_t previous_step = total_step / num_sampler * sampler_id;
-    // the num_step of each sampler
-    _num_step = (total_step - previous_step);
-    sampler_data_size = (_num_data - previous_step * batch_size);
-  }
-  else {
-    // the num_step of each sampler
-    _num_step = _num_step / num_sampler;
-    sampler_data_size = (_num_step * batch_size);
+    _num_local_data = std::min(_num_local_data, _num_data - _dataset_offset);
   }
   _gpu_data =
-      Tensor::Empty(input->Type(), {sampler_data_size},
+      Tensor::Empty(input->Type(), {_num_local_data},
                     Engine::Get()->GetSamplerCtx(),
                     "cuda_shuffler_dev_input_" + std::to_string(sampler_id));
 
@@ -119,8 +135,8 @@ void DistShuffler::ReShuffle(StreamHandle stream) {
 
   auto g = std::default_random_engine(seed);
 
-  for (size_t i = _num_data - 1; i > 0; i--) {
-    std::uniform_int_distribution<size_t> d(0, i);
+  for (size_t i = 0; i < _num_data - 1; i++) {
+    std::uniform_int_distribution<size_t> d(i, _num_data - 1);
     size_t candidate = d(g);
     switch (_data->Type()) {
       case kI32:
@@ -164,8 +180,8 @@ TensorPtr DistShuffler::GetBatch(StreamHandle stream) {
   }
 
   size_t offset = _cur_step * _batch_size;
-  size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
-
+  CHECK(offset < _num_local_data);
+  size_t size = (offset + _batch_size > _num_local_data) ? (_num_local_data - offset) : _batch_size;
   auto tensor =
       Tensor::Copy1D(_gpu_data, offset, {size}, "cuda_shuffler_batch", stream);
 

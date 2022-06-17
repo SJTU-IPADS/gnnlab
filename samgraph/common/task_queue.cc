@@ -159,7 +159,7 @@ namespace {
     size_t data_size = sizeof(TransData) + GetDataBytes(task);
     LOG(DEBUG) << "ToData transform data size: " << ToReadableSize(data_size);
     // TODO: hardcode
-    CHECK_LE(data_size, mq_nbytes) << "Size of batch topology exceeds memory queue capability. Please update `mq_nbytes` and re-compile!";
+    CHECK_LE(data_size, mq_nbytes) << "Size of batch topology exceeds memory queue capability. Please update `mq_nbytes` to at least " << ToReadableSize(data_size)  << " and re-compile!";
 
     TransData* ptr = static_cast<TransData*>(shared_ptr);
     ptr->have_data = have_data;
@@ -372,7 +372,7 @@ namespace {
 MessageTaskQueue::MessageTaskQueue(size_t max_len) : TaskQueue(max_len) {
   // size_t mq_nbytes = GetMaxMQSize();
   // TODO: hardcode here to speedup the init time of FGNN
-  _mq = std::make_shared<MemoryQueue>(mq_nbytes);
+  _mq = std::make_shared<MemoryQueue>(mq_nbytes, max_len);
 }
 
 void MessageTaskQueue::Send(std::shared_ptr<Task> task) {

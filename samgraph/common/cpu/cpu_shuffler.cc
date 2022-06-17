@@ -43,11 +43,8 @@ CPUShuffler::CPUShuffler(TensorPtr input, int num_epoch, size_t batch_size,
   _batch_size = batch_size;
   if (drop_last) {
     _num_step = _num_data / batch_size;
-    _last_batch_size = batch_size;
   } else {
     _num_step = (_num_data + batch_size - 1) / batch_size;
-    _last_batch_size =
-        _num_data % batch_size == 0 ? batch_size : _num_data % batch_size;
   }
 
   _initialized = false;
@@ -73,8 +70,8 @@ void CPUShuffler::ReShuffle() {
 
   auto g = std::default_random_engine(seed);
 
-  for (size_t i = _num_data - 1; i > 0; i--) {
-    std::uniform_int_distribution<size_t> d(0, i);
+  for (size_t i = 0; i < _num_data - 1; i++) {
+    std::uniform_int_distribution<size_t> d(i, _num_data - 1);
     size_t candidate = d(g);
     switch (_data->Type()) {
       case kI32:
@@ -105,7 +102,8 @@ TensorPtr CPUShuffler::GetBatch(StreamHandle stream) {
   }
 
   size_t offset = _cur_step * _batch_size;
-  size_t size = _cur_step == (_num_step - 1) ? _last_batch_size : _batch_size;
+  CHECK(offset < _num_data);
+  size_t size = (_batch_size > _num_data - offset) ? (_num_data - offset) : _batch_size;
 
   LOG(DEBUG) << "Copy shuffled dataset with offset=" << offset << ", size=" << size;
 
