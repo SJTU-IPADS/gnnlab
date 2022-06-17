@@ -132,7 +132,10 @@ class Tensor {
   DataType Type() const { return _dtype; }
   const std::vector<size_t>& Shape() const { return _shape; }
   const void* Data() const { return _data; }
-  template<typename T> T* Ptr(){ CHECK(_data == nullptr || (sizeof(T) == GetDataTypeBytes(_dtype))); return (T*)_data; }
+  template<typename T> T* Ptr(){ 
+    CHECK(_data == nullptr || (sizeof(T) == GetDataTypeBytes(_dtype))); 
+    return static_cast<T*>(_data);
+  }
   template<typename T> const T* CPtr() const { return const_cast<Tensor*>(this)->Ptr<T>(); }
   void* MutableData() { return _data; }
   void ReplaceData(void* data);

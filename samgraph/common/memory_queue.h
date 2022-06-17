@@ -69,18 +69,24 @@ struct MQ_MetaData {
   T mq_nbytes;
   sem_t *sem_list, *release_list;
   char *data;
-  // sem_t sem_list[N];
-  // sem_t release_list[N];
-  // char data[0];
+  /**
+   * Memory layout: <MQ_MetaData> | [sem_list] | [release_list] | [data]
+   */
   static size_t GetRequiredNBytes(T mq_nbytes_t, T max_size_t) {
-    return sizeof(MQ_MetaData<T>) + sizeof(sem_t) * max_size_t * 2 + mq_nbytes_t * max_size_t;
+    return sizeof(MQ_MetaData<T>) + (sizeof(sem_t) * 2 + mq_nbytes_t) * max_size_t;
   }
   void Init(T mq_nbytes_t, T max_size_t) {
     send_cnt = 0; recv_cnt = 0; max_size = max_size_t;
     mq_nbytes = mq_nbytes_t;
-    sem_list = (sem_t*)(&this[1]);
-    release_list = &sem_list[max_size_t];
-    data = (char*)&release_list[max_size_t];
+    char* suffix_buffer = static_cast<char*>(this) + sizeof(decltype(*this));
+    /* sem_list */
+    sem_list = reinterpret_cast<sem_t*>(suffix_buffer);
+    suffix_buffer += sizeof(sem_t) * max_size_t;
+    /* release_list */
+    release_list = reinterpret_cast<sem_t*>(suffix_buffer);
+    suffix_buffer += sizeof(sem_t) * max_size_t;
+    /* data */
+    data = suffix_buffer;
 
     for (T i = 0; i < max_size; ++i) {
       sem_init(sem_list + i, 1, 0);
