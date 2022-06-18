@@ -398,13 +398,13 @@ class Solver {
       std::cerr << "  storage is " << bs << "\n";
       std::cerr.flags(f);
     }
-    std::cout << "coll_cache:optimal_local_rate:";
+    std::cout << "coll_cache:optimal_local_rate=";
     FOR_LOOP(part_id, num_device) { std::cout << local_weight_list[part_id].getValue() / total_weight_list[part_id] << ","; }
     std::cout << "\n";
-    std::cout << "coll_cache:optimal_remote_rate:";
+    std::cout << "coll_cache:optimal_remote_rate=";
     FOR_LOOP(part_id, num_device) { std::cout << 1 - (local_weight_list[part_id].getValue() + cpu_weight_list[part_id].getValue()) / total_weight_list[part_id] << ","; }
     std::cout << "\n";
-    std::cout << "coll_cache:optimal_cpu_rate:";
+    std::cout << "coll_cache:optimal_cpu_rate=";
     FOR_LOOP(part_id, num_device) { std::cout << cpu_weight_list[part_id].getValue() / total_weight_list[part_id] << ","; }
     std::cout << "\n";
     LOG(INFO) << "Coll Cache init block placement array done";
