@@ -148,6 +148,7 @@ class BenchInstance:
       self.prepare_config(cfg)
       self.prepare_init(cfg)
       self.prepare_epoch_eval(cfg)
+      self.prepare_coll_cache(cfg)
       self.prepare_profiler_log(cfg)
       self.vals['optimal_hit_percent'] = self.get_optimal()
     except Exception as e:
@@ -235,6 +236,16 @@ class BenchInstance:
       self.vals['init:cache']             = self.vals['init:cache:sampler']             + self.vals['init:cache:trainer']
       self.vals['init:other']             = self.vals['init:dist_queue']                + self.vals['init:internal']
       self.vals['init:copy'] = self.vals['init:load_dataset:copy'] + self.vals['init:cache']
+  def prepare_coll_cache(self, cfg):
+    fname = cfg.get_log_fname() + '.log'
+    coll_rst_list = grep_from(fname, "^coll_cache:.*", [0, 0])
+    for line in coll_rst_list:
+      m2 = re.match(r'coll_cache:(.+)=(.+)\n', line)
+      if m2:
+        key = m2.group(1)
+        value = m2.group(2)
+        self.vals[key] = float(value.split(',')[0])
+
   def prepare_epoch_eval(self, cfg):
     self.vals['epoch_time'] = math.nan
     fname = cfg.get_log_fname() + '.log'
@@ -327,19 +338,13 @@ class BenchInstance:
     # print(result_map_list)
 
   def to_formated_str(self):
-    self.vals['cache_percentage'] = '{:.1f}'.format(self.vals['cache_percentage'])
-    self.vals['hit_percent']      = '{:.3f}'.format(self.vals['hit_percent'])
-    self.vals['optimal_hit_percent']      = '{:.3f}'.format(self.vals['optimal_hit_percent'])
-    if 'step_sample_time' in self.vals:
-      for key in ['step_sample_time','step_copy_time','step_train_time','step_convert_time','step_full_train_time']:
-        self.vals[key] = '{:.4f}'.format(self.vals[key])
-      self.vals['step_miss_KB']    = '{:.0f}'.format(self.vals['step_miss_KB'])
-      self.vals['step_feature_KB'] = '{:.0f}'.format(self.vals['step_feature_KB'])
-      self.vals['step_miss_MB']    = '{:.4f}'.format(self.vals['step_miss_MB'])
-      self.vals['step_feature_MB'] = '{:.4f}'.format(self.vals['step_feature_MB'])
-    self.vals['dataset_short'] = dataset_str_short[self.vals['dataset']]
-    for key in ['init:presample','init:load_dataset:mmap','init:load_dataset:copy','init:dist_queue','init:internal','init:cache','init:other','init:copy']:
-      self.vals[key] = '{:.4f}'.format(self.vals[key])
+    pass
+    self.vals['dataset_short'] = dataset_str_short[self.get_val('dataset')]
+  def get_val(self, key):
+    if key in self.vals:
+      return self.vals[key]
+    else:
+      return math.nan
 
   @staticmethod
   def print_dat(inst_list: list, outf, meta_list = default_meta_list, custom_col_title_list=None, sep='\t'):
@@ -350,7 +355,13 @@ class BenchInstance:
       try:
         inst.to_formated_str()
         # '{:.2f}'.format(inst.vals[meta]) if isinstance(inst.vals[meta], float) else str(inst.vals[meta])
-        print(sep.join(['{:.6f}'.format(inst.vals[meta]) if isinstance(inst.vals[meta], float) else str(inst.vals[meta]) for meta in meta_list]), file=outf)
+        def to_print_val(_dict, _key):
+          if _key not in _dict:
+            return "None"
+          if isinstance(_dict[_key], float):
+            return '{:.6f}'.format(_dict[_key])
+          return str(_dict[_key])
+        print(sep.join([to_print_val(inst.vals, meta) for meta in meta_list]), file=outf)
       except KeyError:
         print("error when ", inst.fname)
         # print(sys.exc_info())

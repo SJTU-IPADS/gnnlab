@@ -13,6 +13,7 @@ selected_col += ['Wght.L','Wght.R','Wght.C', 'TA']
 selected_col += ['Thpt.L','Thpt.R','Thpt.C']
 selected_col += ['Time.L','Time.R','Time.C']
 selected_col += ['SizeGB.L','SizeGB.R','SizeGB.C']
+selected_col += ['optimal_local_rate','optimal_remote_rate','optimal_cpu_rate']
 selected_col += ['logdir']
 
 # cfg_list_collector.override_T('logdir', ['run-logs-legacy', 'run-logs-coll']).override('cache_impl', ['coll'])
