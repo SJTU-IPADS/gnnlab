@@ -488,6 +488,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           pre_sampler->GetFreq(ranking_nodes_freq_view[worker_id]._data);
 #ifdef SAMGRAPH_COLL_CACHE_VALIDATE
           LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache";
+          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault));
           pre_sampler->GetRankNode(_dataset->ranking_nodes);
           LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache done";
 #endif
