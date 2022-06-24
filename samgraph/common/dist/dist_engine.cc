@@ -463,10 +463,11 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         Timer tp;
         if (worker_id == 0) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
-          PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
-          PreSampler::Get()->DoPreSample();
+          auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
+          pre_sampler->DoPreSample();
           CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault));
-          PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
+          pre_sampler->GetRankNode(_dataset->ranking_nodes);
+          delete pre_sampler;
         }
         _sampler_barrier->Wait();
         time_presample = tp.Passed();
@@ -477,19 +478,20 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         // allow only one node stream for now, since we are using global queue
         if (worker_id == 0) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
-          PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
-          PreSampler::Get()->DoPreSample();
+          auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
+          pre_sampler->DoPreSample();
           CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_list->MutableData(), _dataset->ranking_nodes_list->NumBytes(), cudaHostRegisterDefault));
           CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_freq_list->MutableData(), _dataset->ranking_nodes_freq_list->NumBytes(), cudaHostRegisterDefault));
           coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);
           coll_cache::TensorView<IdType> ranking_nodes_freq_view(_dataset->ranking_nodes_freq_list);
-          PreSampler::Get()->GetRankNode(ranking_nodes_view[worker_id]._data);
-          PreSampler::Get()->GetFreq(ranking_nodes_freq_view[worker_id]._data);
+          pre_sampler->GetRankNode(ranking_nodes_view[worker_id]._data);
+          pre_sampler->GetFreq(ranking_nodes_freq_view[worker_id]._data);
 #ifdef SAMGRAPH_COLL_CACHE_VALIDATE
           LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache";
-          PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
+          pre_sampler->GetRankNode(_dataset->ranking_nodes);
           LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache done";
 #endif
+          delete pre_sampler;
         }
         if (worker_id == 0) {
           std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
@@ -667,6 +669,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _cache_manager = nullptr;
   _gpu_cache_manager = nullptr;
 #endif
+  Timer t_build_cache;
 #ifdef SAMGRAPH_COLL_CACHE_ENABLE
   CUDA_CALL(cudaHostRegister(_dataset->feat->MutableData(), _dataset->feat->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
   CUDA_CALL(cudaHostRegister(_dataset->label->MutableData(), _dataset->label->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
@@ -720,7 +723,6 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
       default: ;
     }
     */
-    Timer t_build_cache;
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
     if (RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch9) {
       if (_dist_type == DistType::Extract) {
@@ -747,8 +749,8 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
           _dataset->num_node, RunConfig::cache_percentage);
     }
 #endif
-    time_build_cache = t_build_cache.Passed();
   }
+  time_build_cache = t_build_cache.Passed();
   LOG_MEM_USAGE(WARNING, "after train load cache", _trainer_ctx);
 
   // results pool
