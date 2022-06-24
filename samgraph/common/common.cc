@@ -327,8 +327,10 @@ TensorPtr Tensor::CopyBlob(const void *data, DataType dtype,
                            std::string name, StreamHandle stream) {
   TensorPtr tensor = std::make_shared<Tensor>();
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
-  tensor->_data =
-      Device::Get(to_ctx)->AllocWorkspace(to_ctx, nbytes);
+  if (to_ctx.device_type == kMMAP && to_ctx.device_id == MMAP_RO_DEVICE) {
+    to_ctx.device_id = MMAP_RW_DEVICE;
+  }
+  tensor->_data = Device::Get(to_ctx)->AllocWorkspace(to_ctx, nbytes);
   if (to_ctx.device_type == kGPU) {
     Device::Get(to_ctx)
       ->CopyDataFromTo(data, 0, tensor->_data, 0,
