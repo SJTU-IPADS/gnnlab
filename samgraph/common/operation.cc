@@ -32,6 +32,7 @@
 #include "./dist/dist_engine.h"
 #include "common.h"
 #include "constant.h"
+#include "device.h"
 #include "engine.h"
 #include "logging.h"
 #include "profiler.h"
@@ -532,6 +533,44 @@ int samgraph_wait_one_child() {
     LOG(ERROR) << "detect an abnormal terminated child, signal is " << strsignal(WTERMSIG(child_stat));
     return 1;
   } else return 0;
+}
+
+namespace {
+
+size_t get_cuda_used(Context ctx) {
+  size_t free, total;
+  cudaSetDevice(ctx.device_id);
+  cudaMemGetInfo(&free, &total);
+  return total - free;
+}
+
+}
+
+void samgraph_print_memory_usage() {
+  if (dynamic_cast<dist::DistEngine*>(Engine::Get())) {
+    Context ctx;
+    if (dist::DistEngine::Get()->GetDistType() == dist::DistType::Sample) {
+      ctx = dist::DistEngine::Get()->GetSamplerCtx();
+    } else {
+      ctx = dist::DistEngine::Get()->GetTrainerCtx();
+    }
+    auto _target_device = Device::Get(ctx);
+    std::cout << "[CUDA] cuda" << ctx.device_id << ": usage: " << ToReadableSize(get_cuda_used(ctx)) << "\n";
+    std::cout << "[SAM]  data alloc        : " << ToReadableSize(_target_device->DataSize(ctx)) << "\n";
+    std::cout << "[SAM]  workspace         : " << ToReadableSize(_target_device->WorkspaceSize(ctx)) << "\n";
+    std::cout << "[SAM]  workspace reserve : " << ToReadableSize(_target_device->FreeWorkspaceSize(ctx)) << "\n";
+    std::cout << "[SAM]  total             : " << ToReadableSize(_target_device->TotalSize(ctx)) << "\n";
+  } else if (dynamic_cast<cuda::GPUEngine*>(Engine::Get())) {
+    for (Context ctx : {cuda::GPUEngine::Get()->GetSamplerCtx(),
+                        cuda::GPUEngine::Get()->GetTrainerCtx()}) {
+      auto _target_device = Device::Get(ctx);
+      std::cout << "[CUDA] cuda" << ctx.device_id << ": usage: " << ToReadableSize(get_cuda_used(ctx)) << "\n";
+      std::cout << "[SAM]  data alloc        : " << ToReadableSize(_target_device->DataSize(ctx)) << "\n";
+      std::cout << "[SAM]  workspace         : " << ToReadableSize(_target_device->WorkspaceSize(ctx)) << "\n";
+      std::cout << "[SAM]  workspace reserve : " << ToReadableSize(_target_device->FreeWorkspaceSize(ctx)) << "\n";
+      std::cout << "[SAM]  total             : " << ToReadableSize(_target_device->TotalSize(ctx)) << "\n";
+    }
+  }
 }
 
 }  // extern "c"

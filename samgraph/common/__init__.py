@@ -543,4 +543,7 @@ class SamGraphBasics(object):
     def wait_one_child(self):
         return self.C_LIB_CTYPES.samgraph_wait_one_child()
 
+    def print_memory_usage(self):
+        return self.C_LIB_CTYPES.samgraph_print_memory_usage()
+
 _basics = SamGraphBasics(__file__, "c_lib")

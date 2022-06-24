@@ -282,12 +282,12 @@ struct TrainGraph {
 };
 
 struct MissCacheIndex {
-  TensorPtr miss_src_index;
-  TensorPtr miss_dst_index;
-  TensorPtr cache_src_index;
-  TensorPtr cache_dst_index;
-  size_t num_miss;
-  size_t num_cache;
+  TensorPtr miss_src_index = nullptr;
+  TensorPtr miss_dst_index = nullptr;
+  TensorPtr cache_src_index = nullptr;
+  TensorPtr cache_dst_index = nullptr;
+  size_t num_miss = 0;
+  size_t num_cache = 0;
 };
 
 struct Task {

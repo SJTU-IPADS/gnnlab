@@ -115,6 +115,8 @@ void samgraph_switch_init(int worker_id, const char*ctx, double cache_percentage
 size_t samgraph_num_local_step();
 
 int samgraph_wait_one_child();
+
+void samgraph_print_memory_usage();
 }
 
 }  // namespace common

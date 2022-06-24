@@ -132,7 +132,7 @@ TensorPtr Tensor::Null() { return std::make_shared<Tensor>(); }
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
                            std::vector<size_t> shape, Context ctx,
                            std::string name, StreamHandle stream) {
-  CHECK(FileExist(filepath));
+  CHECK(FileExist(filepath)) << "No file " << filepath;
 
   TensorPtr tensor = std::make_shared<Tensor>();
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
