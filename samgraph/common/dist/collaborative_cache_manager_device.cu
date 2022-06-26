@@ -706,6 +706,7 @@ CollCacheManager CollCacheManager::BuildLegacy(Context trainer_ctx,
                   void* cpu_src_data, DataType dtype, size_t dim,
                   const IdType* cache_node_list, size_t num_total_nodes,
                   double cache_percentage, StreamHandle stream) {
+  std::cout << "test_result:init:feat_nbytes=" << GetTensorBytes(dtype, {num_total_nodes, dim}) << "\n";
   if (cache_percentage == 0) {
     return BuildNoCache(trainer_ctx, cpu_src_data, dtype, dim, stream);
   } else if (cache_percentage == 1) {
@@ -773,6 +774,7 @@ CollCacheManager CollCacheManager::BuildLegacy(Context trainer_ctx,
             << ToPercentage(cache_percentage) << " | "
             << ToReadableSize(cm._cache_nbytes) << " | " << t.Passed()
             << " secs )";
+  std::cout << "test_result:init:cache_nbytes=" << cm._cache_nbytes << "\n";
   return cm;
 }
 
@@ -799,6 +801,7 @@ CollCacheManager CollCacheManager::BuildNoCache(Context trainer_ctx,
   LOG(INFO) << "Collaborative GPU cache (policy: " << "no cache"
             << ") | " << t.Passed()
             << " secs )";
+  std::cout << "test_result:init:cache_nbytes=" << cm._cache_nbytes << "\n";
   return cm;
 }
 
@@ -828,6 +831,7 @@ CollCacheManager CollCacheManager::BuildFullCache(Context trainer_ctx,
             << ") " << num_total_nodes << " nodes ( "
             << ToReadableSize(cm._cache_nbytes) << " | " << t.Passed()
             << " secs )";
+  std::cout << "test_result:init:cache_nbytes=" << cm._cache_nbytes << "\n";
   return cm;
 }
 
@@ -906,9 +910,9 @@ CollCacheManager CollCacheManager::BuildCollCache(
 
   auto cu_stream = static_cast<cudaStream_t>(stream);
   // 1. Build a mapping from node id to target device
-  TensorPtr node_to_block_gpu   = Tensor::CopyTo(node_to_block, trainer_ctx, stream);
-  TensorPtr block_placement_gpu = Tensor::CopyTo(block_placement, trainer_ctx, stream);
   {
+    TensorPtr node_to_block_gpu   = Tensor::CopyTo(node_to_block, trainer_ctx, stream);   // large
+    TensorPtr block_placement_gpu = Tensor::CopyTo(block_placement, trainer_ctx, stream); // small
     // build a map from placement combinations to source decision
     size_t placement_to_src_nbytes = sizeof(int) * (1 << num_device);
     int * placement_to_src_cpu = (int*) cpu_device->AllocWorkspace(CPU(), placement_to_src_nbytes);
@@ -935,27 +939,31 @@ CollCacheManager CollCacheManager::BuildCollCache(
    *    fill hash table for local nodes.
    */
   LOG(INFO) << "CollCacheManager: grouping node of same location";
-  auto loc_list  = (HashTableEntryLocation*)trainer_gpu_device->AllocDataSpace(trainer_ctx, sizeof(HashTableEntryLocation) * num_total_nodes);
-  auto node_list = (HashTableEntryOffset*)  trainer_gpu_device->AllocDataSpace(trainer_ctx, sizeof(HashTableEntryOffset)   * num_total_nodes);
-  IdType * group_offset;
+  // auto loc_list  = (HashTableEntryLocation*)trainer_gpu_device->AllocDataSpace(trainer_ctx, sizeof(HashTableEntryLocation) * num_total_nodes);
+  IdType* node_list_buffer = trainer_gpu_device->AllocArray<IdType>(trainer_ctx, num_total_nodes);
+  // IdType * group_offset;
   size_t num_cached_nodes;
   size_t num_cpu_nodes;
   {
-    cuda::CubSortPair<int, IdType>(
-        (const int*)cm._hash_table_location, loc_list, 
-        (const IdType*)cm._hash_table_offset, node_list,
-        num_total_nodes, trainer_ctx, 0, sizeof(int)*8, stream);
-    LOG(INFO) << "CollCacheManager: split group";
-    _SplitGroup<>(loc_list, num_total_nodes, group_offset, trainer_ctx, num_device+1, stream);
+    IdType* cache_node_list = node_list_buffer;
+    // now we want to select nodes with hash_table_location==local id
+    cuda::CubSelectIndexByEq<IdType>(trainer_ctx, (const IdType *)cm._hash_table_location, num_total_nodes, cache_node_list, num_cached_nodes, cm._local_location_id, stream);
+    cuda::CubCountByEq<IdType>(trainer_ctx, (const IdType *)cm._hash_table_location, num_total_nodes, num_cpu_nodes, cm._cpu_location_id, stream);
+    // cuda::CubSortPair<int, IdType>(
+    //     (const int*)cm._hash_table_location, loc_list, 
+    //     (const IdType*)cm._hash_table_offset, node_list,
+    //     num_total_nodes, trainer_ctx, 0, sizeof(int)*8, stream);
+    // LOG(INFO) << "CollCacheManager: split group";
+    // _SplitGroup<>(loc_list, num_total_nodes, group_offset, trainer_ctx, num_device+1, stream);
 
     // now node_list[ group_offset[local_location_id]...group_offset[local_location_id+1] ] holds cached nodes
-    IdType * cache_node_list = node_list + group_offset[local_location_id];
-    num_cached_nodes = group_offset[local_location_id+1]-group_offset[local_location_id];
+    // IdType * cache_node_list = node_list + group_offset[local_location_id];
+    // num_cached_nodes = group_offset[local_location_id+1]-group_offset[local_location_id];
     CHECK_NE(num_cached_nodes, 0);
-    num_cpu_nodes = group_offset[cm._cpu_location_id + 1] - group_offset[cm._cpu_location_id];
+    // num_cpu_nodes = group_offset[cm._cpu_location_id + 1] - group_offset[cm._cpu_location_id];
     cm._cache_nbytes = GetTensorBytes(cm._dtype, {num_cached_nodes, cm._dim});
     cm._device_cache_data[local_location_id] = trainer_gpu_device->AllocDataSpace(trainer_ctx, cm._cache_nbytes);
-    LOG(INFO) << "CollCacheManager: combine local data : [" << group_offset[local_location_id] << "," << group_offset[local_location_id+1] << ")";
+    // LOG(INFO) << "CollCacheManager: combine local data : [" << group_offset[local_location_id] << "," << group_offset[local_location_id+1] << ")";
     Combine<IdType, void, OffsetGetter<IdType, void>>(cache_node_list, nullptr, num_cached_nodes, 
         cpu_src_data, cm._device_cache_data[local_location_id], 
         trainer_ctx, dtype, dim, stream);
@@ -978,8 +986,10 @@ CollCacheManager CollCacheManager::BuildCollCache(
    */
   for (int i = 0; i < num_device; i++) {
     if (i == local_location_id) continue;
-    IdType * remote_node_list = node_list + group_offset[i];
-    size_t num_remote_nodes = group_offset[i+1]-group_offset[i];
+    // reuse cache node list as buffer
+    IdType * remote_node_list = node_list_buffer;
+    size_t num_remote_nodes;
+    cuda::CubSelectIndexByEq<IdType>(trainer_ctx, (const IdType *)cm._hash_table_location, num_total_nodes, remote_node_list, num_remote_nodes, i, stream);
     if (num_remote_nodes == 0) continue;
     CUDA_CALL(cudaIpcOpenMemHandle(&cm._device_cache_data[i], device_cache_data_list[i], cudaIpcMemLazyEnablePeerAccess));
     const HashTableEntryOffset * remote_hash_table_offset;
@@ -994,9 +1004,9 @@ CollCacheManager CollCacheManager::BuildCollCache(
   }
 
   // 4. Free index
-  trainer_gpu_device->FreeDataSpace(trainer_ctx, node_list);
-  trainer_gpu_device->FreeDataSpace(trainer_ctx, loc_list);
-  cpu_device->FreeWorkspace(CPU(CPU_CUDA_HOST_MALLOC_DEVICE), group_offset);
+  trainer_gpu_device->FreeWorkspace(trainer_ctx, node_list_buffer);
+  // trainer_gpu_device->FreeDataSpace(trainer_ctx, loc_list);
+  // cpu_device->FreeWorkspace(CPU(CPU_CUDA_HOST_MALLOC_DEVICE), group_offset);
 
   size_t num_remote_nodes = num_total_nodes - num_cached_nodes - num_cpu_nodes;
 
@@ -1005,7 +1015,9 @@ CollCacheManager CollCacheManager::BuildCollCache(
             << "remote " << num_remote_nodes << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_remote_nodes / (double)num_total_nodes) << ") | "
             << "cpu "    << num_cpu_nodes    << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_cpu_nodes    / (double)num_total_nodes) << ") | "
             << ToReadableSize(cm._cache_nbytes) << " | " << t.Passed()
-            << " secs )";
+            << " secs ";
+  std::cout << "test_result:init:feat_nbytes=" << GetTensorBytes(dtype, {num_total_nodes, dim}) << "\n";
+  std::cout << "test_result:init:cache_nbytes=" << cm._cache_nbytes << "\n";
   return cm;
 }
 

@@ -143,6 +143,7 @@ void PreSampler::DoPreSample(){
   auto freq_table_sorted = Tensor::Empty(kI64, {_num_nodes}, sampler_ctx, "");
   cuda::CubSortKeyDescending(freq_table->CPtr<Id64Type>(), freq_table_sorted->Ptr<Id64Type>(), _num_nodes, sampler_ctx, 0, sizeof(Id64Type)*8, stream);
   freq_table = freq_table_sorted;
+  freq_table_sorted = nullptr;
   double sort_time = ts.Passed();
   Profiler::Get().LogInit(kLogInitL3PresampleSort, sort_time);
   Timer t_reset;
