@@ -166,7 +166,7 @@ def run_sample(run_config):
             sam.sample_once()
             # sam.report_step(epoch, step)
         # print(f"epoch {epoch} done", flush=True)
-
+        # time.sleep(10)
         toc0 = time.time()
 
         if not run_config['pipeline']:

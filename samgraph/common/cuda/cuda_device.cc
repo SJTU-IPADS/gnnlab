@@ -79,6 +79,23 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
         ss << ctx << " ";
       }
       LOG(INFO) << "use " << ss.str() << "store graph!";
+#if 0
+      {
+        CHECK(RunConfig::unified_memory_ctxes.size() == 1);
+        std::vector<int> ctxes = {RunConfig::unified_memory_ctxes[0].device_id};
+        ctxes.push_back(ctxes.back() + 1);
+        size_t avg_nbytes = static_cast<size_t>(1.0 * nbytes / ctxes.size());
+        for (size_t i = 0, off = 0; i < ctxes.size(); i++, off += avg_nbytes) {
+          size_t cur_nbytes = i + 1 == ctxes.size() ? nbytes - off : avg_nbytes;
+          LOG(INFO) << "unified_memory in: cuda:" << ctxes[i] << " "
+                    << ToReadableSize(cur_nbytes);
+          CUDA_CALL(cudaMemAdvise(ret + off, cur_nbytes,
+            cudaMemAdviseSetPreferredLocation, ctxes[i]));
+          CUDA_CALL(cudaMemAdvise(ret, nbytes, 
+            cudaMemAdviseSetAccessedBy, ctxes[i]));
+         }  
+      }
+#else
       size_t avg_nbytes = static_cast<size_t>(1.0 * nbytes / RunConfig::unified_memory_ctxes.size());
       for (size_t i = 0, off = 0; i < RunConfig::unified_memory_ctxes.size(); i++, off += avg_nbytes) {
         size_t cur_nbytes = i + 1 == RunConfig::unified_memory_ctxes.size() ? nbytes - off : avg_nbytes;
@@ -89,6 +106,7 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
         CUDA_CALL(cudaMemAdvise(ret, nbytes, 
           cudaMemAdviseSetAccessedBy, RunConfig::unified_memory_ctxes[i].device_id));
       }
+#endif
     }
   } else {
       LOG(FATAL) << "device_type is not supported";

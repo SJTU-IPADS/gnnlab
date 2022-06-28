@@ -82,6 +82,7 @@ cuda_flags = [
     # '-G',
     #  '--ptxas-options=-v',
     #  '-DPIPELINE',
+    # '-Xptxas', '-dlcm=cv', # cache volatile   
     # '-DSXN_NAIVE_HASHMAP',
     '--compiler-options', "'-fPIC'",
     '-gencode=arch=compute_35,code=sm_35',  # K40m

@@ -642,6 +642,13 @@ void DistEngine::StartExtract(int count) {
       LOG(DEBUG) << "Started " << func.size() << " background threads.";
       break;
     }
+    case kArch9: {
+      ExtractFunction func;
+      func = GetArch9Loops();
+      _threads.push_back(new std::thread(func, count));
+      LOG(DEBUG) << "Started a extracting background threads.";
+      break;
+    }
     default:
       // Not supported arch 0
       CHECK(0);
