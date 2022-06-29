@@ -708,9 +708,11 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
               _dataset->ranking_nodes,
               _dataset->num_node, RunConfig::cache_percentage, _trainer_copy_stream);
   }
-  _coll_label_manager = new CollCacheManager();
-  *_coll_label_manager = CollCacheManager::BuildNoCache(_trainer_ctx, _dataset->label->MutableData(), _dataset->label->Type(),
-            1, _trainer_copy_stream);
+  if (RunConfig::unsupervised_sample == false) {
+    _coll_label_manager = new CollCacheManager();
+    *_coll_label_manager = CollCacheManager::BuildNoCache(_trainer_ctx, _dataset->label->MutableData(), _dataset->label->Type(),
+              1, _trainer_copy_stream);
+  }
 #endif
   if (RunConfig::UseGPUCache()) {
     // wait the presample
