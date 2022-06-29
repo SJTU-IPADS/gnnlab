@@ -496,19 +496,19 @@ void DistEngine::UMSampleInit(int num_workers) {
     case kCacheByPreSampleStatic:
     case kCacheByPreSample: {
       auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
-      PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, RunConfig::num_epoch));
+      PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
       PreSampler::Get()->DoPreSample();
       PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
 
       std::stringstream ss;
       ss << "after presample on " << _sampler_ctx;
       LOG_MEM_USAGE(WARNING, ss.str().c_str(), _sampler_ctx);
-      UMSampleCacheTableInit();
     }
       break;
     default:
       break;
     }
+    UMSampleCacheTableInit();
   }
 
   std::stringstream ss;

@@ -84,7 +84,7 @@ void DoGPUSample(TaskPtr task) {
   } else {
     DistUMSampler* sampler;
     if (!DistEngine::Get()->IsInitialized()) {
-     sampler = DistEngine::Get()->GetUMSamplers()[0];
+      sampler = DistEngine::Get()->GetUMSamplers()[0];
     } else {
       auto tid= std::this_thread::get_id();
       sampler = DistEngine::Get()->GetUMSamplerByTid(tid);
