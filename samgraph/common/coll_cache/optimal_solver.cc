@@ -108,7 +108,7 @@ void split_blocks(TensorPtr stream_id_list, TensorPtr stream_freq_list, const Id
   TensorView<block_identifer> slot_array_to_full_block(slot_array_to_full_block_storage, std::vector<size_t>(num_stream, num_slot));
   next_free_block.store(num_of_full_block);
   // the last default block corresponds to zero freq, no need to split it.
-  slot_array_to_full_block_storage[num_of_full_block - 1].set_ignore_limit();
+  // slot_array_to_full_block_storage[num_of_full_block - 1].set_ignore_limit();
 
   TensorView<IdType> stream_id_list_view(stream_id_list);
   TensorView<IdType> stream_freq_list_view(stream_freq_list);
@@ -172,7 +172,9 @@ void split_blocks(TensorPtr stream_id_list, TensorPtr stream_freq_list, const Id
       block_density_array[block_id].ref() += 1;
       for (uint32_t stream_idx = 0; stream_idx < num_stream; stream_idx++) {
         uint32_t orig_rank = nid_to_rank[nid][stream_idx].ref();
-        float freq = stream_freq_list_view[stream_idx][orig_rank].ref();
+        double freq = stream_freq_list_view[stream_idx][orig_rank].ref();
+        // assign all zero freq a minimal freq to handle touched node << cache space
+        freq = std::max(freq, 1e-3);
         block_freq_array[block_id][stream_idx].ref() += freq;
       }
     }
