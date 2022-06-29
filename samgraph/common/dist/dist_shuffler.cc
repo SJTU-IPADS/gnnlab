@@ -201,6 +201,10 @@ TensorPtr DistShuffler::GetBatch(StreamHandle stream) {
   size_t offset = _cur_step * _batch_size;
   CHECK(offset < _num_local_data);
   size_t size = (offset + _batch_size > _num_local_data) ? (_num_local_data - offset) : _batch_size;
+  if (_cur_step < RunConfig::num_train_worker && _cur_epoch == 0) {
+    size *= 1.2;
+    size = std::min((_num_local_data - offset), size);
+  }
   auto tensor =
       Tensor::Copy1D(_gpu_data, offset, {size}, "cuda_shuffler_batch", stream);
 
