@@ -128,12 +128,24 @@ void DistEngine::Init() {
   }
   double init_load_ds_mmap_time = t_l2_init_load_ds_mmap.Passed();
 
+  // later when shuffler is initialized after fork, need to ensure num step is equal
+  if (RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch9) {
+    _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) /
+                 _batch_size);
+    // _num_local_step is initialized after fork, by shuffler
+  } else {
+    size_t num_data = _dataset->train_set->Shape().front();
+    _num_local_step = RoundUpDiv(
+        RoundUpDiv(num_data, RunConfig::num_sample_worker), _batch_size);
+    _num_step = _num_local_step * RunConfig::num_sample_worker;
+  }
+
   Timer t_l2_init_build_queue;
   switch (RunConfig::run_arch)
   {
   case RunArch::kArch5:
   case RunArch::kArch9:
-    _memory_queue = new MessageTaskQueue(RunConfig::max_copying_jobs);
+    _memory_queue = new MessageTaskQueue(_num_step);
     break;
   default:
     _memory_queue = nullptr;
@@ -165,15 +177,6 @@ void DistEngine::Init() {
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
 
   double init_time = t_l1_init.Passed();
-  if (RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch9) {
-    _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) /
-                 _batch_size);
-  } else {
-    size_t num_data = _dataset->train_set->Shape().front();
-    _num_local_step = RoundUpDiv(
-        RoundUpDiv(num_data, RunConfig::num_sample_worker), _batch_size);
-    _num_step = _num_local_step * RunConfig::num_sample_worker;
-  }
 
   Profiler::Get().LogInit(kLogInitL1Common, init_time);
   Profiler::Get().LogInit(kLogInitL2LoadDataset, init_load_ds_mmap_time);
@@ -338,15 +341,19 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
     case kArch5:
       _shuffler = new DistShuffler(_dataset->train_set,
           _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
-      if (_shuffler->NumStep() > mq_size) {
-        LOG(FATAL) << "Num step exceeds max length of memory queue. Please increase `mq_size` and re-compile!";
-      }
+      // if (_shuffler->NumStep() > mq_size) {
+      //   LOG(FATAL) << "Num step exceeds max length of memory queue. Please increase `mq_size` and re-compile!";
+      // }
+      CHECK_EQ(_num_step, _shuffler->NumStep());
+      _num_local_step = _shuffler->NumLocalStep();
       break;
     case kArch6:
       CHECK_EQ(RunConfig::num_sample_worker, RunConfig::num_train_worker);
       _shuffler =
           new DistAlignedShuffler(_dataset->train_set, _num_epoch, _batch_size,
                                   worker_id, RunConfig::num_sample_worker);
+      CHECK_EQ(_num_step, _shuffler->NumStep());
+      CHECK_EQ(_num_local_step, _shuffler->NumLocalStep());
       break;
     default:
         LOG(FATAL) << "shuffler does not support device_type: "
@@ -468,6 +475,13 @@ void DistEngine::UMSampleInit(int num_workers) {
   LOG(INFO) << "UM sampler load graph done";
   for (IdType i = 0; i < RunConfig::unified_memory_ctxes.size(); i++) {
     _um_samplers.push_back(new DistUMSampler(*_dataset, i));
+  }
+
+  _num_local_step = 0;
+  for (IdType i = 0; i < RunConfig::unified_memory_ctxes.size(); i++) {
+    auto shuffler = _um_samplers[i]->GetShuffler();
+    CHECK(shuffler->NumStep() == _num_step);
+    _num_local_step = std::max(_num_local_step, shuffler->NumLocalStep());
   }
 
   // ctx,stream for presample

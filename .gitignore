@@ -131,6 +131,7 @@ tests/*.out
 
 # log
 example/auto_runner/run-logs/*
+**/run-logs*
 
 
 *.bin

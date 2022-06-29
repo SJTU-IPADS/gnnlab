@@ -308,12 +308,18 @@ void Profiler::ReportStepAverage(uint64_t epoch, uint64_t step) {
       _step_buf[i] = 0;
       continue;
     }
-    size_t first_idx = 0;
-    for (; first_idx < _step_data[i].vals.size(); first_idx ++) {
-      if (_step_data[i].bitmap[first_idx]) break;
+    // skip first epoch
+    double sum = _step_data[i].sum;
+    size_t cnt = _step_data[i].cnt;
+    for (size_t current_key = 0; Engine::Get()->GetEpochFromKey(current_key) == 0; current_key++) {
+      if (_step_data[i].bitmap[current_key] == false) continue;
+      sum -= _step_data[i].vals[current_key];
+      cnt --;
     }
-    double sum = _step_data[i].sum - _step_data[i].vals[first_idx];
-    size_t cnt = _step_data[i].cnt <= 1 ? 1 : _step_data[i].cnt - 1;
+    if (cnt == 0) {
+      CHECK_LE(std::abs(sum), 1e-8) << " sum is " << sum;
+      cnt = 1;
+    }
     _step_buf[i] = sum / cnt;
   }
 

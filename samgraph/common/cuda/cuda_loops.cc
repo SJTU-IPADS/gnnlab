@@ -37,7 +37,8 @@ namespace cuda {
 
 TaskPtr DoShuffle() {
   auto s = GPUEngine::Get()->GetShuffler();
-  auto batch = s->GetBatch();
+  auto sample_stream = GPUEngine::Get()->GetSampleStream();
+  auto batch = s->GetBatch(sample_stream);
 
   if (batch) {
     auto task = std::make_shared<Task>();
@@ -69,20 +70,16 @@ void DoGPUSample(TaskPtr task) {
   Timer t;
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
-  hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
+  hash_table->FillWithUnique(output_nodes->CPtr<IdType>(), num_train_node,
       sample_stream);
   task->graphs.resize(num_layers);
   double fill_unique_time = t.Passed();
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
-  const float *prob_table =
-      static_cast<const float *>(dataset->prob_table->Data());
-  const IdType *alias_table =
-      static_cast<const IdType *>(dataset->alias_table->Data());
-  const float *prob_prefix_table =
-      static_cast<const float *>(dataset->prob_prefix_table->Data());
+  const IdType *indptr = dataset->indptr->CPtr<IdType>();
+  const IdType *indices = dataset->indices->CPtr<IdType>();
+  const float *prob_table = dataset->prob_table->CPtr<float>();
+  const IdType *alias_table = dataset->alias_table->CPtr<IdType>();
+  const float *prob_prefix_table = dataset->prob_prefix_table->CPtr<float>();
 
   auto cur_input = task->output_nodes;
   size_t total_num_samples = 0;
@@ -91,31 +88,20 @@ void DoGPUSample(TaskPtr task) {
     Timer tlayer;
     Timer t0;
     const size_t fanout = fanouts[i];
-    const IdType *input = static_cast<const IdType *>(cur_input->Data());
+    const IdType *input = cur_input->CPtr<IdType>();
     const size_t num_input = cur_input->Shape()[0];
     LOG(DEBUG) << "DoGPUSample: begin sample layer=" << i 
                << " ctx=" << sampler_ctx
                << " num_input=" << num_input;
 
-    // Timer t_out_alloc;
-    IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_input * fanout * sizeof(IdType)));
-    IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_input * fanout * sizeof(IdType)));
-    // IdType *out_src = static_cast<IdType*>(sampler_device->AllocDataSpace(
-    //       sampler_ctx, num_input * fanout * sizeof(IdType)));
-    // IdType *out_dst = static_cast<IdType*>(sampler_device->AllocDataSpace(
-    //       sampler_ctx, num_input * fanout * sizeof(IdType)));
-    // LOG(INFO) << "alloc out time " << t_out_alloc.Passed();
+    IdType *out_src = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
+    IdType *out_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
     IdType *out_data = nullptr;
     if (RunConfig::sample_type == kRandomWalk) {
-      out_data = static_cast<IdType *>(sampler_device->AllocWorkspace(
-          sampler_ctx, num_input * fanout * sizeof(IdType)));
+      out_data = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
     }
-    size_t *num_out = static_cast<size_t *>(
-        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    size_t *num_out = sampler_device->AllocArray<size_t>(sampler_ctx, 1);
     size_t num_samples;
-
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
     LOG(TRACE) << "DoGPUSample: cuda out_src malloc "
@@ -185,8 +171,8 @@ void DoGPUSample(TaskPtr task) {
     Timer t2;
 
     // Populate the hash table with newly sampled nodes
-    IdType *unique = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, (num_samples + hash_table->NumItems()) * sizeof(IdType)));
+    IdType *unique = sampler_device->AllocArray<IdType>(
+        sampler_ctx, (num_samples + hash_table->NumItems()));
     IdType num_unique;
 
     LOG(DEBUG) << "GPUSample: cuda unique malloc "
@@ -201,10 +187,8 @@ void DoGPUSample(TaskPtr task) {
     Timer t3;
 
     // Mapping edges
-    IdType *new_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_samples * sizeof(IdType)));
-    IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_samples * sizeof(IdType)));
+    IdType *new_src = sampler_device->AllocArray<IdType>(sampler_ctx, num_samples);
+    IdType *new_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_samples);
 
     LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
     LOG(TRACE) << "GPUSample: cuda new_src malloc "
@@ -357,19 +341,16 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
   hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
-      sample_stream);
+      output_nodes->CPtr<IdType>(), num_train_node, sample_stream);
   task->graphs.resize(num_layers);
   double fill_unique_time = t.Passed();
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
-  const float *prob_table =
-      static_cast<const float *>(dataset->prob_table->Data());
-  const IdType *alias_table =
-      static_cast<const IdType *>(dataset->alias_table->Data());
+  const IdType *indptr = dataset->indptr->CPtr<IdType>();
+  const IdType *indices = dataset->indices->CPtr<IdType>();
+  const float *prob_table = dataset->prob_table->CPtr<float>();
+  const IdType *alias_table = dataset->alias_table->CPtr<IdType>();
 
-  const IdType* input = static_cast<IdType *>(task->output_nodes->MutableData());
+  const IdType* input = task->output_nodes->Ptr<IdType>();
   size_t num_input = task->output_nodes->Shape()[0];
 
   Timer prefetc_improved;
@@ -380,12 +361,9 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
     const size_t fanout = fanouts[i];
     LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
 
-    IdType *out_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_input * fanout * sizeof(IdType)));
-    IdType *out_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_input * fanout * sizeof(IdType)));
-    size_t *num_out = static_cast<size_t *>(
-        sampler_device->AllocWorkspace(sampler_ctx, sizeof(size_t)));
+    IdType *out_src = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
+    IdType *out_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
+    size_t *num_out = sampler_device->AllocArray<size_t>(sampler_ctx, 1);
     size_t num_samples;
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
@@ -541,13 +519,11 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   for (int i = last_layer_idx; i>=0; i--) {
     std::shared_ptr<TrainGraph> train_graph = task->graphs[i];
     size_t num_samples = train_graph->num_edge;
-    IdType *new_src = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_samples * sizeof(IdType)));
-    IdType *new_dst = static_cast<IdType *>(sampler_device->AllocWorkspace(
-        sampler_ctx, num_samples * sizeof(IdType)));
+    IdType *new_src = sampler_device->AllocArray<IdType>(sampler_ctx, num_samples);
+    IdType *new_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_samples);
     std::shared_ptr<Tensor> col = train_graph->col;
-    IdType *old_src = static_cast<IdType *>(train_graph->col->MutableData());
-    IdType *old_dst = static_cast<IdType *>(train_graph->row->MutableData());
+    IdType *old_src = train_graph->col->Ptr<IdType>();
+    IdType *old_dst = train_graph->row->Ptr<IdType>();
     GPUMapEdges(old_src, new_src, old_dst, new_dst, num_samples, hash_table->DeviceHandle(), sampler_ctx, sample_stream);
     train_graph->col->ReplaceData(static_cast<void*>(new_src));
     train_graph->row->ReplaceData(static_cast<void*>(new_dst));
@@ -585,15 +561,13 @@ void DoGPUSampleAllNeighbour(TaskPtr task) {
   Timer t;
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
-  hash_table->FillWithUnique(
-      static_cast<const IdType *const>(output_nodes->Data()), num_train_node,
-      sample_stream);
+  hash_table->FillWithUnique(output_nodes->CPtr<IdType>(), num_train_node, sample_stream);
   task->graphs.resize(num_layers);
 
-  const IdType *indptr = static_cast<const IdType *>(dataset->indptr->Data());
-  const IdType *indices = static_cast<const IdType *>(dataset->indices->Data());
+  const IdType *indptr = dataset->indptr->CPtr<IdType>();
+  const IdType *indices = dataset->indices->CPtr<IdType>();
 
-  const IdType* input = static_cast<IdType *>(task->output_nodes->MutableData());
+  const IdType* input = task->output_nodes->CPtr<IdType>();
   size_t num_input = task->output_nodes->Shape()[0];
 
   for (int i = last_layer_idx; i >= 0; i--) {
@@ -655,52 +629,28 @@ void DoGraphCopy(TaskPtr task) {
 
   for (size_t i = 0; i < task->graphs.size(); i++) {
     auto graph = task->graphs[i];
-    auto train_row =
-        Tensor::Empty(graph->row->Type(), graph->row->Shape(), trainer_ctx,
-                      "train_graph.row_cuda_train_" +
-                          std::to_string(task->key) + "_" + std::to_string(i));
-    auto train_col =
-        Tensor::Empty(graph->col->Type(), graph->col->Shape(), trainer_ctx,
-                      "train_graph.col_cuda_train_" +
-                          std::to_string(task->key) + "_" + std::to_string(i));
+    graph->row = Tensor::CopyTo(graph->row, trainer_ctx, copy_stream,
+        "train_graph.row_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
+    graph->col = Tensor::CopyTo(graph->col, trainer_ctx, copy_stream,
+        "train_graph.col_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
 
     LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
                << ToReadableSize(graph->row->NumBytes());
     LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_col malloc "
                << ToReadableSize(graph->col->NumBytes());
 
-    sampler_device->CopyDataFromTo(graph->row->Data(), 0,
-                                   train_row->MutableData(), 0,
-                                   graph->row->NumBytes(), graph->row->Ctx(),
-                                   train_row->Ctx(), copy_stream);
-    sampler_device->CopyDataFromTo(graph->col->Data(), 0,
-                                   train_col->MutableData(), 0,
-                                   graph->col->NumBytes(), graph->col->Ctx(),
-                                   train_col->Ctx(), copy_stream);
-
     if (RunConfig::sample_type == kRandomWalk) {
-      auto graph_data = Tensor::Empty(
-          graph->data->Type(), graph->data->Shape(), trainer_ctx,
-          "train_graph.data_cuda_train_" + std::to_string(task->key) + "_" +
-              std::to_string(i));
-
+      CHECK(graph->data != nullptr);
+      graph->data = Tensor::CopyTo(graph->data, trainer_ctx, copy_stream,
+        "train_graph.data_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
       LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda graph data malloc "
                  << ToReadableSize(graph->data->NumBytes());
-
-      sampler_device->CopyDataFromTo(
-          graph->data->Data(), 0, graph_data->MutableData(), 0,
-          graph->data->NumBytes(), graph->data->Ctx(), graph_data->Ctx(),
-          copy_stream);
-      graph->data = graph_data;
     }
 
     sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-    graph->row = train_row;
-    graph->col = train_col;
-
     Profiler::Get().LogStepAdd(task->key, kLogL1GraphBytes,
-                               train_row->NumBytes() + train_col->NumBytes());
+                               graph->row->NumBytes() + graph->col->NumBytes());
   }
 
   LOG(DEBUG) << "GraphCopyDevice2Device: process task with key " << task->key;
@@ -711,34 +661,20 @@ void DoIdCopy(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
-  auto input_nodes =
-      Tensor::Empty(task->input_nodes->Type(), task->input_nodes->Shape(),
-                    CPU(), "task.input_nodes_cpu_" + std::to_string(task->key));
-  auto output_nodes = Tensor::Empty(
-      task->output_nodes->Type(), task->output_nodes->Shape(), CPU(),
+  task->input_nodes = Tensor::CopyTo(task->input_nodes, CPU(), copy_stream,
+      "task.input_nodes_cpu_" + std::to_string(task->key));
+  task->output_nodes = Tensor::CopyTo(task->output_nodes, CPU(), copy_stream,
       "task.output_nodes_cpu_" + std::to_string(task->key));
   LOG(DEBUG) << "IdCopyDevice2Host input_nodes cpu malloc "
-             << ToReadableSize(input_nodes->NumBytes());
+             << ToReadableSize(task->input_nodes->NumBytes());
   LOG(DEBUG) << "IdCopyDevice2Host output_nodes cpu malloc "
-             << ToReadableSize(output_nodes->NumBytes());
-
-  sampler_device->CopyDataFromTo(
-      task->input_nodes->Data(), 0, input_nodes->MutableData(), 0,
-      task->input_nodes->NumBytes(), task->input_nodes->Ctx(),
-      input_nodes->Ctx(), copy_stream);
-  sampler_device->CopyDataFromTo(
-      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
-      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
-      output_nodes->Ctx(), copy_stream);
+             << ToReadableSize(task->output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-  task->input_nodes = input_nodes;
-  task->output_nodes = output_nodes;
-
   Profiler::Get().LogStepAdd(
       task->key, kLogL1IdBytes,
-      input_nodes->NumBytes() + output_nodes->NumBytes());
+      task->input_nodes->NumBytes() + task->output_nodes->NumBytes());
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -756,8 +692,8 @@ void DoCPUFeatureExtract(TaskPtr task) {
   auto feat_type = feat->Type();
   auto label_type = dataset->label->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
 
@@ -811,8 +747,8 @@ void DoGPUFeatureExtract(TaskPtr task) {
   auto feat_type = dataset->feat->Type();
   auto label_type = dataset->label->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
   auto num_ouput = output_nodes->Shape()[0];
 
@@ -853,7 +789,7 @@ void DoGPULabelExtract(TaskPtr task) {
   auto label = dataset->label;
   auto label_type = dataset->label->Type();
 
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
 
   auto train_label =
@@ -895,7 +831,7 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   auto label = dataset->label;
   auto label_type = dataset->label->Type();
 
-  auto output_data = reinterpret_cast<const IdType *>(output_nodes->Data());
+  auto output_data = output_nodes->CPtr<IdType>();
   auto num_ouput = output_nodes->Shape()[0];
 
   task->output_label =
@@ -913,12 +849,8 @@ void DoCPULabelExtractAndCopy(TaskPtr task) {
   // 2. Copy
   auto cpu_label = task->output_label;
   CHECK_EQ(cpu_label->Ctx().device_type, CPU().device_type);
-  auto train_label =
-      Tensor::Empty(cpu_label->Type(), cpu_label->Shape(), trainer_ctx,
-                    "task.train_label_cuda" + std::to_string(task->key));
-  trainer_device->CopyDataFromTo(
-      cpu_label->Data(), 0, train_label->MutableData(), 0,
-      cpu_label->NumBytes(), cpu_label->Ctx(), train_label->Ctx(), copy_stream);
+  auto train_label = Tensor::CopyTo(cpu_label, trainer_ctx, copy_stream,
+      "task.train_label_cuda" + std::to_string(task->key));
   trainer_device->StreamSync(trainer_ctx, copy_stream);
 
   task->output_label = train_label;
@@ -939,18 +871,10 @@ void DoFeatureCopy(TaskPtr task) {
   CHECK_EQ(cpu_feat->Ctx().device_type, CPU().device_type);
   CHECK_EQ(cpu_label->Ctx().device_type, CPU().device_type);
 
-  auto train_feat =
-      Tensor::Empty(cpu_feat->Type(), cpu_feat->Shape(), trainer_ctx,
-                    "task.train_feat_cuda_" + std::to_string(task->key));
-  auto train_label =
-      Tensor::Empty(cpu_label->Type(), cpu_label->Shape(), trainer_ctx,
-                    "task.train_label_cuda" + std::to_string(task->key));
-  trainer_device->CopyDataFromTo(cpu_feat->Data(), 0, train_feat->MutableData(),
-                                 0, cpu_feat->NumBytes(), cpu_feat->Ctx(),
-                                 train_feat->Ctx(), copy_stream);
-  trainer_device->CopyDataFromTo(
-      cpu_label->Data(), 0, train_label->MutableData(), 0,
-      cpu_label->NumBytes(), cpu_label->Ctx(), train_label->Ctx(), copy_stream);
+  auto train_feat = Tensor::CopyTo(cpu_feat, trainer_ctx, copy_stream,
+      "task.train_feat_cuda_" + std::to_string(task->key));
+  auto train_label = Tensor::CopyTo(cpu_label, trainer_ctx, copy_stream,
+      "task.train_label_cuda" + std::to_string(task->key));
   trainer_device->StreamSync(trainer_ctx, copy_stream);
 
   task->input_feat = train_feat;
@@ -973,23 +897,15 @@ void DoCacheIdCopy(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
-  auto output_nodes = Tensor::Empty(
-      task->output_nodes->Type(), task->output_nodes->Shape(), trainer_ctx,
+  task->output_nodes = Tensor::CopyTo(task->output_nodes, trainer_ctx, copy_stream,
       "task.output_nodes_cuda_" + std::to_string(task->key));
   LOG(DEBUG) << "IdCopyDevice2Host output_nodes cuda malloc "
-             << ToReadableSize(output_nodes->NumBytes());
-
-  sampler_device->CopyDataFromTo(
-      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
-      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
-      output_nodes->Ctx(), copy_stream);
+             << ToReadableSize(task->output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-  task->output_nodes = output_nodes;
-
   Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes,
-                             output_nodes->NumBytes());
+                             task->output_nodes->NumBytes());
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -999,23 +915,15 @@ void DoCacheIdCopyToCPU(TaskPtr task) {
   auto sampler_device = Device::Get(sampler_ctx);
   auto copy_stream = GPUEngine::Get()->GetSamplerCopyStream();
 
-  auto output_nodes = Tensor::Empty(
-      task->output_nodes->Type(), task->output_nodes->Shape(), CPU(),
+  task->output_nodes = Tensor::CopyTo(task->output_nodes, CPU(), copy_stream,
       "task.output_nodes_cuda_" + std::to_string(task->key));
   LOG(DEBUG) << "IdCopyDevice2Host output_nodes cuda malloc "
-             << ToReadableSize(output_nodes->NumBytes());
-
-  sampler_device->CopyDataFromTo(
-      task->output_nodes->Data(), 0, output_nodes->MutableData(), 0,
-      task->output_nodes->NumBytes(), task->output_nodes->Ctx(),
-      output_nodes->Ctx(), copy_stream);
+             << ToReadableSize(task->output_nodes->NumBytes());
 
   sampler_device->StreamSync(sampler_ctx, copy_stream);
 
-  task->output_nodes = output_nodes;
-
   Profiler::Get().LogStepAdd(task->key, kLogL1IdBytes,
-                             output_nodes->NumBytes());
+                             task->output_nodes->NumBytes());
 
   LOG(DEBUG) << "IdCopyDevice2Host: process task with key " << task->key;
 }
@@ -1037,7 +945,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
   auto feat_dim = dataset->feat->Shape()[1];
   auto feat_type = dataset->feat->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
 
   CHECK_EQ(input_nodes->Ctx().device_type, sampler_ctx.device_type);
@@ -1051,14 +959,14 @@ void DoCacheFeatureCopy(TaskPtr task) {
   // feature data has cache, so we only need to extract the miss data
   Timer t0;
 
-  IdType *sampler_output_miss_src_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-  IdType *sampler_output_miss_dst_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-  IdType *sampler_output_cache_src_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-  IdType *sampler_output_cache_dst_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+  IdType *sampler_output_miss_src_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+  IdType *sampler_output_miss_dst_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+  IdType *sampler_output_cache_src_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+  IdType *sampler_output_cache_dst_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
 
   size_t num_output_miss;
   size_t num_output_cache;
@@ -1077,17 +985,14 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   Timer t1;
 
-  IdType *cpu_output_miss_src_index = static_cast<IdType *>(
-      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_output_miss));
+  IdType *cpu_output_miss_src_index = 
+      cpu_device->AllocArray<IdType>(CPU(), num_output_miss);
   IdType *trainer_output_miss_dst_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_miss));
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_output_miss);
   IdType *trainer_output_cache_src_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_cache));
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_output_cache);
   IdType *trainer_output_cache_dst_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_cache));
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_output_cache);
 
   sampler_device->CopyDataFromTo(sampler_output_miss_src_index, 0,
                                  cpu_output_miss_src_index, 0,
@@ -1118,33 +1023,27 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   // 2. Extract the miss data
   Timer t2;
+  auto cpu_output_miss = Tensor::Empty(
+      feat_type, {num_output_miss, feat_dim}, CPU(), "");
 
-  void *cpu_output_miss = cpu_device->AllocWorkspace(
-      CPU(), GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-  void *trainer_output_miss = trainer_device->AllocWorkspace(
-      trainer_ctx, GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-
-  cache_manager->ExtractMissData(cpu_output_miss, cpu_output_miss_src_index,
-                                 num_output_miss);
+  cache_manager->ExtractMissData(cpu_output_miss->MutableData(),
+                                 cpu_output_miss_src_index, num_output_miss);
 
   double extract_miss_time = t2.Passed();
 
   // 3. Copy the miss data
   Timer t3;
-
-  trainer_device->CopyDataFromTo(
-      cpu_output_miss, 0, trainer_output_miss, 0,
-      GetTensorBytes(feat_type, {num_output_miss, feat_dim}), CPU(),
-      trainer_ctx, trainer_copy_stream);
+  auto trainer_output_miss = Tensor::CopyTo(
+      cpu_output_miss, trainer_ctx, trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
-  cpu_device->FreeWorkspace(CPU(), cpu_output_miss);
+  cpu_output_miss = nullptr;
 
   double copy_miss_time = t3.Passed();
 
   // 4. Combine miss data
   Timer t4;
-  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss,
+  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss->Data(),
                                  trainer_output_miss_dst_index, num_output_miss,
                                  trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
@@ -1164,7 +1063,7 @@ void DoCacheFeatureCopy(TaskPtr task) {
 
   // 5. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
+  trainer_output_miss = nullptr;
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);
@@ -1211,7 +1110,7 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
   auto feat_dim = dataset->feat->Shape()[1];
   auto feat_type = dataset->feat->Type();
 
-  auto input_data = reinterpret_cast<const IdType *>(input_nodes->Data());
+  auto input_data = input_nodes->CPtr<IdType>();
   auto num_input = input_nodes->Shape()[0];
 
   CHECK_EQ(input_nodes->Ctx().device_type, sampler_ctx.device_type);
@@ -1225,14 +1124,14 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
   // feature data has cache, so we only need to extract the miss data
   Timer t0;
 
-  IdType *sampler_output_miss_src_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-  IdType *sampler_output_miss_dst_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-  IdType *sampler_output_cache_src_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
-  IdType *sampler_output_cache_dst_index = static_cast<IdType *>(
-      sampler_device->AllocWorkspace(sampler_ctx, sizeof(IdType) * num_input));
+  IdType *sampler_output_miss_src_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+  IdType *sampler_output_miss_dst_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+  IdType *sampler_output_cache_src_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
+  IdType *sampler_output_cache_dst_index =
+      sampler_device->AllocArray<IdType>(sampler_ctx, num_input);
 
   size_t num_output_miss;
   size_t num_output_cache;
@@ -1251,17 +1150,14 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
 
   Timer t1;
 
-  IdType *cpu_output_miss_src_index = static_cast<IdType *>(
-      cpu_device->AllocWorkspace(CPU(), sizeof(IdType) * num_output_miss));
+  IdType *cpu_output_miss_src_index =
+      cpu_device->AllocArray<IdType>(CPU(), num_output_miss);
   IdType *trainer_output_miss_dst_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_miss));
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_output_miss);
   IdType *trainer_output_cache_src_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_cache));
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_output_cache);
   IdType *trainer_output_cache_dst_index =
-      static_cast<IdType *>(trainer_device->AllocWorkspace(
-          trainer_ctx, sizeof(IdType) * num_output_cache));
+      trainer_device->AllocArray<IdType>(trainer_ctx, num_output_cache);
 
   sampler_device->CopyDataFromTo(sampler_output_miss_src_index, 0,
                                  cpu_output_miss_src_index, 0,
@@ -1293,32 +1189,25 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
   // 2. Extract the miss data
   Timer t2;
 
-  void *cpu_output_miss = cpu_device->AllocWorkspace(
-      CPU(), GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-  void *trainer_output_miss = trainer_device->AllocWorkspace(
-      trainer_ctx, GetTensorBytes(feat_type, {num_output_miss, feat_dim}));
-
-  cache_manager->ExtractMissData(cpu_output_miss, cpu_output_miss_src_index,
-                                 num_output_miss);
+  auto cpu_output_miss = Tensor::Empty(feat_type, {num_output_miss, feat_dim}, CPU(), ""); 
+  cache_manager->ExtractMissData(cpu_output_miss->MutableData(),
+                                 cpu_output_miss_src_index, num_output_miss);
 
   double extract_miss_time = t2.Passed();
 
   // 3. Copy the miss data
   Timer t3;
-
-  trainer_device->CopyDataFromTo(
-      cpu_output_miss, 0, trainer_output_miss, 0,
-      GetTensorBytes(feat_type, {num_output_miss, feat_dim}), CPU(),
-      trainer_ctx, trainer_copy_stream);
+  auto trainer_output_miss = Tensor::CopyTo(
+      cpu_output_miss, trainer_ctx, trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
 
-  cpu_device->FreeWorkspace(CPU(), cpu_output_miss);
+  cpu_output_miss = nullptr;
 
   double copy_miss_time = t3.Passed();
 
   // 4. Combine miss data
   Timer t4;
-  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss,
+  cache_manager->CombineMissData(train_feat->MutableData(), trainer_output_miss->Data(),
                                  trainer_output_miss_dst_index, num_output_miss,
                                  trainer_copy_stream);
   trainer_device->StreamSync(trainer_ctx, trainer_copy_stream);
@@ -1344,7 +1233,7 @@ void DoDynamicCacheFeatureCopy(TaskPtr task) {
 
   // 7. Free space
   cpu_device->FreeWorkspace(CPU(), cpu_output_miss_src_index);
-  trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss);
+  trainer_output_miss = nullptr;
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_miss_dst_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_src_index);
   trainer_device->FreeWorkspace(trainer_ctx, trainer_output_cache_dst_index);

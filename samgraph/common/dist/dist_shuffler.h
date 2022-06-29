@@ -67,12 +67,15 @@ class DistShuffler : public Shuffler {
   // the offset of train set for this sampler
   size_t _dataset_offset;
 
+  // local copy of full train set. currently is at cpu
   TensorPtr _data;
   TensorPtr _gpu_data;
+  // size of actually used global train set
   size_t _num_data;
+  // aligned up to num worker, but not batch size
+  size_t _num_local_data;
 
   size_t _batch_size;
-  size_t _last_batch_size;
 
   IdType *_sanity_check_map;
 

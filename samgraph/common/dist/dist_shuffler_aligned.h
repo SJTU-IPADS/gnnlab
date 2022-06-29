@@ -47,10 +47,12 @@ class DistAlignedShuffler : public Shuffler {
 
   TensorPtr _data;
   TensorPtr _gpu_data;
+  // aligned up to num worker, but not batch size
   size_t _num_data;
+  // aligned up to num worker, but not batch size
+  size_t _num_local_data;
 
   size_t _batch_size;
-  size_t _last_batch_size;
 
   size_t _num_epoch;
   size_t _num_global_step;

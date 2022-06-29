@@ -48,9 +48,9 @@ DistUMSampler::DistUMSampler(Dataset& dataset, IdType sampler_id)
     Tensor::CopyTo(dataset.train_set, CPU()), 
     DistEngine::Get()->NumEpoch(), DistEngine::Get()->GetBatchSize(), 
     sampler_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
-  if (_shuffler->NumStep() > mq_size) {
-    LOG(FATAL) << "num step exceeds memory queue size!";
-  }
+  // if (_shuffler->NumStep() > mq_size) {
+  //   LOG(FATAL) << "num step exceeds memory queue size!";
+  // }
 
   _hashtable = new cuda::OrderedHashTable(
     PredictNumNodes(

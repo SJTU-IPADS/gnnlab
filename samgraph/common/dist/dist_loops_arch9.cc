@@ -251,6 +251,8 @@ void RunArch9LoopsOnce(DistType dist_type) {
 
     int num_epoch = DistEngine::Get()->NumEpoch();
     int num_step = DistEngine::Get()->NumStep();
+    int num_local_step = DistEngine::Get()->NumLocalStep();
+
     int local_sampler_step = num_step / RunConfig::num_sample_worker;
     int last_sampler_step = num_step - (local_sampler_step * (RunConfig::num_sample_worker - 1));
     CHECK(local_sampler_step <= last_sampler_step);
@@ -259,13 +261,10 @@ void RunArch9LoopsOnce(DistType dist_type) {
     if (epoch_run_loops_cnt == 0 && step_run_loops_cnt == 0) {
       for (int i = 0; i < um_samplers.size(); i++) {
         auto sampler = um_samplers[i];
-        if (epoch_run_loops_cnt == 0 && step_run_loops_cnt == 0 &&
-          sampler->WorkerId() == static_cast<std::thread::id>(0)
-        ) {
-          sampler->CreateWorker(RunSample, sampler->WorkerSem());
-          LOG(INFO) << "sampler(" << sampler->Ctx() << ") " 
-                    << "create sample worker(0x" << std::hex << sampler->WorkerId() << ")";
-        }
+        CHECK(sampler->WorkerId() == static_cast<std::thread::id>(0));
+        sampler->CreateWorker(RunSample, sampler->WorkerSem());
+        LOG(INFO) << "sampler(" << sampler->Ctx() << ") " 
+                  << "create sample worker(0x" << std::hex << sampler->WorkerId() << ")";
       }
       for (int i = 0; i < um_samplers.size(); i++) {
         um_samplers[i]->ReleaseSem();
@@ -275,18 +274,11 @@ void RunArch9LoopsOnce(DistType dist_type) {
     // RunSampleSubLoopOnce();
     for (int i = 0; i < um_samplers.size(); i++) { 
       auto sampler = um_samplers[i];
-      if (i + 1 == um_samplers.size()) {
+      if (step_run_loops_cnt < sampler->GetShuffler()->NumLocalStep()) {
         LOG(DEBUG) << "sampler(" << sampler->Ctx() <<  ") issue sampling task, "
-                  << "epoch=" << epoch_run_loops_cnt
-                  << " local step=" << step_run_loops_cnt;
+                   << "epoch=" << epoch_run_loops_cnt
+                   << " local step=" << step_run_loops_cnt;
         sampler->ReleaseSem();
-      } else {
-        if (step_run_loops_cnt < local_sampler_step) {
-          LOG(DEBUG) << "sampler(" << sampler->Ctx() <<  ") issue sampling task, "
-                    << "epoch=" << epoch_run_loops_cnt
-                    << " local step=" << step_run_loops_cnt;
-          sampler->ReleaseSem();
-        }
       }
     }
     step_run_loops_cnt++;

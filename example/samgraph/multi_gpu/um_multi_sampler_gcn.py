@@ -124,10 +124,7 @@ def run_sample(run_config):
 
     num_epoch = sam.num_epoch()
     global_step = sam.steps_per_epoch()
-
-    #  num_step = (global_step + (num_worker - 1)) // num_worker 
-    num_step = (global_step - (global_step // num_worker) * (num_worker - 1))
-    assert num_step >= global_step // num_worker
+    num_step = sam.num_local_step()
 
     epoch_sample_total_times_python = []
     epoch_pipeline_sample_total_times_python = []
@@ -286,6 +283,7 @@ def run_sample(run_config):
     for k, v in test_result:
         print('test_result:{:}={:.6f}'.format(k, v), flush=True)
 
+    sys.stdout.flush()
     global_barrier.wait()  # barrier for pretty print
     # trainer print result
 
@@ -460,6 +458,7 @@ def run_train(worker_id, run_config):
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
+    sys.stdout.flush()
     global_barrier.wait()
     run_end = time.time()
 

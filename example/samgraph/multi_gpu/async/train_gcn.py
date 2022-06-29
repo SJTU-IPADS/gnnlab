@@ -109,13 +109,7 @@ def run_sample(worker_id, run_config):
     sam.notify_sampler_ready(global_barrier)
 
     num_epoch = sam.num_epoch()
-    num_step = sam.steps_per_epoch()
-
-    if (worker_id == (num_worker - 1)):
-        num_step = int(num_step - int(num_step /
-                       num_worker) * worker_id)
-    else:
-        num_step = int(num_step / num_worker)
+    num_step = sam.num_local_step()
 
     epoch_sample_total_times_python = []
     epoch_pipeline_sample_total_times_python = []

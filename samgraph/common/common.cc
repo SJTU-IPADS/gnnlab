@@ -294,6 +294,9 @@ TensorPtr Tensor::CopyBlob(const void *data, DataType dtype,
 }
 
 TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
+  return CopyTo(source, ctx, stream, source->_name);
+}
+TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name) {
   CHECK(source && source->Defined());
   std::vector<size_t> shape = source->Shape();
   auto dtype = source->_dtype;
@@ -308,7 +311,7 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
   tensor->_ctx = ctx;
   tensor->_data =
       Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
-  tensor->_name = source->_name;
+  tensor->_name = name;
   if (RunConfig::run_arch == kArch9 && ctx.device_type == DeviceType::kGPU_UM) {
     for (auto um_ctx : RunConfig::unified_memory_ctxes) {
         Device::Get(um_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, um_ctx);
