@@ -15,7 +15,6 @@
  *
  */
 
-#include <unordered_set>
 #include <fstream>
 
 #include "cuda_loops.h"
@@ -202,7 +201,6 @@ void DoGPUSample(TaskPtr task) {
     double map_edges_time = t3.Passed();
     double remap_time = t1.Passed();
     double layer_time = tlayer.Passed();
-    // LOG(INFO) << "remap alloc time " << alloc_time;
 
     auto train_graph = std::make_shared<TrainGraph>();
     train_graph->num_src = num_unique;
@@ -231,8 +229,6 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
-    // sampler_device->FreeDataSpace(sampler_ctx, out_src);
-    // sampler_device->FreeDataSpace(sampler_ctx, out_dst);
     if (i == (int)last_layer_idx) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
                                    layer_time);
@@ -271,55 +267,6 @@ void DoGPUSample(TaskPtr task) {
                              fill_unique_time);
 
   LOG(DEBUG) << "SampleLoop: process task with key " << task->key;
-}
-
-void StatisticUMSampleCacheHit(int task_key, int layer, const IdType* input, size_t num_input, Context input_ctx) {
-  size_t um_indptr_bound = 0;
-  size_t um_indices_bound = 0;
-  size_t um_indptr_size = 1.0 * GPUEngine::Get()->GetGraphDataset()->indptr->NumBytes() * RunConfig::unified_memory_percentage;
-  size_t um_indices_size = 1.0 * GPUEngine::Get()->GetGraphDataset()->indices->NumBytes() * RunConfig::unified_memory_percentage;
-  // not consider page-size, roughly estimate
-  auto indptr_ts = Tensor::CopyTo(GPUEngine::Get()->GetGraphDataset()->indptr, CPU());
-  auto indptr = static_cast<const IdType*>(indptr_ts->Data());
-  um_indptr_bound = um_indptr_size / sizeof(IdType);
-  for(IdType i = 0; i < GPUEngine::Get()->GetGraphDataset()->num_node; i++) {
-    IdType edge_num = indptr[i+1];
-    if (sizeof(IdType) * edge_num <= um_indices_size) {
-      um_indices_bound = i;
-    } else {
-      break;
-    }
-  }
-  auto cpu_input_ts = Tensor::EmptyNoScale(DataType::kI32, {num_input}, CPU(), "");
-  Device::Get(input_ctx)->CopyDataFromTo(input, 0, cpu_input_ts->MutableData(), 0, sizeof(IdType) * num_input, input_ctx, CPU());
-  auto cpu_input = static_cast<const IdType*>(cpu_input_ts->Data());
-  LOG(INFO) << "um_indptr_bound " << um_indptr_bound << " (size " << sizeof(IdType) * um_indptr_bound << ")"
-            << " um_indices_bound " << um_indices_bound << " (size " << sizeof(IdType) * indptr[um_indices_bound + 1] << ")"
-            << " um_indptr_size " << um_indptr_size << " um_indices_size " << um_indices_size;
-  size_t indptr_hit = 0;
-  size_t indices_hit = 0;
-  size_t indptr_tot = 0;
-  size_t indices_tot = 0;
-
-  // note that elem in input is unique
-  for(int i = 0; i < num_input; i++) {
-    auto v = cpu_input[i];
-    IdType edge_num = indptr[v + 1] - indptr[v];
-    indptr_tot += sizeof(IdType);
-    indices_tot += sizeof(IdType) * edge_num;
-    if (v < um_indptr_bound) {
-      indptr_hit += sizeof(IdType);
-    }
-    if (v < um_indices_bound) {
-      indices_hit += sizeof(IdType) * edge_num;
-    }
-  }
-  LOG(INFO) << "UM Sample task " << task_key << " layer " << layer 
-             << " tot_bytes " << indices_tot + indptr_tot 
-             << " hit_bytes " << indices_hit + indptr_hit;
-  Profiler::Get().LogEpochAdd(task_key, kLogEpochUMSampleTotBytes, indptr_tot + indices_tot);
-  Profiler::Get().LogEpochAdd(task_key, kLogEpochUMSampleHitBytes, indptr_hit + indices_hit);
-  // double hit_rate = (indptr_hit + indices_hit) / (indptr_tot + indices_tot);
 }
 
 void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {

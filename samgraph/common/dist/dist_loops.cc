@@ -64,14 +64,8 @@ void DoGPUSample(TaskPtr task) {
   auto last_layer_idx = num_layers - 1;
 
   auto dataset = DistEngine::Get()->GetGraphDataset();
-  // auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
-  // auto sampler_device = Device::Get(sampler_ctx);
-  // auto sample_stream = DistEngine::Get()->GetSampleStream();
 
-  // auto random_states = DistEngine::Get()->GetRandomStates();
-  // auto frequency_hashmap = DistEngine::Get()->GetFrequencyHashmap();
 
-//   cuda::OrderedHashTable *hash_table = DistEngine::Get()->GetHashtable();
   Context sampler_ctx;
   Device* sampler_device;
   StreamHandle sample_stream;
@@ -239,7 +233,6 @@ void DoGPUSample(TaskPtr task) {
     double map_edges_time = t3.Passed();
     double remap_time = t1.Passed();
     double layer_time = tlayer.Passed();
-    // LOG(INFO) << "alloc time during remap " << alloc_time;
 
     auto train_graph = std::make_shared<TrainGraph>();
     train_graph->num_src = num_unique;
@@ -268,9 +261,6 @@ void DoGPUSample(TaskPtr task) {
     sampler_device->FreeWorkspace(sampler_ctx, out_src);
     sampler_device->FreeWorkspace(sampler_ctx, out_dst);
     sampler_device->FreeWorkspace(sampler_ctx, num_out);
-    // sampler_device->FreeDataSpace(sampler_ctx, out_src);
-    // sampler_device->FreeDataSpace(sampler_ctx, out_dst);
-    // sampler_device->FreeDataSpace(sampler_ctx, num_out);
     if (i == (int)last_layer_idx) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerTime,
                                    layer_time);
@@ -313,9 +303,6 @@ void DoGPUSample(TaskPtr task) {
 void DoGetCacheMissIndex(TaskPtr task) {
   // Get index of miss data and cache data
   // Timer t4;
-  // auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
-  // auto sampler_device = Device::Get(sampler_ctx);
-  // auto sample_stream = DistEngine::Get()->GetSampleStream();
   Context sampler_ctx;
   Device* sampler_device;
   StreamHandle sample_stream;

@@ -274,7 +274,6 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
     const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
     Timer _kt;
 
-    // SampleKernelTest_khop0(input, num_input, fanout, 1, 2, ctx, stream);
     sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
             indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
             random_states->GetStates(), random_states->NumStates());
@@ -336,68 +335,6 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
 
   LOG(DEBUG) << "GPUSample: succeed ";
 }
-
-// void SampleKernelTest_khop0(
-//   const IdType* input, size_t num_input, size_t fanout,
-//   int local_device, int remote_device, Context ctx, StreamHandle stream, int repeat
-// ) {
-//     CHECK(local_device == ctx.device_id);
-//     cudaStream_t cu_stream = static_cast<cudaStream_t>(stream);
-
-//     auto sampler_device = Device::Get(ctx);
-//     sampler_device->StreamSync(ctx, stream);
-//     IdType *p2p_indptr, *p2p_indice;
-//     IdType *maped_indptr, *mapped_indices;  
-//     auto indptr = static_cast<const IdType*>(GPUEngine::Get()->GetGraphDataset()->indptr->Data());
-//     auto indices = static_cast<const IdType*>(GPUEngine::Get()->GetGraphDataset()->indices->Data());
-//     IdType num_node = GPUEngine::Get()->GetGraphDataset()->num_node;
-//     IdType num_edge = GPUEngine::Get()->GetGraphDataset()->num_edge;
-//     IdType *tmp_src, *tmp_dst;
-//     CUDA_CALL(cudaSetDevice(local_device));
-//     CUDA_CALL(cudaMalloc(&tmp_src, sizeof(IdType) * num_input * fanout));
-//     CUDA_CALL(cudaMalloc(&tmp_dst, sizeof(IdType) * num_input * fanout));
-//     CUDA_CALL(cudaHostAlloc(&maped_indptr, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_node + 1), cudaHostAllocMapped));
-//     CUDA_CALL(cudaHostAlloc(&mapped_indices, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_edge), cudaHostAllocMapped));
-//     CUDA_CALL(cudaMemcpy(maped_indptr, indptr, sizeof(IdType) * (num_node + 1), cudaMemcpyDefault));
-//     CUDA_CALL(cudaMemcpy(mapped_indices, indices, sizeof(IdType) * (num_edge), cudaMemcpyDefault));
-
-//     CUDA_CALL(cudaSetDevice(remote_device));
-//     CUDA_CALL(cudaMalloc(&p2p_indptr, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_node + 1)));
-//     CUDA_CALL(cudaMalloc(&p2p_indice, sizeof(IdType) * (GPUEngine::Get()->GetGraphDataset()->num_edge)));
-//     CUDA_CALL(cudaMemcpy(p2p_indptr, indptr, sizeof(IdType) * (num_node + 1), cudaMemcpyDefault));
-//     CUDA_CALL(cudaMemcpy(p2p_indice, indices, sizeof(IdType) * (num_edge), cudaMemcpyDefault));
-//     CUDA_CALL(cudaDeviceSynchronize());
-//     CUDA_CALL(cudaSetDevice(local_device));
-//     CUDA_CALL(cudaDeviceEnablePeerAccess(remote_device, 0));
-
-//     const int WARP_SIZE = 32;
-//     const int BLOCK_WARP = 128 / WARP_SIZE;
-//     const int TILE_SIZE = BLOCK_WARP * 16;
-//     const dim3 block_t(WARP_SIZE, BLOCK_WARP);
-//     const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
-
-//     sampler_device->StreamSync(ctx, stream);
-//     LOG(INFO) << "sample_khop0 input=" << num_input << " fanout=" << fanout; 
-//     Timer p2p_tm;
-//     for(int i = 0; i < repeat; i++) {
-//       sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
-//             p2p_indptr, p2p_indice, input, num_input, fanout, tmp_src, tmp_dst,
-//             nullptr, 0);
-//       sampler_device->StreamSync(ctx, stream);
-//     }
-//     LOG(INFO) << "p2p " << p2p_tm.Passed() / repeat;
-//     Timer maped_tm;
-//     for(int i = 0; i < repeat; i++) {
-//       sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
-//             maped_indptr, mapped_indices, input, num_input, fanout, tmp_src, tmp_dst,
-//             nullptr, 0);
-//       sampler_device->StreamSync(ctx, stream);
-//     }
-//     LOG(INFO) << "mappded " << maped_tm.Passed() / repeat;
-//     CHECK(false);
-// }
-
-
 
 }  // namespace cuda
 }  // namespace common

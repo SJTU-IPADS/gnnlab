@@ -130,8 +130,6 @@ enum LogEpochItem {
   kLogEpochTotalTime,
   kLogEpochFeatureBytes,
   kLogEpochMissBytes,
-  kLogEpochUMSampleTotBytes,
-  kLogEpochUMSampleHitBytes,
   kNumLogEpochItems,
 };
 

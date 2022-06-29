@@ -72,8 +72,6 @@ cxx_flags = [
     '-Ofast',
     # '-DPIPELINE',
     # '-O0',
-    # '-DMAPPED_MM',
-    # '-DP2P',
     '-Wall', '-fopenmp', '-march=native'
 ]
 cuda_flags = [

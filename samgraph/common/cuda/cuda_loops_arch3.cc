@@ -16,7 +16,6 @@
  */
 
 #include <cuda_runtime.h>
-#include <cuda_profiler_api.h>
 
 #include <chrono>
 #include <numeric>
@@ -63,10 +62,6 @@ bool RunSampleSubLoopOnce() {
 
   Timer t0;
   auto task = DoShuffle();
-  // if (task->key == Engine::Get()->NumStep()) {
-  //   LOG(WARNING) << "task_key=" << task->key << " start profiling";
-  //   cudaProfilerStart();
-  // }
   if (task) {
     double shuffle_time = t0.Passed();
 

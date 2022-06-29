@@ -151,9 +151,6 @@ def run():
     epoch_total_times_python = []
     epoch_cache_hit_rates = []
     epoch_miss_nbytes = []
-    epoch_um_sample_nbytes = []
-    epoch_um_sample_hit_nbytes = []
-    epoch_um_hit_rate = []
 
     sample_times  = [0 for i in range(num_epoch * num_step)]
     # copy_times    = [0 for i in range(num_epoch * num_step)]
@@ -266,12 +263,6 @@ def run():
             cur_step_key += 1
 
         toc = time.time()
-        epoch_um_sample_nbytes.append(sam.get_log_epoch_value(epoch, sam.kLogEpochUMSampleTotBytes))
-        epoch_um_sample_hit_nbytes.append(sam.get_log_epoch_value(epoch, sam.kLogEpochUMSampleHitBytes))
-        try:
-            epoch_um_hit_rate.append(epoch_um_sample_hit_nbytes[-1] / epoch_um_sample_nbytes[-1])
-        except ZeroDivisionError:
-            epoch_um_hit_rate.append(np.NaN)
         feat_nbytes = sam.get_log_epoch_value(
             epoch, sam.kLogEpochFeatureBytes)
         miss_nbytes = sam.get_log_epoch_value(
@@ -331,7 +322,6 @@ def run():
     test_result.append(('epoch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])))
     test_result.append(('batch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])/num_step))
     test_result.append(('batch_copy_time', np.mean(epoch_copy_times[1:])/num_step))
-    test_result.append(('um_sample_hit_rate', np.mean(epoch_um_hit_rate[1:])))
     test_result.append(('num_nodes', np.mean(num_nodes[num_step:])))
     test_result.append(('num_samples', np.mean(num_samples[num_step:])))
     test_result.append(('sample_thpts(node/sec)', np.mean(sample_node_thpts[num_step:])))
@@ -353,10 +343,6 @@ def run():
     sam.dump_trace()
     sam.shutdown()
 
-    # print('sample_times', sample_times[num_step:])
-    # print('coo_times', sample_coo_times[num_step:])
-    # print('remap_time', remap_times[num_step:])
-    # print("shuffle time", shuffle_times[num_step:])
 
 if __name__ == '__main__':
     run()

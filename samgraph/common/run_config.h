@@ -101,8 +101,6 @@ struct RunConfig {
   static double               unified_memory_percentage;
   static UMPolicy             unified_memory_policy;
   static std::vector<Context> unified_memory_ctxes;
-  // online statistic because of edge mapping
-  static bool                 unified_memory_statistic_hit_rate;
 
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;
