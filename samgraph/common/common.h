@@ -70,6 +70,7 @@ enum SampleType {
 // arch5: distributed mode (CPU/GPU sampling + multi-GPUs traning)
 // arch6: sgnn mode
 // arch7: sgnn mode but use pytorch extracting
+// arch9 : base on arch5 but store single graph on multi-gpu um
 enum RunArch {
   kArch0 = 0,
   kArch1,
@@ -79,7 +80,7 @@ enum RunArch {
   kArch5,
   kArch6,
   kArch7,
-  kArch9,
+  kArch9 = 9,
 };
 
 // cache by degree: cache the nodes with large degree

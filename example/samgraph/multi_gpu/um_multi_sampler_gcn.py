@@ -84,7 +84,7 @@ def get_run_config():
     process_common_config(run_config)
 
     run_config['arch'] = 'arch9'
-    run_config['_arch'] = 8
+    run_config['_arch'] = 9
     run_config['num_train_workers'] = 1
     run_config['train_workers'] = ['cuda:0']
     run_config['num_sample_worker'] = len(run_config['unified_memory_ctx'])
