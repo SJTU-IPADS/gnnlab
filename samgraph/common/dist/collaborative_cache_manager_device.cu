@@ -646,7 +646,7 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
       if (order != 0) {
         src_loc_id = (_local_location_id + order) % _cpu_location_id;
       }
-      LOG(INFO) << "CollCache(" << _local_location_id << "): ExtractFeat: coll, combining group " << src_loc_id << " [" << group_offset[src_loc_id] << "," << group_offset[src_loc_id+1] << ")...";
+      LOG(DEBUG) << "CollCache(" << _local_location_id << "): ExtractFeat: coll, combining group " << src_loc_id << " [" << group_offset[src_loc_id] << "," << group_offset[src_loc_id+1] << ")...";
       Timer t1;
       CombineOneGroup(
           src_index + group_offset[src_loc_id], dst_index + group_offset[src_loc_id], 
