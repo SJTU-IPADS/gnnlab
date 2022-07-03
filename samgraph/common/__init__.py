@@ -541,6 +541,9 @@ class SamGraphBasics(object):
     def dump_trace(self):
         return self.C_LIB_CTYPES.samgraph_dump_trace()
 
+    def train_barrier(self):
+        return self.C_LIB_CTYPES.samgraph_train_barrier()
+
     def forward_barrier(self):
         return self.C_LIB_CTYPES.samgraph_forward_barrier()
 

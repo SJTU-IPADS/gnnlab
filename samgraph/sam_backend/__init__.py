@@ -52,6 +52,7 @@ trace_step_end       = _basics.trace_step_end
 trace_step_begin_now = _basics.trace_step_begin_now
 trace_step_end_now   = _basics.trace_step_end_now
 dump_trace           = _basics.dump_trace
+train_barrier        = _basics.train_barrier
 forward_barrier      = _basics.forward_barrier
 wait_one_child       = _basics.wait_one_child
 log_step_by_key      = _basics.log_step_by_key

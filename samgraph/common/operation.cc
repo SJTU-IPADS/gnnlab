@@ -518,6 +518,10 @@ void samgraph_switch_init(int worker_id, const char*ctx, double cache_percentage
   LOG(INFO) << "SamGraph switch has been initialized successfully";
 }
 
+void samgraph_train_barrier() {
+  dist::DistEngine::Get()->GetTrainerBarrier()->Wait();
+}
+
 size_t samgraph_num_local_step() {
   return Engine::Get()->NumLocalStep();
 }

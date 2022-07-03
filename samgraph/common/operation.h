@@ -112,6 +112,8 @@ void samgraph_extract_start(int count);
 // for dynamic switch
 void samgraph_switch_init(int worker_id, const char*ctx, double cache_percentage);
 
+void samgraph_train_barrier();
+
 size_t samgraph_num_local_step();
 
 int samgraph_wait_one_child();
