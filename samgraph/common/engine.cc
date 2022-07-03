@@ -382,6 +382,8 @@ void Engine::LoadGraphDataset() {
         break;
       case kDynamicCache:
       case kCollCache:
+      case kCollCacheIntuitive:
+      case kPartitionCache:
         break;
       default:
         CHECK(0);

@@ -610,6 +610,12 @@ std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
     case kCollCache:
       os << "coll_cache";
       break;
+    case kCollCacheIntuitive:
+      os << "coll_cache_naive";
+      break;
+    case kPartitionCache:
+      os << "partition_cache";
+      break;
     default:
       CHECK(false);
   }

@@ -109,6 +109,8 @@ enum CachePolicy {
   kDynamicCache,
   kCacheByRandom,
   kCollCache,
+  kCollCacheIntuitive,
+  kPartitionCache,
 };
 
 enum class UMPolicy {

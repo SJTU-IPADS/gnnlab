@@ -43,8 +43,13 @@ policy_str = {
   15: "presample_5",
   16: "presample_6",
   20: "presample_10",
+  31: "coll_cache_1",
   40: "coll_cache_10",
-  50: "no_cache",
+  51: "coll_intuitive_1",
+  60: "coll_intuitive_10",
+  71: "partition_1",
+  80: "partition_10",
+  100: "no_cache",
 }
 policy_str_short = {
   0 : "Deg",
@@ -64,7 +69,12 @@ policy_str_short = {
   15: "PreS_5",
   16: "PreS_6",
   20: "PreS_10",
+  31: "Coll_1",
   40: "Coll_10",
+  51: "CoI_1",
+  60: "CoI_10",
+  71: "Part_1",
+  80: "Part_10",
   # 17: "presample_max",
   # 20: "no_cache",
 }

@@ -409,6 +409,7 @@ class Solver {
     std::cout << "coll_cache:optimal_cpu_rate=";
     FOR_LOOP(part_id, num_device) { std::cout << cpu_weight_list[part_id].getValue() / total_weight_list[part_id] << ","; }
     std::cout << "\n";
+    std::cout << "z=" << z.get(GRB_DoubleAttr::GRB_DoubleAttr_X) << "\n";
     LOG(INFO) << "Coll Cache init block placement array done";
     model.reset(1);
     LOG(INFO) << "Coll Cache model reset done";
@@ -444,6 +445,219 @@ void solve(
 
   solver::Solver s(block_density_tensor, block_freq_tensor, device_to_stream, device_to_cache_percent, mode, T_local, T_remote, T_cpu);
   s.solve_optimal(block_placement);
+}
+
+void solve_intuitive(TensorPtr stream_id_list, TensorPtr stream_freq_list, const IdType num_node,
+    std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent,
+    TensorPtr nid_to_block, TensorPtr & block_placement,
+    std::string mode, double T_local = 2, double T_remote = 15, double T_cpu = 60) {
+  CHECK(stream_id_list->Shape()[0] == 1);
+  CHECK(stream_freq_list->Shape()[0] == 1);
+  CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
+  const int num_device = device_to_stream.size();
+  const int num_block = num_device + 2;
+  // the freq list must already be sorted
+  // now calculate the boundary
+  const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
+  IdType partition_size_min = 0;
+  IdType partition_size_max = std::min(num_cached_nodes, (num_node - num_cached_nodes) / (num_device - 1));
+
+  LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
+  LOG(ERROR) << "[" << partition_size_min << "," << partition_size_max << "]";
+
+  // IdType partition_size = 0;
+
+  auto partition_lb = [&](IdType partition_size) {
+    return num_cached_nodes - partition_size;
+  };
+  auto partition_rb = [&](IdType partition_size) {
+    return num_cached_nodes + partition_size * (num_device - 1) - 1;
+  };
+
+  // const double T_partition = (T_local + (num_device - 1) * T_remote) / num_device;
+  const double mu = 1 + (T_cpu - T_remote) / (T_remote - T_local) * num_device;
+  const IdType * freq_array = stream_freq_list->Ptr<IdType>();
+
+  LOG(ERROR) << "mu = " << mu;
+
+//   {
+//     // analyze result of different partition size
+//     for (IdType partition_size = partition_size_min; partition_size < partition_size_max; partition_size += (partition_size_max - partition_size_min)/100) {
+//       double rep_w = 0, cpu_w = 0, total_w = 0;
+//       IdType rep_d = 0, cpu_d = 0;
+// #pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : rep_w, cpu_w, total_w, rep_d, cpu_d)
+//       for (IdType rank = 0; rank < num_node; rank++) {
+//         IdType node_id = stream_id_list->Ptr<IdType>()[rank];
+//         if (rank < partition_lb(partition_size)) {
+//           // replicate this
+//           rep_w += freq_array[rank];
+//           rep_d ++;
+//         } else if (rank <= partition_rb(partition_size)) {
+//         } else {
+//           cpu_w += freq_array[rank];
+//           cpu_d++;
+//         }
+//         total_w += freq_array[rank];
+//       }
+//       double local_w = rep_w + (total_w - cpu_w - rep_w) / num_device;
+//       double remote_w = (total_w - cpu_w - rep_w) / num_device * (num_device - 1);
+//       std::ios cout_state(nullptr);
+//       cout_state.copyfmt(std::cout);
+//       std::cout << std::fixed << std::setw(4) << std::setprecision(1);
+//       // std::cout << "[" << partition_size << "](" << partition_size_min << ")";
+//       std::cout << "[R " << rep_d * 100.0 / num_node << ",P " << (num_node - rep_d - cpu_d)*100.0/num_node << ",C" << cpu_d *100.0/num_node << "]";
+//       std::cout << "[lb.freq=" << freq_array[partition_lb(partition_size)] << ",rb.freq=" << freq_array[partition_rb(partition_size)] << "]";
+//       std::cout.copyfmt(cout_state);
+//       std::cout << "local_rate=" << local_w / total_w << "\t";
+//       std::cout << "remote_rate=" << remote_w / total_w << "\t";
+//       std::cout << "cpu_rate=" << cpu_w / total_w << "\t";
+//       std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
+//     }
+//   }
+
+  /**
+   * |   replicate  |   p    |  p * (n_d-1) | cpu |
+   *        ^           ^    ^
+   *       >mu     mu  <mu   1
+   *       max             min
+   */
+
+  IdType partition_size = partition_size_min;
+
+  if (mu < 1) {
+    // the best choice is to replicate as much as possible. no partition
+    partition_size = partition_size_min;
+  } else if (freq_array[partition_lb(partition_size_max)] < freq_array[partition_rb(partition_size_max)] * mu) {
+    // we have to choose largest partition
+    // build the mapping
+    partition_size = partition_size_max;
+  } else {
+    // now we need to iterate from min to max to find the mu
+    while (partition_size_max - partition_size_min > 1) {
+      partition_size = (partition_size_min + partition_size_max) / 2;
+      if (freq_array[partition_lb(partition_size)] < freq_array[partition_rb(partition_size)] * mu) {
+        // go left
+        partition_size_min = partition_size;
+      } else {
+        // go right
+        partition_size_max = partition_size;
+      }
+      LOG(ERROR) << "[" << partition_size_min << "," << partition_size_max << "]";
+    }
+    partition_size = partition_size_max;
+  }
+  
+  double rep_w = 0, cpu_w = 0, total_w = 0;
+  IdType rep_d = 0, cpu_d = 0;
+
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : rep_w, cpu_w, total_w, rep_d, cpu_d)
+  for (IdType rank = 0; rank < num_node; rank++) {
+    IdType node_id = stream_id_list->Ptr<IdType>()[rank];
+    if (rank < partition_lb(partition_size)) {
+      // replicate this
+      nid_to_block->Ptr<IdType>()[node_id] = 0;
+      rep_w += freq_array[rank];
+      rep_d ++;
+    } else if (rank <= partition_rb(partition_size)) {
+      nid_to_block->Ptr<IdType>()[node_id] = (rank % num_device) + 1;
+    } else {
+      nid_to_block->Ptr<IdType>()[node_id] = num_device + 1;
+      cpu_w += freq_array[rank];
+      cpu_d++;
+    }
+    total_w += freq_array[rank];
+  }
+  double local_w = rep_w + (total_w - cpu_w - rep_w) / num_device;
+  double remote_w = (total_w - cpu_w - rep_w) / num_device * (num_device - 1);
+  std::cout << "coll_cache:optimal_local_rate=" << local_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_remote_rate=" << remote_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
+  std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
+
+  {
+    int fd = 0;
+    fd = shm_open("coll_cache_block_placement", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+      std::cerr << errno << "\n";
+      CHECK_NE(fd, -1);
+    }
+    size_t shm_size = num_block * sizeof(uint8_t);
+    shm_size = RoundUp<size_t>(shm_size, 1<<21);
+    int ret = ftruncate(fd, shm_size);
+    CHECK_NE(ret, -1);
+    void* shared_memory = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    CHECK_NE(shared_memory, MAP_FAILED);
+    block_placement = Tensor::FromBlob(
+        shared_memory, DataType::kU8, {static_cast<size_t>(num_block)}, Context{kMMAP, 0}, "coll_cache_block_placement");
+  }
+
+  block_placement->Ptr<uint8_t>()[0] = (1 << num_device) - 1;
+  for (int i = 0; i < num_device; i++) {
+    block_placement->Ptr<uint8_t>()[i + 1] = (1 << i);
+  }
+  block_placement->Ptr<uint8_t>()[num_device + 1] = 0;
+}
+
+void solve_partition(TensorPtr stream_id_list, TensorPtr stream_freq_list, const IdType num_node,
+    std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent,
+    TensorPtr nid_to_block, TensorPtr & block_placement,
+    std::string _, double T_local = 2, double T_remote = 15, double T_cpu = 60) {
+  CHECK(stream_id_list->Shape()[0] == 1);
+  CHECK(stream_freq_list->Shape()[0] == 1);
+  CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
+  const int num_device = device_to_stream.size();
+  const int num_block = num_device + 1;
+  // the freq list must already be sorted
+  // now calculate the boundary
+  const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
+
+  LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
+
+  const IdType * freq_array = stream_freq_list->Ptr<IdType>();
+
+  const IdType partition_size = std::min(num_cached_nodes, num_node / num_device);
+
+  double cpu_w = 0, total_w = 0;
+
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : cpu_w, total_w)
+  for (IdType rank = 0; rank < num_node; rank++) {
+    IdType node_id = stream_id_list->Ptr<IdType>()[rank];
+    if (rank < partition_size * num_device) {
+      nid_to_block->Ptr<IdType>()[node_id] = rank % num_device;
+    } else {
+      nid_to_block->Ptr<IdType>()[node_id] = num_device;
+      cpu_w += freq_array[rank];
+    }
+    total_w += freq_array[rank];
+  }
+  double local_w = (total_w - cpu_w) / num_device;
+  double remote_w = (total_w - cpu_w) / num_device * (num_device - 1);
+  std::cout << "coll_cache:optimal_local_rate=" << local_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_remote_rate=" << remote_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
+  std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
+
+  {
+    int fd = 0;
+    fd = shm_open("coll_cache_block_placement", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
+      std::cerr << errno << "\n";
+      CHECK_NE(fd, -1);
+    }
+    size_t shm_size = num_block * sizeof(uint8_t);
+    shm_size = RoundUp<size_t>(shm_size, 1<<21);
+    int ret = ftruncate(fd, shm_size);
+    CHECK_NE(ret, -1);
+    void* shared_memory = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    CHECK_NE(shared_memory, MAP_FAILED);
+    block_placement = Tensor::FromBlob(
+        shared_memory, DataType::kU8, {static_cast<size_t>(num_block)}, Context{kMMAP, 0}, "coll_cache_block_placement");
+  }
+
+  for (int i = 0; i < num_device; i++) {
+    block_placement->Ptr<uint8_t>()[i] = (1 << i);
+  }
+  block_placement->Ptr<uint8_t>()[num_device] = 0;
 }
 
 }

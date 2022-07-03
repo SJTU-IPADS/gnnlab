@@ -44,6 +44,8 @@ class CachePolicy(Enum):
   dynamic_cache = 6
   cache_by_random = 7
   coll_cache = 8
+  coll_intuitive = 9
+  partition = 10
 
   cache_by_presample_1 = 11
   cache_by_presample_2 = 12
@@ -69,12 +71,40 @@ class CachePolicy(Enum):
   coll_cache_10 = 40
   coll_cache_max = 41
 
-  no_cache = 50
+  coll_intuitive_1 = 51
+  coll_intuitive_2 = 52
+  coll_intuitive_3 = 53
+  coll_intuitive_4 = 54
+  coll_intuitive_5 = 55
+  coll_intuitive_6 = 56
+  coll_intuitive_7 = 57
+  coll_intuitive_8 = 58
+  coll_intuitive_9 = 59
+  coll_intuitive_10 = 60
+  coll_intuitive_max = 61
+
+  partition_1 = 71
+  partition_2 = 72
+  partition_3 = 73
+  partition_4 = 74
+  partition_5 = 75
+  partition_6 = 76
+  partition_7 = 77
+  partition_8 = 78
+  partition_9 = 79
+  partition_10 = 80
+  partition_max = 81
+
+  no_cache = 100
   def get_samgraph_policy_param_name(self):
     if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
       return "pre_sample"
     if self.value in range(CachePolicy.coll_cache_1.value, CachePolicy.coll_cache_max.value):
       return "coll_cache"
+    if self.value in range(CachePolicy.coll_intuitive_1.value, CachePolicy.coll_intuitive_max.value):
+      return "coll_intuitive"
+    if self.value in range(CachePolicy.partition_1.value, CachePolicy.partition_max.value):
+      return "partition"
     name_list = [
       'degree',
       'heuristic',
@@ -85,6 +115,8 @@ class CachePolicy(Enum):
       'dynamic_cache',
       'random',
       'coll_cache',
+      'coll_intuitive',
+      'partition',
     ]
     return name_list[self.value]
   def get_presample_epoch(self):
@@ -92,12 +124,20 @@ class CachePolicy(Enum):
       return self.value - CachePolicy.cache_by_presample_1.value + 1
     if self.value in range(CachePolicy.coll_cache_1.value, CachePolicy.coll_cache_max.value):
       return self.value - CachePolicy.coll_cache_1.value + 1
+    if self.value in range(CachePolicy.coll_intuitive_1.value, CachePolicy.coll_intuitive_max.value):
+      return self.value - CachePolicy.coll_intuitive_1.value + 1
+    if self.value in range(CachePolicy.partition_1.value, CachePolicy.partition_max.value):
+      return self.value - CachePolicy.partition_1.value + 1
     return 1
   def get_log_fname(self):
     if self is CachePolicy.cache_by_presample:
       return CachePolicy.cache_by_presample_1.name
     if self is CachePolicy.coll_cache:
       return CachePolicy.coll_cache_1.name
+    if self is CachePolicy.coll_intuitive:
+      return CachePolicy.coll_intuitive_1.name
+    if self is CachePolicy.partition:
+      return CachePolicy.partition_1.name
     return self.name
 
 class Arch(Enum):
