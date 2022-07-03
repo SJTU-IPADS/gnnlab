@@ -85,14 +85,18 @@ def get_run_config():
 
     run_config['arch'] = 'arch9'
     run_config['_arch'] = 9
-    run_config['num_train_workers'] = 1
-    run_config['train_workers'] = ['cuda:0']
+    # run_config['num_train_workers'] = 1
+    # run_config['train_workers'] = ['cuda:0']
+    # run_config['num_train_workers'] = 6
+    assert(run_config['num_train_worker'] > 0)
+    run_config['train_workers'] = [f'cuda:{i}' for i in range(run_config['num_train_worker'])]
     run_config['num_sample_worker'] = len(run_config['unified_memory_ctx'])
     run_config['sample_workers'] = run_config['unified_memory_ctx']
     
     # print(run_config)
     assert(run_config['arch'] == 'arch9')
     assert(run_config['sample_type'] != 'random_walk')
+    assert(len(set(run_config['sample_workers']) | set(run_config['train_workers'])) == run_config['num_train_worker'] + run_config['num_sample_worker'])
     # assert(run_config['sample_workers'] == ['cuda:1', 'cuda:2'])
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
@@ -134,6 +138,7 @@ def run_sample(run_config):
     epoch_enqueue_samples_times = []
 
     step_sampler = []
+    step_sample_total_times = []
     step_sample_times = []
     step_coo_times = []
     step_core_sample_times = []
@@ -141,6 +146,7 @@ def run_sample(run_config):
     step_shuffle_times = []
     step_num_nodes = []
     step_num_samples = []
+    sampler_epoch_sample_total_times = defaultdict(list)
     sampler_epoch_sample_times = defaultdict(list)
     sampler_epoch_core_sample_times = defaultdict(list)
     sampler_epoch_coo_times = defaultdict(list)
@@ -190,6 +196,7 @@ def run_sample(run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
         )
 
+        sampler_cur_epoch_sample_total_timee = defaultdict(int)
         sampler_cur_epoch_sample_time = defaultdict(int)
         sampler_cur_epoch_core_sample_time = defaultdict(int)
         sampler_cur_epoch_coo_time = defaultdict(int)
@@ -197,6 +204,7 @@ def run_sample(run_config):
         sampler_cur_epoch_shuffle_time = defaultdict(int)
         for step in range(global_step):
             step_sampler.append(int(sam.get_log_step_value(epoch, step, sam.kLogL1SamplerId)))
+            step_sample_total_times.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTotalTime))
             step_sample_times.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime))
             step_core_sample_times.append(sam.get_log_step_value(epoch, step, sam.kLogL2CoreSampleTime))
             step_coo_times.append(sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime))
@@ -206,12 +214,14 @@ def run_sample(run_config):
             step_num_samples.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumSample))
             
             cur_sampler = step_sampler[-1]
+            sampler_cur_epoch_sample_total_timee[cur_sampler] += step_sample_total_times[-1]
             sampler_cur_epoch_sample_time[cur_sampler] += step_sample_times[-1]
             sampler_cur_epoch_core_sample_time[cur_sampler] += step_core_sample_times[-1]
             sampler_cur_epoch_coo_time[cur_sampler] += step_coo_times[-1]
             sampler_cur_epoch_remap_time[cur_sampler] += step_remap_times[-1]
             sampler_cur_epoch_shuffle_time[cur_sampler] += step_shuffle_times[-1]
         for k in sampler_cur_epoch_sample_time.keys():
+            sampler_epoch_sample_total_times[k].append(sampler_cur_epoch_sample_total_timee[k])
             sampler_epoch_sample_times[k].append(sampler_cur_epoch_sample_time[k])
             sampler_epoch_core_sample_times[k].append(sampler_cur_epoch_core_sample_time[k])
             sampler_epoch_coo_times[k].append(sampler_cur_epoch_coo_time[k])
@@ -221,8 +231,11 @@ def run_sample(run_config):
 
     sam.report_step_average(epoch - 1, step - 1)
 
-    print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
-        os.getpid(), np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
+    print('[Sampler Process {:d}] Avg Sampler Total Time(Profiler) {:.4f}'.format(
+        os.getpid(), np.mean(epoch_sample_total_times_profiler[1:])))
+    for k in sampler_epoch_sample_total_times.keys():
+        print('[Sample Worker {}] Sampler Total Time(Profiler) {:.4f}'.format(
+            k, np.mean(sampler_epoch_sample_total_times[k][1:])))
 
     # run end barrier
     global_barrier.wait()
@@ -237,6 +250,7 @@ def run_sample(run_config):
         ('enqueue_samples_time', np.mean(epoch_enqueue_samples_times[1:])))
     test_result.append(('epoch_time:sample_total', np.mean(
         epoch_sample_total_times_python[1:])))
+    test_result.append(('epoch_time:sample_total(profiler)', np.mean(epoch_sample_total_times_profiler[1:])))
     if run_config['pipeline']:
         test_result.append(
             ('pipeline_sample_epoch_time', np.mean(epoch_pipeline_sample_total_times_python[1:])))
