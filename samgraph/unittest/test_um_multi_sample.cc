@@ -56,6 +56,7 @@ protected:
 
 TEST_F(Arch9Test, task_train_set) {
   samgraph::common::samgraph_um_sample_init(RunConfig::num_sample_worker);
+  samgraph::common::dist::DistEngine::Get()->SetTrainerCtx(GPU(0));
   
   auto origin_train_set = Tensor::CopyTo(Engine::Get()->GetGraphDataset()->train_set, CPU());
   auto origin_train_set_ptr = static_cast<IdType*>(origin_train_set->MutableData());

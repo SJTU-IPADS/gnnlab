@@ -128,6 +128,12 @@ class Engine {
   volatile int outer_counter = 0;
 
   static Engine* _engine;
+
+#ifdef UNIT_TEST
+public:
+  void SetTrainerCtx(Context ctx) { _trainer_ctx = ctx; }
+#endif
+
 };
 
 }  // namespace common
