@@ -125,11 +125,7 @@ void DistEngine::Init() {
     switch (RunConfig::cache_policy) {
       case kCacheByPreSampleStatic:
       case kCacheByPreSample: {
-        size_t nbytes = sizeof(IdType) * _dataset->num_node;
-        void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
-        CHECK_NE(shared_ptr, MAP_FAILED);
-        _dataset->ranking_nodes = Tensor::FromBlob(
-            shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
+        _dataset->ranking_nodes = Tensor::Empty(kI32, {_dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes");
         break;
       }
       case kPartitionCache:
@@ -139,45 +135,14 @@ void DistEngine::Init() {
         CHECK(false) << "coll cache not enabled.";
 #endif
 #ifdef SAMGRAPH_COLL_CACHE_VALIDATE
-        {
-          size_t nbytes = sizeof(IdType) * _dataset->num_node;
-          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
-          CHECK_NE(shared_ptr, MAP_FAILED);
-          _dataset->ranking_nodes = Tensor::FromBlob(
-              shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
-        }
+        _dataset->ranking_nodes = Tensor::Empty(kI32, {_dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes");
 #endif
         // since we have only one global queue, allow only one ranking now.
         size_t num_stream = 1;
-        {
-          size_t nbytes = sizeof(IdType) * _dataset->num_node * num_stream;
-          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
-          CHECK_NE(shared_ptr, MAP_FAILED);
-          _dataset->ranking_nodes_list = Tensor::FromBlob(
-              shared_ptr, DataType::kI32, {num_stream, _dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes");
-        }
-        {
-          size_t nbytes = sizeof(IdType) * _dataset->num_node * num_stream;
-          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
-          CHECK_NE(shared_ptr, MAP_FAILED);
-          _dataset->ranking_nodes_freq_list = Tensor::FromBlob(
-              shared_ptr, DataType::kI32, {num_stream, _dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes_freq");
-        }
-        {
-          size_t nbytes = sizeof(IdType) * _dataset->num_node;
-          void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
-          CHECK_NE(shared_ptr, MAP_FAILED);
-          _dataset->nid_to_block = Tensor::FromBlob(
-              shared_ptr, DataType::kI32, {_dataset->num_node}, Context{kMMAP, 0}, "ranking_nodes_freq");
-        }
-        // {
-        //   size_t num_blocks = coll_cache::num_blocks(num_stream, RunConfig::coll_cache_num_slot);
-        //   size_t nbytes = sizeof(uint8_t) * num_blocks;
-        //   void *shared_ptr = (mmap(NULL, nbytes, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
-        //   CHECK_NE(shared_ptr, MAP_FAILED);
-        //   _dataset->block_placement = Tensor::FromBlob(
-        //       shared_ptr, DataType::kU8, {num_blocks}, Context{kMMAP, 0}, "ranking_nodes_freq");
-        // }
+        _dataset->ranking_nodes_list =      Tensor::Empty(DataType::kI32, {num_stream, _dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes");
+        _dataset->ranking_nodes_freq_list = Tensor::Empty(DataType::kI32, {num_stream, _dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
+        _dataset->nid_to_block =            Tensor::Empty(DataType::kI32, {_dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
+        // _dataset->block_placement =        Tensor::Empty(DataType::kU8, {num_blocks}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
         break;
       }
       default: ;
