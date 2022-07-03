@@ -29,7 +29,7 @@ namespace common {
 
 namespace {
 // TODO: hardcode mq bucket size
-size_t mq_nbytes = 180 * 1024 * 1024;
+size_t mq_nbytes = 230 * 1024 * 1024;
 } // namespace
 
 TaskQueue::TaskQueue(size_t max_len) { _max_len = max_len; }
