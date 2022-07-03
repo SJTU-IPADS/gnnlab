@@ -27,6 +27,9 @@ namespace cpu {
 class MmapCPUDevice final : public Device {
  public:
   void SetDevice(Context ctx) override;
+  static void *MapFd(Context ctx, size_t nbytes, int fd);
+  static int CreateShm(size_t nbytes, std::string name);
+  static int OpenShm(std::string name, size_t * nbytes = nullptr);
   void *AllocDataSpace(Context ctx, size_t nbytes, size_t alignment = kAllocAlignment) override;
   void FreeDataSpace(Context ctx, void *ptr) override;
   void *AllocWorkspace(Context ctx, size_t nbytes,

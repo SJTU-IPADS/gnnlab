@@ -38,6 +38,7 @@
 #include "constant.h"
 #include "run_config.h"
 #include "device.h"
+#include "cpu/mmap_cpu_device.h"
 #include "logging.h"
 #include "run_config.h"
 
@@ -129,6 +130,46 @@ void Tensor::ReShape(std::vector<size_t> new_shape) {
 
 TensorPtr Tensor::Null() { return std::make_shared<Tensor>(); }
 
+TensorPtr Tensor::CreateShm(std::string shm_path, DataType dtype,
+                            std::vector<size_t> shape, std::string name) {
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+  int fd = cpu::MmapCPUDevice::CreateShm(nbytes, shm_path);
+  void* data = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RW_DEVICE), nbytes, fd);
+
+  tensor->_dtype = dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = nbytes;
+  tensor->_data = data;
+  tensor->_ctx = MMAP(MMAP_RW_DEVICE);
+  tensor->_name = name;
+
+  return tensor;
+}
+
+TensorPtr Tensor::OpenShm(std::string shm_path, DataType dtype,
+                          std::vector<size_t> shape, std::string name) {
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+  int fd = cpu::MmapCPUDevice::OpenShm(shm_path);
+
+  struct stat st;
+  fstat(fd, &st);
+  size_t file_nbytes = st.st_size;
+  CHECK_EQ(nbytes, file_nbytes);
+
+  void* data = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RW_DEVICE), nbytes, fd);
+
+  tensor->_dtype = dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = nbytes;
+  tensor->_data = data;
+  tensor->_ctx = MMAP(MMAP_RW_DEVICE);
+  tensor->_name = name;
+
+  return tensor;
+}
+
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
                            std::vector<size_t> shape, Context ctx,
                            std::string name, StreamHandle stream) {
@@ -143,7 +184,7 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   CHECK_EQ(nbytes, file_nbytes);
 
   int fd = open(filepath.c_str(), O_RDONLY, 0);
-  void *data = mmap(NULL, nbytes, PROT_READ, MAP_SHARED | MAP_FILE | MAP_LOCKED, fd, 0);
+  void *data = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RO_DEVICE), nbytes, fd);
   CHECK_NE(data, (void *)-1);
   close(fd);
 
@@ -163,7 +204,7 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
       Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, nbytes, CPU(),
                                        ctx, stream);
       Device::Get(ctx)->StreamSync(ctx, stream);
-      munmap(data, nbytes);
+      Device::Get(MMAP())->FreeWorkspace(MMAP(), data, nbytes);
       break;
     case kGPU_UM: {
       LOG(FATAL) << "GPU_UM device should use `UMFromMmap`";

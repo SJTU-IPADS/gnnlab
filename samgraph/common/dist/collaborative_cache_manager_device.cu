@@ -22,6 +22,7 @@
 #include "../common.h"
 #include "../constant.h"
 #include "../device.h"
+#include "../cpu/mmap_cpu_device.h"
 #include "../function.h"
 #include "../logging.h"
 #include "../run_config.h"
@@ -863,27 +864,8 @@ CollCacheManager CollCacheManager::BuildCollCache(
   cudaIpcMemHandle_t * device_cache_data_list;
 
   {
-    int fd = 0;
-    if (local_location_id == 0) {
-      fd = shm_open("coll_cache_shm", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-      if (fd == -1) {
-        std::cerr << errno << "\n";
-        CHECK_NE(fd, -1);
-      }
-      int ret = ftruncate(fd, 4096);
-      CHECK_NE(ret, -1);
-    }
-    DistEngine::Get()->GetTrainerBarrier()->Wait();
-    if (local_location_id != 0) {
-      fd = shm_open("coll_cache_shm", O_RDWR, 0);
-      if (fd == -1) {
-        std::cerr << errno << "\n";
-        CHECK_NE(fd, -1);
-      }
-    }
-
-    void* shared_memory = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    CHECK_NE(shared_memory, MAP_FAILED);
+    int fd = cpu::MmapCPUDevice::CreateShm(4096 * 2, "coll_cache_shm");
+    void* shared_memory = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RW_DEVICE), 4096*2, fd);
     hash_table_offset_list = static_cast<cudaIpcMemHandle_t*>(shared_memory);
     device_cache_data_list = hash_table_offset_list + num_device;
   }

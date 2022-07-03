@@ -2,6 +2,7 @@
 #include "../run_config.h"
 #include "../logging.h"
 #include "../device.h"
+#include "../cpu/mmap_cpu_device.h"
 #include "ndarray.h"
 #include <sys/mman.h>
 #include <unistd.h>
@@ -427,21 +428,7 @@ void solve(
   TensorPtr block_freq_tensor;
   block_builder::split_blocks(stream_id_list, stream_freq_list, num_node, block_density_tensor, block_freq_tensor, nid_to_block);
 
-  {
-    int fd = 0;
-    fd = shm_open("coll_cache_block_placement", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-    if (fd == -1) {
-      std::cerr << errno << "\n";
-      CHECK_NE(fd, -1);
-    }
-    size_t shm_size = block_density_tensor->Shape()[0] * sizeof(uint8_t);
-    int ret = ftruncate(fd, shm_size);
-    CHECK_NE(ret, -1);
-    void* shared_memory = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    CHECK_NE(shared_memory, MAP_FAILED);
-    block_placement = Tensor::FromBlob(
-        shared_memory, DataType::kU8, block_density_tensor->Shape(), Context{kMMAP, 0}, "coll_cache_block_placement");
-  }
+  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, block_density_tensor->Shape(), "coll_cache_block_placement");
 
   solver::Solver s(block_density_tensor, block_freq_tensor, device_to_stream, device_to_cache_percent, mode, T_local, T_remote, T_cpu);
   s.solve_optimal(block_placement);
@@ -574,22 +561,7 @@ void solve_intuitive(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
   std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
   std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
 
-  {
-    int fd = 0;
-    fd = shm_open("coll_cache_block_placement", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-    if (fd == -1) {
-      std::cerr << errno << "\n";
-      CHECK_NE(fd, -1);
-    }
-    size_t shm_size = num_block * sizeof(uint8_t);
-    shm_size = RoundUp<size_t>(shm_size, 1<<21);
-    int ret = ftruncate(fd, shm_size);
-    CHECK_NE(ret, -1);
-    void* shared_memory = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    CHECK_NE(shared_memory, MAP_FAILED);
-    block_placement = Tensor::FromBlob(
-        shared_memory, DataType::kU8, {static_cast<size_t>(num_block)}, Context{kMMAP, 0}, "coll_cache_block_placement");
-  }
+  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
 
   block_placement->Ptr<uint8_t>()[0] = (1 << num_device) - 1;
   for (int i = 0; i < num_device; i++) {
@@ -637,22 +609,7 @@ void solve_partition(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
   std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
   std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
 
-  {
-    int fd = 0;
-    fd = shm_open("coll_cache_block_placement", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-    if (fd == -1) {
-      std::cerr << errno << "\n";
-      CHECK_NE(fd, -1);
-    }
-    size_t shm_size = num_block * sizeof(uint8_t);
-    shm_size = RoundUp<size_t>(shm_size, 1<<21);
-    int ret = ftruncate(fd, shm_size);
-    CHECK_NE(ret, -1);
-    void* shared_memory = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    CHECK_NE(shared_memory, MAP_FAILED);
-    block_placement = Tensor::FromBlob(
-        shared_memory, DataType::kU8, {static_cast<size_t>(num_block)}, Context{kMMAP, 0}, "coll_cache_block_placement");
-  }
+  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
 
   for (int i = 0; i < num_device; i++) {
     block_placement->Ptr<uint8_t>()[i] = (1 << i);

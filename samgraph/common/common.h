@@ -202,6 +202,11 @@ class Tensor {
   void ReShape(std::vector<size_t> new_shape);
 
   static TensorPtr Null();
+
+  static TensorPtr CreateShm(std::string shm_path, DataType dtype,
+                             std::vector<size_t> shape, std::string name);
+  static TensorPtr OpenShm(std::string shm_path, DataType dtype,
+                             std::vector<size_t> shape, std::string name);
   static TensorPtr Empty(DataType dtype, std::vector<size_t> shape, Context ctx,
                          std::string name);
   static TensorPtr EmptyNoScale(DataType dtype, std::vector<size_t> shape,

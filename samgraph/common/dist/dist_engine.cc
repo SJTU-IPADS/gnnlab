@@ -32,6 +32,7 @@
 #include "../cpu/cpu_engine.h"
 #include "../cuda/cuda_common.h"
 #include "../device.h"
+#include "../cpu/mmap_cpu_device.h"
 #include "../logging.h"
 #include "../profiler.h"
 #include "../run_config.h"
@@ -66,9 +67,7 @@ size_t get_cuda_used(Context ctx) {
 } // namespace
 
 DistSharedBarrier::DistSharedBarrier(int count) {
-  size_t nbytes = sizeof(pthread_barrier_t);
-  _barrier_ptr= static_cast<pthread_barrier_t*>(mmap(NULL, nbytes,
-                      PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0));
+  _barrier_ptr= Device::Get(MMAP(MMAP_RW_DEVICE))->AllocArray<pthread_barrier_t>(MMAP(MMAP_RW_DEVICE), 1);
   CHECK_NE(_barrier_ptr, MAP_FAILED);
   pthread_barrierattr_t attr;
   pthread_barrierattr_init(&attr);
@@ -719,19 +718,11 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _coll_cache_manager = new CollCacheManager();
   if ((RunConfig::cache_policy == kCollCache || RunConfig::cache_policy == kCollCacheIntuitive || RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {
     {
-      int fd = shm_open("coll_cache_block_placement", O_RDWR, 0);
-      CHECK_NE(fd, -1) << " errno is " << errno << "\n";
-
-      struct stat st;
-      fstat(fd, &st);
-      size_t file_nbytes = st.st_size;
-
-      size_t num_blocks = file_nbytes;
-
-      void* shared_memory = mmap(NULL, file_nbytes, PROT_READ, MAP_SHARED, fd, 0);
-      CHECK_NE(shared_memory, MAP_FAILED);
+      size_t file_nbytes, &num_blocks=file_nbytes;
+      int fd = cpu::MmapCPUDevice::OpenShm("coll_cache_block_placement", &file_nbytes);
+      void* shared_memory = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RO_DEVICE), file_nbytes, fd);
       _dataset->block_placement = Tensor::FromBlob(
-        shared_memory, DataType::kU8, {num_blocks}, Context{kMMAP, 0}, "coll_cache_block_placement");
+        shared_memory, DataType::kU8, {num_blocks}, MMAP(MMAP_RO_DEVICE), "coll_cache_block_placement");
     }
 
     * _coll_cache_manager = CollCacheManager::BuildCollCache(

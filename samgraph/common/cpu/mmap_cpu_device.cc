@@ -36,12 +36,47 @@ namespace cpu {
 
 void MmapCPUDevice::SetDevice(Context ctx) {}
 
+void *MmapCPUDevice::MapFd(Context ctx, size_t nbytes, int fd) {
+  int prot = PROT_READ;
+  if (ctx.device_id == MMAP_RW_DEVICE) {
+    prot |= PROT_WRITE;
+  }
+  // round up, since it may be freed by mmapcpudevice's free workspace
+  nbytes = RoundUp<size_t>(nbytes, 1<<21);
+  void* ptr = mmap(nullptr, nbytes, prot, MAP_SHARED | MAP_LOCKED, fd, 0);
+  CHECK_NE(ptr, (void *)-1);
+  return ptr;
+}
+
+int MmapCPUDevice::CreateShm(size_t nbytes, std::string name) {
+  int fd = 0;
+  fd = shm_open(name.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+  CHECK_NE(fd, -1) << "shm open faile, errno=" << errno;
+  int ret = ftruncate(fd, nbytes);
+  CHECK_NE(ret, -1);
+  return fd;
+}
+
+int MmapCPUDevice::OpenShm(std::string name, size_t *nbytes) {
+  int fd = 0;
+  fd = shm_open(name.c_str(), O_RDWR, 0);
+  CHECK_NE(fd, -1) << "shm open faile, errno=" << errno;
+  if (nbytes) {
+    struct stat st;
+    fstat(fd, &st);
+    *nbytes = st.st_size;
+  }
+  return fd;
+}
+
 void *MmapCPUDevice::AllocDataSpace(Context ctx, size_t nbytes,
                                     size_t alignment) {
   int prot = PROT_READ;
   if (ctx.device_id == MMAP_RW_DEVICE) {
     prot |= PROT_WRITE;
   }
+  // round up for faster transparent huge page allocation
+  nbytes = RoundUp<size_t>(nbytes, 1<<21);
   void* ptr = mmap(nullptr, nbytes, prot, MAP_ANON | MAP_SHARED | MAP_LOCKED, -1, 0);
   CHECK_NE(ptr, (void *)-1);
   return ptr;
@@ -80,6 +115,8 @@ size_t MmapCPUDevice::WorkspaceActualSize(Context ctx, void *ptr) {
 }
 
 void MmapCPUDevice::FreeWorkspace(Context ctx, void *data, size_t nbytes) {
+  // round up for faster transparent huge page allocation
+  nbytes = RoundUp<size_t>(nbytes, 1<<21);
   int ret = munmap(data, nbytes);
   CHECK_EQ(ret, 0);
 }
