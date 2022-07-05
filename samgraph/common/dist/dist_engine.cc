@@ -511,6 +511,8 @@ void DistEngine::UMSampleInit(int num_workers) {
     UMSampleCacheTableInit();
   }
 
+  _graph_pool = nullptr;
+  
   std::stringstream ss;
   for (int i = 0; i < RunConfig::num_sample_worker; i++)
     ss << RunConfig::unified_memory_ctxes[i] << " ";
