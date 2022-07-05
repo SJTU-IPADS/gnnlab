@@ -93,6 +93,8 @@ bool RunSampleSubLoopOnce() {
                           send_time);
   Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
   Profiler::Get().LogStep(task->key, kLogL1SamplerId, sampler->Ctx().device_id);
+  Profiler::Get().LogStep(task->key, kLogL1SampleTotalTime,
+    shuffle_time + sample_time + get_miss_cache_index_time + send_time);
 
   LOG(DEBUG) << "sampler(" << sampler->Ctx() << ") sample once done "
              << "task_key=" << task->key;

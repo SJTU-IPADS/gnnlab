@@ -176,6 +176,7 @@ _step_log_val = [0]
 # Step L1 Log
 kLogL1NumSample        = _get_next_enum_val(_step_log_val)
 kLogL1NumNode          = _get_next_enum_val(_step_log_val)
+kLogL1SampleTotalTime  = _get_next_enum_val(_step_log_val)
 kLogL1SampleTime       = _get_next_enum_val(_step_log_val)
 kLogL1SendTime         = _get_next_enum_val(_step_log_val)
 kLogL1RecvTime         = _get_next_enum_val(_step_log_val)
