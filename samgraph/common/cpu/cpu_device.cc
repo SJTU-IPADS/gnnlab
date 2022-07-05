@@ -40,8 +40,6 @@ void *CPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   } else if (ctx.device_id == CPU_CLIB_MALLOC_DEVICE) {
     int ret = posix_memalign(&ptr, alignment, nbytes);
     CHECK_EQ(ret, 0);
-  } else if (ctx.device_id == CPU_CUDA_HOST_MAPPED_DEVICE) {
-    CUDA_CALL(cudaHostAlloc(&ptr, nbytes, cudaHostAllocMapped));
   } else {
     CHECK(false);
   }
@@ -54,8 +52,6 @@ void CPUDevice::FreeDataSpace(Context ctx, void *ptr) {
     CUDA_CALL(cudaFreeHost(ptr));
   } else if (ctx.device_id == CPU_CLIB_MALLOC_DEVICE) {
     free(ptr);
-  } else if (ctx.device_id == CPU_CUDA_HOST_MAPPED_DEVICE) {
-    CUDA_CALL(cudaFreeHost(ptr));
   } else {
     CHECK(false);
   }

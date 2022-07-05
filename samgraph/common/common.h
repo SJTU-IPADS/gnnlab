@@ -288,7 +288,6 @@ typedef bool (*LoopOnceFunction)();
 
 constexpr static int CPU_CUDA_HOST_MALLOC_DEVICE = 0;
 constexpr static int CPU_CLIB_MALLOC_DEVICE = 1;
-constexpr static int CPU_CUDA_HOST_MAPPED_DEVICE = 2;
 
 constexpr static int MMAP_RO_DEVICE = 0;
 constexpr static int MMAP_RW_DEVICE = 1;
