@@ -86,7 +86,7 @@ TEST_F(Arch9Test, task_train_set) {
     for (auto &ts : train_set_ts) {
       train_set_num += ts->Shape()[0];
     }
-    CHECK_EQ(train_set_num, (int)origin_train_set->Shape()[0]);
+    EXPECT_EQ(train_set_num, (int)origin_train_set->Shape()[0]);
 
     // train set should be equal
     auto cur_train_set_ptr = std::make_unique<IdType[]>(train_set_num);
@@ -97,7 +97,7 @@ TEST_F(Arch9Test, task_train_set) {
     }
     std::sort(cur_train_set_ptr.get(), cur_train_set_ptr.get() + train_set_num);
     for (int i = 0; i < train_set_num; i++) {
-      CHECK_EQ(cur_train_set_ptr[i], origin_train_set_ptr[i]);
+      EXPECT_EQ(cur_train_set_ptr[i], origin_train_set_ptr[i]);
     }
   }
 }
