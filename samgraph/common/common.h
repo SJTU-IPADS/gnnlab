@@ -111,6 +111,7 @@ enum CachePolicy {
   kCollCache,
   kCollCacheIntuitive,
   kPartitionCache,
+  kPartRepCache,
 };
 
 enum class UMPolicy {

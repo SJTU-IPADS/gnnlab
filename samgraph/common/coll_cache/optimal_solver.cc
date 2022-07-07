@@ -458,7 +458,7 @@ void solve_intuitive(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
     return num_cached_nodes - partition_size;
   };
   auto partition_rb = [&](IdType partition_size) {
-    return num_cached_nodes + partition_size * (num_device - 1) - 1;
+    return std::max<IdType>(num_cached_nodes + partition_size * (num_device - 1), 1) - 1;
   };
 
   // const double T_partition = (T_local + (num_device - 1) * T_remote) / num_device;
@@ -529,7 +529,7 @@ void solve_intuitive(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
         // go right
         partition_size_max = partition_size;
       }
-      LOG(ERROR) << "[" << partition_size_min << "," << partition_size_max << "]";
+      LOG(DEBUG) << "[" << partition_size_min << "," << partition_size_max << "]";
     }
     partition_size = partition_size_max;
   }
@@ -556,6 +556,11 @@ void solve_intuitive(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
   }
   double local_w = rep_w + (total_w - cpu_w - rep_w) / num_device;
   double remote_w = (total_w - cpu_w - rep_w) / num_device * (num_device - 1);
+  std::cout << "coll_cache:optimal_rep_storage=" << partition_lb(partition_size) / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_part_storage=" << (partition_rb(partition_size) - partition_lb(partition_size)) / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_cpu_storage=" << 1 - (partition_rb(partition_size) / (double)num_node) << "\n";
+  std::cout << "coll_cache:optimal_local_storage=" << (partition_lb(partition_size) + partition_size) / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_remote_storage=" << partition_size * (num_device - 1) / (double)num_node << "\n";
   std::cout << "coll_cache:optimal_local_rate=" << local_w / total_w << "\n";
   std::cout << "coll_cache:optimal_remote_rate=" << remote_w / total_w << "\n";
   std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
@@ -583,8 +588,8 @@ void solve_partition(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
   // now calculate the boundary
   const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
 
-  LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
-
+  // LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
+  CHECK_EQ(stream_freq_list->Type(), kI32);
   const IdType * freq_array = stream_freq_list->Ptr<IdType>();
 
   const IdType partition_size = std::min(num_cached_nodes, num_node / num_device);
@@ -604,6 +609,11 @@ void solve_partition(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
   }
   double local_w = (total_w - cpu_w) / num_device;
   double remote_w = (total_w - cpu_w) / num_device * (num_device - 1);
+  std::cout << "coll_cache:optimal_rep_storage=" << 0 << "\n";
+  std::cout << "coll_cache:optimal_part_storage=" << partition_size * num_device / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_cpu_storage=" << 1 - (partition_size * num_device / (double)num_node) << "\n";
+  std::cout << "coll_cache:optimal_local_storage=" << partition_size / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_remote_storage=" << partition_size * (num_device - 1) / (double)num_node << "\n";
   std::cout << "coll_cache:optimal_local_rate=" << local_w / total_w << "\n";
   std::cout << "coll_cache:optimal_remote_rate=" << remote_w / total_w << "\n";
   std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
@@ -617,6 +627,65 @@ void solve_partition(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
   block_placement->Ptr<uint8_t>()[num_device] = 0;
 }
 
+void solve_partition_rep(TensorPtr stream_id_list, TensorPtr stream_freq_list, const IdType num_node,
+    std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent,
+    TensorPtr nid_to_block, TensorPtr & block_placement,
+    std::string _, double T_local = 2, double T_remote = 15, double T_cpu = 60) {
+  CHECK(stream_id_list->Shape()[0] == 1);
+  CHECK(stream_freq_list->Shape()[0] == 1);
+  CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
+  const int num_device = device_to_stream.size();
+  const int num_block = num_device + 2;
+  // the freq list must already be sorted
+  // now calculate the boundary
+  const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
+
+  LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
+
+  const IdType * freq_array = stream_freq_list->Ptr<IdType>();
+
+  const IdType partition_size = std::min(num_cached_nodes, (num_node - num_cached_nodes)/(num_device-1));
+  const IdType replicate_size = num_cached_nodes - partition_size;
+  CHECK_LE(replicate_size + partition_size * num_device, num_node);
+  const IdType cpu_size = num_node - replicate_size - partition_size * num_device;
+
+  double rep_w = 0, cpu_w = 0, total_w = 0;
+
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : rep_w, cpu_w, total_w)
+  for (IdType rank = 0; rank < num_node; rank++) {
+    IdType node_id = stream_id_list->Ptr<IdType>()[rank];
+    if (rank < replicate_size) {
+      nid_to_block->Ptr<IdType>()[node_id] = 0;
+      rep_w += freq_array[rank];
+    } else if (rank < replicate_size + partition_size * num_device) {
+      nid_to_block->Ptr<IdType>()[node_id] = (rank % num_device) + 1;
+    } else {
+      nid_to_block->Ptr<IdType>()[node_id] = num_device + 1;
+      cpu_w += freq_array[rank];
+    }
+    total_w += freq_array[rank];
+  }
+  double partition_w = total_w - cpu_w - rep_w;
+  double local_w = rep_w + partition_w / num_device;
+  double remote_w = partition_w / num_device * (num_device - 1);
+  std::cout << "coll_cache:optimal_rep_storage=" << replicate_size / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_part_storage=" << partition_size * num_device / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_cpu_storage=" << cpu_size / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_local_storage=" << (replicate_size + partition_size) / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_remote_storage=" << partition_size * (num_device - 1) / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_local_rate=" << local_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_remote_rate=" << remote_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
+  std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
+
+  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
+
+  block_placement->Ptr<uint8_t>()[0] = (1 << num_device) - 1;
+  for (int i = 0; i < num_device; i++) {
+    block_placement->Ptr<uint8_t>()[i + 1] = (1 << i);
+  }
+  block_placement->Ptr<uint8_t>()[num_device + 1] = 0;
+}
 }
 }
 }

@@ -112,6 +112,7 @@ void PreSampler::DoPreSample(){
       switch (RunConfig::cache_policy) {
         case kCollCacheIntuitive:
         case kCollCache:
+        case kPartRepCache:
         case kPartitionCache:
         case kCacheByPreSample:
           DoGPUSample(task);
@@ -148,6 +149,7 @@ void PreSampler::DoPreSample(){
   freq_table_sorted = nullptr;
   double sort_time = ts.Passed();
   Profiler::Get().LogInit(kLogInitL3PresampleSort, sort_time);
+  LOG(ERROR) << "presample spend " << sort_time << " on sort freq.\n";
   Timer t_reset;
   Profiler::Get().ResetStepEpoch();
   Profiler::Get().LogInit(kLogInitL3PresampleReset, t_reset.Passed());

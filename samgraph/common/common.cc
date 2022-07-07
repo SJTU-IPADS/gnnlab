@@ -657,6 +657,9 @@ std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
     case kPartitionCache:
       os << "partition_cache";
       break;
+    case kPartRepCache:
+      os << "part_rep_cache";
+      break;
     default:
       CHECK(false);
   }

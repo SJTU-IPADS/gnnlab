@@ -384,6 +384,7 @@ void Engine::LoadGraphDataset() {
       case kCollCache:
       case kCollCacheIntuitive:
       case kPartitionCache:
+      case kPartRepCache:
         break;
       default:
         CHECK(0);

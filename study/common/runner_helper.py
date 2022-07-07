@@ -95,7 +95,10 @@ class CachePolicy(Enum):
   partition_10 = 80
   partition_max = 81
 
-  no_cache = 100
+  part_rep_1 = 91
+  part_rep_max = 101
+
+  no_cache = 200
   def get_samgraph_policy_param_name(self):
     if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
       return "pre_sample"
@@ -105,6 +108,8 @@ class CachePolicy(Enum):
       return "coll_intuitive"
     if self.value in range(CachePolicy.partition_1.value, CachePolicy.partition_max.value):
       return "partition"
+    if self.value in range(CachePolicy.part_rep_1.value, CachePolicy.part_rep_max.value):
+      return "part_rep"
     name_list = [
       'degree',
       'heuristic',
@@ -128,6 +133,8 @@ class CachePolicy(Enum):
       return self.value - CachePolicy.coll_intuitive_1.value + 1
     if self.value in range(CachePolicy.partition_1.value, CachePolicy.partition_max.value):
       return self.value - CachePolicy.partition_1.value + 1
+    if self.value in range(CachePolicy.part_rep_1.value, CachePolicy.part_rep_max.value):
+      return self.value - CachePolicy.part_rep_1.value + 1
     return 1
   def get_log_fname(self):
     if self is CachePolicy.cache_by_presample:
