@@ -719,7 +719,9 @@ void DistEngine::Shutdown() {
   }
 
   delete _dataset;
-  delete _graph_pool;
+  if (_graph_pool != nullptr) {
+    delete _graph_pool;
+  }
   if (_shuffler != nullptr) {
     delete _shuffler;
   }
