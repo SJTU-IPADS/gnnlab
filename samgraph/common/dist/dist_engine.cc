@@ -209,18 +209,13 @@ void DistEngine::UMSampleLoadGraph() {
   _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU());
   _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU());
   _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU());
-  _dataset->indptr = Tensor::CopyTo(_dataset->indptr, 
-      GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
-  _dataset->indices = Tensor::CopyTo(_dataset->indices, 
-      GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+  _dataset->indptr = Tensor::UMCopyTo(_dataset->indptr, RunConfig::unified_memory_ctxes);
+  _dataset->indices = Tensor::UMCopyTo(_dataset->indices, RunConfig::unified_memory_ctxes);
   if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
-    _dataset->prob_table = Tensor::CopyTo(_dataset->prob_table, 
-        GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
-    _dataset->alias_table = Tensor::CopyTo(_dataset->alias_table, 
-        GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+    _dataset->prob_table = Tensor::UMCopyTo(_dataset->prob_table, RunConfig::unified_memory_ctxes);
+    _dataset->alias_table = Tensor::UMCopyTo(_dataset->alias_table, RunConfig::unified_memory_ctxes);
   } else if (RunConfig::sample_type == kWeightedKHopPrefix) {
-    _dataset->prob_prefix_table = Tensor::CopyTo(_dataset->prob_prefix_table, 
-        GPU_UM(RunConfig::unified_memory_ctxes[0].device_id));
+    _dataset->prob_prefix_table = Tensor::UMCopyTo(_dataset->prob_prefix_table, RunConfig::unified_memory_ctxes);
   }
 
   for (int i = 0; i < RunConfig::num_sample_worker; i++) {
