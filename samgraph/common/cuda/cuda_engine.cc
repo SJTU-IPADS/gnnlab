@@ -200,7 +200,6 @@ void GPUEngine::Init() {
 
   // sort dataset(UM)
   LOG(INFO) << "unified_memory: " << RunConfig::unified_memory << " | "
-            << "unified_memory_percentage: " << RunConfig::unified_memory_percentage << " | "
             << "unified_memory_policy: " << static_cast<int>(RunConfig::unified_memory_policy);
   if(RunConfig::unified_memory) {
     Timer sort_um_tm;

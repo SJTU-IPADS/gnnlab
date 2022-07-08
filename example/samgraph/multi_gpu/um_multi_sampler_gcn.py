@@ -93,6 +93,8 @@ def get_run_config():
     run_config['num_sample_worker'] = len(run_config['unified_memory_ctx'])
     run_config['sample_workers'] = run_config['unified_memory_ctx']
     
+    run_config['unified_memory_percentage'] = [1 / len(run_config['unified_memory_ctx']) for i in range(len(run_config['unified_memory_ctx']))]
+
     # print(run_config)
     assert(run_config['arch'] == 'arch9')
     assert(run_config['sample_type'] != 'random_walk')

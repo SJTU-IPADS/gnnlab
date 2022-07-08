@@ -190,10 +190,13 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
     LOG(DEBUG) << "unified_memory=True";
   }
   if(configs.count("unified_memory_percentage") > 0) {
-    RunConfig::unified_memory_percentage =
-        std::stod(configs["unified_memory_percentage"]);
-    LOG(INFO) << "unified_memory_percentage="
-              << RunConfig::unified_memory_percentage;
+    std::stringstream ss(configs["unified_memory_percentage"]);
+    double percent;
+    RunConfig::unified_memory_percentages.clear();
+    while (ss >> percent) {
+      RunConfig::unified_memory_percentages.push_back(percent);
+    }
+    CHECK(std::abs(std::accumulate(RunConfig::unified_memory_percentages.begin(), RunConfig::unified_memory_percentages.end(), 0.0) - 1) < 1e-8);
   }
   if(configs.count("um_policy") > 0) {
     if(configs["um_policy"] == "default") {
@@ -237,6 +240,13 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
                   ss << first << " ";
                   return init + ss.str();
                 });
+    LOG(INFO) << "unified_memory_percentages : "
+              << std::accumulate(RunConfig::unified_memory_percentages.begin(), RunConfig::unified_memory_percentages.end(),
+                  std::string{""},
+                [](std::string init, double percent) {
+                  return init + std::to_string(percent) + " ";
+                });
+    CHECK(RunConfig::unified_memory_ctxes.size() == RunConfig::unified_memory_percentages.size());
   }
   // check unified memory based on run arch
   if (RC::run_arch == RunArch::kArch9) {
