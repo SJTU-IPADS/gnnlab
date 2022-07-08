@@ -67,6 +67,7 @@ switch_init   = _basics.switch_init
 # multi-GPUs training APIs
 data_init      = _basics.data_init
 sample_init    = _basics.sample_init
+um_sample_init = _basics.um_sample_init
 train_init     = _basics.train_init
 extract_start  = _basics.extract_start
 num_local_step = _basics.num_local_step

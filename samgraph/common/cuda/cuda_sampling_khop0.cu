@@ -32,6 +32,7 @@
 #include "../run_config.h"
 #include "cuda_function.h"
 #include "cuda_utils.h"
+#include "cuda_engine.h"
 
 #define NEW_ALGO
 
@@ -252,27 +253,34 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
       sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
   IdType *tmp_dst = static_cast<IdType *>(
       sampler_device->AllocWorkspace(ctx, sizeof(IdType) * num_input * fanout));
-  LOG(DEBUG) << "GPUSample: cuda tmp_src malloc "
+  LOG(TRACE) << "GPUSample: cuda tmp_src malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
-  LOG(DEBUG) << "GPUSample: cuda tmp_dst malloc "
+  LOG(TRACE) << "GPUSample: cuda tmp_dst malloc "
              << ToReadableSize(num_input * fanout * sizeof(IdType));
 
 #ifndef NEW_ALGO
+    Timer _kt;
     sample_khop0<Constant::kCudaBlockSize, Constant::kCudaTileSize>
         <<<grid, block, 0, cu_stream>>>(
             indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
             random_states->GetStates(), random_states->NumStates());
     sampler_device->StreamSync(ctx, stream);
+    double kernel_time = _kt.Passed();
 #else
     const int WARP_SIZE = 32;
     const int BLOCK_WARP = 128 / WARP_SIZE;
     const int TILE_SIZE = BLOCK_WARP * 16;
     const dim3 block_t(WARP_SIZE, BLOCK_WARP);
     const dim3 grid_t((num_input + TILE_SIZE - 1) / TILE_SIZE);
+    Timer _kt;
+
     sample_khop0<WARP_SIZE, BLOCK_WARP, TILE_SIZE> <<<grid_t, block_t, 0, cu_stream>>> (
             indptr, indices, input, num_input, fanout, tmp_src, tmp_dst,
             random_states->GetStates(), random_states->NumStates());
     sampler_device->StreamSync(ctx, stream);
+    double kernel_time = _kt.Passed();
+    LOG(DEBUG) << "sample_khop0 input=" << num_input 
+              << " fanout=" << fanout << " " << kernel_time << "s";
 #endif
   double sample_time = t0.Passed();
 
@@ -280,7 +288,7 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
   size_t *item_prefix = static_cast<size_t *>(
       sampler_device->AllocWorkspace(ctx, sizeof(size_t) * 2 * (grid.x + 1)));
   size_t *const item_prefix_out = &item_prefix[grid.x + 1];
-  LOG(DEBUG) << "GPUSample: cuda item_prefix malloc "
+  LOG(TRACE) << "GPUSample: cuda item_prefix malloc "
              << ToReadableSize(sizeof(size_t) * 2 * (grid.x + 1));
 
   count_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
@@ -300,7 +308,7 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
                                           item_prefix, item_prefix_out, grid.x + 1,
                                           cu_stream));
   sampler_device->StreamSync(ctx, stream);
-  LOG(DEBUG) << "GPUSample: cuda workspace malloc "
+  LOG(TRACE) << "GPUSample: cuda workspace malloc "
              << ToReadableSize(workspace_bytes);
 
   compact_edge<Constant::kCudaBlockSize, Constant::kCudaTileSize>
@@ -314,7 +322,12 @@ void GPUSampleKHop0(const IdType *indptr, const IdType *indices,
   sampler_device->FreeWorkspace(ctx, tmp_src);
   sampler_device->FreeWorkspace(ctx, tmp_dst);
 
+  LOG(DEBUG) << "_debug sample time (key " << task_key << ") " << sample_time;
+  // LOG(DEBUG) << "kernel time tag " << kLogL3KHopSampleKernelTime << " val " << kernel_time;
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCooTime, sample_time);
+  Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleKernelTime, kernel_time);
+  Profiler::Get().LogEpochAdd(task_key, kLogEpochSampleCooTime, sample_time);
+  Profiler::Get().LogEpochAdd(task_key, kLogEpochSampleKernelTime, kernel_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCountEdgeTime,
                              count_edge_time);
   Profiler::Get().LogStepAdd(task_key, kLogL3KHopSampleCompactEdgesTime,

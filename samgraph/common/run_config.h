@@ -98,8 +98,9 @@ struct RunConfig {
   static bool                 unified_memory;
   // how much percentage of unified_memory data to be stored in GPU
   // note: unified_memory_percentage is in the range [0, 1]
-  static double               unified_memory_percentage;
+  static std::vector<double>  unified_memory_percentages;
   static UMPolicy             unified_memory_policy;
+  static std::vector<Context> unified_memory_ctxes;
 
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;

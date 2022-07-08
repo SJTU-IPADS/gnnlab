@@ -176,6 +176,7 @@ _step_log_val = [0]
 # Step L1 Log
 kLogL1NumSample        = _get_next_enum_val(_step_log_val)
 kLogL1NumNode          = _get_next_enum_val(_step_log_val)
+kLogL1SampleTotalTime  = _get_next_enum_val(_step_log_val)
 kLogL1SampleTime       = _get_next_enum_val(_step_log_val)
 kLogL1SendTime         = _get_next_enum_val(_step_log_val)
 kLogL1RecvTime         = _get_next_enum_val(_step_log_val)
@@ -189,6 +190,7 @@ kLogL1GraphBytes       = _get_next_enum_val(_step_log_val)
 kLogL1MissBytes        = _get_next_enum_val(_step_log_val)
 kLogL1PrefetchAdvanced = _get_next_enum_val(_step_log_val)
 kLogL1GetNeighbourTime = _get_next_enum_val(_step_log_val)
+kLogL1SamplerId        = _get_next_enum_val(_step_log_val)
 # Step L2 Log
 kLogL2ShuffleTime    = _get_next_enum_val(_step_log_val)
 kLogL2LastLayerTime  = _get_next_enum_val(_step_log_val)
@@ -202,6 +204,7 @@ kLogL2FeatCopyTime   = _get_next_enum_val(_step_log_val)
 kLogL2CacheCopyTime  = _get_next_enum_val(_step_log_val)
 # Step L3 Log
 kLogL3KHopSampleCooTime          = _get_next_enum_val(_step_log_val)
+kLogL3KHopSampleKernelTime       = _get_next_enum_val(_step_log_val)
 kLogL3KHopSampleSortCooTime      = _get_next_enum_val(_step_log_val)
 kLogL3KHopSampleCountEdgeTime    = _get_next_enum_val(_step_log_val)
 kLogL3KHopSampleCompactEdgesTime = _get_next_enum_val(_step_log_val)
@@ -231,6 +234,11 @@ kLogEpochSampleTime                  = _get_next_enum_val(_epoch_log_val)
 KLogEpochSampleGetCacheMissIndexTime = _get_next_enum_val(_epoch_log_val)
 kLogEpochSampleSendTime              = _get_next_enum_val(_epoch_log_val)
 kLogEpochSampleTotalTime             = _get_next_enum_val(_epoch_log_val)
+kLogEpochCoreSampleTime              = _get_next_enum_val(_epoch_log_val)
+kLogEpochSampleCooTime               = _get_next_enum_val(_epoch_log_val)
+kLogEpochIdRemapTime                 = _get_next_enum_val(_epoch_log_val)
+kLogEpochShuffleTime                 = _get_next_enum_val(_epoch_log_val)
+kLogEpochSampleKernelTime            = _get_next_enum_val(_epoch_log_val)
 kLogEpochCopyTime                    = _get_next_enum_val(_epoch_log_val)
 kLogEpochConvertTime                 = _get_next_enum_val(_epoch_log_val)
 kLogEpochTrainTime                   = _get_next_enum_val(_epoch_log_val)
@@ -386,6 +394,14 @@ class SamGraphBasics(object):
         return self.C_LIB_CTYPES.samgraph_sample_init(
             ctypes.c_int(worker_id),
             ctypes.c_char_p(str.encode(ctx))
+        )
+
+    '''
+     for um sampler sample
+    '''
+    def um_sample_init(self, num_workers):
+        return self.C_LIB_CTYPES.samgraph_um_sample_init(
+            ctypes.c_int(num_workers)
         )
 
     '''

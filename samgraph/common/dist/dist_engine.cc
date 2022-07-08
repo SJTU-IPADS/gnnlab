@@ -40,6 +40,7 @@
 #include "dist_shuffler.h"
 #include "dist_shuffler_aligned.h"
 #include "pre_sampler.h"
+#include "dist_um_sampler.h"
 
 namespace samgraph {
 namespace common {
@@ -128,7 +129,7 @@ void DistEngine::Init() {
   double init_load_ds_mmap_time = t_l2_init_load_ds_mmap.Passed();
 
   // later when shuffler is initialized after fork, need to ensure num step is equal
-  if (RunConfig::run_arch == kArch5) {
+  if (RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch9) {
     _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) /
                  _batch_size);
     // _num_local_step is initialized after fork, by shuffler
@@ -140,10 +141,15 @@ void DistEngine::Init() {
   }
 
   Timer t_l2_init_build_queue;
-  if (RunConfig::run_arch == kArch5) {
+  switch (RunConfig::run_arch)
+  {
+  case RunArch::kArch5:
+  case RunArch::kArch9:
     _memory_queue = new MessageTaskQueue(_num_step);
-  } else {
+    break;
+  default:
     _memory_queue = nullptr;
+    break;
   }
   double init_build_queue_time = t_l2_init_build_queue.Passed();
 
@@ -152,9 +158,15 @@ void DistEngine::Init() {
   for (int i = 0; i < cuda::QueueNum; i++) {
     LOG(DEBUG) << "Create task queue" << i;
     if (static_cast<cuda::QueueType>(i) == cuda::kDataCopy) {
-      _queues.push_back(RunConfig::run_arch == kArch5
-                            ? _memory_queue
-                            : new TaskQueue(RunConfig::max_copying_jobs));
+      switch (RunConfig::run_arch) {
+        case RunArch::kArch5:
+        case RunArch::kArch9:
+          _queues.push_back(_memory_queue);
+          break;
+        default:
+          _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
+          break;
+      }
     } else {
       _queues.push_back(new TaskQueue(RunConfig::max_sampling_jobs));
     }
@@ -193,6 +205,26 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
   LOG(DEBUG) << "SampleDataCopy finished!";
 }
 
+void DistEngine::UMSampleLoadGraph() {
+  _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU());
+  _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU());
+  _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU());
+  _dataset->indptr = Tensor::UMCopyTo(_dataset->indptr, RunConfig::unified_memory_ctxes);
+  _dataset->indices = Tensor::UMCopyTo(_dataset->indices, RunConfig::unified_memory_ctxes);
+  if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
+    _dataset->prob_table = Tensor::UMCopyTo(_dataset->prob_table, RunConfig::unified_memory_ctxes);
+    _dataset->alias_table = Tensor::UMCopyTo(_dataset->alias_table, RunConfig::unified_memory_ctxes);
+  } else if (RunConfig::sample_type == kWeightedKHopPrefix) {
+    _dataset->prob_prefix_table = Tensor::UMCopyTo(_dataset->prob_prefix_table, RunConfig::unified_memory_ctxes);
+  }
+
+  for (int i = 0; i < RunConfig::num_sample_worker; i++) {
+    LOG_MEM_USAGE(WARNING, "after um load graph", RunConfig::unified_memory_ctxes[i]);
+  }
+
+  LOG(DEBUG) << "samplers load graph to um";
+}
+
 void DistEngine::SampleCacheTableInit() {
   size_t num_nodes = _dataset->num_node;
   auto nodes = static_cast<const IdType*>(_dataset->ranking_nodes->Data());
@@ -229,6 +261,38 @@ void DistEngine::SampleCacheTableInit() {
 
   LOG(INFO) << "GPU cache (policy: " << RunConfig::cache_policy
             << ") " << num_cached_nodes << " / " << num_nodes;
+}
+
+void DistEngine::UMSampleCacheTableInit() {
+  size_t num_nodes = _dataset->num_node;
+  auto nodes = static_cast<const IdType*>(_dataset->ranking_nodes->Data());
+  size_t num_cached_nodes = num_nodes * RunConfig::cache_percentage;
+  
+  IdType* tmp_cpu_hashtb = static_cast<IdType*>(Device::Get(CPU())->AllocDataSpace(
+      CPU(), sizeof(IdType) * num_nodes));
+  
+  // fill cpu hash table with cached nodes
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+  for (size_t i = 0; i < num_nodes; i++) {
+    tmp_cpu_hashtb[i] = Constant::kEmptyKey;
+  }
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+  for (size_t i = 0; i < num_cached_nodes; i++) {
+    tmp_cpu_hashtb[nodes[i]] = i;
+  }
+
+  // broadcast cached nodes hash table to samplers
+  for (int i = 0; i < RunConfig::num_sample_worker; i++) {
+    _um_samplers[i]->CacheTableInit(tmp_cpu_hashtb);
+  }
+  for (int i = 0; i < RunConfig::num_sample_worker; i++) {
+    _um_samplers[i]->SyncSampler();
+  }
+
+  Device::Get(CPU())->FreeDataSpace(CPU(), tmp_cpu_hashtb);
+
+  LOG(INFO) << "GPU cache (policy: " << RunConfig::cache_policy << ") "
+            << num_cached_nodes << " / " << num_nodes;
 }
 
 void DistEngine::SampleInit(int worker_id, Context ctx) {
@@ -370,6 +434,98 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _initialize = true;
 }
 
+void DistEngine::UMSampleInit(int num_workers) {
+  if (_initialize) {
+    LOG(FATAL) << "DistEngine already initialized!";
+  }
+  if (!RunConfig::unified_memory) {
+    LOG(FATAL) << "UMSampleInit is used for unified memory sampling";
+  }
+  if (RunConfig::unified_memory_ctxes.size() != num_workers) {
+    LOG(FATAL) << "unified memory ctx size != num workers";
+  }
+  for (auto ctx : RunConfig::unified_memory_ctxes) {
+    if (ctx.device_type != DeviceType::kGPU && ctx.device_type != DeviceType::kGPU_UM) {
+      LOG(FATAL) << "expected unified memory sampler ctx is gpu, found " << ctx.device_type;
+    }
+  }
+  LOG(DEBUG) << "UMSampleInit with " << num_workers << " workers" ;
+  Timer t0;
+  _dist_type = DistType::Sample;
+  for (auto ctx : RunConfig::unified_memory_ctxes) {
+    std::stringstream ss;
+    ss << "before sampler " << ctx << " initialization";
+    LOG_MEM_USAGE(WARNING, ss.str(), ctx);
+  }
+  double time_cuda_context = t0.Passed();
+
+  Timer t_pin_memory;
+  if (_memory_queue) {
+    _memory_queue->PinMemory();
+  }
+  double time_pin_memory = t_pin_memory.Passed();
+
+  UMSampleLoadGraph();
+
+  LOG(INFO) << "UM sampler load graph done";
+  for (IdType i = 0; i < RunConfig::unified_memory_ctxes.size(); i++) {
+    _um_samplers.push_back(new DistUMSampler(*_dataset, i));
+  }
+
+  _num_local_step = 0;
+  for (IdType i = 0; i < RunConfig::unified_memory_ctxes.size(); i++) {
+    auto shuffler = _um_samplers[i]->GetShuffler();
+    CHECK(shuffler->NumStep() == _num_step);
+    _num_local_step = std::max(_num_local_step, shuffler->NumLocalStep());
+  }
+
+  // ctx,stream for presample
+  _sampler_ctx = _um_samplers[0]->Ctx();
+  _sample_stream = _um_samplers[0]->SampleStream();
+  _sampler_copy_stream = _um_samplers[0]->CopyStream();
+
+  // LOG(INFO) << DEBUG_PREFIX << RunConfig::UseGPUCache() << " " << RunConfig::cache_percentage;
+  if (RunConfig::UseGPUCache()) {
+    switch (RunConfig::cache_policy)
+    {
+    case kCacheByPreSampleStatic:
+    case kCacheByPreSample: {
+      auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
+      PreSampler::SetSingleton(new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node));
+      PreSampler::Get()->DoPreSample();
+      PreSampler::Get()->GetRankNode(_dataset->ranking_nodes);
+
+      std::stringstream ss;
+      ss << "after presample on " << _sampler_ctx;
+      LOG_MEM_USAGE(WARNING, ss.str().c_str(), _sampler_ctx);
+    }
+      break;
+    default:
+      break;
+    }
+    UMSampleCacheTableInit();
+  }
+
+  _graph_pool = nullptr;
+  
+  std::stringstream ss;
+  for (int i = 0; i < RunConfig::num_sample_worker; i++)
+    ss << RunConfig::unified_memory_ctxes[i] << " ";
+  LOG(INFO) << "UM Samplers" << " ( " << ss.str()  << " ) "<< "Init done";
+  _initialize = true;
+}
+
+// naive implemention, use std::map when #sampler increase
+DistUMSampler* DistEngine::GetUMSamplerByTid(std::thread::id tid) {
+  for (auto & sampler : _um_samplers) {
+    if (sampler->WorkerId() == tid) {
+      return sampler;
+    }
+  }
+  LOG(WARNING) << WARNING_PREFIX << "require null um sampler";
+  return nullptr;
+}
+
 void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Timer t0;
   _dist_type = dist_type;
@@ -422,7 +578,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
     }
     */
     Timer t_build_cache;
-    if (RunConfig::run_arch == kArch5) {
+    if (RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch9) {
       if (_dist_type == DistType::Extract) {
         _cache_manager = new DistCacheManager(
             _trainer_ctx, _dataset->feat->Data(), _dataset->feat->Type(),
@@ -497,6 +653,13 @@ void DistEngine::StartExtract(int count) {
       LOG(DEBUG) << "Started " << func.size() << " background threads.";
       break;
     }
+    case kArch9: {
+      ExtractFunction func;
+      func = GetArch9Loops();
+      _threads.push_back(new std::thread(func, count));
+      LOG(DEBUG) << "Started a extracting background threads.";
+      break;
+    }
     default:
       // Not supported arch 0
       CHECK(0);
@@ -506,7 +669,8 @@ void DistEngine::StartExtract(int count) {
 
 void DistEngine::Shutdown() {
   if (_dist_type == DistType::Sample) {
-    LOG_MEM_USAGE(WARNING, "sampler before shutdown", _sampler_ctx);
+    if (RunConfig::run_arch != RunArch::kArch9)
+      LOG_MEM_USAGE(WARNING, "sampler before shutdown", _sampler_ctx);
   }
   else if (_dist_type == DistType::Extract || _dist_type == DistType::Switch) {
     LOG_MEM_USAGE(WARNING, "trainer before shutdown", _trainer_ctx);
@@ -539,10 +703,12 @@ void DistEngine::Shutdown() {
   }
 
   if (_dist_type == DistType::Sample) {
-    Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
-    Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
-    Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
-    Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
+    if (RunConfig::run_arch != RunArch::kArch9) {
+      Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
+      Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sample_stream);
+      Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+      Device::Get(_sampler_ctx)->FreeStream(_sampler_ctx, _sampler_copy_stream);
+    }
   }
   else if (_dist_type == DistType::Extract || _dist_type == DistType::Switch) {
     Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
@@ -553,7 +719,9 @@ void DistEngine::Shutdown() {
   }
 
   delete _dataset;
-  delete _graph_pool;
+  if (_graph_pool != nullptr) {
+    delete _graph_pool;
+  }
   if (_shuffler != nullptr) {
     delete _shuffler;
   }
@@ -574,11 +742,18 @@ void DistEngine::Shutdown() {
   }
 
   if (_cache_hashtable != nullptr) {
-    Device::Get(_sampler_ctx)->FreeDataSpace(_sampler_ctx, _cache_hashtable);
+    if (RunConfig::run_arch != RunArch::kArch9)
+      Device::Get(_sampler_ctx)->FreeDataSpace(_sampler_ctx, _cache_hashtable);
   }
 
   if (_sampler_barrier != nullptr) {
     delete _sampler_barrier;
+  }
+
+  if (RunConfig::run_arch == RunArch::kArch9) {
+    for (auto& sampler : _um_samplers) {
+      delete sampler;
+    }
   }
 
   _dataset = nullptr;
@@ -604,6 +779,9 @@ void DistEngine::RunSampleOnce() {
     case kArch6:
       RunArch6LoopsOnce();
       break;
+    case kArch9:
+      RunArch9LoopsOnce(_dist_type);
+      break;
     default:
       CHECK(0);
   }
@@ -611,7 +789,7 @@ void DistEngine::RunSampleOnce() {
 }
 
 void DistEngine::ArchCheck() {
-  CHECK(RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch6);
+  CHECK(RunConfig::run_arch == kArch5 || RunConfig::run_arch == kArch6 || RunConfig::run_arch == kArch9);
   CHECK(!(RunConfig::UseGPUCache() && RunConfig::option_log_node_access));
 }
 

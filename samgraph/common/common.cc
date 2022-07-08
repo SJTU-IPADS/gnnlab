@@ -38,6 +38,7 @@
 #include "constant.h"
 #include "device.h"
 #include "logging.h"
+#include "run_config.h"
 
 namespace samgraph {
 namespace common {
@@ -151,7 +152,6 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   switch (ctx.device_type) {
     case kCPU:
     case kGPU:
-    case kGPU_UM:
       tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes,
                                                        Constant::kAllocNoScale);
       Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, nbytes, CPU(),
@@ -159,8 +159,67 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
       Device::Get(ctx)->StreamSync(ctx, stream);
       munmap(data, nbytes);
       break;
+    case kGPU_UM: {
+      LOG(FATAL) << "GPU_UM device should use `UMFromMmap`";
+    }
+      break;
     case kMMAP:
       tensor->_data = data;
+      break;
+    default:
+      CHECK(0);
+  }
+
+  return tensor;
+}
+
+TensorPtr Tensor::UMFromMmap(std::string filepath, DataType dtype,
+                             std::vector<size_t> shape, std::vector<Context> ctxes,
+                             std::string name, std::vector<StreamHandle> streams) {
+  CHECK(FileExist(filepath));
+
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+
+  struct stat st;
+  stat(filepath.c_str(), &st);
+  size_t file_nbytes = st.st_size;
+  CHECK_EQ(nbytes, file_nbytes);
+
+  int fd = open(filepath.c_str(), O_RDONLY, 0);
+  void *data = mmap(NULL, nbytes, PROT_READ, MAP_SHARED | MAP_FILE | MAP_LOCKED, fd, 0);
+  CHECK_NE(data, (void *)-1);
+  close(fd);
+
+  Context ctx = ctxes[0];
+  if (ctx.device_type == DeviceType::kGPU) {
+    ctx.device_type = DeviceType::kGPU_UM;
+  }
+  CHECK(ctx.device_type == DeviceType::kGPU_UM);
+
+  tensor->_dtype = dtype;
+  tensor->_nbytes = nbytes;
+  tensor->_shape = shape;
+  tensor->_ctx = ctx;
+  tensor->_name = name;
+
+  // if the device is cuda, we have to copy the data from host memory to cuda
+  // memory
+  switch (ctx.device_type) {
+    case kCPU:
+    case kGPU:
+    case kMMAP:
+      LOG(FATAL) << "CPU, GPU, MMAP device should use `FromMmap`";
+      break;
+    case kGPU_UM: {
+      tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
+      for (auto &ctx : ctxes) {
+        if(ctx.device_type == DeviceType::kGPU || ctx.device_type == DeviceType::kGPU_UM) {
+          Device::Get(ctx)->CopyDataFromTo(data, 0, tensor->_data, 0, tensor->NumBytes(), CPU(), ctx);
+        }
+      }
+      munmap(data, tensor->NumBytes());
+    }
       break;
     default:
       CHECK(0);
@@ -237,6 +296,7 @@ TensorPtr Tensor::Copy1D(TensorPtr source, size_t item_offset,
 
 Context CPU(int device_id) { return {kCPU, device_id}; }
 Context GPU(int device_id) { return {kGPU, device_id}; }
+Context GPU_UM(int device_id) { return {kGPU_UM, device_id}; }
 Context MMAP(int device_id) { return {kMMAP, device_id}; }
 
 TensorPtr Tensor::FromBlob(void *data, DataType dtype,
@@ -299,13 +359,51 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std
   tensor->_data =
       Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
   tensor->_name = name;
-  if (source->Ctx().device_type == kGPU && ctx.device_type != kGPU) {
-    Device::Get(source->Ctx())->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
+  if (RunConfig::run_arch == kArch9 && ctx.device_type == DeviceType::kGPU_UM) {
+    for (auto um_ctx : RunConfig::unified_memory_ctxes) {
+        Device::Get(um_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, um_ctx);
+    }
   } else {
-    Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
-                                    nbytes, source->_ctx, tensor->_ctx, stream);
+    if ((source->Ctx().device_type == kGPU || source->Ctx().device_type == kGPU_UM) && ctx.device_type != kGPU) {
+      Device::Get(source->Ctx())->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
+    } else {
+      Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
+                                      nbytes, source->_ctx, tensor->_ctx, stream);
+    }
   }
   Device::Get(tensor->_ctx)->StreamSync(tensor->_ctx, stream);
+
+  return tensor;
+}
+
+TensorPtr Tensor::UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams) {
+  return UMCopyTo(source, ctxes, streams, source->_name);
+}
+TensorPtr Tensor::UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams, std::string name) {
+  CHECK(source && source->Defined());
+  std::vector<size_t> shape = source->Shape();
+  auto dtype = source->_dtype;
+  CHECK_GT(shape.size(), 0);
+
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+
+  Context ctx = ctxes[0];
+  if (ctx.device_type == DeviceType::kGPU) {
+    ctx.device_type = DeviceType::kGPU_UM;
+  }
+  CHECK(ctx.device_type == DeviceType::kGPU_UM);
+ 
+  tensor->_dtype = source->_dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = source->_nbytes;
+  tensor->_ctx = ctx;
+  tensor->_data =
+      Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
+  tensor->_name = name;
+  for (auto um_ctx : ctxes) {
+      Device::Get(um_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, um_ctx);
+  }
 
   return tensor;
 }

@@ -48,22 +48,29 @@ void *GPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   } else if (ctx.device_type == kGPU_UM) {
     LOG(INFO) << "alloc unified memory " << ToReadableSize(nbytes);
     CUDA_CALL(cudaMallocManaged(&ret, nbytes));
-    // advice gpu um
-    size_t device_nbyte = static_cast<size_t>(1.0 * nbytes * RunConfig::unified_memory_percentage);
-    size_t host_nbyte = nbytes - device_nbyte;
-    LOG(INFO) << "unified_memory: in GPU " << ToReadableSize(device_nbyte)
-              << ", in CPU " << ToReadableSize(host_nbyte);
-    if (device_nbyte != 0) {
-        CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
-            cudaMemAdviseSetPreferredLocation, ctx.device_id));
-        CUDA_CALL(cudaMemAdvise(ret, device_nbyte,
-            cudaMemAdviseSetAccessedBy, ctx.device_id));
+    std::stringstream ss;
+    for (auto ctx : RunConfig::unified_memory_ctxes) {
+      ss << ctx << " ";
     }
-    if (host_nbyte != 0) {
-        CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
-            cudaMemAdviseSetPreferredLocation, cudaCpuDeviceId));
-        CUDA_CALL(cudaMemAdvise(ret + device_nbyte, host_nbyte,
-            cudaMemAdviseSetAccessedBy, ctx.device_id));
+    LOG(INFO) << "use " << ss.str() << "store graph!";
+
+    for (size_t i = 0, off = 0; i < RunConfig::unified_memory_ctxes.size(); i++) {
+      size_t cur_nbytes;
+      if (i + 1 == RunConfig::unified_memory_ctxes.size()) {
+        cur_nbytes = nbytes - off;
+      } else {
+        cur_nbytes = RunConfig::unified_memory_percentages[i] * nbytes;
+      }
+
+      if (cur_nbytes != 0) {
+        LOG(INFO) << "unified_memory in: " << RunConfig::unified_memory_ctxes[i] << " "
+                  << ToReadableSize(cur_nbytes);
+        CUDA_CALL(cudaMemAdvise(ret + off, cur_nbytes,
+          cudaMemAdviseSetPreferredLocation, RunConfig::unified_memory_ctxes[i].GetCudaDeviceId()));
+        CUDA_CALL(cudaMemAdvise(ret, nbytes, 
+          cudaMemAdviseSetAccessedBy, RunConfig::unified_memory_ctxes[i].GetCudaDeviceId()));
+      }
+      off += cur_nbytes;
     }
   } else {
       LOG(FATAL) << "device_type is not supported";

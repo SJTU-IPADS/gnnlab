@@ -15,6 +15,8 @@
  *
  */
 
+#include <fstream>
+
 #include "cuda_loops.h"
 
 #include "../device.h"
@@ -87,7 +89,9 @@ void DoGPUSample(TaskPtr task) {
     const size_t fanout = fanouts[i];
     const IdType *input = cur_input->CPtr<IdType>();
     const size_t num_input = cur_input->Shape()[0];
-    LOG(DEBUG) << "DoGPUSample: begin sample layer " << i;
+    LOG(DEBUG) << "DoGPUSample: begin sample layer=" << i 
+               << " ctx=" << sampler_ctx
+               << " num_input=" << num_input;
 
     IdType *out_src = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
     IdType *out_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_input * fanout);
@@ -99,11 +103,11 @@ void DoGPUSample(TaskPtr task) {
     size_t num_samples;
 
     LOG(DEBUG) << "DoGPUSample: size of out_src " << num_input * fanout;
-    LOG(DEBUG) << "DoGPUSample: cuda out_src malloc "
+    LOG(TRACE) << "DoGPUSample: cuda out_src malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGPUSample: cuda out_dst malloc "
+    LOG(TRACE) << "DoGPUSample: cuda out_dst malloc "
                << ToReadableSize(num_input * fanout * sizeof(IdType));
-    LOG(DEBUG) << "DoGPUSample: cuda num_out malloc "
+    LOG(TRACE) << "DoGPUSample: cuda num_out malloc "
                << ToReadableSize(sizeof(size_t));
 
     // Sample a compact coo graph
@@ -186,9 +190,9 @@ void DoGPUSample(TaskPtr task) {
     IdType *new_dst = sampler_device->AllocArray<IdType>(sampler_ctx, num_samples);
 
     LOG(DEBUG) << "GPUSample: size of new_src " << num_samples;
-    LOG(DEBUG) << "GPUSample: cuda new_src malloc "
+    LOG(TRACE) << "GPUSample: cuda new_src malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
-    LOG(DEBUG) << "GPUSample: cuda new_dst malloc "
+    LOG(TRACE) << "GPUSample: cuda new_dst malloc "
                << ToReadableSize(num_samples * sizeof(IdType));
 
     GPUMapEdges(out_src, new_src, out_dst, new_dst, num_samples,
@@ -231,9 +235,17 @@ void DoGPUSample(TaskPtr task) {
         Profiler::Get().LogStep(task->key, kLogL2LastLayerSize,
                                    num_unique);
     }
+    LOG(DEBUG) << "_debug task_key=" << task->key << " layer=" << i << " ctx=" << sampler_ctx
+               << " num_unique=" << num_unique << " num_sample=" << num_samples
+               << " remap_time ( " << remap_time << " )"
+               << " = populate_time ( " << populate_time << " )"
+               << " + edge_map_time ( " << map_edges_time << " )";
     Profiler::Get().LogStepAdd(task->key, kLogL2CoreSampleTime,
                                core_sample_time);
+    // LOG(WARNING) << "sam.kLogEpochCoreSampleTime" << kLogEpochCoreSampleTime;
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochCoreSampleTime, core_sample_time);
     Profiler::Get().LogStepAdd(task->key, kLogL2IdRemapTime, remap_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochIdRemapTime, remap_time);
     Profiler::Get().LogStepAdd(task->key, kLogL3RemapPopulateTime,
                                populate_time);
     Profiler::Get().LogStepAdd(task->key, kLogL3RemapMapNodeTime, 0);
@@ -469,6 +481,7 @@ void DoGPUSampleDyCache(TaskPtr task, std::function<void(TaskPtr)> & nbr_cb) {
   double prefetch_improved =  prefetc_improved.Passed();
   LOG(DEBUG) << "edge remapping done " << task->key;
 
+  LOG(DEBUG) << "task_key=" << task->key << " total_num_samples " << total_num_samples;
   Profiler::Get().LogStep(task->key, kLogL1NumNode, num_input);
   Profiler::Get().LogStep(task->key, kLogL1NumSample, total_num_samples);
   Profiler::Get().LogStepAdd(task->key, kLogL3RemapFillUniqueTime,

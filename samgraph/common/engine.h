@@ -57,12 +57,17 @@ class Engine {
   bool IsInitialized() { return _initialize; }
   bool IsShutdown() { return _should_shutdown; }
 
-  Context GetSamplerCtx() { return _sampler_ctx; }
+  Context GetSamplerCtx() { 
+    if (RunConfig::run_arch == RunArch::kArch9) {
+      LOG(WARNING) << WARNING_PREFIX << "arch9: get sampler ctx " << _sampler_ctx;
+    }
+    return _sampler_ctx; 
+  }
   Context GetTrainerCtx() { return _trainer_ctx; }
 
   const Dataset* GetGraphDataset() { return _dataset; }
 
-  GraphPool* GetGraphPool() { return _graph_pool; }
+  virtual GraphPool* GetGraphPool() { return _graph_pool; }
   std::shared_ptr<GraphBatch> GetGraphBatch() { return _graph_batch; };
   void SetGraphBatch(std::shared_ptr<GraphBatch> batch) {
     _graph_batch = batch;
@@ -123,6 +128,12 @@ class Engine {
   volatile int outer_counter = 0;
 
   static Engine* _engine;
+
+#ifdef UNIT_TEST
+public:
+  void SetTrainerCtx(Context ctx) { _trainer_ctx = ctx; }
+#endif
+
 };
 
 }  // namespace common

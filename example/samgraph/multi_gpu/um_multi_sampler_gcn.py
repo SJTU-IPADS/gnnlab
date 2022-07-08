@@ -1,5 +1,7 @@
 import argparse
+from ssl import ALERT_DESCRIPTION_INSUFFICIENT_SECURITY
 import time
+from typing import List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +15,8 @@ import sys
 import samgraph.torch as sam
 import datetime
 from common_config import *
+import re
+from collections import defaultdict
 
 
 class GCN(nn.Module):
@@ -59,6 +63,8 @@ def parse_args(default_run_config):
                            default=default_run_config['dropout'])
     argparser.add_argument('--weight-decay', type=float,
                            default=default_run_config['weight_decay'])
+    argparser.add_argument('--unified-memory', action='store_true', default=True)
+    argparser.add_argument('--unified-memory-ctx', type=str, nargs='+', default=argparse.SUPPRESS)
 
     return vars(argparser.parse_args())
 
@@ -75,10 +81,25 @@ def get_run_config():
     run_config['weight_decay'] = 0.0005
 
     run_config.update(parse_args(run_config))
-
     process_common_config(run_config)
-    assert(run_config['arch'] == 'arch5')
+
+    run_config['arch'] = 'arch9'
+    run_config['_arch'] = 9
+    # run_config['num_train_workers'] = 1
+    # run_config['train_workers'] = ['cuda:0']
+    # run_config['num_train_workers'] = 6
+    assert(run_config['num_train_worker'] > 0)
+    run_config['train_workers'] = [f'cuda:{i}' for i in range(run_config['num_train_worker'])]
+    run_config['num_sample_worker'] = len(run_config['unified_memory_ctx'])
+    run_config['sample_workers'] = run_config['unified_memory_ctx']
+    
+    run_config['unified_memory_percentage'] = [1 / len(run_config['unified_memory_ctx']) for i in range(len(run_config['unified_memory_ctx']))]
+
+    # print(run_config)
+    assert(run_config['arch'] == 'arch9')
     assert(run_config['sample_type'] != 'random_walk')
+    assert(len(set(run_config['sample_workers']) | set(run_config['train_workers'])) == run_config['num_train_worker'] + run_config['num_sample_worker'])
+    # assert(run_config['sample_workers'] == ['cuda:1', 'cuda:2'])
 
     run_config['num_fanout'] = run_config['num_layer'] = len(
         run_config['fanout'])
@@ -96,18 +117,19 @@ def run_init(run_config):
         sys.exit()
 
 
-def run_sample(worker_id, run_config):
-    num_worker = run_config['num_sample_worker']
+def run_sample(run_config):
+    ctxes:List[str] = run_config['unified_memory_ctx']
+    num_worker = len(ctxes)
+
     global_barrier = run_config['global_barrier']
 
-    ctx = run_config['sample_workers'][worker_id]
-
-    print('[Sample Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
-        worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
-    sam.sample_init(worker_id, ctx)
+    print(f'[Sample Worker] Started with PID {os.getpid()}, ctx: {ctxes}', flush=True)
+    # sam.sample_init(worker_id, ctx)
+    sam.um_sample_init(num_worker)
     sam.notify_sampler_ready(global_barrier)
 
     num_epoch = sam.num_epoch()
+    global_step = sam.steps_per_epoch()
     num_step = sam.num_local_step()
 
     epoch_sample_total_times_python = []
@@ -117,13 +139,24 @@ def run_sample(worker_id, run_config):
     epoch_get_cache_miss_index_times = []
     epoch_enqueue_samples_times = []
 
-    sampler0_step_sample_time = []
-    sampler0_step_coo_time = []
-    sampler0_step_remap_time = []
-    sampler0_step_num_samples = []
+    step_sampler = []
+    step_sample_total_times = []
+    step_sample_times = []
+    step_coo_times = []
+    step_core_sample_times = []
+    step_remap_times = []
+    step_shuffle_times = []
+    step_num_nodes = []
+    step_num_samples = []
+    sampler_epoch_sample_total_times = defaultdict(list)
+    sampler_epoch_sample_times = defaultdict(list)
+    sampler_epoch_core_sample_times = defaultdict(list)
+    sampler_epoch_coo_times = defaultdict(list)
+    sampler_epoch_remap_times = defaultdict(list)
+    sampler_epoch_shuffle_times = defaultdict(list)
 
-    print('[Sample Worker {:d}] run sample for {:d} epochs with {:d} steps'.format(
-        worker_id, num_epoch, num_step))
+    print('[Sample Worker (PID {}, ctx: {})] run sample for {} epochs with {} steps, global {} step'.format(
+        os.getpid(), ctxes, num_epoch, num_step, global_step), flush=True)
 
     # run start barrier
     global_barrier.wait()
@@ -137,7 +170,8 @@ def run_sample(worker_id, run_config):
         for step in range(num_step):
             sam.sample_once()
             # sam.report_step(epoch, step)
-
+        # print(f"epoch {epoch} done", flush=True)
+        # time.sleep(10)
         toc0 = time.time()
 
         if not run_config['pipeline']:
@@ -164,54 +198,108 @@ def run_sample(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
         )
 
-        if worker_id == 0:
-            # worker 0 offset is 0, so use local step
-            for step in range(num_step):
-                sampler0_step_sample_time.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime))
-                sampler0_step_coo_time.append(sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime))
-                sampler0_step_remap_time.append(sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime))
-                sampler0_step_num_samples.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumSample))
+        sampler_cur_epoch_sample_total_timee = defaultdict(int)
+        sampler_cur_epoch_sample_time = defaultdict(int)
+        sampler_cur_epoch_core_sample_time = defaultdict(int)
+        sampler_cur_epoch_coo_time = defaultdict(int)
+        sampler_cur_epoch_remap_time = defaultdict(int)
+        sampler_cur_epoch_shuffle_time = defaultdict(int)
+        for step in range(global_step):
+            step_sampler.append(int(sam.get_log_step_value(epoch, step, sam.kLogL1SamplerId)))
+            step_sample_total_times.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTotalTime))
+            step_sample_times.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime))
+            step_core_sample_times.append(sam.get_log_step_value(epoch, step, sam.kLogL2CoreSampleTime))
+            step_coo_times.append(sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime))
+            step_remap_times.append(sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime))
+            step_shuffle_times.append(sam.get_log_step_value(epoch, step, sam.kLogL2ShuffleTime))
+            step_num_nodes.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumNode))
+            step_num_samples.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumSample))
+            
+            cur_sampler = step_sampler[-1]
+            sampler_cur_epoch_sample_total_timee[cur_sampler] += step_sample_total_times[-1]
+            sampler_cur_epoch_sample_time[cur_sampler] += step_sample_times[-1]
+            sampler_cur_epoch_core_sample_time[cur_sampler] += step_core_sample_times[-1]
+            sampler_cur_epoch_coo_time[cur_sampler] += step_coo_times[-1]
+            sampler_cur_epoch_remap_time[cur_sampler] += step_remap_times[-1]
+            sampler_cur_epoch_shuffle_time[cur_sampler] += step_shuffle_times[-1]
+        for k in sampler_cur_epoch_sample_time.keys():
+            sampler_epoch_sample_total_times[k].append(sampler_cur_epoch_sample_total_timee[k])
+            sampler_epoch_sample_times[k].append(sampler_cur_epoch_sample_time[k])
+            sampler_epoch_core_sample_times[k].append(sampler_cur_epoch_core_sample_time[k])
+            sampler_epoch_coo_times[k].append(sampler_cur_epoch_coo_time[k])
+            sampler_epoch_remap_times[k].append(sampler_cur_epoch_remap_time[k])
+            sampler_epoch_shuffle_times[k].append(sampler_cur_epoch_shuffle_time[k])
+            
 
-    if worker_id == 0:
-        sam.report_step_average(num_epoch - 1, num_step - 1)
+    sam.report_step_average(epoch - 1, step - 1)
 
-    print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
-        worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
+    print('[Sampler Process {:d}] Avg Sampler Total Time(Profiler) {:.4f}'.format(
+        os.getpid(), np.mean(epoch_sample_total_times_profiler[1:])))
+    for k in sampler_epoch_sample_total_times.keys():
+        print('[Sample Worker {}] Sampler Total Time(Profiler) {:.4f}'.format(
+            k, np.mean(sampler_epoch_sample_total_times[k][1:])))
 
     # run end barrier
     global_barrier.wait()
 
-    if worker_id == 0:
-        sam.report_init()
+    sam.report_init()
 
-    if worker_id == 0:
-        test_result = []
-        test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
-        test_result.append(('get_cache_miss_index_time', np.mean(
-            epoch_get_cache_miss_index_times[1:])))
+    test_result = []
+    test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
+    test_result.append(('get_cache_miss_index_time', np.mean(
+        epoch_get_cache_miss_index_times[1:])))
+    test_result.append(
+        ('enqueue_samples_time', np.mean(epoch_enqueue_samples_times[1:])))
+    test_result.append(('epoch_time:sample_total', np.mean(
+        epoch_sample_total_times_python[1:])))
+    test_result.append(('epoch_time:sample_total(profiler)', np.mean(epoch_sample_total_times_profiler[1:])))
+    if run_config['pipeline']:
         test_result.append(
-            ('enqueue_samples_time', np.mean(epoch_enqueue_samples_times[1:])))
-        test_result.append(('epoch_time:sample_total', np.mean(
-            epoch_sample_total_times_python[1:])))
-        if run_config['pipeline']:
-            test_result.append(
-                ('pipeline_sample_epoch_time', np.mean(epoch_pipeline_sample_total_times_python[1:])))
-        test_result.append(('init:presample', sam.get_log_init_value(sam.kLogInitL2Presample)))
-        test_result.append(('init:load_dataset:mmap', sam.get_log_init_value(sam.kLogInitL3LoadDatasetMMap)))
-        test_result.append(('init:load_dataset:copy:sampler', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
-        test_result.append(('init:dist_queue:alloc+push',
-          sam.get_log_init_value(sam.kLogInitL3DistQueueAlloc)+sam.get_log_init_value(sam.kLogInitL3DistQueuePush)))
-        test_result.append(('init:dist_queue:pin:sampler', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
-        test_result.append(('init:internal:sampler', sam.get_log_init_value(sam.kLogInitL2InternalState)))
-        test_result.append(('init:cache:sampler', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
+            ('pipeline_sample_epoch_time', np.mean(epoch_pipeline_sample_total_times_python[1:])))
+    test_result.append(('init:presample', sam.get_log_init_value(sam.kLogInitL2Presample)))
+    test_result.append(('init:load_dataset:mmap', sam.get_log_init_value(sam.kLogInitL3LoadDatasetMMap)))
+    test_result.append(('init:load_dataset:copy:sampler', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
+    test_result.append(('init:dist_queue:alloc+push',
+        sam.get_log_init_value(sam.kLogInitL3DistQueueAlloc)+sam.get_log_init_value(sam.kLogInitL3DistQueuePush)))
+    test_result.append(('init:dist_queue:pin:sampler', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
+    test_result.append(('init:internal:sampler', sam.get_log_init_value(sam.kLogInitL2InternalState)))
+    test_result.append(('init:cache:sampler', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
 
-        test_result.append((f'step_sample_time:sampler({worker_id})', np.mean(sampler0_step_sample_time[num_step:])))
-        test_result.append((f'step_coo_time:sampler({worker_id})', np.mean(sampler0_step_coo_time[num_step:])))
-        test_result.append((f'step_remap_time:sampler({worker_id})', np.mean(sampler0_step_remap_time[num_step:])))
-        test_result.append((f'step_num_samples:sampler({worker_id})', np.mean(sampler0_step_num_samples[num_step:])))
-        for k, v in test_result:
-            print('test_result:{:}={:.6f}'.format(k, v))
+    for k in sampler_epoch_sample_times.keys():
+        test_result.append((f'epoch_time:sampler({k}):sample_time', np.mean(sampler_epoch_sample_times[k][1:])))
+        test_result.append((f'epoch_time:sampler({k}):core_sample_time', np.mean(sampler_epoch_core_sample_times[k][1:])))
+        test_result.append((f'epoch_time:sampler({k}):coo_time', np.mean(sampler_epoch_coo_times[k][1:])))
+        test_result.append((f'epoch_time:sampler({k}):remap:time', np.mean(sampler_epoch_remap_times[k][1:])))
+        test_result.append((f'epoch_time:sampler({k}):shuffle_time', np.mean(sampler_epoch_shuffle_times[k][1:])))
 
+    for ctx in ctxes:
+        id = int(re.search(r'[0-9]+', ctx).group(0))
+        my_sampler = np.array(step_sampler)[global_step:]
+        my_sample_times = (np.array(step_sample_times)[global_step:])[my_sampler == id]
+        my_core_sample_times = (np.array(step_core_sample_times)[global_step:])[my_sampler == id]
+        my_coo_times = (np.array(step_coo_times)[global_step:])[my_sampler == id]
+        my_remap_times = (np.array(step_remap_times)[global_step:])[my_sampler == id]
+        my_shuffle_times = (np.array(step_shuffle_times)[global_step:])[my_sampler == id]
+        my_num_nodes = (np.array(step_num_nodes)[global_step:])[my_sampler == id]
+        my_num_samples = (np.array(step_num_samples)[global_step:])[my_sampler == id]
+        test_result.append((f'sampler({ctx}):total_sample_task_cnt', len(my_sample_times)))
+        test_result.append((f'sampler({ctx}):num_nodes', np.mean(my_num_nodes)))
+        test_result.append((f'sampler({ctx}):num_samples', np.mean(my_num_samples)))
+        test_result.append((f'step_time:sampler({ctx}):sample_time', np.mean(my_sample_times)))
+        test_result.append((f'step_time:sampler({ctx}):sample_core_time', np.mean(my_core_sample_times)))
+        test_result.append((f'step_time:sampler({ctx}):sample_coo_time', np.mean(my_coo_times)))
+        test_result.append((f'step_time:sampler({ctx}):remap_time', np.mean(my_remap_times)))
+        test_result.append((f'step_time:sampler({ctx}):shuffle_time', np.mean(my_shuffle_times)))
+
+        # print(f'sampler({ctx}) sample_time {my_sample_times.tolist()}')
+        # print(f'sampler({ctx}) sample_coo_time {my_coo_times.tolist()}')
+        # print(f'sampler({ctx}) remap_time {my_remap_times.tolist()}')
+        # print(f'sampler({ctx}) shuffle time {my_shuffle_times.tolist()}')
+
+    for k, v in test_result:
+        print('test_result:{:}={:.6f}'.format(k, v), flush=True)
+
+    sys.stdout.flush()
     global_barrier.wait()  # barrier for pretty print
     # trainer print result
 
@@ -329,13 +417,13 @@ def run_train(worker_id, run_config):
 
             t3 = time.time()
 
-            copy_time = sam.get_log_step_value_by_key(batch_key, sam.kLogL1CopyTime)
+            copy_time = sam.get_log_step_value(epoch, step, sam.kLogL1CopyTime)
             convert_time = t2 - t1
             train_time = t3 - t2
             total_time = t3 - t1
 
-            sam.log_step_by_key(batch_key, sam.kLogL1TrainTime, train_time)
-            sam.log_step_by_key(batch_key, sam.kLogL1ConvertTime, convert_time)
+            sam.log_step(epoch, step, sam.kLogL1TrainTime, train_time)
+            sam.log_step(epoch, step, sam.kLogL1ConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
@@ -392,11 +480,11 @@ def run_train(worker_id, run_config):
 
     # sampler print init and result
     global_barrier.wait()  # barrier for pretty print
-    # sam.report_step_average(num_epoch - 1, num_step - 1)
-    # sam.report_init()
+    sam.report_step_average(num_epoch - 1, num_step - 1)
+    sam.report_init()
 
     if worker_id == 0:
-        sam.report_step_average(num_epoch - 1, num_step - 1)
+        sam.report_step_average(epoch - 1, step - 1)
         sam.report_init()
         test_result = []
         test_result.append(('epoch_time:copy_time',
@@ -440,14 +528,17 @@ if __name__ == '__main__':
 
     # global barrier is used to sync all the sample workers and train workers
     run_config['global_barrier'] = mp.Barrier(
-        num_sample_worker + num_train_worker, timeout=get_default_timeout())
+        1 + num_train_worker, timeout=get_default_timeout())
 
     workers = []
     # sample processes
-    for worker_id in range(num_sample_worker):
-        p = mp.Process(target=run_sample, args=(worker_id, run_config))
-        p.start()
-        workers.append(p)
+    samplers = mp.Process(target=run_sample, args=(run_config, ))
+    samplers.start()
+    workers.append(samplers)
+    # for worker_id in range(num_sample_worker):
+    #     p = mp.Process(target=run_sample, args=(worker_id, run_config))
+    #     p.start()
+    #     workers.append(p)
 
     # train processes
     for worker_id in range(num_train_worker):

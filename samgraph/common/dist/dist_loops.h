@@ -29,6 +29,7 @@ namespace dist {
 
 void RunArch5LoopsOnce(DistType dist_type);
 void RunArch6LoopsOnce();
+void RunArch9LoopsOnce(DistType dist_type);
 
 // common steps
 TaskPtr DoShuffle();
@@ -52,6 +53,7 @@ void DoArch6CacheFeatureCopy(TaskPtr task);
 typedef void (*ExtractFunction)(int);
 ExtractFunction GetArch5Loops();
 std::vector<LoopFunction> GetArch6Loops();
+ExtractFunction GetArch9Loops();
 
 }  // namespace dist
 }  // namespace common

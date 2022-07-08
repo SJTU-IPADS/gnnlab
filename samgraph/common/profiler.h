@@ -60,6 +60,7 @@ enum LogStepItem {
   // L1
   kLogL1NumSample = 0,
   kLogL1NumNode,
+  kLogL1SampleTotalTime,
   kLogL1SampleTime,
   kLogL1SendTime,
   kLogL1RecvTime,
@@ -73,6 +74,7 @@ enum LogStepItem {
   kLogL1MissBytes,
   kLogL1PrefetchAdvanced,
   kLogL1GetNeighbourTime,
+  kLogL1SamplerId, // for arch9
   // L2
   kLogL2ShuffleTime,
   kLogL2LastLayerTime,
@@ -86,6 +88,7 @@ enum LogStepItem {
   kLogL2CacheCopyTime,
   // L3
   kLogL3KHopSampleCooTime,
+  kLogL3KHopSampleKernelTime,
   kLogL3KHopSampleSortCooTime,
   kLogL3KHopSampleCountEdgeTime,
   kLogL3KHopSampleCompactEdgesTime,
@@ -117,13 +120,18 @@ enum LogEpochItem {
   KLogEpochSampleGetCacheMissIndexTime,  // for arch5
   kLogEpochSampleSendTime,               // for arch5
   kLogEpochSampleTotalTime,              // for arch5
+  kLogEpochCoreSampleTime,
+  kLogEpochSampleCooTime,
+  kLogEpochIdRemapTime,
+  kLogEpochShuffleTime,
+  kLogEpochSampleKernelTime,
   kLogEpochCopyTime,
   kLogEpochConvertTime,
   kLogEpochTrainTime,
   kLogEpochTotalTime,
   kLogEpochFeatureBytes,
   kLogEpochMissBytes,
-  kNumLogEpochItems
+  kNumLogEpochItems,
 };
 
 struct LogData {

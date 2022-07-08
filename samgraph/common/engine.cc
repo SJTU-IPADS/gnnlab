@@ -79,6 +79,7 @@ void Engine::Create() {
       break;
     case kArch5:
     case kArch6:
+    case kArch9:
       LOG(INFO) << "Use Dist Engine (Arch " << RunConfig::run_arch << ")";
       _engine = new dist::DistEngine();
       break;
@@ -151,14 +152,28 @@ void Engine::LoadGraphDataset() {
   _dataset->num_edge = meta[Constant::kMetaNumEdge];
   _dataset->num_class = meta[Constant::kMetaNumClass];
 
-  _dataset->indptr =
-      Tensor::FromMmap(_dataset_path + Constant::kIndptrFile, DataType::kI32,
-                       {meta[Constant::kMetaNumNode] + 1},
-                       ctx_map[Constant::kIndptrFile], "dataset.indptr");
-  _dataset->indices =
-      Tensor::FromMmap(_dataset_path + Constant::kIndicesFile, DataType::kI32,
-                       {meta[Constant::kMetaNumEdge]},
-                       ctx_map[Constant::kIndicesFile], "dataset.indices");
+  if (ctx_map[Constant::kIndptrFile].device_type != DeviceType::kGPU_UM) {
+    _dataset->indptr =
+        Tensor::FromMmap(_dataset_path + Constant::kIndptrFile, DataType::kI32,
+                        {meta[Constant::kMetaNumNode] + 1},
+                        ctx_map[Constant::kIndptrFile], "dataset.indptr");
+  } else {
+    _dataset->indptr = 
+        Tensor::UMFromMmap(_dataset_path + Constant::kIndptrFile, DataType::kI32,
+                          {meta[Constant::kMetaNumNode] + 1},
+                          RunConfig::unified_memory_ctxes, "dataset.indptr");
+  }
+  if (ctx_map[Constant::kIndicesFile].device_type != DeviceType::kGPU_UM) {
+    _dataset->indices =
+        Tensor::FromMmap(_dataset_path + Constant::kIndicesFile, DataType::kI32,
+                        {meta[Constant::kMetaNumEdge]},
+                        ctx_map[Constant::kIndicesFile], "dataset.indices");
+  } else {
+    _dataset->indices =
+        Tensor::UMFromMmap(_dataset_path + Constant::kIndicesFile, DataType::kI32,
+                          {meta[Constant::kMetaNumEdge]},
+                          RunConfig::unified_memory_ctxes, "dataset.indices");
+  }
 
   if (RunConfig::option_fake_feat_dim != 0) {
     meta[Constant::kMetaFeatDim] = RunConfig::option_fake_feat_dim;

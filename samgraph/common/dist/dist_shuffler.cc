@@ -93,25 +93,41 @@ DistShuffler::DistShuffler(TensorPtr input, size_t num_epoch, size_t batch_size,
   if (sampler_id == (num_sampler - 1)) {
     _num_local_data = std::min(_num_local_data, _num_data - _dataset_offset);
   }
+
+  Context sampler_ctx ;
+  if (RunConfig::run_arch == RunArch::kArch9) {
+    sampler_ctx = RunConfig::unified_memory_ctxes[sampler_id];
+  } else {
+    sampler_ctx = Engine::Get()->GetSamplerCtx();
+  }
+
   _gpu_data =
       Tensor::Empty(input->Type(), {_num_local_data},
-                    Engine::Get()->GetSamplerCtx(),
+                    sampler_ctx,
                     "cuda_shuffler_dev_input_" + std::to_string(sampler_id));
 
   _initialized = false;
   _cur_step = _num_step;
 
   if (RunConfig::option_sanity_check) {
-    auto ctx = Engine::Get()->GetSamplerCtx();
-    auto device = Device::Get(ctx);
+    auto device = Device::Get(sampler_ctx);
     StreamHandle stream = DistEngine::Get()->GetSamplerCopyStream();
     auto cu_stream = static_cast<cudaStream_t>(stream);
     auto num_node = Engine::Get()->GetGraphDataset()->num_node;
     _sanity_check_map = static_cast<IdType *>(
-        device->AllocDataSpace(ctx, num_node * sizeof(IdType)));
-    CUDA_CALL(cudaMemsetAsync(_sanity_check_map, 0, sizeof(IdType) * num_node, cu_stream));
-    device->StreamSync(ctx, stream);
+        device->AllocDataSpace(sampler_ctx, num_node * sizeof(IdType)));
+    if (RunConfig::run_arch != RunArch::kArch9) {
+      CUDA_CALL(cudaMemsetAsync(_sanity_check_map, 0, sizeof(IdType) * num_node, cu_stream));
+      device->StreamSync(sampler_ctx, stream);
+    } else {
+      CUDA_CALL(cudaMemset(_sanity_check_map, 0, sizeof(IdType) * num_node));
+    }
   }
+
+  LOG(DEBUG) << "sampler " << sampler_ctx << " create shuffler done"
+             << " data_size=" << _num_local_data
+             << " num_step=" << _num_step
+             << " total_step=" << (_num_data + _batch_size - 1) / _batch_size;
 }
 
 void DistShuffler::ReShuffle(StreamHandle stream) {

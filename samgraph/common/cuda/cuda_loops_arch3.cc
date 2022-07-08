@@ -70,10 +70,11 @@ bool RunSampleSubLoopOnce() {
     double sample_time = t1.Passed();
 
     next_q->AddTask(task);
-
+  
     Profiler::Get().LogStep(task->key, kLogL1SampleTime,
                             shuffle_time + sample_time);
     Profiler::Get().LogStep(task->key, kLogL2ShuffleTime, shuffle_time);
+    Profiler::Get().LogEpochAdd(task->key, kLogEpochShuffleTime, shuffle_time);
     Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
                                 shuffle_time + sample_time);
   } else {

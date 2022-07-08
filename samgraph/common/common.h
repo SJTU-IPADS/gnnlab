@@ -49,7 +49,7 @@ enum DataType {
   kI64 = 6,
 };
 
-enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM= 3 };
+enum DeviceType { kCPU = 0, kMMAP = 1, kGPU = 2, kGPU_UM = 3};
 
 enum SampleType {
   kKHop0 = 0,  // vertex-parallel
@@ -70,6 +70,7 @@ enum SampleType {
 // arch5: distributed mode (CPU/GPU sampling + multi-GPUs traning)
 // arch6: sgnn mode
 // arch7: sgnn mode but use pytorch extracting
+// arch9 : base on arch5 but store single graph on multi-gpu um
 enum RunArch {
   kArch0 = 0,
   kArch1,
@@ -78,7 +79,8 @@ enum RunArch {
   kArch4,
   kArch5,
   kArch6,
-  kArch7
+  kArch7,
+  kArch9 = 9,
 };
 
 // cache by degree: cache the nodes with large degree
@@ -110,9 +112,38 @@ struct Context {
   Context() {}
   Context(DeviceType type, int id) : device_type(type), device_id(id) {}
   Context(std::string name);
+  int GetCudaDeviceId() const {
+    if (device_type == DeviceType::kCPU || device_type == DeviceType::kMMAP) {
+      return -1;
+    } else {
+      return device_id;
+    }
+  }
   bool operator==(const Context& rhs) {
     return this->device_type == rhs.device_type &&
            this->device_id == rhs.device_id;
+  }
+  friend std::ostream& operator<<(std::ostream& os, const Context& ctx) {
+    switch (ctx.device_type)
+    {
+    case DeviceType::kMMAP:
+      os << "mmap:" << ctx.device_id;
+      return os;
+    case DeviceType::kCPU:
+      os << "cpu:" << ctx.device_id;    
+      return os;
+    case DeviceType::kGPU:
+      os << "gpu:" << ctx.device_id;
+      return os;
+    case DeviceType::kGPU_UM:
+      os << "gpu_um:" << ctx.device_id;
+      return os;
+    default:
+      LOG(FATAL) << "not support device type "
+                 << static_cast<int>(ctx.device_type) << ":" << ctx.device_id;
+      // os << "not supprt:" << static_cast<int>(ctx.device_type) << ":" << ctx.device_id;
+      return os;
+    }
   }
 };
 
@@ -159,11 +190,16 @@ class Tensor {
   static TensorPtr FromMmap(std::string filepath, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name, StreamHandle stream = nullptr);
+  static TensorPtr UMFromMmap(std::string filepath, DataType dtype,
+                              std::vector<size_t> shape, std::vector<Context> ctxes,
+                              std::string name, std::vector<StreamHandle> streams = {});
   static TensorPtr FromBlob(void* data, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name);
   static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr);
   static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name);
+  static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams = {});
+  static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams, std::string name);
   static TensorPtr CopyBlob(const void * data, DataType dtype,
                             std::vector<size_t> shape, Context from_ctx,
                             Context to_ctx, std::string name, StreamHandle stream = nullptr);
@@ -264,6 +300,7 @@ constexpr static int MMAP_RW_DEVICE = 1;
 Context CPU(int device_id = CPU_CUDA_HOST_MALLOC_DEVICE);
 Context CPU_CLIB(int device_id = CPU_CLIB_MALLOC_DEVICE);
 Context GPU(int device_id = 0);
+Context GPU_UM(int device_id = 0);
 Context MMAP(int device_id = MMAP_RO_DEVICE);
 
 DataType DataTypeParseName(std::string name);
