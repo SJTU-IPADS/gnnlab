@@ -196,15 +196,15 @@ class Tensor {
   static TensorPtr FromBlob(void* data, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name);
-  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr);
-  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name);
+  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr, double scale = 1.0);
+  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name, double scale = 1.0);
   static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams = {});
   static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams, std::string name);
   static TensorPtr CopyBlob(const void * data, DataType dtype,
                             std::vector<size_t> shape, Context from_ctx,
                             Context to_ctx, std::string name, StreamHandle stream = nullptr);
 
- private:
+ public:
   void* _data;
   DataType _dtype;
   Context _ctx;

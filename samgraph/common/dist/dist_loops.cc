@@ -388,9 +388,9 @@ void DoGraphCopy(TaskPtr task) {
       continue;
     }
     graph->row = Tensor::CopyTo(graph->row, trainer_ctx, copy_stream,
-        "train_graph.row_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
+        "train_graph.row_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i), Constant::kAllocScale);
     graph->col = Tensor::CopyTo(graph->col, trainer_ctx, copy_stream,
-        "train_graph.col_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i));
+        "train_graph.col_cuda_train_" + std::to_string(task->key) + "_" + std::to_string(i), Constant::kAllocScale);
 
     LOG(DEBUG) << "GraphCopyDevice2DeviceLoop: cuda train_row malloc "
                << ToReadableSize(graph->row->NumBytes());
@@ -499,10 +499,9 @@ void DoFeatureCopy(TaskPtr task) {
   CHECK_EQ(cpu_label->Ctx().device_type, CPU().device_type);
 
   task->input_feat = Tensor::CopyTo(cpu_feat, trainer_ctx, copy_stream,
-      "task.train_feat_cuda_" + std::to_string(task->key));
+      "task.train_feat_cuda_" + std::to_string(task->key), Constant::kAllocScale);
   task->output_label = Tensor::CopyTo(cpu_label, trainer_ctx, copy_stream,
-      "task.train_label_cuda" + std::to_string(task->key));
-  trainer_device->StreamSync(trainer_ctx, copy_stream);
+      "task.train_label_cuda" + std::to_string(task->key), Constant::kAllocScale);
 
   Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
                           task->input_feat->NumBytes());
