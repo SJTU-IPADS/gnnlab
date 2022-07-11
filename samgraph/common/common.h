@@ -204,7 +204,7 @@ class Tensor {
                             std::vector<size_t> shape, Context from_ctx,
                             Context to_ctx, std::string name, StreamHandle stream = nullptr);
 
- public:
+ private:
   void* _data;
   DataType _dtype;
   Context _ctx;
