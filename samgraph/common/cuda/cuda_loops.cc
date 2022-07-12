@@ -819,9 +819,9 @@ void DoFeatureCopy(TaskPtr task) {
   CHECK_EQ(cpu_label->Ctx().device_type, CPU().device_type);
 
   auto train_feat = Tensor::CopyTo(cpu_feat, trainer_ctx, copy_stream,
-      "task.train_feat_cuda_" + std::to_string(task->key), Constant::kAllocScale);
+      "task.train_feat_cuda_" + std::to_string(task->key));
   auto train_label = Tensor::CopyTo(cpu_label, trainer_ctx, copy_stream,
-      "task.train_label_cuda" + std::to_string(task->key), Constant::kAllocScale);
+      "task.train_label_cuda" + std::to_string(task->key));
   trainer_device->StreamSync(trainer_ctx, copy_stream);
 
   task->input_feat = train_feat;
