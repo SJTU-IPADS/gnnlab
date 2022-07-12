@@ -340,10 +340,10 @@ TensorPtr Tensor::CopyBlob(const void *data, DataType dtype,
   return tensor;
 }
 
-TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream) {
-  return CopyTo(source, ctx, stream, source->_name);
+TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, double scale) {
+  return CopyTo(source, ctx, stream, source->_name, scale);
 }
-TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name) {
+TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name, double scale) {
   CHECK(source && source->Defined());
   std::vector<size_t> shape = source->Shape();
   auto dtype = source->_dtype;
@@ -357,7 +357,7 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std
   tensor->_nbytes = source->_nbytes;
   tensor->_ctx = ctx;
   tensor->_data =
-      Device::Get(ctx)->AllocWorkspace(ctx, nbytes, Constant::kAllocNoScale);
+      Device::Get(ctx)->AllocWorkspace(ctx, nbytes, scale);
   tensor->_name = name;
   if (RunConfig::run_arch == kArch9 && ctx.device_type == DeviceType::kGPU_UM) {
     for (auto um_ctx : RunConfig::unified_memory_ctxes) {

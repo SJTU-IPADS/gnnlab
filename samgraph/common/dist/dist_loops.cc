@@ -502,7 +502,6 @@ void DoFeatureCopy(TaskPtr task) {
       "task.train_feat_cuda_" + std::to_string(task->key));
   task->output_label = Tensor::CopyTo(cpu_label, trainer_ctx, copy_stream,
       "task.train_label_cuda" + std::to_string(task->key));
-  trainer_device->StreamSync(trainer_ctx, copy_stream);
 
   Profiler::Get().LogStep(task->key, kLogL1FeatureBytes,
                           task->input_feat->NumBytes());
