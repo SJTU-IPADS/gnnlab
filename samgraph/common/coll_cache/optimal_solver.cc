@@ -125,7 +125,7 @@ void split_blocks(TensorPtr stream_id_list, TensorPtr stream_freq_list, const Id
    * Map each node to a rank for each stream.
    * Nodes with same rank for every stream forms a block.
    */
-  LOG(INFO) << "mapping nid to rank...\n";
+  LOG(INFO) << "mapping nid to rank...";
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (uint32_t orig_rank = 0; orig_rank < num_node; orig_rank++) {
     for (uint32_t stream_idx = 0; stream_idx < num_stream; stream_idx++) {
@@ -153,7 +153,7 @@ void split_blocks(TensorPtr stream_id_list, TensorPtr stream_freq_list, const Id
   /**
    * Sum frequency & density of each block
    */
-  LOG(INFO) << "counting freq and density...\n";
+  LOG(INFO) << "counting freq and density...";
   uint32_t total_num_blocks = next_free_block.load();
   block_density_tensor = Tensor::Empty(kF64, {total_num_blocks}, cpu_ctx, "coll_cache.block_density_tensor");
   block_freq_tensor    = Tensor::Empty(kF64, {total_num_blocks, num_stream}, cpu_ctx, "coll_cache.block_freq_tensor");
@@ -184,7 +184,7 @@ void split_blocks(TensorPtr stream_id_list, TensorPtr stream_freq_list, const Id
   /**
    * Average the frequency for each block
    */
-  LOG(INFO) << "averaging freq and density...\n";
+  LOG(INFO) << "averaging freq and density...";
   LOG(INFO) << block_density_tensor->NumItem();
 // #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (uint32_t block_id = 0; block_id < block_density_tensor->NumItem(); block_id++) {
@@ -313,11 +313,13 @@ class Solver {
     env.set("LogFile", "cppsolver.log");
     // BarConvTol
     env.set(GRB_IntParam_Presolve, 0);
-    env.set(GRB_IntParam_Method, 2);
+    // env.set(GRB_IntParam_Method, 2);
+    // env.set(GRB_IntParam_Method, -1);
+    env.set(GRB_IntParam_Method, 3);
     env.set(GRB_IntParam_Threads, solver_num_thread);
-    env.set(GRB_DoubleParam_BarConvTol, 1e-2);
+    env.set(GRB_DoubleParam_BarConvTol, 1e-3);
     env.set(GRB_DoubleParam_OptimalityTol, 1e-2);
-    env.set(GRB_DoubleParam_MIPGap, 1e-3);
+    env.set(GRB_DoubleParam_MIPGap, 2e-3);
     env.start();
 
     GRBModel model = GRBModel(env);
@@ -334,7 +336,7 @@ class Solver {
     total_weight_list.resize(num_device);
     cpu_weight_list.resize(num_device);
 
-    std::cerr << "Add Var...\n";
+    LOG(INFO) << "Add Var...";
     char var_type = (mode == "BIN") ? GRB_BINARY : GRB_CONTINUOUS;
     FOR_LOOP(block_id, num_block) {
       if (ignore_block(block_id, block_density_array[block_id])) {
@@ -346,18 +348,18 @@ class Solver {
       }
     }
 
-    std::cerr << "Capacity...\n";
+    LOG(INFO) << "Capacity...";
     FOR_LOOP(device_id, num_device) {constraint_capacity(model, device_id);}
 
-    std::cerr << "Connect CPU...\n";
+    LOG(INFO) << "Connect CPU...";
     FOR_LOOP(block_id, num_block) {constraint_connect_c_x(model, block_id);}
 
-    std::cerr << "Connect Remote...\n";
+    LOG(INFO) << "Connect Remote...";
     FOR_LOOP(block_id, num_block) {
       FOR_LOOP(device_id, num_device) {constraint_connect_r_x(model, block_id, device_id);}
     }
 
-    std::cerr << "Time...\n";
+    LOG(INFO) << "Time...";
     FOR_LOOP(device_id, num_device) {constraint_time(model, device_id);}
 
     model.setObjective(z + 0, GRB_MINIMIZE);
