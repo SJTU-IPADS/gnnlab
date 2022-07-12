@@ -22,10 +22,13 @@
 #include <limits>
 #include <unordered_map>
 
-#include "common.h"
-
 namespace samgraph {
 namespace common {
+
+using IdType = unsigned int;
+using Id64Type = unsigned long long int;
+static_assert(sizeof(Id64Type) == 8, "long long is not 8 bytes!");
+static_assert(sizeof(short) == 2, "short is not 2 bytes!");
 
 class Constant {
  public:

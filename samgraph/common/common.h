@@ -30,14 +30,10 @@
 #include <vector>
 
 #include "logging.h"
+#include "constant.h"
 
 namespace samgraph {
 namespace common {
-
-using IdType = unsigned int;
-using Id64Type = unsigned long long int;
-static_assert(sizeof(Id64Type) == 8, "long long is not 8 bytes!");
-static_assert(sizeof(short) == 2, "short is not 2 bytes!");
 
 enum DataType {
   kF32 = 0,
@@ -196,8 +192,8 @@ class Tensor {
   static TensorPtr FromBlob(void* data, DataType dtype,
                             std::vector<size_t> shape, Context ctx,
                             std::string name);
-  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr, double scale = 1.25);
-  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name, double scale = 1.25);
+  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr, double scale = Constant::kAllocScale);
+  static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name, double scale = Constant::kAllocScale);
   static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams = {});
   static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams, std::string name);
   static TensorPtr CopyBlob(const void * data, DataType dtype,
