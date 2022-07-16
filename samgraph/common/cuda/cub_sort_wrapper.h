@@ -245,6 +245,63 @@ void CubSortPair(
   device->FreeWorkspace(gpu_ctx, workspace);
 }
 
+template<typename NativeKey_t, typename NativeVal_t>
+void CubSortPairDescending(
+    NativeKey_t* & key, NativeKey_t* & key_out,
+    NativeVal_t* & val, NativeVal_t* & val_out,
+    const size_t len, Context gpu_ctx, 
+    int begin_bit = 0, int end_bit = sizeof(NativeKey_t) * 8,
+    StreamHandle stream = nullptr) {
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+  auto device = Device::Get(gpu_ctx);
+
+  cub::DoubleBuffer<NativeKey_t> keys(key, key_out);
+  cub::DoubleBuffer<NativeVal_t> vals(val, val_out);
+
+  size_t workspace_bytes;
+  void * workspace = nullptr;
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
+      workspace, workspace_bytes, keys, vals, len,
+      begin_bit, end_bit, cu_stream, false));
+
+  workspace = device->AllocWorkspace(gpu_ctx, workspace_bytes);
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
+      workspace, workspace_bytes, keys, vals, len,
+      begin_bit, end_bit, cu_stream, false));
+  device->StreamSync(gpu_ctx, stream);
+
+  key = keys.Alternate();
+  val = vals.Alternate();
+  key_out = keys.Current();
+  val_out = vals.Current();
+
+  device->FreeWorkspace(gpu_ctx, workspace);
+}
+template<typename NativeKey_t, typename NativeVal_t>
+void CubSortPairDescending(
+    const NativeKey_t* key_in, NativeKey_t* key_out,
+    const NativeVal_t* val_in, NativeVal_t* val_out,
+    const size_t num_nodes, Context gpu_ctx,
+    int begin_bit = 0, int end_bit = sizeof(NativeKey_t) * 8,
+    StreamHandle stream=nullptr) {
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+  auto device = Device::Get(gpu_ctx);
+
+  size_t workspace_bytes;
+  void *workspace = nullptr;
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
+      workspace, workspace_bytes, key_in, key_out, val_in, val_out, num_nodes,
+      begin_bit, end_bit, cu_stream));
+
+  workspace = device->AllocWorkspace(gpu_ctx, workspace_bytes);
+  CUDA_CALL(cub::DeviceRadixSort::SortPairsDescending(
+      workspace, workspace_bytes, key_in, key_out, val_in, val_out, num_nodes,
+      begin_bit, end_bit, cu_stream));
+  device->StreamSync(gpu_ctx, stream);
+
+  device->FreeWorkspace(gpu_ctx, workspace);
+}
+
 }
 }
 }

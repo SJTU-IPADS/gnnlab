@@ -68,6 +68,17 @@ int MmapCPUDevice::OpenShm(std::string name, size_t *nbytes) {
   }
   return fd;
 }
+int MmapCPUDevice::OpenFile(std::string name, size_t *nbytes) {
+  int fd = 0;
+  fd = open(name.c_str(), O_RDWR, 0);
+  CHECK_NE(fd, -1) << "shm open faile, errno=" << errno;
+  if (nbytes) {
+    struct stat st;
+    fstat(fd, &st);
+    *nbytes = st.st_size;
+  }
+  return fd;
+}
 
 void *MmapCPUDevice::AllocDataSpace(Context ctx, size_t nbytes,
                                     size_t alignment) {

@@ -449,7 +449,7 @@ void solve_intuitive(TensorPtr stream_id_list, TensorPtr stream_freq_list, const
   // now calculate the boundary
   const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
   IdType partition_size_min = 0;
-  IdType partition_size_max = std::min(num_cached_nodes, (num_node - num_cached_nodes) / (num_device - 1));
+  IdType partition_size_max = (num_device == 1) ? 0 : std::min(num_cached_nodes, (num_node - num_cached_nodes) / (num_device - 1));
 
   LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
   LOG(ERROR) << "[" << partition_size_min << "," << partition_size_max << "]";
@@ -646,7 +646,7 @@ void solve_partition_rep(TensorPtr stream_id_list, TensorPtr stream_freq_list, c
 
   const IdType * freq_array = stream_freq_list->Ptr<IdType>();
 
-  const IdType partition_size = std::min(num_cached_nodes, (num_node - num_cached_nodes)/(num_device-1));
+  const IdType partition_size = (num_device == 1) ? num_cached_nodes : std::min(num_cached_nodes, (num_node - num_cached_nodes)/(num_device-1));
   const IdType replicate_size = num_cached_nodes - partition_size;
   CHECK_LE(replicate_size + partition_size * num_device, num_node);
   const IdType cpu_size = num_node - replicate_size - partition_size * num_device;

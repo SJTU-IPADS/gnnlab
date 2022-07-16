@@ -44,6 +44,7 @@ void ArrangeArray(T* array, size_t array_len, T begin, T step, StreamHandle stre
 
 template void ArrangeArray<int>(int*, size_t, int, int, StreamHandle);
 template void ArrangeArray<Id64Type>(Id64Type*, size_t, Id64Type, Id64Type, StreamHandle);
+template void ArrangeArray<IdType>(IdType*, size_t, IdType, IdType, StreamHandle);
 template void ArrangeArray<float>(float*, size_t, float, float, StreamHandle);
 
 namespace {
