@@ -233,6 +233,7 @@ void Engine::LoadGraphDataset() {
                              ctx_map[Constant::kLabelFile], "dataset.label");
   }
 
+  bool slice_train_should_shuffle = true;
   if (RunConfig::unsupervised_sample == false) {
     _dataset->train_set = Tensor::FromMmap(_dataset_path + Constant::kTrainSetFile, 
         DataType::kI32, {meta[Constant::kMetaNumTrainSet]},
@@ -260,6 +261,7 @@ void Engine::LoadGraphDataset() {
     cpu::ArrangeArray(full_eid->Ptr<IdType>(), _dataset->num_edge);
     size_t efficient_shuffle_range = meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet] + meta[Constant::kMetaNumValidSet];
     shuffle(full_eid->Ptr<IdType>(), _dataset->num_edge, &efficient_shuffle_range);
+    slice_train_should_shuffle = false;
     _dataset->train_set = Tensor::CopyBlob(full_eid->Ptr<IdType>(),
         DataType::kI32, {meta[Constant::kMetaNumTrainSet]}, cpu_ctx, ctx_map[Constant::kTrainSetFile], "dataset.train_set");
     _dataset->test_set  = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet],
@@ -287,7 +289,9 @@ void Engine::LoadGraphDataset() {
 
     // do a shuffle. because 1. original train set is sorted by id 2. cache file is also ranked
     // make sure train set is randomly spreaded.
-    shuffle(_dataset->train_set->Ptr<IdType>(), _dataset->train_set->Shape()[0]);
+    if (slice_train_should_shuffle) {
+      shuffle(_dataset->train_set->Ptr<IdType>(), _dataset->train_set->Shape()[0]);
+    }
     uint32_t begin = 0,end = 0;
     if (RunConfig::option_train_set_slice_mode == "percent") {
       end = full_set_size * RunConfig::option_train_set_percent / 100;

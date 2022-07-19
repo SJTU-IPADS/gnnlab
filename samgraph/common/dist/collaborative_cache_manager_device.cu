@@ -34,12 +34,12 @@
 
 #define SWITCH_TYPE(type, func)      \
   switch(type) {                     \
-    case kF32: func(float);   break; \
-    case kF64: func(double);  break; \
-    case kF16: func(short);   break; \
-    case kU8:  func(uint8_t); break; \
-    case kI32: func(int32_t); break; \
-    case kI64: func(int64_t); break; \
+    case kF32: { func(float);   break; } \
+    case kF64: { func(double);  break; } \
+    case kF16: { func(short);   break; } \
+    case kU8:  { func(uint8_t); break; } \
+    case kI32: { func(int32_t); break; } \
+    case kI64: { func(int64_t); break; } \
     default: CHECK(false);           \
   }
 
@@ -157,6 +157,45 @@ __global__ void combine_data(void *output,
     const size_t dst_offset = Offset::dst(src_index, dst_index, i);
     while (col < dim) {
       output_data[dst_offset * dim + col] = src_data[src_offset * dim + col];
+      col += blockDim.x;
+    }
+    i += stride;
+  }
+}
+
+template<typename T>
+struct SrcIterNoGroup {
+  HashTableEntryLocation* _hash_table_location = nullptr;
+  HashTableEntryOffset* _hash_table_offset = nullptr;
+  void* _device_cache_data[9] = {nullptr};
+  size_t dim;
+  __host__ __device__ T* operator[](const size_t & idx) const {
+    return (T*)(_device_cache_data[_hash_table_location[idx]]) + _hash_table_offset[idx] * dim;
+  }
+};
+template<typename T>
+struct DstIterNoGroup {
+  T* output;
+  size_t dim;
+  __host__ __device__ T* operator[](const size_t & idx) const {
+    return output + idx * dim;
+  }
+};
+
+template <typename T, typename SrcIter, typename DstIter>
+__global__ void extract_data(const SrcIter src_index, const DstIter dst_index,
+                             const IdType * nodes, const size_t num_node,
+                             size_t dim) {
+  size_t i = blockIdx.x * blockDim.y + threadIdx.y;
+  const size_t stride = blockDim.y * gridDim.x;
+
+  while (i < num_node) {
+    size_t col = threadIdx.x;
+    IdType nid = nodes[i];
+    T* dst = dst_index[i];
+    const T* src = src_index[nid];
+    while (col < dim) {
+      dst[col] = src[col];
       col += blockDim.x;
     }
     i += stride;
@@ -558,6 +597,34 @@ void Combine(const SrcT * src_index, const DstT * dst_index, const size_t num_no
   device->StreamSync(_trainer_ctx, stream);
 }
 }
+void CollCacheManager::CombineNoGroup(const IdType * nodes, const size_t num_node, void* output, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream) {
+  if (num_node == 0) return;
+  auto device = Device::Get(_trainer_ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+
+  dim3 block(256, 1);
+  while (static_cast<size_t>(block.x) >= 2 * _dim) {
+    block.x /= 2;
+    block.y *= 2;
+  }
+  const dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y)));
+
+  #define FUNC(type) \
+      SrcIterNoGroup<type> src_iter;                                                                             \
+      memcpy(src_iter._device_cache_data, _device_cache_data.data(), sizeof(void*) * _device_cache_data.size()); \
+      src_iter._hash_table_location = _hash_table_location;                                                      \
+      src_iter._hash_table_offset = _hash_table_offset;                                                          \
+      src_iter.dim = _dim;                                                                                       \
+      DstIterNoGroup<type> dst_iter;                                                                             \
+      dst_iter.output = (type*)output;                                                                           \
+      dst_iter.dim = _dim;                                                                                       \
+      extract_data<type><<<grid, block, 0, cu_stream>>>(src_iter, dst_iter, nodes, num_node, _dim);              \
+
+  SWITCH_TYPE(_dtype, FUNC);
+  #undef FUNC
+
+  device->StreamSync(_trainer_ctx, stream);
+}
 
 void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
                    void* output, StreamHandle stream, uint64_t task_key) {
@@ -623,6 +690,27 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
       Profiler::Get().LogEpochAdd(task_key, kLogEpochMissBytes, GetTensorBytes(_dtype, {num_miss, _dim}));
     }
     cpu_device->FreeWorkspace(CPU(CPU_CUDA_HOST_MALLOC_DEVICE), group_offset);
+  } else if (RunConfig::coll_cache_no_group) {
+    // CHECK(false) << "Multi source extraction is not supported now";
+    auto trainer_gpu_device = Device::Get(_trainer_ctx);
+    auto cpu_device = Device::Get(CPU(CPU_CUDA_HOST_MALLOC_DEVICE));
+    Timer t0;
+    double get_index_time = t0.Passed();
+    Timer t1;
+    CombineNoGroup(nodes, num_nodes, output, _trainer_ctx, _dtype, _dim, stream);
+    double combine_time = t1.Passed();
+    if (task_key != 0xffffffffffffffff) {
+      // size_t num_hit = group_offset[1];
+      Profiler::Get().LogStep(task_key, kLogL1FeatureBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
+      // Profiler::Get().LogStep(task_key, kLogL1MissBytes, GetTensorBytes(_dtype, {num_miss, _dim}));
+      // Profiler::Get().LogStep(task_key, kLogL1RemoteBytes, GetTensorBytes(_dtype, {num_remote, _dim}));
+      Profiler::Get().LogStep(task_key, kLogL3CacheGetIndexTime, get_index_time);
+      // Profiler::Get().LogStep(task_key, kLogL3CacheCombineMissTime,combine_times[0]);
+      // Profiler::Get().LogStep(task_key, kLogL3CacheCombineRemoteTime,combine_times[1]);
+      // Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_times[2]);
+      Profiler::Get().LogEpochAdd(task_key, kLogEpochFeatureBytes,GetTensorBytes(_dtype, {num_nodes, _dim}));
+      // Profiler::Get().LogEpochAdd(task_key, kLogEpochMissBytes, GetTensorBytes(_dtype, {num_miss, _dim}));
+    }
   } else {
     // CHECK(false) << "Multi source extraction is not supported now";
     auto trainer_gpu_device = Device::Get(_trainer_ctx);

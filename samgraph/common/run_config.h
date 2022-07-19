@@ -107,6 +107,7 @@ struct RunConfig {
   static UMPolicy             unified_memory_policy;
   static std::vector<Context> unified_memory_ctxes;
 
+  static bool                 coll_cache_no_group;
   static size_t               coll_cache_num_slot;
   static double               coll_cache_coefficient;
   static double               coll_cache_hyperparam_T_local;

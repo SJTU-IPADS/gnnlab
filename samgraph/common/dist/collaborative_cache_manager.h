@@ -66,6 +66,7 @@ class CollCacheManager {
   void SplitGroup(const SrcKey * src_index, const size_t num_node, IdType * & group_offset, StreamHandle stream = nullptr);
   void CombineOneGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream = nullptr);
   void CombineAllGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream = nullptr);
+  void CombineNoGroup(const IdType * nodes, const size_t num_node, void* output, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream);
   void ExtractFeat(const IdType* nodes, const size_t num_nodes,
                    void* output, StreamHandle stream = nullptr, uint64_t task_key=0xffffffffffffffff);
   inline bool IsDirectMapping() {

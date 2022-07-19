@@ -97,6 +97,7 @@ std::vector<double>  RunConfig::unified_memory_percentages;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kDefault;
 std::vector<Context> RunConfig::unified_memory_ctxes;
 
+bool                 RunConfig::coll_cache_no_group    = false;
 size_t               RunConfig::coll_cache_num_slot    = 100;
 double               RunConfig::coll_cache_coefficient = 1.05;
 double               RunConfig::coll_cache_hyperparam_T_local  = 1;
@@ -148,6 +149,9 @@ void RunConfig::LoadConfigFromEnv() {
   if (GetEnv(Constant::kEnvFakeFeatDim) != "") {
     std::string env = GetEnv(Constant::kEnvFakeFeatDim);
     RunConfig::option_fake_feat_dim = std::stoi(env);
+  }
+  if (IsEnvSet("SAMGRAPH_COLL_CACHE_NO_GROUP")) {
+    RunConfig::coll_cache_no_group = true;
   }
 }
 
