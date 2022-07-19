@@ -74,6 +74,7 @@ struct ndarray_view {
     _num_shape = view._num_shape - 1;
   }
   ndarray_view<T> operator[](const uint32_t idx) {
+    CHECK(idx < _shape[0]);
     return ndarray_view<T>(*this, idx);
   }
   ndarray_view<T> operator[](const std::vector<uint32_t> & idx_array) {
@@ -95,6 +96,7 @@ struct ndarray_view {
     ret._len_of_each_dim += num_idx;
     ret._num_shape -= num_idx;
     for (int i = 0; i < num_idx; i++) {
+      CHECK(idx_array[i] < _shape[i]);
       ret._data += idx_array[i] * _len_of_each_dim[i];
     }
 
@@ -186,6 +188,7 @@ struct TensorView {
     _len_of_each_dim = _len_of_each_dim_storage.data();
   }
   TensorView<T> operator[](const uint32_t idx) {
+    CHECK(idx < _shape[0]);
     return TensorView<T>(*this, idx);
   }
   TensorView<T> operator[](const std::vector<uint32_t> & idx_array) {
@@ -214,6 +217,7 @@ struct TensorView {
     ret._data            = this->_data;
 
     for (int i = 0; i < num_idx; i++) {
+      CHECK(idx_array[i] < _shape[i]);
       ret._data += idx_array[i] * _len_of_each_dim[i];
     }
     // {
