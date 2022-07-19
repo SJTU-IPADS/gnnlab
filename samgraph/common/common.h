@@ -383,6 +383,16 @@ inline T Min(T a, T b) {
   return a < b ? a : b;
 }
 
+template < typename T >
+T GCD(T a, T b) {
+  if(b) while((a %= b) && (b %= a));
+  return a + b;
+}
+template < typename T >
+T LCM(T a, T b) {
+  return a * b / GCD(a, b);
+}
+
 // shuffler virtual class
 class Shuffler {
  public:
