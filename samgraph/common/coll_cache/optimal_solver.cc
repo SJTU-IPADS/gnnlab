@@ -652,7 +652,9 @@ void solve_partition_rep(TensorPtr stream_id_list, TensorPtr stream_freq_list, c
   const IdType cpu_size = num_node - replicate_size - partition_size * num_device;
 
   double rep_w = 0, cpu_w = 0, total_w = 0;
-
+  // block 0 -> replication
+  // block 1-n -> partition,
+  // block n+1 -> cpu
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : rep_w, cpu_w, total_w)
   for (IdType rank = 0; rank < num_node; rank++) {
     IdType node_id = stream_id_list->Ptr<IdType>()[rank];
