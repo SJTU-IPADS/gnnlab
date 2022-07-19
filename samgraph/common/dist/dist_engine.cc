@@ -444,111 +444,12 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         time_presample = tp.Passed();
         break;
       }
-      case kPartRepCache: {
-        Timer tp;
-        // naive coll cache only allow single stream
-        if (worker_id == 0) {
-          auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
-          auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
-          pre_sampler->DoPreSample();
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_list->MutableData(), _dataset->ranking_nodes_list->NumBytes(), cudaHostRegisterDefault));
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_freq_list->MutableData(), _dataset->ranking_nodes_freq_list->NumBytes(), cudaHostRegisterDefault));
-          coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);
-          coll_cache::TensorView<IdType> ranking_nodes_freq_view(_dataset->ranking_nodes_freq_list);
-          pre_sampler->GetRankNode(ranking_nodes_view[worker_id]._data);
-          pre_sampler->GetFreq(ranking_nodes_freq_view[worker_id]._data);
-#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
-          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache";
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault));
-          pre_sampler->GetRankNode(_dataset->ranking_nodes);
-          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache done";
-#endif
-          delete pre_sampler;
-        }
-        if (worker_id == 0) {
-          std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
-          std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
-          coll_cache::solve_partition_rep(
-              _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-              _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-              _dataset->nid_to_block, _dataset->block_placement, "",
-              RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
-        }
-        _sampler_barrier->Wait();
-        time_presample = tp.Passed();
-        break;
-      }
-      case kPartitionCache: {
-        Timer tp;
-        // naive coll cache only allow single stream
-        if (worker_id == 0) {
-          auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
-          auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
-          pre_sampler->DoPreSample();
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_list->MutableData(), _dataset->ranking_nodes_list->NumBytes(), cudaHostRegisterDefault));
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_freq_list->MutableData(), _dataset->ranking_nodes_freq_list->NumBytes(), cudaHostRegisterDefault));
-          coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);
-          coll_cache::TensorView<IdType> ranking_nodes_freq_view(_dataset->ranking_nodes_freq_list);
-          pre_sampler->GetRankNode(ranking_nodes_view[worker_id]._data);
-          pre_sampler->GetFreq(ranking_nodes_freq_view[worker_id]._data);
-#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
-          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache";
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault));
-          pre_sampler->GetRankNode(_dataset->ranking_nodes);
-          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache done";
-#endif
-          delete pre_sampler;
-        }
-        if (worker_id == 0) {
-          std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
-          std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
-          coll_cache::solve_partition(
-              _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-              _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-              _dataset->nid_to_block, _dataset->block_placement, "",
-              RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
-        }
-        _sampler_barrier->Wait();
-        time_presample = tp.Passed();
-        break;
-      }
-      case kCollCacheIntuitive: {
-        Timer tp;
-        // naive coll cache only allow single stream
-        if (worker_id == 0) {
-          auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
-          auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
-          pre_sampler->DoPreSample();
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_list->MutableData(), _dataset->ranking_nodes_list->NumBytes(), cudaHostRegisterDefault));
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_freq_list->MutableData(), _dataset->ranking_nodes_freq_list->NumBytes(), cudaHostRegisterDefault));
-          coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);
-          coll_cache::TensorView<IdType> ranking_nodes_freq_view(_dataset->ranking_nodes_freq_list);
-          pre_sampler->GetRankNode(ranking_nodes_view[worker_id]._data);
-          pre_sampler->GetFreq(ranking_nodes_freq_view[worker_id]._data);
-#ifdef SAMGRAPH_COLL_CACHE_VALIDATE
-          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache";
-          CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault));
-          pre_sampler->GetRankNode(_dataset->ranking_nodes);
-          LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache done";
-#endif
-          delete pre_sampler;
-        }
-        if (worker_id == 0) {
-          std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
-          std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
-          coll_cache::solve_intuitive(
-              _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-              _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-              _dataset->nid_to_block, _dataset->block_placement, "BIN",
-              RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
-        }
-        _sampler_barrier->Wait();
-        time_presample = tp.Passed();
-        break;
-      }
+      case kPartRepCache:
+      case kPartitionCache:
+      case kCollCacheIntuitive:
       case kCollCache: {
         Timer tp;
-        // allow only one node stream for now, since we are using global queue
+        // currently we only allow single stream
         if (worker_id == 0) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
           auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
@@ -567,14 +468,44 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
 #endif
           delete pre_sampler;
         }
+        std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
+        std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
         if (worker_id == 0) {
-          std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
-          std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
-          coll_cache::solve(
-              _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-              _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-              _dataset->nid_to_block, _dataset->block_placement, "BIN",
-              RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+          switch (RunConfig::cache_policy) {
+            case kPartRepCache: {
+              coll_cache::solve_partition_rep(
+                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
+                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
+                  _dataset->nid_to_block, _dataset->block_placement, "",
+                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              break;
+            }
+            case kPartitionCache: {
+              coll_cache::solve_partition(
+                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
+                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
+                  _dataset->nid_to_block, _dataset->block_placement, "",
+                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              break;
+            }
+            case kCollCacheIntuitive: {
+              coll_cache::solve_intuitive(
+                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
+                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
+                  _dataset->nid_to_block, _dataset->block_placement, "BIN",
+                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              break;
+            }
+            case kCollCache: {
+              coll_cache::solve(
+                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
+                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
+                  _dataset->nid_to_block, _dataset->block_placement, "BIN",
+                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              break;
+            }
+            default: CHECK(false);
+          }
         }
         _sampler_barrier->Wait();
         time_presample = tp.Passed();
