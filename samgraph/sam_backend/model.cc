@@ -86,7 +86,7 @@ Model* Model::_singleton = nullptr;
 
 void Model::assign_reset_task() {
   for (int layer_idx = ops.size() - 1; layer_idx >= 0; layer_idx --) {
-    for (size_t input_idx = 0; input_idx < ops[layer_idx]->numInputs; input_idx++) {
+    for (int input_idx = 0; input_idx < ops[layer_idx]->numInputs; input_idx++) {
       _assign_reset_task(ops[layer_idx], input_idx);
     }
   }

@@ -9,13 +9,6 @@
 #include <cudnn.h>
 #include <curand.h>
 
-#define CUDA_CALL(func)                                      \
-  {                                                          \
-    cudaError_t e = (func);                                  \
-    CHECK(e == cudaSuccess || e == cudaErrorCudartUnloading) \
-        << "CUDA: " << cudaGetErrorString(e);                \
-  }
-
 #define CUDNN_CALL(status)                           \
   {                                                  \
     CHECK((status) == CUDNN_STATUS_SUCCESS)          \
