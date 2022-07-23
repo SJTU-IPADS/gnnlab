@@ -1,8 +1,8 @@
 #include "common/common.h"
 #include "common/run_config.h"
 #include "common/cpu/mmap_cpu_device.h"
-#include "common/coll_cache/optimal_solver.h"
-#include "solve_func.h"
+#include "common/coll_cache/optimal_solver_class.h"
+#include "solve_func_class.h"
 #include <CLI/App.hpp>
 #include <CLI/Config.hpp>
 #include <CLI/Formatter.hpp>
@@ -61,12 +61,42 @@ TensorPtr convertTo(TensorPtr src, DataType dst_dtype) {
 }
 }
 
+#define METHOD_TYPE( F ) \
+  F(coll_cache_single_stream) \
+  F(coll_intuitive) \
+  F(partition) \
+  F(part_rep) \
+  F(rep) \
+  F(coll_cache) \
+  F(coll_cache_asymm) \
+  F(selfish) \
+  F(part_rep_diff_freq) \
+  F(clique_global_freq) \
+  F(clique_local_freq) \
+  F(local_int) \
+
+#define F(name) k_##name,
+enum MethodType {METHOD_TYPE( F ) kNumMethodType };
+#undef F
+
+#define F(name) #name ,
+std::vector<std::string> method_names = { METHOD_TYPE( F ) };
+#undef F
+
+#define F(name) {#name , k_##name},
+std::unordered_map<std::string, MethodType> method_name_mapping {
+  METHOD_TYPE( F )
+};
+#undef F
+
 int main(int argc, char** argv) {
   RunConfig::omp_thread_num = sysconf(_SC_NPROCESSORS_ONLN) / 2;
   RunConfig::num_train_worker = 1;
   RunConfig::coll_cache_hyperparam_T_local  = 1;
   RunConfig::coll_cache_hyperparam_T_remote = 438 / (double)213;  // performance on A100
   RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)11.8; // performance on A100
+
+  int cache_percent = -1;
 
   // RunConfig::coll_cache_hyperparam_T_remote = 330 / (double)42;  // performance on V100
   // RunConfig::coll_cache_hyperparam_T_cpu    = 330 / (double)11; // performance on V100
@@ -75,23 +105,18 @@ int main(int argc, char** argv) {
   std::vector<int> stream_mapping;
   std::string method = "coll_intuitive";
   std::string gpu = "A100";
+  int clique_size = 1;
   CLI::App _app;
   _app.add_option("--fi,--file-id", file_id, "ranked id file")->required();
   _app.add_option("--ff,--file-freq", file_freq, "freq file")->required();
   _app.add_option("--sm,--stream-mapping", stream_mapping, "mapping of stream");
   _app.add_option("--nt,--num-train-worker", RunConfig::num_train_worker, "num trainer")->required();
-  _app.add_option("-m,--method", method, "cache method")->check(CLI::IsMember({
-      "coll_cache_single_stream", 
-      "coll_intuitive",
-      "partition",
-      "part_rep",
-      "rep",
-      "coll_cache",
-      "selfish",
-      "part_rep_diff_freq",
-    }));
+  _app.add_option("-m,--method", method, "cache method")->check(CLI::IsMember(method_names));
   _app.add_option("-g,--gpu", gpu, "gpu model")->check(CLI::IsMember({"A100","V100"}));
   _app.add_option("-s,--slot", RunConfig::coll_cache_num_slot, "num slots");
+  _app.add_option("-c,--cache-percent", cache_percent, "cache percent");
+  _app.add_option("--coe", RunConfig::coll_cache_coefficient, "coll cache coefficient");
+  _app.add_option("--clique", clique_size);
   try {
     _app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
@@ -157,66 +182,46 @@ int main(int argc, char** argv) {
   auto nid_to_block = Tensor::Empty(kI32, {num_nodes}, CPU(CPU_CLIB_MALLOC_DEVICE), "");
   TensorPtr block_placement;
 
-  for (int cache_percent = 0; cache_percent <= 100; cache_percent++) {
+  // if (method == "local_int") {
+  //   coll_cache::solve_local_intuitive(id_tensor, freq_tensor, num_nodes, stream_mapping,
+  //       {},
+  //       nid_to_block, block_placement, "BIN",
+  //       RunConfig::coll_cache_hyperparam_T_local,
+  //       RunConfig::coll_cache_hyperparam_T_remote,
+  //       RunConfig::coll_cache_hyperparam_T_cpu);
+  //   return 0;
+  // }
+  int cache_begin = 0, cache_end = 100;
+  if (cache_percent != -1) {
+    cache_begin = cache_percent;
+    cache_end = cache_percent;
+  }
+  CollCacheSolver * solver = nullptr;
+  MethodType method_t = method_name_mapping[method];
+  switch (method_t) {
+    // single stream(global shuffle)
+    case k_part_rep: solver = new PartRepSolver; break;
+    case k_partition: solver = new PartitionSolver; break;
+    case k_coll_intuitive: solver = new IntuitiveSolver; break;
+    case k_rep : solver = new RepSolver; break;
+    case k_coll_cache_single_stream:
+    // multi stream(local shuffle)
+    case k_coll_cache: solver = new OptimalSolver; break;
+    case k_selfish : solver = new SelfishSolver; break;
+    case k_part_rep_diff_freq: solver = new PartRepMultiStream; break;
+    case k_clique_global_freq: solver = new CliqueGlobalFreqSolver(clique_size); break;
+    case k_clique_local_freq: solver = new CliqueLocalFreqSolver(clique_size); break;
+    default: CHECK(false);
+  }
+  solver->Build(id_tensor, freq_tensor, stream_mapping, num_nodes, nid_to_block);
+  for (int cache_percent = cache_begin; cache_percent <= cache_end; cache_percent++) {
     RunConfig::cache_percentage = cache_percent / 100.0;
     std::cout << "cache_percent=" << cache_percent << "\n";
-    if (method == "partition") {
-      coll_cache::solve_partition(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "", 
+    auto dev_cache_size_list = std::vector<int> (RunConfig::num_train_worker, cache_percent);
+    solver->Solve(stream_mapping, dev_cache_size_list, "BIN",
           RunConfig::coll_cache_hyperparam_T_local,
           RunConfig::coll_cache_hyperparam_T_remote,
           RunConfig::coll_cache_hyperparam_T_cpu);
-    } else if (method == "coll_cache_single_stream") {
-      coll_cache::solve(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "BIN", 
-          RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
-          RunConfig::coll_cache_hyperparam_T_cpu);
-    } else if (method == "coll_intuitive") {
-      coll_cache::solve_intuitive(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "", 
-          RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
-          RunConfig::coll_cache_hyperparam_T_cpu);
-    } else if (method == "part_rep") {
-      coll_cache::solve_partition_rep(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "", 
-          RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
-          RunConfig::coll_cache_hyperparam_T_cpu);
-    } else if (method == "rep") {
-      coll_cache::solve_rep(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "", 
-          RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
-          RunConfig::coll_cache_hyperparam_T_cpu);
-    } else if (method == "coll_cache") {
-      coll_cache::solve(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "BIN", 
-          RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
-          RunConfig::coll_cache_hyperparam_T_cpu);
-    } else if (method == "selfish") {
-      coll_cache::solve_selfish(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "BIN", 
-          RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
-          RunConfig::coll_cache_hyperparam_T_cpu);
-    } else if (method == "part_rep_diff_freq") {
-      coll_cache::solve_partition_rep_diff_freq(id_tensor, freq_tensor, num_nodes, stream_mapping,
-          std::vector<int> (RunConfig::num_train_worker, cache_percent),
-          nid_to_block, block_placement, "BIN", 
-          RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
-          RunConfig::coll_cache_hyperparam_T_cpu);
-    }
   }
   return 0;
 }

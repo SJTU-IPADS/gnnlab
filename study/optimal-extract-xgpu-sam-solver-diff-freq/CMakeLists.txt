@@ -49,7 +49,7 @@ link_directories(
 
 
 file(GLOB_RECURSE SAMGRAPH_SRC
-  ../../samgraph/common/coll_cache/*
+  ../../samgraph/common/coll_cache/optimal_solver_class.cc
   ../../samgraph/common/common.cc
   ../../samgraph/common/common.cc
   ../../samgraph/common/constant.cc
@@ -69,7 +69,7 @@ file(GLOB_RECURSE SAMGRAPH_SRC
 add_executable(
   optimal_solve
   ${SAMGRAPH_SRC}
-  solve_func.cu
+  solve_func_class.cu
   main.cc
 )
 
