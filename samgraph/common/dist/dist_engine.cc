@@ -40,6 +40,7 @@
 #include "dist_loops.h"
 #include "dist_shuffler.h"
 #include "dist_shuffler_aligned.h"
+#include "dist_shuffler_aligned_trainer.h"
 #include "pre_sampler.h"
 #include "dist_um_sampler.h"
 #include "../coll_cache/optimal_solver.h"
@@ -155,6 +156,7 @@ void DistEngine::Init() {
     _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) /
                  _batch_size);
     _num_step = std::min(_num_step, RunConfig::step_max_boundary);
+    _num_step = RoundUp(_num_step, LCM(RunConfig::num_train_worker, RunConfig::num_sample_worker));
     // _num_local_step is initialized after fork, by shuffler
   } else {
     size_t num_data = _dataset->train_set->Shape().front();
@@ -369,8 +371,10 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   _shuffler = nullptr;
   switch (RunConfig::run_arch) {
     case kArch5:
-      _shuffler = new DistShuffler(_dataset->train_set,
-          _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
+      // _shuffler = new DistShuffler(_dataset->train_set,
+      //     _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker, false);
+      // a trainer & batch aligned shuffler, thus all trainer train with same num local step
+      _shuffler = new DistTrainerAlignedShuffler(_dataset->train_set, _num_epoch, _batch_size, worker_id, RunConfig::num_sample_worker, RunConfig::num_train_worker);
       // if (_shuffler->NumStep() > mq_size) {
       //   LOG(FATAL) << "Num step exceeds max length of memory queue. Please increase `mq_size` and re-compile!";
       // }

@@ -188,6 +188,7 @@ setup(
                 'samgraph/common/dist/pre_sampler.cu',
                 'samgraph/common/dist/dist_shuffler.cc',
                 'samgraph/common/dist/dist_shuffler_aligned.cc',
+                'samgraph/common/dist/dist_shuffler_aligned_trainer.cc',
                 'samgraph/common/dist/dist_um_sampler.cc',
             ],
             include_dirs=[
