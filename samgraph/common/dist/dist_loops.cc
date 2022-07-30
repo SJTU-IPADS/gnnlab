@@ -48,12 +48,15 @@ TaskPtr DoShuffle() {
     sample_stream = DistEngine::Get()->GetUMSamplerByTid(tid)->SampleStream();
   }
   auto batch = s->GetBatch(sample_stream);
+  auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(DistEngine::Get()->GetSamplerCtx());
 
   if (batch) {
     auto task = std::make_shared<Task>();
     // global key
     task->key = DistEngine::Get()->GetBatchKey(s->Epoch(), s->Step());
     task->output_nodes = batch;
+    sampler_device->StreamSync(sampler_ctx, sample_stream);
     LOG(DEBUG) << "DoShuffle: process task with key " << task->key;
     return task;
   } else {
