@@ -413,15 +413,17 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std
     for (auto um_ctx : RunConfig::unified_memory_ctxes) {
         Device::Get(um_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, um_ctx);
     }
+    Device::Get(ctx)->StreamSync(ctx, stream);
   } else {
     if ((source->Ctx().device_type == kGPU || source->Ctx().device_type == kGPU_UM) && ctx.device_type != kGPU) {
       Device::Get(source->Ctx())->CopyDataFromTo(source->_data, 0, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
+      Device::Get(source->Ctx())->StreamSync(source->Ctx(), stream);
     } else {
       Device::Get(ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
                                       nbytes, source->_ctx, tensor->_ctx, stream);
+      Device::Get(ctx)->StreamSync(ctx, stream);
     }
   }
-  Device::Get(tensor->_ctx)->StreamSync(tensor->_ctx, stream);
 
   return tensor;
 }
