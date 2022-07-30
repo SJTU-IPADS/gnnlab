@@ -239,8 +239,8 @@ void DoGPUSample(TaskPtr task) {
   Timer t;
   auto output_nodes = task->output_nodes;
   size_t num_train_node = output_nodes->Shape()[0];
-  hash_table->FillWithUnique(output_nodes->CPtr<IdType>(), num_train_node,
-      sample_stream);
+  // don't know the correct unique num yet
+  size_t unique_num_train_node = 0;
   task->graphs.resize(num_layers);
   double fill_unique_time = t.Passed();
 
@@ -250,7 +250,18 @@ void DoGPUSample(TaskPtr task) {
   const IdType *alias_table = dataset->alias_table->CPtr<IdType>();
   const float *prob_prefix_table = dataset->prob_prefix_table->CPtr<float>();
 
-  auto cur_input = task->output_nodes;
+  auto cur_input = Tensor::Null();
+  {
+    // Populate the root nodes with potential duplication into hashtable
+    IdType *unique = sampler_device->AllocArray<IdType>(sampler_ctx, num_train_node);
+    IdType num_unique;
+    hash_table->FillWithDuplicates(output_nodes->CPtr<IdType>(), num_train_node, unique, &num_unique, sample_stream);
+    sampler_device->StreamSync(sampler_ctx, sample_stream);
+    // now we know the actual number of unique root nodes
+    unique_num_train_node = num_unique;
+    // our khop2 sample algorithm requires input to be unique
+    cur_input = Tensor::FromBlob(unique, DataType::kI32, {num_unique}, sampler_ctx, "");
+  }
   size_t total_num_samples = 0;
 
   for (int i = last_layer_idx; i >= 0; i--) {
@@ -427,6 +438,9 @@ void DoGPUSample(TaskPtr task) {
   }
 
   task->input_nodes = cur_input;
+  CHECK(unique_num_train_node == task->graphs[last_layer_idx]->num_dst);
+  // label is extracted using root node with duplication, so we slightly pad last layer
+  task->graphs[last_layer_idx]->num_dst = num_train_node;
 
   Profiler::Get().LogStep(task->key, kLogL1NumNode,
                           static_cast<double>(task->input_nodes->Shape()[0]));
