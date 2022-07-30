@@ -441,7 +441,7 @@ void DoGPUSample(TaskPtr task) {
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
 void DoGetCacheMissIndex(TaskPtr task) {
   // Get index of miss data and cache data
-  // Timer t4;
+  Timer t4;
   Context sampler_ctx;
   Device* sampler_device;
   StreamHandle sample_stream;
