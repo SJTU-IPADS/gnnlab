@@ -61,6 +61,7 @@ using HashTableEntryOffset = CollCacheManager::HashTableEntryOffset;
 using SrcKey = CollCacheManager::SrcKey;
 using DstVal = CollCacheManager::DstVal;
 
+#ifdef DEAD_CODE
 template<typename LocationHolder>
 struct LocationGetter {
 __device__ static inline int location(const LocationHolder &s) { assert(false); return 0; }
@@ -162,38 +163,64 @@ __global__ void combine_data(void *output,
     i += stride;
   }
 }
+#endif
 
-template<typename T>
-struct SrcIterNoGroup {
+template<typename OffsetIter_T>
+struct DataIterMultiLocation {
+  const OffsetIter_T _offset_iter = nullptr;
   HashTableEntryLocation* _hash_table_location = nullptr;
   HashTableEntryOffset* _hash_table_offset = nullptr;
   void* _device_cache_data[9] = {nullptr};
   size_t dim;
+  DataIterMultiLocation(const OffsetIter_T offset_iter,
+        HashTableEntryLocation* location,
+        HashTableEntryOffset* offset,
+        std::vector<void*> & cache_data,
+        size_t dim) :
+    _offset_iter(offset_iter), _hash_table_offset(offset), _hash_table_location(location), dim(dim) {
+    memcpy(_device_cache_data, cache_data.data(), sizeof(void*) * cache_data.size());
+  }
+  template<typename T>
   __host__ __device__ T* operator[](const size_t & idx) const {
-    return (T*)(_device_cache_data[_hash_table_location[idx]]) + _hash_table_offset[idx] * dim;
+    const size_t src_offset = _offset_iter[idx];
+    const int location = _hash_table_location[src_offset];
+    const auto _remote_raw_data = (T*)_device_cache_data[location];
+    const auto offset = _hash_table_offset[src_offset];
+    return _remote_raw_data + offset * dim;
   }
 };
-template<typename T>
-struct DstIterNoGroup {
-  T* output;
+template<typename OffsetIter_T>
+struct DataIter {
+  OffsetIter_T offset_iter;
+  void* output;
   size_t dim;
-  __host__ __device__ T* operator[](const size_t & idx) const {
-    return output + idx * dim;
+  DataIter(OffsetIter_T offset_iter, void* output, size_t dim) : 
+    offset_iter(offset_iter), output(output), dim(dim) {}
+  DataIter(OffsetIter_T offset_iter, const void* output, size_t dim) : 
+    offset_iter(offset_iter), output(const_cast<void*>(output)), dim(dim) {}
+  template<typename T>
+  __host__ __device__ T* operator[](const size_t & idx) {
+    size_t offset = offset_iter[idx];
+    return ((T*)output) + offset * dim;
+  }
+  template<typename T>
+  __host__ __device__ const T* operator[](const size_t & idx) const {
+    size_t offset = offset_iter[idx];
+    return ((T*)output) + offset * dim;
   }
 };
 
-template <typename T, typename SrcIter, typename DstIter>
-__global__ void extract_data(const SrcIter src_index, const DstIter dst_index,
-                             const IdType * nodes, const size_t num_node,
+template <typename T, typename SrcDataIter_T, typename DstDataIter_T>
+__global__ void extract_data(const SrcDataIter_T full_src, DstDataIter_T dst_index,
+                             const size_t num_node,
                              size_t dim) {
   size_t i = blockIdx.x * blockDim.y + threadIdx.y;
   const size_t stride = blockDim.y * gridDim.x;
 
   while (i < num_node) {
     size_t col = threadIdx.x;
-    IdType nid = nodes[i];
-    T* dst = dst_index[i];
-    const T* src = src_index[nid];
+    T* dst = dst_index.template operator[]<T>(i);
+    const T* src = full_src.template operator[]<T>(i);
     while (col < dim) {
       dst[col] = src[col];
       col += blockDim.x;
@@ -202,9 +229,34 @@ __global__ void extract_data(const SrcIter src_index, const DstIter dst_index,
   }
 }
 
-template <size_t BLOCK_SIZE, size_t TILE_SIZE>
+struct LocationIter {
+  SrcKey* src_key;
+  LocationIter(SrcKey* src_key) : src_key(src_key) {}
+  LocationIter(const SrcKey* src_key) : src_key(const_cast<SrcKey*>(src_key)) {}
+  __host__ __device__ int & operator[](const size_t & idx) { return src_key[idx]._location_id; }
+  __host__ __device__ const int & operator[](const size_t & idx) const { return src_key[idx]._location_id; }
+};
+struct SrcOffIter {
+  DstVal* dst_val;
+  SrcOffIter(DstVal* dst_val) : dst_val(dst_val) {}
+  SrcOffIter(const DstVal* dst_val) : dst_val(const_cast<DstVal*>(dst_val)) {}
+  __host__ __device__ IdType & operator[](const size_t & idx) { return dst_val[idx]._src_offset; }
+  __host__ __device__ const IdType & operator[](const size_t & idx) const { return dst_val[idx]._src_offset; }
+};
+struct DstOffIter {
+  DstVal* dst_val;
+  DstOffIter(DstVal* dst_val) : dst_val(dst_val) {}
+  DstOffIter(const DstVal* dst_val) : dst_val(const_cast<DstVal*>(dst_val)) {}
+  __host__ __device__ IdType & operator[](const size_t & idx) { return dst_val[idx]._dst_offset; }
+  __host__ __device__ const IdType & operator[](const size_t & idx) const { return dst_val[idx]._dst_offset; }
+};
+struct DirectOffIter {
+  __host__ __device__ size_t operator[](const size_t & idx) const { return idx; }
+};
+
+template <size_t BLOCK_SIZE, size_t TILE_SIZE, typename LocIter_T, typename SrcOffIter_T, typename DstOffIter_T>
 __global__ void get_miss_cache_index(
-    SrcKey* output_src_index, DstVal* output_dst_index,
+    LocIter_T location_iter, SrcOffIter_T src_offset_iter, DstOffIter_T dst_offset_iter,
     const IdType* nodes, const size_t num_nodes,
     const HashTableEntryLocation* hash_table_location,
     const HashTableEntryOffset* hash_table_offset) {
@@ -217,9 +269,9 @@ __global__ void get_miss_cache_index(
        dst_idx += BLOCK_SIZE) {
     if (dst_idx < num_nodes) {
       const IdType node_id = nodes[dst_idx];
-      output_src_index[dst_idx]._location_id = hash_table_location[node_id];
-      output_dst_index[dst_idx]._src_offset = hash_table_offset[node_id];
-      output_dst_index[dst_idx]._dst_offset = dst_idx;
+      location_iter[dst_idx] = hash_table_location[node_id];
+      src_offset_iter[dst_idx] = hash_table_offset[node_id];
+      dst_offset_iter[dst_idx] = dst_idx;
       // output_src_index[dst_idx]._location_id = 0;
       // output_dst_index[dst_idx]._src_offset = 0;
       // output_dst_index[dst_idx]._dst_offset = 0;
@@ -229,9 +281,9 @@ __global__ void get_miss_cache_index(
 
 
 template <size_t BLOCK_SIZE=Constant::kCudaBlockSize, size_t TILE_SIZE=Constant::kCudaTileSize, 
-    typename Location_t, class LocGet = LocationGetter<Location_t>>
+    typename LocationIter_T>
 __global__ void find_boundary(
-    const Location_t* output_src_index, const size_t len,
+    LocationIter_T location_iter, const size_t len,
     IdType* boundary_list) {
   assert(BLOCK_SIZE == blockDim.x);
   const size_t block_start = TILE_SIZE * blockIdx.x;
@@ -240,8 +292,8 @@ __global__ void find_boundary(
   for (size_t src_offset = block_start + threadIdx.x; src_offset < block_end;
        src_offset += BLOCK_SIZE) {
     if (src_offset < len) {
-      if (src_offset == len-1 || LocGet::location(output_src_index[src_offset]) != LocGet::location(output_src_index[src_offset+1])) {
-        boundary_list[LocGet::location(output_src_index[src_offset])+1] = src_offset+1;
+      if (src_offset == len-1 || location_iter[src_offset] != location_iter[src_offset+1]) {
+        boundary_list[location_iter[src_offset]+1] = src_offset+1;
       } 
       // if (src_offset == 0 || output_src_index[src_offset]._location_id != output_src_index[src_offset-1]._location_id) {
       //   boundary_list[output_src_index[src_offset]._location_id] = src_offset;
@@ -351,7 +403,7 @@ __global__ void decide_source_location(const IdType* nid_to_block_id, const uint
   }
 }
 
-
+#ifdef DEAD_CODE
 template<typename Location_t, class LocGet = LocationGetter<Location_t>>
 void _SplitGroup(const Location_t * src_index, const size_t len, IdType * & group_offset, 
     Context gpu_ctx, size_t num_location,
@@ -401,6 +453,7 @@ void _SplitGroup(const Location_t * src_index, const size_t len, IdType * & grou
   LOG(INFO) << ss2.str();
   LOG(DEBUG) << "CollCache: SplitGroup: legacy fixing done...";
 }
+#endif
 
 void PreDecideSrc(int num_bits, int local_id, int cpu_location_id, int * placement_to_src) {
   auto g = std::default_random_engine(std::chrono::system_clock::now().time_since_epoch().count());
@@ -456,19 +509,22 @@ void CollCacheManager::GetMissCacheIndex(
   auto cu_stream = static_cast<cudaStream_t>(stream);
   auto device = Device::Get(_trainer_ctx);
 
-  output_src_index = static_cast<SrcKey*>(device->AllocWorkspace(_trainer_ctx, num_nodes * sizeof(SrcKey)));
-  output_dst_index = static_cast<DstVal*>(device->AllocWorkspace(_trainer_ctx, num_nodes * sizeof(DstVal)));
+  output_src_index = device->AllocArray<SrcKey>(_trainer_ctx, num_nodes);
+  output_dst_index = device->AllocArray<DstVal>(_trainer_ctx, num_nodes);
 
-  SrcKey * output_src_index_alter = static_cast<SrcKey*>(device->AllocWorkspace(_trainer_ctx, num_nodes * sizeof(SrcKey)));
-  DstVal * output_dst_index_alter = static_cast<DstVal*>(device->AllocWorkspace(_trainer_ctx, num_nodes * sizeof(DstVal)));
+  SrcKey * output_src_index_alter = device->AllocArray<SrcKey>(_trainer_ctx, num_nodes);
+  DstVal * output_dst_index_alter = device->AllocArray<DstVal>(_trainer_ctx, num_nodes);
 
   const size_t num_tiles = RoundUpDiv(num_nodes, Constant::kCudaTileSize);
   const dim3 grid(num_tiles);
   const dim3 block(Constant::kCudaBlockSize);
   LOG(DEBUG) << "CollCacheManager: GetMissCacheIndex - getting miss/hit index...";
   Timer t0;
+  LocationIter location_iter(output_src_index);
+  SrcOffIter src_offset_iter(output_dst_index);
+  DstOffIter dst_offset_iter(output_dst_index);
   get_miss_cache_index<Constant::kCudaBlockSize, Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
-    output_src_index, output_dst_index, nodes, num_nodes, this->_hash_table_location, this->_hash_table_offset);
+    location_iter, src_offset_iter, dst_offset_iter, nodes, num_nodes, this->_hash_table_location, this->_hash_table_offset);
   device->StreamSync(_trainer_ctx, stream);
   // std::cout << "coll get index "<< t0.Passed() << "\n";
   
@@ -513,7 +569,8 @@ void CollCacheManager::SplitGroup(const SrcKey * src_index, const size_t len, Id
   std::memset(group_offset, 0, sizeof(IdType) * (this->_num_location + 1));
   group_offset[this->_num_location] = len;
   LOG(DEBUG) << "CollCache: SplitGroup: legacy finding offset...";
-  find_boundary<><<<grid, block, 0, cu_stream>>>(src_index, len, group_offset);
+  const LocationIter loc_iter(src_index);
+  find_boundary<><<<grid, block, 0, cu_stream>>>(loc_iter, len, group_offset);
   device->StreamSync(_trainer_ctx, stream);
   LOG(DEBUG) << "CollCache: SplitGroup: legacy fixing offset...";
   /** Old implementation is buggy */
@@ -532,14 +589,15 @@ void CollCacheManager::SplitGroup(const SrcKey * src_index, const size_t len, Id
 }
 
 namespace {
-template <typename SrcT, typename DstT, class Offset = OffsetGetter<SrcT, DstT> >
-void Combine(const SrcT * src_index, const DstT * dst_index,
-    const size_t num_node, const void* src_data, void* output,
-    Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream);
+template <typename SrcDataIter_T, typename DstDataIter_T>
+void Combine(const SrcDataIter_T src_data_iter, DstDataIter_T dst_data_iter,
+    const size_t num_node, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream);
 }
 
 void CollCacheManager::CombineOneGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream) {
-  Combine<SrcKey, DstVal, OffsetGetter<SrcKey, DstVal>>(src_index, dst_index, num_node, src_data, output, this->_trainer_ctx, this->_dtype, this->_dim, stream);
+  const DataIter<const SrcOffIter> src_data_iter(SrcOffIter(dst_index), src_data, _dim);
+  DataIter<const DstOffIter>       dst_data_iter(DstOffIter(dst_index), output, _dim);
+  Combine<>(src_data_iter, dst_data_iter, num_node, _trainer_ctx, _dtype, _dim, stream);
 }
 void CollCacheManager::CombineAllGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream) {
 
@@ -547,8 +605,9 @@ void CollCacheManager::CombineAllGroup(const SrcKey * src_index, const DstVal * 
 
 
 namespace {
-template <typename SrcT, typename DstT, class Offset>
-void Combine(const SrcT * src_index, const DstT * dst_index, const size_t num_node, const void* src_data, void* output, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream) {
+template <typename SrcDataIter_T, typename DstDataIter_T>
+void Combine(const SrcDataIter_T src_data_iter, DstDataIter_T dst_data_iter,
+    const size_t num_node, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream) {
   if (num_node == 0) return;
   auto device = Device::Get(_trainer_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
@@ -560,39 +619,11 @@ void Combine(const SrcT * src_index, const DstT * dst_index, const size_t num_no
   }
   const dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y)));
 
-  // #define FUNC(type) \
-  // combine_data<type, src_getter, dst_getter><<<grid, block, 0, cu_stream>>>(output, src_index, dst_index, nodes, num_node, src_data, _dim);
-  // SWITCH_TYPE(_dtype, FUNC);
-  // #undef FUNC
-
-  switch (_dtype) {
-    case kF32:
-      combine_data<float, SrcT, DstT, Offset><<<grid, block, 0, cu_stream>>>(
-          output, src_index, dst_index, num_node, src_data, _dim);
-      break;
-    case kF64:
-      combine_data<double, SrcT, DstT, Offset><<<grid, block, 0, cu_stream>>>(
-          output, src_index, dst_index, num_node, src_data, _dim);
-      break;
-    case kF16:
-      combine_data<short, SrcT, DstT, Offset><<<grid, block, 0, cu_stream>>>(
-          output, src_index, dst_index, num_node, src_data, _dim);
-      break;
-    case kU8:
-      combine_data<uint8_t, SrcT, DstT, Offset><<<grid, block, 0, cu_stream>>>(
-          output, src_index, dst_index, num_node, src_data, _dim);
-      break;
-    case kI32:
-      combine_data<int32_t, SrcT, DstT, Offset><<<grid, block, 0, cu_stream>>>(
-          output, src_index, dst_index, num_node, src_data, _dim);
-      break;
-    case kI64:
-      combine_data<int64_t, SrcT, DstT, Offset><<<grid, block, 0, cu_stream>>>(
-          output, src_index, dst_index, num_node, src_data, _dim);
-      break;
-    default:
-      CHECK(0);
-  }
+  #define FUNC(type) \
+      extract_data<type><<<grid, block, 0, cu_stream>>>( \
+          src_data_iter, dst_data_iter, num_node, _dim);
+  SWITCH_TYPE(_dtype, FUNC);
+  #undef FUNC
 
   device->StreamSync(_trainer_ctx, stream);
 }
@@ -609,16 +640,11 @@ void CollCacheManager::CombineNoGroup(const IdType * nodes, const size_t num_nod
   }
   const dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y)));
 
+  const DataIterMultiLocation<const IdType*> src_iter(nodes, _hash_table_location, _hash_table_offset, _device_cache_data, _dim);
+  DataIter<DirectOffIter> dst_iter(DirectOffIter(), output, _dim);
   #define FUNC(type) \
-      SrcIterNoGroup<type> src_iter;                                                                             \
-      memcpy(src_iter._device_cache_data, _device_cache_data.data(), sizeof(void*) * _device_cache_data.size()); \
-      src_iter._hash_table_location = _hash_table_location;                                                      \
-      src_iter._hash_table_offset = _hash_table_offset;                                                          \
-      src_iter.dim = _dim;                                                                                       \
-      DstIterNoGroup<type> dst_iter;                                                                             \
-      dst_iter.output = (type*)output;                                                                           \
-      dst_iter.dim = _dim;                                                                                       \
-      extract_data<type><<<grid, block, 0, cu_stream>>>(src_iter, dst_iter, nodes, num_node, _dim);              \
+      extract_data<type><<<grid, block, 0, cu_stream>>>( \
+          src_iter, dst_iter, num_node, _dim);           \
 
   SWITCH_TYPE(_dtype, FUNC);
   #undef FUNC
@@ -633,7 +659,9 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
     // direct mapping from node id to freature, no need to go through hashtable
     LOG(DEBUG) << "CollCache: ExtractFeat: Direct mapping, going fast path... ";
     Timer t0;
-    Combine<IdType, void, OffsetGetter<IdType, void>>(nodes, nullptr, num_nodes, _device_cache_data[0], output, this->_trainer_ctx, this->_dtype, this->_dim, stream);
+    const DataIter<const IdType*> src_data_iter(nodes, _device_cache_data[0], _dim);
+    DataIter<DirectOffIter> dst_data_iter(DirectOffIter(), output, _dim);
+    Combine(src_data_iter, dst_data_iter, num_nodes, _trainer_ctx, _dtype, _dim, stream);
     double combine_time = t0.Passed();
     if (task_key != 0xffffffffffffffff) {
       Profiler::Get().LogStep(task_key, kLogL1FeatureBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
@@ -1034,9 +1062,9 @@ CollCacheManager CollCacheManager::BuildCollCache(
     cm._cache_nbytes = GetTensorBytes(cm._dtype, {num_cached_nodes, cm._dim});
     cm._device_cache_data[local_location_id] = trainer_gpu_device->AllocDataSpace(trainer_ctx, cm._cache_nbytes);
     // LOG(INFO) << "CollCacheManager: combine local data : [" << group_offset[local_location_id] << "," << group_offset[local_location_id+1] << ")";
-    Combine<IdType, void, OffsetGetter<IdType, void>>(cache_node_list, nullptr, num_cached_nodes, 
-        cpu_src_data, cm._device_cache_data[local_location_id], 
-        trainer_ctx, dtype, dim, stream);
+    const DataIter<const IdType*> src_data_iter(cache_node_list, cpu_src_data, dim);
+    DataIter<DirectOffIter> dst_data_iter(DirectOffIter(), cm._device_cache_data[local_location_id], dim);
+    Combine(src_data_iter, dst_data_iter, num_cached_nodes, trainer_ctx, dtype, dim, stream);
 
     LOG(INFO) << "CollCacheManager: fix offset of local nodes in hash table";
     SAM_CUDA_PREPARE_1D(num_cached_nodes);
