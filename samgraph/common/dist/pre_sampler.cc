@@ -38,8 +38,10 @@ namespace dist {
 PreSampler* PreSampler::singleton = nullptr;
 PreSampler::PreSampler(TensorPtr input, size_t batch_size, size_t num_nodes) {
   Timer t_init;
+  LOG(ERROR) << "Dist Presampler making shuffler...";
   _shuffler = new cuda::GPUAlignedShuffler(input, RunConfig::presample_epoch,
                           batch_size, false);
+  LOG(ERROR) << "Dist Presampler making shuffler...Done";
   _num_nodes = num_nodes;
   _num_step = _shuffler->NumStep();
   freq_table = static_cast<Id64Type*>(Device::Get(CPU())->AllocDataSpace(CPU(), sizeof(Id64Type)*_num_nodes));
@@ -76,13 +78,18 @@ TaskPtr PreSampler::DoPreSampleShuffle() {
 void PreSampler::DoPreSample(){
   auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
+  auto sampler_stream = DistEngine::Get()->GetSamplerCopyStream();
   auto cpu_device = Device::Get(CPU());
   for (int e = 0; e < RunConfig::presample_epoch; e++) {
+    LOG(ERROR) << "Dist Presampler doing presample epoch " << e;
     for (size_t i = 0; i < _num_step; i++) {
       Timer t0;
       auto task = DoPreSampleShuffle();
       switch (RunConfig::cache_policy) {
+        case kCollCacheIntuitive:
         case kCollCache:
+        case kPartRepCache:
+        case kPartitionCache:
         case kCacheByPreSample:
           DoGPUSample(task);
           break;
@@ -98,23 +105,24 @@ void PreSampler::DoPreSample(){
       double sample_time = t0.Passed();
       size_t num_inputs = task->input_nodes->Shape()[0];
       Timer t1;
-      IdType* input_nodes = static_cast<IdType*>(cpu_device->AllocWorkspace(CPU(), sizeof(IdType)*num_inputs));
-      sampler_device->CopyDataFromTo(
-        task->input_nodes->Data(), 0, input_nodes, 0,
-        num_inputs * sizeof(IdType), task->input_nodes->Ctx(), CPU());
+      auto input_nodes = Tensor::CopyTo(task->input_nodes, CPU(), sampler_stream);
+      sampler_device->StreamSync(sampler_ctx, sampler_stream);
       double copy_time = t1.Passed();
       Timer t2;
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
       for (size_t i = 0; i < num_inputs; i++) {
-        auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes[i]]);
+        auto freq_ptr = reinterpret_cast<IdType*>(&freq_table[input_nodes->CPtr<IdType>()[i]]);
         *(freq_ptr+1) += 1;
       }
-      cpu_device->FreeWorkspace(CPU(), input_nodes);
       double count_time = t2.Passed();
       Profiler::Get().LogInitAdd(kLogInitL3PresampleSample, sample_time);
       Profiler::Get().LogInitAdd(kLogInitL3PresampleCopy, copy_time);
       Profiler::Get().LogInitAdd(kLogInitL3PresampleCount, count_time);
     }
+    LOG(ERROR) << "presample spend "
+               << Profiler::Get().GetLogInitValue(kLogInitL3PresampleSample) << " on sample, "
+               << Profiler::Get().GetLogInitValue(kLogInitL3PresampleCopy) << " on copy, "
+               << Profiler::Get().GetLogInitValue(kLogInitL3PresampleCount) << " on count";
   }
   Timer ts;
 #ifdef __linux__
@@ -126,6 +134,7 @@ void PreSampler::DoPreSample(){
 #endif
   double sort_time = ts.Passed();
   Profiler::Get().LogInit(kLogInitL3PresampleSort, sort_time);
+  LOG(ERROR) << "presample spend " << sort_time << " on sort freq.";
   Timer t_reset;
   Profiler::Get().ResetStepEpoch();
   Profiler::Get().LogInit(kLogInitL3PresampleReset, t_reset.Passed());
@@ -151,7 +160,7 @@ TensorPtr PreSampler::GetRankNode() {
   return ranking_nodes;
 }
 void PreSampler::GetRankNode(TensorPtr& ranking_nodes) {
-  auto ranking_nodes_ptr = static_cast<IdType*>(ranking_nodes->MutableData());
+  auto ranking_nodes_ptr = ranking_nodes->Ptr<IdType>();
   GetRankNode(ranking_nodes_ptr);
 }
 
