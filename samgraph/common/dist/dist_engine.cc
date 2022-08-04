@@ -337,6 +337,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
   Timer t0;
   _dist_type = DistType::Sample;
   RunConfig::sampler_ctx = ctx;
+  RunConfig::worker_id = worker_id;
   _sampler_ctx = RunConfig::sampler_ctx;
   LOG_MEM_USAGE(INFO, "before sample initialization", _sampler_ctx);
   double time_cuda_context = t0.Passed();
@@ -640,12 +641,14 @@ DistUMSampler* DistEngine::GetUMSamplerByTid(std::thread::id tid) {
 void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Timer t0;
   _dist_type = dist_type;
+  RunConfig::worker_id = worker_id;
   RunConfig::trainer_ctx = ctx;
   _trainer_ctx = RunConfig::trainer_ctx;
-
+  LOG(WARNING) << "Trainer[" << worker_id << "] initializing...";
   LOG_MEM_USAGE(INFO, "before train initialization", _trainer_ctx);
   double time_create_cuda_ctx = t0.Passed();
 
+  LOG(WARNING) << "Trainer[" << worker_id << "] pin memory...";
   Timer t_pin_memory;
   if (_memory_queue) {
     _memory_queue->PinMemory();
@@ -670,7 +673,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   // initialize _num_step before fork
   // _num_step = ((_dataset->train_set->Shape().front() + _batch_size - 1) / _batch_size);
 
-  LOG_MEM_USAGE(WARNING, "after train create stream", _trainer_ctx);
+  LOG_MEM_USAGE(INFO, "after train create stream", _trainer_ctx);
 
   double time_load_graph_ds_copy = 0;
   double time_build_cache = 0;
@@ -678,6 +681,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _cache_manager = nullptr;
   _gpu_cache_manager = nullptr;
 #endif
+  LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
   Timer t_build_cache;
 #ifdef SAMGRAPH_COLL_CACHE_ENABLE
   CUDA_CALL(cudaHostRegister(_dataset->feat->MutableData(), _dataset->feat->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
@@ -755,7 +759,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
 #endif
   }
   time_build_cache = t_build_cache.Passed();
-  LOG_MEM_USAGE(WARNING, "after train load cache", _trainer_ctx);
+  LOG_MEM_USAGE(INFO, "after train load cache", _trainer_ctx);
 
   // results pool
   _graph_pool = new GraphPool(RunConfig::max_copying_jobs);
@@ -775,7 +779,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Profiler::Get().LogInit   (kLogInitL3InternalStateCreateStream, time_create_stream);
   Profiler::Get().LogInit(kLogInitL3LoadDatasetCopy, time_load_graph_ds_copy);
   _initialize = true;
-  LOG_MEM_USAGE(WARNING, "after train initialization", _trainer_ctx);
+  LOG_MEM_USAGE(INFO, "after train initialization", _trainer_ctx);
 }
 
 void DistEngine::Start() {
@@ -821,10 +825,10 @@ void DistEngine::StartExtract(int count) {
 void DistEngine::Shutdown() {
   if (_dist_type == DistType::Sample) {
     if (RunConfig::run_arch != RunArch::kArch9)
-      LOG_MEM_USAGE(WARNING, "sampler before shutdown", _sampler_ctx);
+      LOG_MEM_USAGE(INFO, "sampler before shutdown", _sampler_ctx);
   }
   else if (_dist_type == DistType::Extract || _dist_type == DistType::Switch) {
-    LOG_MEM_USAGE(WARNING, "trainer before shutdown", _trainer_ctx);
+    LOG_MEM_USAGE(INFO, "trainer before shutdown", _trainer_ctx);
   }
 
   if (_should_shutdown) {

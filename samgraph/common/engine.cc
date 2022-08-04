@@ -268,6 +268,7 @@ void Engine::LoadGraphDataset() {
         DataType::kI32, {meta[Constant::kMetaNumTestSet]},  cpu_ctx, ctx_map[Constant::kTestSetFile], "dataset.test_set");
     _dataset->valid_set = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet],
         DataType::kI32, {meta[Constant::kMetaNumValidSet]}, cpu_ctx, ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+    LOG(ERROR) << "Train set size " << ToReadableSize(_dataset->train_set->NumBytes());
   }
 
   if (RunConfig::option_train_set_slice_mode != "") {

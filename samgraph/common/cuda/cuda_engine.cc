@@ -82,7 +82,7 @@ void GPUEngine::Init() {
 
   Timer t_cuda_context;
   // Load the target graph data
-  LOG_MEM_USAGE(WARNING, "before load dataset");
+  LOG_MEM_USAGE(INFO, "before load dataset");
   double time_cuda_context = t_cuda_context.Passed();
 
   Timer tl;
@@ -199,7 +199,7 @@ void GPUEngine::Init() {
   Profiler::Get().LogInit(kLogInitL3InternalStateCreateCtx, time_cuda_context);
   Profiler::Get().LogInit(kLogInitL3InternalStateCreateStream, time_create_stream);
 
-  LOG_MEM_USAGE(WARNING, "after build cache states");
+  LOG_MEM_USAGE(INFO, "after build cache states");
 
   // sort dataset(UM)
   LOG(INFO) << "unified_memory: " << RunConfig::unified_memory << " | "
@@ -317,7 +317,7 @@ void GPUEngine::Start() {
 }
 
 void GPUEngine::Shutdown() {
-  LOG_MEM_USAGE(WARNING, "end of train");
+  LOG_MEM_USAGE(INFO, "end of train");
   if (_should_shutdown) {
     return;
   }

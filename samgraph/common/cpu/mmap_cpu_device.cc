@@ -88,8 +88,14 @@ void *MmapCPUDevice::AllocDataSpace(Context ctx, size_t nbytes,
   }
   // round up for faster transparent huge page allocation
   nbytes = RoundUp<size_t>(nbytes, 1<<21);
+  if (nbytes > 1024*1024*1024) {
+    LOG(WARNING) << "mmap allocating space " << ToReadableSize(nbytes);
+  }
   void* ptr = mmap(nullptr, nbytes, prot, MAP_ANON | MAP_SHARED | MAP_LOCKED, -1, 0);
-  CHECK_NE(ptr, (void *)-1);
+  if (nbytes > 1024*1024*1024) {
+    LOG(WARNING) << "mmap allocating space " << ToReadableSize(nbytes) << " done";
+  }
+  CHECK_NE(ptr, (void *)-1) << "lock " << ToReadableSize(nbytes) << " failed";
   return ptr;
 }
 

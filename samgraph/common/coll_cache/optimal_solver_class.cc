@@ -56,7 +56,7 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
    * Map each node to a rank for each stream.
    * Nodes with same rank for every stream forms a block.
    */
-  LOG(INFO) << "mapping nid to rank...";
+  LOG(WARNING) << "mapping nid to rank...";
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (uint32_t orig_rank = 0; orig_rank < num_node; orig_rank++) {
     for (uint32_t stream_idx = 0; stream_idx < num_stream; stream_idx++) {
@@ -86,9 +86,10 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
     size_t seq_id = slot_list_to_full_block_id(nid_to_slot[nid]);
     nid_to_block[nid].ref() = slot_array_to_full_block.register_bucket(seq_id);
   }
-  LOG(INFO) << "Final num slot is " << slot_array_to_full_block.next_free_slot.load();
+  LOG(WARNING) << "Final num slot is " << slot_array_to_full_block.next_free_slot.load();
   block_identifer* buckets = new block_identifer[slot_array_to_full_block.next_free_slot.load()];
   next_free_block.store(0);
+
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (uint32_t nid = 0; nid < num_node; nid++) {
     nid_to_block[nid].ref() = buckets[nid_to_block[nid].ref()].add_node(this);
@@ -96,12 +97,12 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
   delete[] buckets;
 
   uint32_t total_num_blocks = next_free_block.load();
-  LOG(INFO) << "Final num block is " << total_num_blocks;
+  LOG(WARNING) << "Final num block is " << total_num_blocks;
 
   /**
    * Sum frequency & density of each block
    */
-  LOG(INFO) << "counting freq and density...";
+  LOG(WARNING) << "counting freq and density...";
   block_density_tensor = Tensor::Empty(kF64, {total_num_blocks}, cpu_ctx, "coll_cache.block_density_tensor");
   block_freq_tensor    = Tensor::Empty(kF64, {total_num_blocks, num_stream}, cpu_ctx, "coll_cache.block_freq_tensor");
 
@@ -131,8 +132,8 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
   /**
    * Average the frequency for each block
    */
-  LOG(INFO) << "averaging freq and density...";
-  LOG(INFO) << block_density_tensor->NumItem();
+  LOG(WARNING) << "averaging freq and density...";
+  LOG(WARNING) << block_density_tensor->NumItem();
 // #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (uint32_t block_id = 0; block_id < block_density_tensor->NumItem(); block_id++) {
     if (block_density_array[block_id].ref() == 0) continue; 

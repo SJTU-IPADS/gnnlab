@@ -35,6 +35,9 @@ void CPUDevice::SetDevice(Context ctx) {}
 
 void *CPUDevice::AllocDataSpace(Context ctx, size_t nbytes, size_t alignment) {
   void *ptr;
+  if (nbytes >= 10 * 1024 * 1024 && RunConfig::worker_id == 0) {
+    LOG(WARNING) << "WORKER[" << RunConfig::worker_id << "] alloc host memory " << ToReadableSize(nbytes);
+  }
   if (ctx.device_id == CPU_CUDA_HOST_MALLOC_DEVICE) {
     CUDA_CALL(cudaHostAlloc(&ptr, nbytes, cudaHostAllocDefault));
   } else if (ctx.device_id == CPU_CLIB_MALLOC_DEVICE) {
