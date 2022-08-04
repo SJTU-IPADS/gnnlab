@@ -106,6 +106,7 @@ void PreSampler::DoPreSample(){
   auto cpu_device = Device::Get(CPU());
   auto stream = DistEngine::Get()->GetSampleStream();
   auto cu_stream = static_cast<cudaStream_t>(stream);
+  size_t max_num_inputs = 0, min_num_inputs = std::numeric_limits<size_t>::max();
   for (int e = 0; e < RunConfig::presample_epoch; e++) {
     LOG(ERROR) << "Dist Presampler doing presample epoch " << e;
     for (size_t i = 0; i < _num_step; i++) {
@@ -130,6 +131,8 @@ void PreSampler::DoPreSample(){
       }
       double sample_time = t0.Passed();
       size_t num_inputs = task->input_nodes->Shape()[0];
+      max_num_inputs = std::max(num_inputs, max_num_inputs);
+      min_num_inputs = std::min(num_inputs, min_num_inputs);
       Timer t2;
       {
         SAM_1D_GRID_INIT(num_inputs);
@@ -144,6 +147,10 @@ void PreSampler::DoPreSample(){
                << Profiler::Get().GetLogInitValue(kLogInitL3PresampleSample) << " on sample, "
                << Profiler::Get().GetLogInitValue(kLogInitL3PresampleCount) << " on count";
   }
+  double & sf = DistEngine::Get()->GetGraphDataset()->scale_factor->Ptr<double>()[0];
+  sf = std::max(sf, max_num_inputs / (double)min_num_inputs + 0.01);
+  LOG(ERROR) << "max_num_inputs = " << max_num_inputs << ", min_num_inputs" << min_num_inputs;
+  std::cout << "test_result:init:input_scale_factor=" << sf << "\n";
   Timer ts;
   Id64Type* freq_table_alter = (Id64Type*) (sampler_device->AllocDataSpace(sampler_ctx, _num_nodes * sizeof(Id64Type)));
   cuda::CubSortKeyDescending(freq_table, freq_table_alter, _num_nodes, sampler_ctx, 0, sizeof(Id64Type)*8, stream);

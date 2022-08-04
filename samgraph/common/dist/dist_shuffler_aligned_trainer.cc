@@ -145,7 +145,8 @@ TensorPtr DistTrainerAlignedShuffler::GetBatch(StreamHandle stream) {
   // _cur_step is a local step
   // all sampler's first iteration's step, make it larger
   if (_cur_step * RunConfig::num_sample_worker + RunConfig::worker_id < RunConfig::num_train_worker && _cur_epoch == 0) {
-    size *= 1.2;
+    double scale_factor = DistEngine::Get()->GetGraphDataset()->scale_factor->CPtr<double>()[0];
+    size *= scale_factor;
     size = std::min((_num_local_data - offset), size);
   }
   auto tensor =

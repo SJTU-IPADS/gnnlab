@@ -119,6 +119,8 @@ void DistEngine::Init() {
   Timer t_l2_init_load_ds_mmap;
   LOG(INFO) << "Loading dataset...";
   LoadGraphDataset();
+  _dataset->scale_factor = Tensor::Empty(kF64, {1}, MMAP(MMAP_RW_DEVICE), "");
+  _dataset->scale_factor->Ptr<double>()[0] = 1.1;
 
   LOG(INFO) << "Preparing for cache space...";
   if (RunConfig::UseGPUCache()) {

@@ -275,6 +275,9 @@ struct Dataset {
   TensorPtr train_set;
   TensorPtr test_set;
   TensorPtr valid_set;
+
+  // scale factor for batch feature
+  TensorPtr scale_factor;
 };
 
 // Train graph in COO format
