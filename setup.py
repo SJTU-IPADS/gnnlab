@@ -172,6 +172,7 @@ setup(
                 'samgraph/common/cuda/cuda_sampling_weighted_khop_hash_dedup.cu',
                 'samgraph/common/cuda/cuda_sanity_check.cu',
                 'samgraph/common/cuda/cuda_shuffler.cc',
+                'samgraph/common/cuda/cuda_shuffler_aligned.cc',
                 'samgraph/common/cuda/cuda_utils.cu',
                 'samgraph/common/cuda/pre_sampler.cc',
                 'samgraph/common/cuda/um_pre_sampler.cc',

@@ -59,7 +59,7 @@ PreSampler::PreSampler(TensorPtr input, size_t batch_size, size_t num_nodes) {
   auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
   auto sampler_device = Device::Get(sampler_ctx);
   LOG(ERROR) << "Dist Presampler making shuffler...\n";
-  _shuffler = new cuda::GPUShuffler(input, RunConfig::presample_epoch,
+  _shuffler = new cuda::GPUAlignedShuffler(input, RunConfig::presample_epoch,
                           batch_size, false);
   LOG(ERROR) << "Dist Presampler making shuffler...Done\n";
   _num_nodes = num_nodes;

@@ -19,7 +19,7 @@
 
 #include "../common.h"
 #include "../constant.h"
-#include "../cuda/cuda_shuffler.h"
+#include "../cuda/cuda_shuffler_aligned.h"
 namespace samgraph {
 namespace common {
 namespace dist {
@@ -45,7 +45,7 @@ class PreSampler {
   // TensorPtr freq_table;
   size_t _num_nodes, _num_step;
   static PreSampler* singleton;
-  cuda::GPUShuffler* _shuffler;
+  cuda::GPUAlignedShuffler* _shuffler;
 
 };
 
