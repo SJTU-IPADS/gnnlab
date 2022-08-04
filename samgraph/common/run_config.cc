@@ -80,6 +80,8 @@ int                  RunConfig::presample_epoch;
 bool                 RunConfig::option_dump_trace              = false;
 size_t               RunConfig::option_empty_feat              = 0;
 
+size_t               RunConfig::option_mq_size              = 230 * 1024 * 1024;
+
 std::string          RunConfig::option_train_set_slice_mode = "";
 double               RunConfig::option_train_set_percent = 100;
 int                  RunConfig::option_train_set_part_num = 1;
@@ -152,6 +154,9 @@ void RunConfig::LoadConfigFromEnv() {
   }
   if (IsEnvSet("SAMGRAPH_COLL_CACHE_NO_GROUP")) {
     RunConfig::coll_cache_no_group = true;
+  }
+  if (GetEnv("SAMGRAPH_MQ_SIZE") != "") {
+    RunConfig::option_mq_size = std::stoull(GetEnv("SAMGRAPH_MQ_SIZE"));
   }
 }
 

@@ -86,6 +86,7 @@ struct RunConfig {
   static int                  presample_epoch;
   static bool                 option_dump_trace;
   static size_t               option_empty_feat;
+  static size_t               option_mq_size;
 
   static std::string          option_train_set_slice_mode;
   static double               option_train_set_percent;
