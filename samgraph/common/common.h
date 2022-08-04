@@ -400,6 +400,7 @@ class Shuffler {
   virtual TensorPtr GetBatch(StreamHandle stream = nullptr) = 0;
   virtual uint64_t Epoch() = 0;
   virtual uint64_t Step() = 0;
+  virtual uint64_t LocalStep() { CHECK(false) << "Unimplemented"; return 0; };
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
   virtual size_t NumLocalStep() { CHECK(false) << "Unimplemented"; return 0; };

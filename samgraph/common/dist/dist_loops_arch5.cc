@@ -93,9 +93,29 @@ bool RunSampleSubLoopOnce() {
   get_miss_cache_index_time = t2.Passed();
 
   LOG(DEBUG) << "RunSampleOnce next_q Send task";
+
+  auto shuffler = DistEngine::Get()->GetShuffler();
+  uint64_t num_global_batch_before = shuffler->LocalStep() * RunConfig::num_sample_worker;
+  uint64_t num_global_batch_after = (shuffler->LocalStep() + 1) * RunConfig::num_sample_worker;
+  if (num_global_batch_before < RunConfig::num_train_worker &&
+      num_global_batch_after >= RunConfig::num_train_worker) {
+    // this is the round we need sync, only first #trainer batch should be be pushed, 
+    // since they are larger batch. so we block later batch a little bit
+    if (num_global_batch_before + RunConfig::worker_id >= RunConfig::num_train_worker) {
+      DistEngine::Get()->GetSamplerBarrier()->Wait();
+    }
+  }
+
   Timer t3;
   next_q->Send(task);
   send_time = t3.Passed();
+  if (num_global_batch_before < RunConfig::num_train_worker &&
+      num_global_batch_after >= RunConfig::num_train_worker) {
+    // first # trainer batch has bin pushed, let later smaller batch to be pushed
+    if (num_global_batch_before + RunConfig::worker_id < RunConfig::num_train_worker) {
+      DistEngine::Get()->GetSamplerBarrier()->Wait();
+    }
+  }
 
   Profiler::Get().LogEpochAdd(task->key, kLogEpochSampleTime,
                               shuffle_time + sample_time);

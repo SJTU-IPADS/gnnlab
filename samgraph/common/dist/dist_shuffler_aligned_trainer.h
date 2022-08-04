@@ -36,6 +36,7 @@ class DistTrainerAlignedShuffler : public Shuffler {
   uint64_t Epoch() override { return _cur_epoch; }
   // Global step
   uint64_t Step() override { return _global_step_offset + _cur_step; }
+  uint64_t LocalStep() override { return _cur_step; }
   size_t NumEpoch() override { return _num_epoch; }
   size_t NumStep() override { return _epoch_step; }
   size_t NumLocalStep() override { return _num_step; }

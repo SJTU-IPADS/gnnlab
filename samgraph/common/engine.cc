@@ -162,7 +162,7 @@ void Engine::LoadGraphDataset() {
       meta[Constant::kMetaNumLinkTestSet]  = 0.1 * meta[Constant::kMetaNumEdge];
       meta[Constant::kMetaNumLinkValidSet] = meta[Constant::kMetaNumEdge] - meta[Constant::kMetaNumLinkTrainSet] - meta[Constant::kMetaNumLinkTestSet];
       if (meta[Constant::kMetaNumLinkTrainSet] / RunConfig::batch_size > RunConfig::step_max_boundary) {
-        meta[Constant::kMetaNumLinkTrainSet] = RunConfig::step_max_boundary * RunConfig::batch_size * 2;
+        meta[Constant::kMetaNumLinkTrainSet] = RoundUp(RunConfig::step_max_boundary, LCM(RunConfig::num_sample_worker, RunConfig::num_train_worker)) * RunConfig::batch_size;
         meta[Constant::kMetaNumLinkTrainSet] = Min(meta[Constant::kMetaNumEdge] - meta[Constant::kMetaNumLinkTestSet] - meta[Constant::kMetaNumLinkValidSet], meta[Constant::kMetaNumLinkTrainSet]);
       }
     }

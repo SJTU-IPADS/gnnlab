@@ -142,7 +142,9 @@ TensorPtr DistTrainerAlignedShuffler::GetBatch(StreamHandle stream) {
   CHECK(offset < _num_local_data);
   CHECK(offset + _batch_size <= _num_local_data);
   size_t size = _batch_size;
-  if (_cur_step < RunConfig::num_train_worker && _cur_epoch == 0) {
+  // _cur_step is a local step
+  // all sampler's first iteration's step, make it larger
+  if (_cur_step * RunConfig::num_sample_worker + RunConfig::worker_id < RunConfig::num_train_worker && _cur_epoch == 0) {
     size *= 1.2;
     size = std::min((_num_local_data - offset), size);
   }

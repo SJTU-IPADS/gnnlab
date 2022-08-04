@@ -673,6 +673,7 @@ void DoCPUFeatureExtract(TaskPtr task) {
 
 #ifdef SAMGRAPH_COLL_CACHE_ENABLE
 void DoCollFeatLabelExtract(TaskPtr task) {
+  static size_t first_batch_num_input = 0;
   auto dataset = DistEngine::Get()->GetGraphDataset();
 
   auto feat = dataset->feat;
@@ -692,9 +693,16 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   }
   auto train_ctx = DistEngine::Get()->GetTrainerCtx();
   auto copy_stream = DistEngine::Get()->GetTrainerCopyStream();
-
-  task->input_feat = Tensor::Empty(feat_type, {num_input, feat_dim}, DistEngine::Get()->GetTrainerCtx(),
+  // shuffler make first 1 batch larger. make sure all later batch is smaller
+  // to avoid wasted memory
+  if (first_batch_num_input == 0) {
+    first_batch_num_input = num_input;
+  } else {
+    CHECK_LE(num_input, first_batch_num_input) << "first batch is smaller than this one" << first_batch_num_input << ", " << num_input;
+  }
+  task->input_feat = Tensor::EmptyNoScale(feat_type, {first_batch_num_input, feat_dim}, DistEngine::Get()->GetTrainerCtx(),
                     "task.train_feat_cuda_" + std::to_string(task->key));
+  task->input_feat->ForceScale(feat_type, {num_input, feat_dim}, DistEngine::Get()->GetTrainerCtx(), "task.train_feat_cuda_" + std::to_string(task->key));
   task->output_label = Tensor::Empty(label_type, {num_ouput}, DistEngine::Get()->GetTrainerCtx(),
                      "task.train_label_cuda_" + std::to_string(task->key));
   DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
@@ -710,6 +718,7 @@ void DoCollFeatLabelExtract(TaskPtr task) {
     Device::Get(train_ctx)->StreamSync(train_ctx, copy_stream);
   }
 
+  Profiler::Get().LogStep(task->key, kLogL1LabelBytes, task->output_label->NumBytes());
   LOG(DEBUG) << "CollFeatExtract: process task with key " << task->key;
 }
 #endif
