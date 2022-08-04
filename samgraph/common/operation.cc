@@ -429,6 +429,14 @@ void samgraph_report_step_average(uint64_t epoch, uint64_t step) {
   Profiler::Get().ReportStepAverage(epoch, step);
   std::cout.flush();
 }
+void samgraph_report_step_max(uint64_t epoch, uint64_t step) {
+  Profiler::Get().ReportStepMax(epoch, step);
+  std::cout.flush();
+}
+void samgraph_report_step_min(uint64_t epoch, uint64_t step) {
+  Profiler::Get().ReportStepMin(epoch, step);
+  std::cout.flush();
+}
 
 void samgraph_report_epoch(uint64_t epoch) {
   Profiler::Get().ReportEpoch(epoch);
@@ -560,21 +568,22 @@ void samgraph_print_memory_usage() {
     }
     auto _target_device = Device::Get(ctx);
     std::cout << "[CUDA] cuda" << ctx.device_id << ": usage: " << ToReadableSize(get_cuda_used(ctx)) << "\n";
-    std::cout << "[SAM]  data alloc        : " << ToReadableSize(_target_device->DataSize(ctx)) << "\n";
-    std::cout << "[SAM]  workspace         : " << ToReadableSize(_target_device->WorkspaceSize(ctx)) << "\n";
-    std::cout << "[SAM]  workspace reserve : " << ToReadableSize(_target_device->FreeWorkspaceSize(ctx)) << "\n";
-    std::cout << "[SAM]  total             : " << ToReadableSize(_target_device->TotalSize(ctx)) << "\n";
+    std::cout << "[SAM] cuda" << ctx.device_id << " data alloc        : " << ToReadableSize(_target_device->DataSize(ctx)) << "\n";
+    std::cout << "[SAM] cuda" << ctx.device_id << " workspace         : " << ToReadableSize(_target_device->WorkspaceSize(ctx)) << "\n";
+    std::cout << "[SAM] cuda" << ctx.device_id << " workspace reserve : " << ToReadableSize(_target_device->FreeWorkspaceSize(ctx)) << "\n";
+    std::cout << "[SAM] cuda" << ctx.device_id << " total             : " << ToReadableSize(_target_device->TotalSize(ctx)) << "\n";
   } else if (dynamic_cast<cuda::GPUEngine*>(Engine::Get())) {
     for (Context ctx : {cuda::GPUEngine::Get()->GetSamplerCtx(),
                         cuda::GPUEngine::Get()->GetTrainerCtx()}) {
       auto _target_device = Device::Get(ctx);
       std::cout << "[CUDA] cuda" << ctx.device_id << ": usage: " << ToReadableSize(get_cuda_used(ctx)) << "\n";
-      std::cout << "[SAM]  data alloc        : " << ToReadableSize(_target_device->DataSize(ctx)) << "\n";
-      std::cout << "[SAM]  workspace         : " << ToReadableSize(_target_device->WorkspaceSize(ctx)) << "\n";
-      std::cout << "[SAM]  workspace reserve : " << ToReadableSize(_target_device->FreeWorkspaceSize(ctx)) << "\n";
-      std::cout << "[SAM]  total             : " << ToReadableSize(_target_device->TotalSize(ctx)) << "\n";
+      std::cout << "[SAM] cuda" << ctx.device_id << " data alloc        : " << ToReadableSize(_target_device->DataSize(ctx)) << "\n";
+      std::cout << "[SAM] cuda" << ctx.device_id << " workspace         : " << ToReadableSize(_target_device->WorkspaceSize(ctx)) << "\n";
+      std::cout << "[SAM] cuda" << ctx.device_id << " workspace reserve : " << ToReadableSize(_target_device->FreeWorkspaceSize(ctx)) << "\n";
+      std::cout << "[SAM] cuda" << ctx.device_id << " total             : " << ToReadableSize(_target_device->TotalSize(ctx)) << "\n";
     }
   }
+  std::cout.flush();
 }
 
 }  // extern "c"

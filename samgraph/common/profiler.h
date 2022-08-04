@@ -202,6 +202,8 @@ class Profiler {
   void ReportInit();
   void ReportStep(uint64_t epoch, uint64_t step);
   void ReportStepAverage(uint64_t epoch, uint64_t step);
+  void ReportStepMax(uint64_t epoch, uint64_t step);
+  void ReportStepMin(uint64_t epoch, uint64_t step);
   void ReportEpoch(uint64_t epoch);
   void ReportEpochAverage(uint64_t epoch);
 
@@ -216,6 +218,8 @@ class Profiler {
   static Profiler &Get();
 
  private:
+  template<typename ReduceOp>
+  void PrepareStepReduce(uint64_t epoch, uint64_t step, const double init, ReduceOp op);
   void OutputStep(uint64_t key, std::string type);
   void OutputEpoch(uint64_t epoch, std::string type);
 

@@ -75,6 +75,8 @@ void samgraph_report_init();
 void samgraph_report_step(uint64_t epoch, uint64_t step);
 
 void samgraph_report_step_average(uint64_t epoch, uint64_t step);
+void samgraph_report_step_max(uint64_t epoch, uint64_t step);
+void samgraph_report_step_min(uint64_t epoch, uint64_t step);
 
 void samgraph_report_epoch(uint64_t epoch);
 

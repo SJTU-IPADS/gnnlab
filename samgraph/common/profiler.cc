@@ -326,6 +326,40 @@ void Profiler::ReportStepAverage(uint64_t epoch, uint64_t step) {
   OutputStep(key, "Step(average)");
 }
 
+template<typename ReduceOp>
+void Profiler::PrepareStepReduce(uint64_t epoch, uint64_t step, const double init, ReduceOp op) {
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+
+  size_t num_items = static_cast<size_t>(kNumLogStepItems);
+  for (size_t i = 0; i < num_items; i++) {
+    if (_step_data[i].cnt <= 1) {
+      _step_buf[i] = 0;
+      continue;
+    }
+    double reduce_val = init;
+    for (size_t current_key = 0; current_key < key; current_key++) {
+      // skip first epoch
+      if (Engine::Get()->GetEpochFromKey(current_key) == 0) continue;
+      if (_step_data[i].bitmap[current_key] == false) continue;
+      reduce_val = op(reduce_val, _step_data[i].vals[current_key]);
+    }
+    _step_buf[i] = reduce_val;
+  }
+}
+
+void Profiler::ReportStepMax(uint64_t epoch, uint64_t step) {
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  auto reduce_op = [](const double & a, const double & b){ return std::max(a, b); };
+  PrepareStepReduce<>(epoch, step, 0, reduce_op);
+  OutputStep(key, "Step(max)");
+}
+void Profiler::ReportStepMin(uint64_t epoch, uint64_t step) {
+  uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
+  auto reduce_op = [](const double & a, const double & b){ return std::min(a, b); };
+  PrepareStepReduce<>(epoch, step, std::numeric_limits<double>::max(), reduce_op);
+  OutputStep(key, "Step(min)");
+}
+
 void Profiler::ReportEpoch(uint64_t epoch) {
   size_t num_items = static_cast<size_t>(kNumLogEpochItems);
   for (size_t i = 0; i < num_items; i++) {

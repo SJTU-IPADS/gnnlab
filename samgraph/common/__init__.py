@@ -341,6 +341,12 @@ class SamGraphBasics(object):
         self.C_LIB_CTYPES.samgraph_report_step_average.argtypes = (
             ctypes.c_uint64,
             ctypes.c_uint64)
+        self.C_LIB_CTYPES.samgraph_report_step_max.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_uint64)
+        self.C_LIB_CTYPES.samgraph_report_step_min.argtypes = (
+            ctypes.c_uint64,
+            ctypes.c_uint64)
         self.C_LIB_CTYPES.samgraph_report_epoch.argtypes = (
             ctypes.c_uint64,)
         self.C_LIB_CTYPES.samgraph_report_epoch_average.argtypes = (
@@ -518,6 +524,10 @@ class SamGraphBasics(object):
 
     def report_step_average(self, epoch, step):
         return self.C_LIB_CTYPES.samgraph_report_step_average(epoch, step)
+    def report_step_max(self, epoch, step):
+        return self.C_LIB_CTYPES.samgraph_report_step_max(epoch, step)
+    def report_step_min(self, epoch, step):
+        return self.C_LIB_CTYPES.samgraph_report_step_min(epoch, step)
 
     def report_epoch(self, epoch):
         return self.C_LIB_CTYPES.samgraph_report_epoch(epoch)
