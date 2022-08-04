@@ -40,8 +40,8 @@ class PreSampler {
   static inline PreSampler* Get() { return singleton; }
   TaskPtr DoPreSampleShuffle();
  private:
-  TensorPtr freq_table;
-  // Id64Type * freq_table;
+  // TensorPtr freq_table;
+  Id64Type * freq_table;
   // TensorPtr freq_table;
   size_t _num_nodes, _num_step;
   static PreSampler* singleton;

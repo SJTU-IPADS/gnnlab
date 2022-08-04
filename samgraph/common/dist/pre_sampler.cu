@@ -64,9 +64,9 @@ PreSampler::PreSampler(TensorPtr input, size_t batch_size, size_t num_nodes) {
   LOG(ERROR) << "Dist Presampler making shuffler...Done\n";
   _num_nodes = num_nodes;
   _num_step = _shuffler->NumStep();
-  freq_table = Tensor::Empty(kI64, {_num_nodes}, sampler_ctx, "pre_sampler_freq");
+  freq_table = (Id64Type*) (sampler_device->AllocDataSpace(sampler_ctx, _num_nodes * sizeof(Id64Type)));
   // freq_table = static_cast<Id64Type*>(Device::Get(CPU())->AllocDataSpace(CPU(), sizeof(Id64Type)*_num_nodes));
-  cuda::ArrangeArray<Id64Type>(freq_table->Ptr<Id64Type>(), _num_nodes, 0, 1, stream);
+  cuda::ArrangeArray<Id64Type>(freq_table, _num_nodes, 0, 1, stream);
   sampler_device->StreamSync(sampler_ctx, stream);
 // #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
 //   for (size_t i = 0; i < _num_nodes; i++) {
@@ -78,7 +78,9 @@ PreSampler::PreSampler(TensorPtr input, size_t batch_size, size_t num_nodes) {
 }
 
 PreSampler::~PreSampler() {
-  // Device::Get(CPU())->FreeDataSpace(CPU(), freq_table);
+  auto sampler_ctx = DistEngine::Get()->GetSamplerCtx();
+  auto sampler_device = Device::Get(sampler_ctx);
+  sampler_device->FreeDataSpace(sampler_ctx, freq_table);
   delete _shuffler;
 }
 
@@ -131,7 +133,7 @@ void PreSampler::DoPreSample(){
       Timer t2;
       {
         SAM_1D_GRID_INIT(num_inputs);
-        record_freq<><<<grid, block, 0, cu_stream>>>(freq_table->Ptr<Id64Type>(), task->input_nodes->CPtr<IdType>(), num_inputs);
+        record_freq<><<<grid, block, 0, cu_stream>>>(freq_table, task->input_nodes->CPtr<IdType>(), num_inputs);
         sampler_device->StreamSync(sampler_ctx, stream);
       }
       double count_time = t2.Passed();
@@ -143,10 +145,10 @@ void PreSampler::DoPreSample(){
                << Profiler::Get().GetLogInitValue(kLogInitL3PresampleCount) << " on count";
   }
   Timer ts;
-  auto freq_table_sorted = Tensor::Empty(kI64, {_num_nodes}, sampler_ctx, "");
-  cuda::CubSortKeyDescending(freq_table->CPtr<Id64Type>(), freq_table_sorted->Ptr<Id64Type>(), _num_nodes, sampler_ctx, 0, sizeof(Id64Type)*8, stream);
-  freq_table = freq_table_sorted;
-  freq_table_sorted = nullptr;
+  Id64Type* freq_table_alter = (Id64Type*) (sampler_device->AllocDataSpace(sampler_ctx, _num_nodes * sizeof(Id64Type)));
+  cuda::CubSortKeyDescending(freq_table, freq_table_alter, _num_nodes, sampler_ctx, 0, sizeof(Id64Type)*8, stream);
+  sampler_device->FreeDataSpace(sampler_ctx, freq_table_alter);
+  freq_table_alter = nullptr;
   double sort_time = ts.Passed();
   Profiler::Get().LogInit(kLogInitL3PresampleSort, sort_time);
   LOG(ERROR) << "presample spend " << sort_time << " on sort freq.\n";
@@ -169,7 +171,7 @@ void PreSampler::GetFreq(IdType* ranking_freq_ptr) {
   auto stream = DistEngine::Get()->GetSampleStream();
   auto cu_stream = static_cast<cudaStream_t>(stream);
   SAM_1D_GRID_INIT(_num_nodes);
-  get_high_32<><<<grid, block, 0, cu_stream>>>(ranking_freq_ptr, freq_table->CPtr<Id64Type>(), _num_nodes);
+  get_high_32<><<<grid, block, 0, cu_stream>>>(ranking_freq_ptr, freq_table, _num_nodes);
   sampler_device->StreamSync(sampler_ctx, stream);
 }
 TensorPtr PreSampler::GetRankNode() {
@@ -189,7 +191,7 @@ void PreSampler::GetRankNode(IdType* ranking_nodes_ptr) {
   auto cu_stream = static_cast<cudaStream_t>(stream);
   SAM_1D_GRID_INIT(_num_nodes);
   Timer t_prepare_rank;
-  get_low_32<><<<grid, block, 0, cu_stream>>>(ranking_nodes_ptr, freq_table->CPtr<Id64Type>(), _num_nodes);
+  get_low_32<><<<grid, block, 0, cu_stream>>>(ranking_nodes_ptr, freq_table, _num_nodes);
   sampler_device->StreamSync(sampler_ctx, stream);
   Profiler::Get().LogInit(kLogInitL3PresampleGetRank, t_prepare_rank.Passed());
 }
