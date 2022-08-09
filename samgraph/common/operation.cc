@@ -346,12 +346,12 @@ void samgraph_sample_once() { Engine::Get()->RunSampleOnce(); }
 
 size_t samgraph_get_graph_num_src(uint64_t key, int graph_id) {
   auto batch = Engine::Get()->GetGraphBatch();
-  return batch->graphs[graph_id]->num_src;
+  return RoundUp<size_t>(batch->graphs[graph_id]->num_src, 8);
 }
 
 size_t samgraph_get_graph_num_dst(uint64_t key, int graph_id) {
   auto batch = Engine::Get()->GetGraphBatch();
-  return batch->graphs[graph_id]->num_dst;
+  return RoundUp<size_t>(batch->graphs[graph_id]->num_dst, 8);
 }
 
 size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
@@ -361,7 +361,7 @@ size_t samgraph_get_graph_num_edge(uint64_t key, int graph_id) {
 
 size_t samgraph_get_unsupervised_graph_num_node(uint64_t key) {
   auto batch = Engine::Get()->GetGraphBatch();
-  return batch->unsupervised_graph->num_src;
+  return RoundUp<size_t>(batch->unsupervised_graph->num_src, 8);
 }
 
 void samgraph_shutdown() {

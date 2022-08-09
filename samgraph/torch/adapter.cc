@@ -67,9 +67,11 @@ namespace torch {
 
   CHECK_EQ(key, graph_batch->key);
 
+  long long padded_num_node = common::RoundUp<long long>(feat->Shape()[0], 8);
+
   ::torch::Tensor tensor = ::torch::from_blob(
       feat->MutableData(),
-      {(long long)feat->Shape()[0], (long long)feat->Shape()[1]},
+      {padded_num_node, (long long)feat->Shape()[1]},
       [feat](void* data) {},
       ::torch::TensorOptions().dtype(to_torch_data_type(feat->Type())).device(device));
 

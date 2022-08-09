@@ -696,7 +696,7 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   // shuffler make first 1 batch larger. make sure all later batch is smaller
   // to avoid wasted memory
   if (first_batch_num_input == 0) {
-    first_batch_num_input = num_input;
+    first_batch_num_input = RoundUp<size_t>(num_input, 8);
   } else {
     CHECK_LE(num_input, first_batch_num_input) << "first batch is smaller than this one" << first_batch_num_input << ", " << num_input;
   }

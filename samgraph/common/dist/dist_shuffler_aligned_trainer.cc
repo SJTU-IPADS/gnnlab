@@ -147,6 +147,7 @@ TensorPtr DistTrainerAlignedShuffler::GetBatch(StreamHandle stream) {
   if (_cur_step * RunConfig::num_sample_worker + RunConfig::worker_id < RunConfig::num_train_worker && _cur_epoch == 0) {
     double scale_factor = DistEngine::Get()->GetGraphDataset()->scale_factor->CPtr<double>()[0];
     size *= scale_factor;
+    size = RoundUp<size_t>(size, 8);
     size = std::min((_num_local_data - offset), size);
   }
   auto tensor =
