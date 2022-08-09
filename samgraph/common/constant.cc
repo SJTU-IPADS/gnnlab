@@ -79,5 +79,8 @@ const std::string Constant::kNodeAccessSimilarityFile = "node_access_similarity"
 const std::string Constant::kNodeAccessPreSampleSimFile = "node_access_presample";
 const std::string Constant::kNodeAccessFileSuffix = ".txt";
 
+const std::string Constant::kCollCacheBuilderShmName = "coll_cache_shm";
+const std::string Constant::kCollCachePlacementShmName = "coll_cache_block_placement";
+
 }  // namespace common
 }  // namespace samgraph

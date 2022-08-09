@@ -729,7 +729,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
        RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {
     {
       size_t file_nbytes, &num_blocks=file_nbytes;
-      int fd = cpu::MmapCPUDevice::OpenShm("coll_cache_block_placement", &file_nbytes);
+      int fd = cpu::MmapCPUDevice::OpenShm(Constant::kCollCachePlacementShmName, &file_nbytes);
       void* shared_memory = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RO_DEVICE), file_nbytes, fd);
       _dataset->block_placement = Tensor::FromBlob(
         shared_memory, DataType::kU8, {num_blocks}, MMAP(MMAP_RO_DEVICE), "coll_cache_block_placement");

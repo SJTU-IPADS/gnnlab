@@ -146,7 +146,7 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
     // std::cout << block_density_array[block_id].ref() << " ";
   }
   // std::cout << "\n";
-  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, block_density_tensor->Shape(), "coll_cache_block_placement");
+  block_placement = Tensor::CreateShm(Constant::kCollCachePlacementShmName, kU8, block_density_tensor->Shape(), "coll_cache_block_placement");
 }
 
 void OptimalSolver::Solve(std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent, std::string mode, double T_local, double T_remote, double T_cpu) {
@@ -413,7 +413,7 @@ void IntuitiveSolver::Solve(std::vector<int> device_to_stream,
   std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
   std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
 
-  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
+  block_placement = Tensor::CreateShm(Constant::kCollCachePlacementShmName, kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
 
   block_placement->Ptr<uint8_t>()[0] = (1 << num_device) - 1;
   for (int i = 0; i < num_device; i++) {
@@ -467,7 +467,7 @@ void PartitionSolver::Solve(std::vector<int> device_to_stream,
   std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
   std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
 
-  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
+  block_placement = Tensor::CreateShm(Constant::kCollCachePlacementShmName, kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
 
   for (int i = 0; i < num_device; i++) {
     block_placement->Ptr<uint8_t>()[i] = (1 << i);
@@ -527,7 +527,7 @@ void PartRepSolver::Solve(std::vector<int> device_to_stream,
   std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
   std::cout << "z=" << local_w * 100 / num_node * T_local + remote_w * 100 / num_node * T_remote + cpu_w * 100 / num_node * T_cpu << "\n";
 
-  block_placement = Tensor::CreateShm("coll_cache_block_placement", kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
+  block_placement = Tensor::CreateShm(Constant::kCollCachePlacementShmName, kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
 
   block_placement->Ptr<uint8_t>()[0] = (1 << num_device) - 1;
   for (int i = 0; i < num_device; i++) {

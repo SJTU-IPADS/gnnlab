@@ -997,7 +997,7 @@ CollCacheManager CollCacheManager::BuildCollCache(
   cudaIpcMemHandle_t * device_cache_data_list;
 
   {
-    int fd = cpu::MmapCPUDevice::CreateShm(4096 * 2, "coll_cache_shm");
+    int fd = cpu::MmapCPUDevice::CreateShm(4096 * 2, Constant::kCollCacheBuilderShmName);
     void* shared_memory = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RW_DEVICE), 4096*2, fd);
     hash_table_offset_list = static_cast<cudaIpcMemHandle_t*>(shared_memory);
     device_cache_data_list = hash_table_offset_list + num_device;
