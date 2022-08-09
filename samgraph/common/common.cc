@@ -541,8 +541,11 @@ size_t PredictNumNodes(size_t batch_size, const std::vector<size_t> &fanout,
   CHECK_LE(num_fanout_to_comp, fanout.size());
   size_t count = batch_size;
   if (RunConfig::unsupervised_sample) {
-    count *= 2 * (1 + RunConfig::negative_sample_K);
-    // fixme: there may be negative sample, should add it
+    if (RunConfig::RunConfig::negative_sample_reuse_src) {
+      count *= 2 + RunConfig::negative_sample_K;
+    } else {
+      count *= 2 * (1 + RunConfig::negative_sample_K);
+    }
   }
   for (int i = num_fanout_to_comp - 1; i >= 0; i--) {
     count += (count * fanout[i]);

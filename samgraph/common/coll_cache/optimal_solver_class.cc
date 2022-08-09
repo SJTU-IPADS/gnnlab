@@ -73,6 +73,7 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
     }
     return ret;
   };
+  LOG(WARNING) << "counting slots...";
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (uint32_t nid = 0; nid < num_node; nid++) {
     // for each nid, prepare a slot list
@@ -90,6 +91,7 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
   block_identifer* buckets = new block_identifer[slot_array_to_full_block.next_free_slot.load()];
   next_free_block.store(0);
 
+  LOG(WARNING) << "counting blocks...";
 #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
   for (uint32_t nid = 0; nid < num_node; nid++) {
     nid_to_block[nid].ref() = buckets[nid_to_block[nid].ref()].add_node(this);

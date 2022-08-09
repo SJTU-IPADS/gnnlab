@@ -88,9 +88,11 @@ struct MQ_MetaData {
     /* data */
     data = suffix_buffer;
 
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for (T i = 0; i < max_size; ++i) {
       sem_init(sem_list + i, 1, 0);
     }
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num)
     for (T i = 0; i < max_size; ++i) {
       sem_init(release_list + i, 1, 1);
     }

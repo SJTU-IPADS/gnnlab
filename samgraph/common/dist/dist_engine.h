@@ -129,6 +129,7 @@ class DistEngine : public Engine {
   DistUMSampler* GetUMSamplerByTid(std::thread::id tid);
   DistSharedBarrier* GetSamplerBarrier() { return _sampler_barrier; }
   DistSharedBarrier* GetTrainerBarrier() { return _trainer_barrier; }
+  DistSharedBarrier* GetGlobalBarrier() { return _global_barrier; }
 
   static DistEngine* Get() { return dynamic_cast<DistEngine*>(Engine::_engine); }
 
@@ -185,6 +186,7 @@ class DistEngine : public Engine {
 
   std::vector<DistUMSampler*> _um_samplers;
   DistSharedBarrier *_trainer_barrier;
+  DistSharedBarrier *_global_barrier;
 };
 
 }  // namespace dist

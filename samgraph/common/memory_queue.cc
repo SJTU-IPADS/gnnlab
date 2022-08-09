@@ -32,7 +32,7 @@ SharedData::~SharedData() {
 MemoryQueue* MemoryQueue::_mq = nullptr;
 
 MemoryQueue::MemoryQueue(size_t mq_nbytes, size_t mq_size) {
-  _meta_size = QueueMetaData::GetRequiredNBytes(mq_nbytes, mq_size);
+  _meta_size = RoundUp<size_t>(QueueMetaData::GetRequiredNBytes(mq_nbytes, mq_size), 1<<21);
   _meta_data = reinterpret_cast<QueueMetaData*>(Device::Get(MMAP(MMAP_RW_DEVICE))->AllocWorkspace(MMAP(MMAP_RW_DEVICE), _meta_size, 1));
   CHECK_NE(_meta_data, MAP_FAILED);
   _meta_data->Init(mq_nbytes, mq_size);

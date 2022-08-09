@@ -257,7 +257,7 @@ void Engine::LoadGraphDataset() {
   } else {
     // no train set file. randomly generate from all edge
     auto cpu_ctx = CPU_CLIB();
-    auto full_eid = Tensor::Empty(kI32, {_dataset->num_edge}, cpu_ctx, "full_eid");
+    auto full_eid = Tensor::EmptyNoScale(kI32, {_dataset->num_edge}, cpu_ctx, "full_eid");
     cpu::ArrangeArray(full_eid->Ptr<IdType>(), _dataset->num_edge);
     size_t efficient_shuffle_range = meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet] + meta[Constant::kMetaNumValidSet];
     shuffle(full_eid->Ptr<IdType>(), _dataset->num_edge, &efficient_shuffle_range);

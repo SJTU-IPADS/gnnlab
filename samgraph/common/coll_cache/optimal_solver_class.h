@@ -124,7 +124,7 @@ protected:
   struct concurrent_full_slot_map {
     const size_t _place_holder = 0xffffffffffffffff;
     std::atomic_uint32_t next_free_slot{0};
-    tbb::concurrent_unordered_map<size_t, size_t> the_map;
+    tbb::concurrent_unordered_map<size_t, volatile size_t> the_map;
     concurrent_full_slot_map() {}
     uint32_t register_bucket(size_t slot_array_seq_id) {
       auto rst = the_map.insert({slot_array_seq_id, _place_holder});

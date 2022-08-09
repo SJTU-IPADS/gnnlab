@@ -65,6 +65,32 @@ size_t get_cuda_used(Context ctx) {
     LOG(LEVEL) << (title) << ", total     : " << ToReadableSize(_target_device->TotalSize(ctx));\
     LOG(LEVEL) << "cuda" << ctx.device_id << ": usage: " << ToReadableSize(get_cuda_used(ctx));\
   }
+
+std::string get_gpu_model(Context ctx) {
+  CHECK(ctx.device_type == kGPU);
+  cudaDeviceProp prop;
+  CUDA_CALL(cudaGetDeviceProperties(&prop, ctx.device_id));
+  std::string name = prop.name;
+  if (name.find("A100") != std::string::npos) {
+    return "A100";
+  } else if (name.find("V100") != std::string::npos) {
+    return "V100";
+  } else {
+    CHECK(false) << "Unrecognized gpu model " << name;
+    return "";
+  }
+}
+void update_coll_cache_hyper_param(Context ctx) {
+  std::string gpu_name = get_gpu_model(ctx);
+  LOG(ERROR) << "Running on " << gpu_name;
+  if (gpu_name == "A100") {
+    RunConfig::coll_cache_hyperparam_T_remote = 438 / (double)213;
+    RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)11.8;
+  } else if (gpu_name == "V100") {
+    RunConfig::coll_cache_hyperparam_T_remote = 330 / (double)38;
+    RunConfig::coll_cache_hyperparam_T_cpu    = 330 / (double)11;
+  }
+}
 } // namespace
 
 DistSharedBarrier::DistSharedBarrier(int count) {
@@ -142,9 +168,9 @@ void DistEngine::Init() {
 #endif
         // since we have only one global queue, allow only one ranking now.
         size_t num_stream = 1;
-        _dataset->ranking_nodes_list =      Tensor::Empty(DataType::kI32, {num_stream, _dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes");
-        _dataset->ranking_nodes_freq_list = Tensor::Empty(DataType::kI32, {num_stream, _dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
-        _dataset->nid_to_block =            Tensor::Empty(DataType::kI32, {_dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
+        _dataset->ranking_nodes_list =      Tensor::EmptyNoScale(DataType::kI32, {num_stream, _dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes");
+        _dataset->ranking_nodes_freq_list = Tensor::EmptyNoScale(DataType::kI32, {num_stream, _dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
+        _dataset->nid_to_block =            Tensor::EmptyNoScale(DataType::kI32, {_dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
         // _dataset->block_placement =        Tensor::Empty(DataType::kU8, {num_blocks}, MMAP(MMAP_RW_DEVICE), "ranking_nodes_freq");
         break;
       }
@@ -208,6 +234,7 @@ void DistEngine::Init() {
   LOG(DEBUG) << "create sampler barrier with " << RunConfig::num_sample_worker << " samplers";
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
   _trainer_barrier = new DistSharedBarrier(RunConfig::num_train_worker);
+  _global_barrier = new DistSharedBarrier(RunConfig::num_train_worker + RunConfig::num_sample_worker);
 
   LOG(INFO) << "Pre-fork init done...";
   double init_time = t_l1_init.Passed();
@@ -361,6 +388,8 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
 
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sample_stream);
     Device::Get(_sampler_ctx)->StreamSync(_sampler_ctx, _sampler_copy_stream);
+
+    update_coll_cache_hyper_param(_sampler_ctx);
   }
   double time_create_stream = t_create_stream.Passed();
   LOG_MEM_USAGE(INFO, "after create sampler stream", _sampler_ctx);
@@ -650,7 +679,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   LOG_MEM_USAGE(INFO, "before train initialization", _trainer_ctx);
   double time_create_cuda_ctx = t0.Passed();
 
-  LOG(WARNING) << "Trainer[" << worker_id << "] pin memory...";
+  LOG(WARNING) << "Trainer[" << worker_id << "] pin memory queue...";
   Timer t_pin_memory;
   if (_memory_queue) {
     _memory_queue->PinMemory();
@@ -665,6 +694,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _trainer_copy_stream = Device::Get(_trainer_ctx)->CreateStream(_trainer_ctx);
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
   double time_create_stream = t_create_stream.Passed();
+  update_coll_cache_hyper_param(_trainer_ctx);
   // next code is for CPU sampling
   /*
   _work_stream = static_cast<cudaStream_t>(
@@ -683,14 +713,15 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _cache_manager = nullptr;
   _gpu_cache_manager = nullptr;
 #endif
-  LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
+  LOG(WARNING) << "Trainer[" << worker_id << "] register host memory...";
   Timer t_build_cache;
 #ifdef SAMGRAPH_COLL_CACHE_ENABLE
-  CUDA_CALL(cudaHostRegister(_dataset->feat->MutableData(), _dataset->feat->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
-  CUDA_CALL(cudaHostRegister(_dataset->label->MutableData(), _dataset->label->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  CUDA_CALL(cudaHostRegister(_dataset->feat->MutableData(), RoundUp<size_t>(_dataset->feat->NumBytes(), 1 << 21), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  CUDA_CALL(cudaHostRegister(_dataset->label->MutableData(), RoundUp<size_t>(_dataset->label->NumBytes(), 1 << 21), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
   if (_dataset->ranking_nodes != nullptr && _dataset->ranking_nodes->Defined()) {
     CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
   }
+  LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
   _coll_cache_manager = new CollCacheManager();
   if ((RunConfig::cache_policy == kCollCache || 
        RunConfig::cache_policy == kCollCacheIntuitive || 
@@ -910,6 +941,8 @@ void DistEngine::Shutdown() {
   if (_sampler_barrier != nullptr) {
     delete _sampler_barrier;
   }
+  delete _trainer_barrier;
+  delete _global_barrier;
 
   if (RunConfig::run_arch == RunArch::kArch9) {
     for (auto& sampler : _um_samplers) {
