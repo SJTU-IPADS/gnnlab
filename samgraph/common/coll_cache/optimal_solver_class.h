@@ -93,31 +93,31 @@ protected:
   inline IdType alloc_block() { return next_free_block.fetch_add(1); }
 
   struct block_identifer {
-    uint32_t current_block_id = -1;
-    uint32_t current_num = std::numeric_limits<uint32_t>::max();
-    bool ignore_limit = false;
-    std::atomic_flag latch;
-    block_identifer() : latch() {}
-    void set_ignore_limit() {
-      while (latch.test_and_set()) {
-      }
-      ignore_limit = true;
-      latch.clear();
-    }
-    uint32_t add_node(OptimalSolver *solver) {
-      while (latch.test_and_set()) {
-      }
-      uint32_t selected_block = -1;
-      if (current_num < solver->max_size_per_block || ignore_limit) {
-        selected_block = current_block_id;
-        current_num++;
+    std::atomic_uint64_t _current_block_is_for_num_le_than{0xffffffff00000000};
+    std::atomic_uint32_t _registered_node{0};
+    std::atomic_uint32_t _done_node{0};
+
+    uint32_t add_node(OptimalSolver * solver) {
+      const uint32_t insert_order = _registered_node.fetch_add(1);
+      uint64_t old_val = _current_block_is_for_num_le_than.load();
+      uint32_t covered_num = old_val & 0xffffffff;
+      if (insert_order == covered_num) {
+        while (_done_node.load() < covered_num) {}
+        // alloc a new block
+        uint32_t selected_block = solver->alloc_block();
+        uint64_t new_val = (((uint64_t) selected_block) << 32) | (covered_num + solver->max_size_per_block);
+        CHECK(_current_block_is_for_num_le_than.compare_exchange_strong(old_val, new_val));
+        _done_node.fetch_add(1);
+        return selected_block;
       } else {
-        current_block_id = solver->alloc_block();
-        selected_block = current_block_id;
-        current_num = 1;
+        while (covered_num <= insert_order) {
+          old_val = _current_block_is_for_num_le_than.load();
+          covered_num = old_val & 0xffffffff;
+        }
+        uint32_t selected_block = old_val >> 32;
+        _done_node.fetch_add(1);
+        return selected_block;
       }
-      latch.clear();
-      return selected_block;
     }
   };
 
