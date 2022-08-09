@@ -194,6 +194,7 @@ struct DataIter {
   OffsetIter_T offset_iter;
   void* output;
   size_t dim;
+  DataIter() {}
   DataIter(OffsetIter_T offset_iter, void* output, size_t dim) : 
     offset_iter(offset_iter), output(output), dim(dim) {}
   DataIter(OffsetIter_T offset_iter, const void* output, size_t dim) : 
@@ -231,6 +232,7 @@ __global__ void extract_data(const SrcDataIter_T full_src, DstDataIter_T dst_ind
 
 struct LocationIter {
   SrcKey* src_key;
+  LocationIter() {}
   LocationIter(SrcKey* src_key) : src_key(src_key) {}
   LocationIter(const SrcKey* src_key) : src_key(const_cast<SrcKey*>(src_key)) {}
   __host__ __device__ int & operator[](const size_t & idx) { return src_key[idx]._location_id; }
@@ -238,6 +240,7 @@ struct LocationIter {
 };
 struct SrcOffIter {
   DstVal* dst_val;
+  SrcOffIter() {}
   SrcOffIter(DstVal* dst_val) : dst_val(dst_val) {}
   SrcOffIter(const DstVal* dst_val) : dst_val(const_cast<DstVal*>(dst_val)) {}
   __host__ __device__ IdType & operator[](const size_t & idx) { return dst_val[idx]._src_offset; }
@@ -245,6 +248,7 @@ struct SrcOffIter {
 };
 struct DstOffIter {
   DstVal* dst_val;
+  DstOffIter() {}
   DstOffIter(DstVal* dst_val) : dst_val(dst_val) {}
   DstOffIter(const DstVal* dst_val) : dst_val(const_cast<DstVal*>(dst_val)) {}
   __host__ __device__ IdType & operator[](const size_t & idx) { return dst_val[idx]._dst_offset; }
@@ -252,6 +256,11 @@ struct DstOffIter {
 };
 struct DirectOffIter {
   __host__ __device__ size_t operator[](const size_t & idx) const { return idx; }
+};
+struct MockOffIter {
+  size_t empty_feat;
+  MockOffIter() { empty_feat = RunConfig::option_empty_feat; }
+  __host__ __device__ size_t operator[](const size_t & idx) const { return idx % (1 << empty_feat); }
 };
 
 template <size_t BLOCK_SIZE, size_t TILE_SIZE, typename LocIter_T, typename SrcOffIter_T, typename DstOffIter_T>
@@ -302,11 +311,11 @@ __global__ void find_boundary(
   }
 }
 
-template <size_t BLOCK_SIZE=Constant::kCudaBlockSize, size_t TILE_SIZE=Constant::kCudaTileSize>
+template <size_t BLOCK_SIZE=Constant::kCudaBlockSize, size_t TILE_SIZE=Constant::kCudaTileSize, bool USE_EMPTY_FEAT=false>
 __global__ void init_hash_table_cpu(
     HashTableEntryLocation* hash_table_location, HashTableEntryOffset* hash_table_offset, 
     const size_t num_total_nodes,
-    const int cpu_location_id) {
+    const int cpu_location_id, size_t empty_feat = 0) {
   assert(BLOCK_SIZE == blockDim.x);
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -314,7 +323,11 @@ __global__ void init_hash_table_cpu(
   for (size_t node_id = block_start + threadIdx.x; node_id < block_end; node_id += BLOCK_SIZE) {
     if (node_id < num_total_nodes) {
       hash_table_location[node_id] = cpu_location_id;
-      hash_table_offset[node_id] = node_id;
+      if (USE_EMPTY_FEAT == false) {
+        hash_table_offset[node_id] = node_id;
+      } else {
+        hash_table_offset[node_id] = node_id % (1 << empty_feat);
+      }
     }
   }
 }
@@ -371,12 +384,12 @@ __global__ void check_eq(const uint32_t * a, const uint32_t * b, const size_t n_
   }
 }
 
-template <size_t BLOCK_SIZE=Constant::kCudaBlockSize, size_t TILE_SIZE=Constant::kCudaTileSize>
+template <size_t BLOCK_SIZE=Constant::kCudaBlockSize, size_t TILE_SIZE=Constant::kCudaTileSize, bool USE_EMPTY_FEAT=false>
 __global__ void decide_source_location(const IdType* nid_to_block_id, const uint8_t* block_is_stored, 
     const int *bit_array_to_src_location,
     HashTableEntryLocation* hash_table_location, HashTableEntryOffset* hash_table_offset, 
     IdType num_total_nodes, IdType num_blocks, 
-    IdType local_location_id, IdType cpu_location_id) {
+    IdType local_location_id, IdType cpu_location_id, size_t empty_feat = 0) {
   assert(BLOCK_SIZE == blockDim.x);
   const size_t block_start = TILE_SIZE * blockIdx.x;
   const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
@@ -386,7 +399,11 @@ __global__ void decide_source_location(const IdType* nid_to_block_id, const uint
       IdType block_id = nid_to_block_id[nid];
       uint8_t is_stored_bit_array = block_is_stored[block_id];
       hash_table_location[nid] = bit_array_to_src_location[is_stored_bit_array];
-      hash_table_offset[nid] = nid;
+      if (USE_EMPTY_FEAT) {
+        hash_table_offset[nid] = nid % (1 << empty_feat);
+      } else {
+        hash_table_offset[nid] = nid;
+      }
       // assert((is_stored_bit_array == 0 && bit_array_to_src_location[is_stored_bit_array] == cpu_location_id) ||
       //        ((is_stored_bit_array & (1 << bit_array_to_src_location[is_stored_bit_array])) != 0));
       // if (is_stored_bit_array == 0) {
@@ -1019,11 +1036,20 @@ CollCacheManager CollCacheManager::BuildCollCache(
     trainer_gpu_device->CopyDataFromTo(placement_to_src_cpu, 0, placement_to_src_gpu, 0, placement_to_src_nbytes, CPU(), trainer_ctx, stream);
 
     SAM_CUDA_PREPARE_1D(num_total_nodes);
-    decide_source_location<Constant::kCudaBlockSize, Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
-      (const IdType*)node_to_block_gpu->Data(), (const uint8_t*)block_placement_gpu->Data(),
-      placement_to_src_gpu,
-      cm._hash_table_location, cm._hash_table_offset, num_total_nodes,
-      num_blocks, local_location_id, cm._cpu_location_id);
+    if (RunConfig::option_empty_feat == 0) {
+      decide_source_location<Constant::kCudaBlockSize, Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
+        (const IdType*)node_to_block_gpu->Data(), (const uint8_t*)block_placement_gpu->Data(),
+        placement_to_src_gpu,
+        cm._hash_table_location, cm._hash_table_offset, num_total_nodes,
+        num_blocks, local_location_id, cm._cpu_location_id);
+    } else {
+      LOG(WARNING) << "using empty feat=" << RunConfig::option_empty_feat;
+      decide_source_location<Constant::kCudaBlockSize, Constant::kCudaTileSize, true><<<grid, block, 0, cu_stream>>>(
+        (const IdType*)node_to_block_gpu->Data(), (const uint8_t*)block_placement_gpu->Data(),
+        placement_to_src_gpu,
+        cm._hash_table_location, cm._hash_table_offset, num_total_nodes,
+        num_blocks, local_location_id, cm._cpu_location_id, RunConfig::option_empty_feat);
+    }
     trainer_gpu_device->StreamSync(trainer_ctx, stream);
     cpu_device->FreeWorkspace(CPU(), placement_to_src_cpu);
     trainer_gpu_device->FreeWorkspace(trainer_ctx, placement_to_src_gpu);
@@ -1062,9 +1088,17 @@ CollCacheManager CollCacheManager::BuildCollCache(
     cm._cache_nbytes = GetTensorBytes(cm._dtype, {num_cached_nodes, cm._dim});
     cm._device_cache_data[local_location_id] = trainer_gpu_device->AllocDataSpace(trainer_ctx, cm._cache_nbytes);
     // LOG(INFO) << "CollCacheManager: combine local data : [" << group_offset[local_location_id] << "," << group_offset[local_location_id+1] << ")";
-    const DataIter<const IdType*> src_data_iter(cache_node_list, cpu_src_data, dim);
-    DataIter<DirectOffIter> dst_data_iter(DirectOffIter(), cm._device_cache_data[local_location_id], dim);
-    Combine(src_data_iter, dst_data_iter, num_cached_nodes, trainer_ctx, dtype, dim, stream);
+    if (RunConfig::option_empty_feat == 0) {
+      const DataIter<const IdType*> src_data_iter(cache_node_list, cpu_src_data, dim);
+      DataIter<DirectOffIter> dst_data_iter(DirectOffIter(), cm._device_cache_data[local_location_id], dim);
+      Combine(src_data_iter, dst_data_iter, num_cached_nodes, trainer_ctx, dtype, dim, stream);
+    } else {
+      const DataIter<MockOffIter> src_data_iter(MockOffIter(), cpu_src_data, dim);
+      // const DataIter<const IdType*> src_data_iter(cache_node_list, cpu_src_data, dim);
+      DataIter<DirectOffIter> dst_data_iter(DirectOffIter(), cm._device_cache_data[local_location_id], dim);
+      Combine(src_data_iter, dst_data_iter, num_cached_nodes, trainer_ctx, dtype, dim, stream);
+
+    }
 
     LOG(INFO) << "CollCacheManager: fix offset of local nodes in hash table";
     SAM_CUDA_PREPARE_1D(num_cached_nodes);
