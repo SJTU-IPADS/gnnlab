@@ -47,6 +47,13 @@ public:
   TensorPtr global_rank_to_nid;
 };
 
+class PartitionMultiStream : public PartRepMultiStream {
+public:
+  void Solve(std::vector<int> device_to_stream,
+             std::vector<int> device_to_cache_percent, std::string mode,
+             double T_local = 2, double T_remote = 15, double T_cpu = 60) override;
+};
+
 class CliqueGlobalFreqSolver : public PartRepMultiStream {
  public:
   CliqueGlobalFreqSolver(int clique_size) : clique_size(clique_size) {}

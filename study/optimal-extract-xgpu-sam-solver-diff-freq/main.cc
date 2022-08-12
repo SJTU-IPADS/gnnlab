@@ -71,6 +71,7 @@ TensorPtr convertTo(TensorPtr src, DataType dst_dtype) {
   F(coll_cache_asymm_link) \
   F(selfish) \
   F(part_rep_diff_freq) \
+  F(partition_diff_freq) \
   F(clique_global_freq) \
   F(clique_local_freq) \
   F(local_int) \
@@ -240,6 +241,7 @@ int main(int argc, char** argv) {
     case k_coll_cache_asymm_link: solver = new OptimalAsymmLinkSolver(link_src, link_time); break;
     case k_selfish : solver = new SelfishSolver; break;
     case k_part_rep_diff_freq: solver = new PartRepMultiStream; break;
+    case k_partition_diff_freq: solver = new PartitionMultiStream; break;
     case k_clique_global_freq: solver = new CliqueGlobalFreqSolver(clique_size); break;
     case k_clique_local_freq: solver = new CliqueLocalFreqSolver(clique_size); break;
     default: CHECK(false);

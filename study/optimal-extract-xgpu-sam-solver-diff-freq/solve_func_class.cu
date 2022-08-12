@@ -328,6 +328,73 @@ void PartRepMultiStream::Solve(std::vector<int> device_to_stream,
   std::cout << "\n";
 }
 
+void PartitionMultiStream::Solve(std::vector<int> device_to_stream,
+                          std::vector<int> device_to_cache_percent,
+                          std::string mode, double T_local, double T_remote,
+                          double T_cpu) {
+  IdType num_node = stream_id_list->Shape()[1];
+  IdType num_stream = stream_id_list->Shape()[0];
+  IdType num_device = device_to_stream.size();
+  auto cpu_ctx = CPU(CPU_CLIB_MALLOC_DEVICE);
+  const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
+
+  TensorView<IdType> stream_id_list_view(stream_id_list);
+  TensorView<IdType> stream_freq_list_view(stream_freq_list);
+  TensorView<uint32_t> nid_to_rank(nid_to_rank_tensor);
+
+  const IdType partition_size = std::min(num_cached_nodes, num_node / num_device);
+  const IdType replicate_size = 0;
+  CHECK_LE(replicate_size + partition_size * num_device, num_node);
+  const IdType cpu_size = num_node - replicate_size - partition_size * num_device;
+
+  std::vector<double> local_w(num_device, 0);
+  std::vector<double> remote_w(num_device, 0);
+  std::vector<double> cpu_w(num_device, 0);
+  std::vector<double> total_w(num_device, 0);
+  std::vector<double> z(num_device, 0);
+
+  for (IdType dev_id = 0; dev_id < num_device; dev_id++) {
+    double rep_w_ = 0, cpu_w_ = 0, total_w_ = 0;
+    IdType stream_idx = device_to_stream[dev_id];
+    #pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : rep_w_, cpu_w_, total_w_)
+    for (IdType rank = 0; rank < num_node; rank++) {
+      IdType node_id = global_rank_to_nid->Ptr<IdType>()[rank];
+      IdType original_rank = nid_to_rank[node_id][stream_idx].ref();
+      IdType original_freq = stream_freq_list_view[stream_idx][original_rank].ref();
+      if (rank < replicate_size) {
+        rep_w_ += original_freq;
+      } else if (rank < replicate_size + partition_size * num_device) {
+      } else {
+        cpu_w_ += original_freq;
+      }
+      total_w_ += original_freq;
+    }
+    double partition_w_ = total_w_ - cpu_w_ - rep_w_;
+    local_w[dev_id] = rep_w_ + partition_w_ / num_device;
+    remote_w[dev_id] = partition_w_ / num_device * (num_device - 1);
+    cpu_w[dev_id] = cpu_w_;
+    total_w[dev_id] = total_w_;
+    z[dev_id] = local_w[dev_id] * 100 / num_node * T_local + remote_w[dev_id] * 100 / num_node * T_remote + cpu_w[dev_id] * 100 / num_node * T_cpu;
+  }
+
+  std::cout << "coll_cache:optimal_cpu_storage=" << cpu_size / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_local_storage=" << num_cached_nodes / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_remote_storage=" << 1 - cpu_size/(double)num_node - num_cached_nodes / (double)num_node << "\n";
+
+  std::cout << "coll_cache:optimal_local_rate=";
+  FOR_LOOP(dev_id, num_device) { std::cout << local_w[dev_id] / total_w[dev_id] << ","; }
+  std::cout << "\n";
+  std::cout << "coll_cache:optimal_remote_rate=";
+  FOR_LOOP(dev_id, num_device) { std::cout << remote_w[dev_id] / total_w[dev_id] << ","; }
+  std::cout << "\n";
+  std::cout << "coll_cache:optimal_cpu_rate=";
+  FOR_LOOP(dev_id, num_device) { std::cout << cpu_w[dev_id] / total_w[dev_id] << ","; }
+  std::cout << "\n";
+  std::cout << "z=";
+  FOR_LOOP(dev_id, num_device) { std::cout << z[dev_id] << ","; }
+  std::cout << "\n";
+}
+
 void CliqueGlobalFreqSolver::Solve(std::vector<int> device_to_stream,
                          std::vector<int> device_to_cache_percent,
                          std::string mode, double T_local, double T_remote,
