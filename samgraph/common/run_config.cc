@@ -99,6 +99,7 @@ std::vector<double>  RunConfig::unified_memory_percentages;
 UMPolicy             RunConfig::unified_memory_policy          = UMPolicy::kDefault;
 std::vector<Context> RunConfig::unified_memory_ctxes;
 
+bool                 RunConfig::coll_cache_concurrent_link = false;
 bool                 RunConfig::coll_cache_no_group    = false;
 size_t               RunConfig::coll_cache_num_slot    = 100;
 double               RunConfig::coll_cache_coefficient = 1.05;
@@ -154,6 +155,9 @@ void RunConfig::LoadConfigFromEnv() {
   }
   if (IsEnvSet("SAMGRAPH_COLL_CACHE_NO_GROUP")) {
     RunConfig::coll_cache_no_group = true;
+  }
+  if (IsEnvSet("SAMGRAPH_COLL_CACHE_CONCURRENT_LINK")) {
+    RunConfig::coll_cache_concurrent_link = true;
   }
   if (GetEnv("SAMGRAPH_MQ_SIZE") != "") {
     RunConfig::option_mq_size = std::stoull(GetEnv("SAMGRAPH_MQ_SIZE"));

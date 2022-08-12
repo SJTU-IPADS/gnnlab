@@ -64,7 +64,9 @@ class CollCacheManager {
                          const IdType* nodes, const size_t num_nodes,
                          StreamHandle stream = nullptr);
   void SplitGroup(const SrcKey * src_index, const size_t num_node, IdType * & group_offset, StreamHandle stream = nullptr);
-  void CombineOneGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream = nullptr);
+  void CombineOneGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream = nullptr, IdType limit_block=0, bool async=false);
+  template<int NUM_LINK>
+  void CombineConcurrent(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream = nullptr);
   void CombineAllGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream = nullptr);
   void CombineNoGroup(const IdType * nodes, const size_t num_node, void* output, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream);
   void ExtractFeat(const IdType* nodes, const size_t num_nodes,
@@ -106,6 +108,11 @@ class CollCacheManager {
   HashTableEntryLocation* _hash_table_location = nullptr;
   HashTableEntryOffset* _hash_table_offset = nullptr;
   std::vector<void*> _device_cache_data;
+
+  std::vector<int> _remote_device_list;
+  std::vector<int> _remote_sm_list;
+  std::vector<StreamHandle> _concurrent_stream_array;
+
  public:
   static CollCacheManager BuildLegacy(Context trainer_ctx,
                   void* cpu_src_data, DataType dtype, size_t dim,

@@ -230,6 +230,53 @@ __global__ void extract_data(const SrcDataIter_T full_src, DstDataIter_T dst_ind
   }
 }
 
+template<int NUM_LINK, typename SrcDataIter_T, typename DstDataIter_T>
+struct ExtractConcurrentParam {
+  SrcDataIter_T full_src_array[NUM_LINK];
+  DstDataIter_T dst_index_array[NUM_LINK];
+  IdType num_node_array[NUM_LINK];
+  IdType block_num_prefix_sum[NUM_LINK + 1];
+  const IdType* link_mapping;
+  size_t dim;
+};
+
+template <int NUM_LINK, typename T, typename SrcDataIter_T, typename DstDataIter_T>
+__global__ void extract_data_concurrent(ExtractConcurrentParam<NUM_LINK, SrcDataIter_T, DstDataIter_T> packed_param) {
+  // block -> which link
+  // block -> local block idx in this link
+  // block -> num block of this link
+  const IdType link_idx = packed_param.link_mapping[blockIdx.x];
+  const IdType local_block_idx_x = blockIdx.x - packed_param.block_num_prefix_sum[link_idx];
+  const IdType local_grid_dim_x = packed_param.block_num_prefix_sum[link_idx + 1] - packed_param.block_num_prefix_sum[link_idx];
+  size_t i = local_block_idx_x * blockDim.y + threadIdx.y;
+  const size_t stride = blockDim.y * local_grid_dim_x;
+
+
+  const IdType num_node = packed_param.num_node_array[link_idx];
+  const auto full_src = packed_param.full_src_array[link_idx];
+  auto dst_index = packed_param.dst_index_array[link_idx];
+
+  // if ((packed_param.num_node_array[0] % 20) == 0 && threadIdx.y == 0 && threadIdx.x == 0) {
+  //   printf("Block[%d]/[%d], link[%d], Local Block idx=%d, local_grid_dim=%d, block duty size=%d, stride=%d\n",
+  //     blockIdx.x, gridDim.x, link_idx, local_block_idx_x, local_grid_dim_x, num_node, stride);
+  // }
+
+  // if ((packed_param.num_node_array[0] % 20) == 0 && threadIdx.y == 0 && threadIdx.x == 0 && blockIdx.x == 0) {
+  //   printf("\n");
+  // }
+
+  while (i < num_node) {
+    size_t col = threadIdx.x;
+    T* dst = dst_index.template operator[]<T>(i);
+    const T* src = full_src.template operator[]<T>(i);
+    while (col < packed_param.dim) {
+      dst[col] = src[col];
+      col += blockDim.x;
+    }
+    i += stride;
+  }
+}
+
 struct LocationIter {
   SrcKey* src_key;
   LocationIter() {}
@@ -608,23 +655,68 @@ void CollCacheManager::SplitGroup(const SrcKey * src_index, const size_t len, Id
 namespace {
 template <typename SrcDataIter_T, typename DstDataIter_T>
 void Combine(const SrcDataIter_T src_data_iter, DstDataIter_T dst_data_iter,
-    const size_t num_node, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream);
+    const size_t num_node, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream, IdType limit_block=0, bool async=false);
 }
 
-void CollCacheManager::CombineOneGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream) {
+void CollCacheManager::CombineOneGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType* nodes, const size_t num_node, const void* src_data, void* output, StreamHandle stream, IdType limit_block, bool async) {
   const DataIter<const SrcOffIter> src_data_iter(SrcOffIter(dst_index), src_data, _dim);
   DataIter<const DstOffIter>       dst_data_iter(DstOffIter(dst_index), output, _dim);
-  Combine<>(src_data_iter, dst_data_iter, num_node, _trainer_ctx, _dtype, _dim, stream);
+  Combine<>(src_data_iter, dst_data_iter, num_node, _trainer_ctx, _dtype, _dim, stream, limit_block, async);
 }
 void CollCacheManager::CombineAllGroup(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream) {
 
 }
 
+template<int NUM_LINK>
+void CollCacheManager::CombineConcurrent(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream) {
+  CHECK(NUM_LINK == _remote_device_list.size());
+  ExtractConcurrentParam<NUM_LINK, DataIter<SrcOffIter>, DataIter<DstOffIter>> param;
+  IdType total_required_num_sm = 0;
+  TensorPtr link_mapping = Tensor::Empty(kI32, {108}, CPU(), "");
+  IdType total_num_node = 0;
+  for (int i = 0; i < NUM_LINK; i++) {
+    const int dev_id = _remote_device_list[i];
+    const int num_sm = _remote_sm_list[i];
+    param.full_src_array[i] = DataIter<SrcOffIter>(SrcOffIter(dst_index + group_offset[dev_id]), _device_cache_data[dev_id], _dim);
+    param.dst_index_array[i] = DataIter<DstOffIter>(DstOffIter(dst_index + group_offset[dev_id]), output, _dim);
+    param.num_node_array[i] = group_offset[dev_id + 1] - group_offset[dev_id];
+    param.block_num_prefix_sum[i] = total_required_num_sm;
+    total_required_num_sm += num_sm;
+    for (int block_id = param.block_num_prefix_sum[i]; block_id < total_required_num_sm; block_id++) {
+      link_mapping->Ptr<IdType>()[block_id] = i;
+    }
+    total_num_node += param.num_node_array[i];
+  }
+  link_mapping = Tensor::CopyTo(link_mapping, _trainer_ctx, stream);
+  param.block_num_prefix_sum[NUM_LINK] = total_required_num_sm;
+  param.link_mapping = link_mapping->CPtr<IdType>();
+  param.dim = _dim;
+
+  if (total_num_node == 0) return;
+  auto device = Device::Get(_trainer_ctx);
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+
+  dim3 block(256, 1);
+  while (static_cast<size_t>(block.x) >= 2 * _dim) {
+    block.x /= 2;
+    block.y *= 2;
+  }
+  dim3 grid(total_required_num_sm);
+
+
+  #define FUNC(type) \
+      extract_data_concurrent<NUM_LINK, type><<<grid, block, 0, cu_stream>>>(param);
+
+  SWITCH_TYPE(_dtype, FUNC);
+  #undef FUNC
+
+  device->StreamSync(_trainer_ctx, stream);
+}
 
 namespace {
 template <typename SrcDataIter_T, typename DstDataIter_T>
 void Combine(const SrcDataIter_T src_data_iter, DstDataIter_T dst_data_iter,
-    const size_t num_node, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream) {
+    const size_t num_node, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream, IdType limit_block, bool async) {
   if (num_node == 0) return;
   auto device = Device::Get(_trainer_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
@@ -634,7 +726,10 @@ void Combine(const SrcDataIter_T src_data_iter, DstDataIter_T dst_data_iter,
     block.x /= 2;
     block.y *= 2;
   }
-  const dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y)));
+  dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y)));
+  if (limit_block != 0) {
+    grid.x = limit_block;
+  }
 
   #define FUNC(type) \
       extract_data<type><<<grid, block, 0, cu_stream>>>( \
@@ -642,7 +737,9 @@ void Combine(const SrcDataIter_T src_data_iter, DstDataIter_T dst_data_iter,
   SWITCH_TYPE(_dtype, FUNC);
   #undef FUNC
 
-  device->StreamSync(_trainer_ctx, stream);
+  if (async == false) {
+    device->StreamSync(_trainer_ctx, stream);
+  }
 }
 }
 void CollCacheManager::CombineNoGroup(const IdType * nodes, const size_t num_node, void* output, Context _trainer_ctx, DataType _dtype, IdType _dim, StreamHandle stream) {
@@ -756,6 +853,79 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
       Profiler::Get().LogEpochAdd(task_key, kLogEpochFeatureBytes,GetTensorBytes(_dtype, {num_nodes, _dim}));
       // Profiler::Get().LogEpochAdd(task_key, kLogEpochMissBytes, GetTensorBytes(_dtype, {num_miss, _dim}));
     }
+  } else if (RunConfig::coll_cache_concurrent_link) {
+    // CHECK(false) << "Multi source extraction is not supported now";
+    auto trainer_gpu_device = Device::Get(_trainer_ctx);
+    auto cpu_device = Device::Get(CPU(CPU_CUDA_HOST_MALLOC_DEVICE));
+    SrcKey * src_index = nullptr;
+    DstVal * dst_index = nullptr;
+    LOG(DEBUG) << "CollCache: ExtractFeat: coll, get miss cache index... ";
+    Timer t0;
+    GetMissCacheIndex(src_index, dst_index, nodes, num_nodes, stream);
+    // std::cout << "Get Idx " << t0.Passed() << "\n";
+    IdType * group_offset = nullptr;
+    LOG(DEBUG) << "CollCache: ExtractFeat: coll, splitting group... ";
+    SplitGroup(src_index, num_nodes, group_offset, stream);
+    double get_index_time = t0.Passed();
+    
+    // std::cout << "Split GrOup " <<t1.Passed() << "\n";
+    double combine_times[3] = {0, 0, 0};
+    // cpu first, then concurrent remote, then local
+
+    Timer t1;
+    CombineOneGroup(src_index + group_offset[_cpu_location_id], dst_index + group_offset[_cpu_location_id], nodes + group_offset[_cpu_location_id], group_offset[_cpu_location_id+1] - group_offset[_cpu_location_id], _device_cache_data[_cpu_location_id], output, stream);
+    combine_times[0] = t1.Passed();
+
+    DistEngine::Get()->GetTrainerBarrier()->Wait();
+
+    {
+      // impl1: single kernel, limited num block
+      t1.Reset();
+      switch(_remote_device_list.size()) {
+        case 2: CombineConcurrent<2>(src_index, dst_index, group_offset, output, stream); break;
+        case 3: CombineConcurrent<3>(src_index, dst_index, group_offset, output, stream); break;
+        case 4: CombineConcurrent<4>(src_index, dst_index, group_offset, output, stream); break;
+        default: CHECK(false);
+      }
+      combine_times[1] = t1.Passed();
+    }{
+      // impl2: launch multiple kernel concurrently. each kernel only use part of sm by limiting num block
+      // t1.Reset();
+      // for (int src_link_order = 0; src_link_order < _remote_device_list.size(); src_link_order ++) {
+      //   auto [dev_id, num_sm] = _remote_device_list[src_link_order];
+      //   IdType offset = group_offset[dev_id];
+      //   IdType link_num_node = group_offset[dev_id+1] - offset;
+      //   // std::cout << "Dev[" << _local_location_id << "],Link[" << src_link_order << "], dev_id=" << dev_id << ", sm=" << num_sm << "," << "link_num_node=" << link_num_node << "\n"; 
+      //   CombineOneGroup(src_index + offset, dst_index + offset, nodes + offset, link_num_node, _device_cache_data[dev_id], output, _concurrent_stream_array[src_link_order], num_sm, true);
+      // }
+      // for (int src_link_order = 0; src_link_order < _remote_device_list.size(); src_link_order ++) {
+      //   trainer_gpu_device->StreamSync(_trainer_ctx, _concurrent_stream_array[src_link_order]);
+      // }
+      // combine_times[1] = t1.Passed();
+    }
+
+    t1.Reset();
+    CombineOneGroup(src_index + group_offset[_local_location_id], dst_index + group_offset[_local_location_id], nodes + group_offset[_local_location_id], group_offset[_local_location_id+1] - group_offset[_local_location_id], _device_cache_data[_local_location_id], output, stream);
+    combine_times[2] = t1.Passed();
+
+    trainer_gpu_device->FreeWorkspace(_trainer_ctx, src_index);
+    trainer_gpu_device->FreeWorkspace(_trainer_ctx, dst_index);
+    if (task_key != 0xffffffffffffffff) {
+      size_t num_miss = group_offset[_cpu_location_id+1]- group_offset[_cpu_location_id];
+      size_t num_local = group_offset[_local_location_id+1] - group_offset[_local_location_id];
+      size_t num_remote = num_nodes - num_miss - num_local;
+      // size_t num_hit = group_offset[1];
+      Profiler::Get().LogStep(task_key, kLogL1FeatureBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
+      Profiler::Get().LogStep(task_key, kLogL1MissBytes, GetTensorBytes(_dtype, {num_miss, _dim}));
+      Profiler::Get().LogStep(task_key, kLogL1RemoteBytes, GetTensorBytes(_dtype, {num_remote, _dim}));
+      Profiler::Get().LogStep(task_key, kLogL3CacheGetIndexTime, get_index_time);
+      Profiler::Get().LogStep(task_key, kLogL3CacheCombineMissTime,combine_times[0]);
+      Profiler::Get().LogStep(task_key, kLogL3CacheCombineRemoteTime,combine_times[1]);
+      Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_times[2]);
+      Profiler::Get().LogEpochAdd(task_key, kLogEpochFeatureBytes,GetTensorBytes(_dtype, {num_nodes, _dim}));
+      Profiler::Get().LogEpochAdd(task_key, kLogEpochMissBytes, GetTensorBytes(_dtype, {num_miss, _dim}));
+    }
+    cpu_device->FreeWorkspace(CPU(CPU_CUDA_HOST_MALLOC_DEVICE), group_offset);
   } else {
     // CHECK(false) << "Multi source extraction is not supported now";
     auto trainer_gpu_device = Device::Get(_trainer_ctx);
@@ -1141,6 +1311,22 @@ CollCacheManager CollCacheManager::BuildCollCache(
   // cpu_device->FreeWorkspace(CPU(CPU_CUDA_HOST_MALLOC_DEVICE), group_offset);
 
   size_t num_remote_nodes = num_total_nodes - num_cached_nodes - num_cpu_nodes;
+
+  if (RunConfig::coll_cache_concurrent_link) {
+    cm._concurrent_stream_array.resize(RunConfig::num_train_worker - 1);
+    for (auto & stream : cm._concurrent_stream_array) {
+      cudaStream_t & cu_s = reinterpret_cast<cudaStream_t &>(stream);
+      CUDA_CALL(cudaStreamCreate(&cu_s));
+    }
+    cudaDeviceProp prop;
+    CUDA_CALL(cudaGetDeviceProperties(&prop, trainer_ctx.device_id));
+    cm._remote_device_list.resize(RunConfig::num_train_worker - 1);
+    cm._remote_sm_list.resize(RunConfig::num_train_worker - 1);
+    for (int remote_order = 0; remote_order < RunConfig::num_train_worker - 1; remote_order++) {
+      cm._remote_device_list[remote_order] = (trainer_ctx.device_id + remote_order + 1) % (int)RunConfig::num_train_worker;
+      cm._remote_sm_list[remote_order] = prop.multiProcessorCount / (RunConfig::num_train_worker - 1);
+    }
+  }
 
   LOG(ERROR) << "Collaborative GPU cache (policy: " << RunConfig::cache_policy << ") | "
             << "local "  << num_cached_nodes << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_cached_nodes / (double)num_total_nodes) << "~" << ToPercentage(cache_percentage) << ") | "
