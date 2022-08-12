@@ -68,7 +68,7 @@ TensorPtr convertTo(TensorPtr src, DataType dst_dtype) {
   F(part_rep) \
   F(rep) \
   F(coll_cache) \
-  F(coll_cache_asymm) \
+  F(coll_cache_asymm_link) \
   F(selfish) \
   F(part_rep_diff_freq) \
   F(clique_global_freq) \
@@ -88,6 +88,9 @@ std::unordered_map<std::string, MethodType> method_name_mapping {
   METHOD_TYPE( F )
 };
 #undef F
+
+template<typename T>
+using vec = std::vector<T>;
 
 int main(int argc, char** argv) {
   RunConfig::omp_thread_num = sysconf(_SC_NPROCESSORS_ONLN) / 2;
@@ -130,6 +133,33 @@ int main(int argc, char** argv) {
     RunConfig::coll_cache_hyperparam_T_remote = 330 / (double)42;  // performance on V100
     RunConfig::coll_cache_hyperparam_T_cpu    = 330 / (double)11; // performance on V100
   }
+  // for 3 or 4 trainer, it must be hard wire settings: num link = trainer - 1; src per link = 1
+  // for 6 or 8 trainer, depends on gpu type:
+  //   A100, num link = 1; src per link = trainer -1
+  //   V100, we should hand write the topo
+  vec<vec<vec<int>>> link_src;
+  vec<vec<double>> link_time;
+  if (gpu == "V100" && RunConfig::num_train_worker == 8) {
+  } else {
+    int num_link = 1;
+    int src_per_link = RunConfig::num_train_worker - 1;
+    if (RunConfig::num_train_worker <= 4) {
+      std::swap(num_link, src_per_link);
+    }
+    link_src = vec<vec<vec<int>>>(RunConfig::num_train_worker, vec<vec<int>>(num_link, vec<int>(src_per_link)));
+    link_time = vec<vec<double>>(RunConfig::num_train_worker, vec<double>(num_link, RunConfig::coll_cache_hyperparam_T_remote));
+    for (size_t dst_dev = 0; dst_dev < RunConfig::num_train_worker; dst_dev++) {
+      for (size_t src_link = 0; src_link < num_link; src_link++) {
+        std::cout << dst_dev << " : link #" << src_link << " : ";
+        for (size_t src_dev = 0; src_dev < src_per_link; src_dev++) {
+          link_src[dst_dev][src_link][src_dev] = (dst_dev + 1 + src_link + src_dev) % RunConfig::num_train_worker;
+          std::cout << link_src[dst_dev][src_link][src_dev] << ",";
+        }
+        std::cout << "\n";
+      }
+    }
+  }
+
   CHECK_EQ(file_freq.size(), file_id.size());
   size_t num_stream = file_freq.size();
   // if (num_stream == 8) {
@@ -207,6 +237,7 @@ int main(int argc, char** argv) {
     case k_coll_cache_single_stream:
     // multi stream(local shuffle)
     case k_coll_cache: solver = new OptimalSolver; break;
+    case k_coll_cache_asymm_link: solver = new OptimalAsymmLinkSolver(link_src, link_time); break;
     case k_selfish : solver = new SelfishSolver; break;
     case k_part_rep_diff_freq: solver = new PartRepMultiStream; break;
     case k_clique_global_freq: solver = new CliqueGlobalFreqSolver(clique_size); break;

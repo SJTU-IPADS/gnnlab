@@ -305,6 +305,200 @@ void OptimalSolver::Solve(std::vector<int> device_to_stream, std::vector<int> de
   LOG(INFO) << "Coll Cache model reset done";
 }
 
+void OptimalAsymmLinkSolver::Solve(std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent, std::string mode, double T_local, double T_remote, double T_cpu) {
+  CHECK(mode == "BIN");
+  CHECK(block_density_tensor->Defined());
+  double*            block_density_array = block_density_tensor->Ptr<double>();
+  TensorView<double> block_freq_array(block_freq_tensor);
+  int      cache_percent  = device_to_cache_percent.at(0);
+  uint32_t num_device     = device_to_stream.size();
+  IdType   num_stream     = block_freq_tensor->Shape().at(1);
+  uint32_t num_block      = block_density_tensor->Shape().at(0);
+  uint32_t num_link       = link_src[0].size(); // we simply assume all dst device have same num link
+  LOG(WARNING) << "constructing optimal solver, device=" << num_device << ", stream=" << num_stream;
+
+  std::cerr << num_block << " blocks, " << num_device << " devices\n";
+
+  GRBEnv env = GRBEnv(true);
+  env.set("LogFile", "cppsolver.log");
+  env.set(GRB_IntParam_ConcurrentMIP, 50);
+  // env.set(GRB_DoubleParam_Heuristics, 0.5);
+  // env.set(GRB_DoubleParam_NoRelHeurTime, 10);
+  env.set(GRB_IntParam_Presolve, 1);
+  env.set(GRB_IntParam_MIPFocus, 1);
+  // env.set(GRB_IntParam_Crossover, 0);
+  // env.set(GRB_IntParam_Presolve, -1);
+  env.set(GRB_IntParam_Method, 2);
+  // env.set(GRB_IntParam_NodeMethod, 2);
+  // env.set(GRB_IntParam_Method, -1);
+  // env.set(GRB_IntParam_Method, 3);
+  env.set(GRB_IntParam_Threads, RunConfig::omp_thread_num*2);
+  env.set(GRB_DoubleParam_BarConvTol, 1e-4);
+  env.set(GRB_DoubleParam_OptimalityTol, 1e-2);
+  env.set(GRB_DoubleParam_MIPGap, 1e-2);
+  env.start();
+
+  GRBModel model = GRBModel(env);
+
+  /**
+   * z: final goal, max time of each dst gpu, minimize it
+   * x: storage of each block on each src gpu
+   * a: access flag of each block: a[block][dst][src] means whether dst read this block from src
+   */
+  GRBVar z = model.addVar(0.0, std::numeric_limits<double>::max(), 0.0, GRB_CONTINUOUS, "z");
+  TensorPtr c_list_tensor = Tensor::Empty(kI64, {num_block}, CPU(CPU_CLIB_MALLOC_DEVICE), "c_list");
+  TensorPtr x_list_tensor = Tensor::Empty(kI64, {num_block, num_device}, CPU(CPU_CLIB_MALLOC_DEVICE), "x_list");
+  TensorPtr a_list_tensor = Tensor::Empty(kI64, {num_block, num_device, num_link}, CPU(CPU_CLIB_MALLOC_DEVICE), "a_list");
+
+  TensorView<GRBVar> c_list(c_list_tensor);
+  TensorView<GRBVar> x_list(x_list_tensor);
+  TensorView<GRBVar> a_list(a_list_tensor);
+
+  // std::vector<GRBLinExpr> time_list(num_device);
+  std::vector<GRBLinExpr> local_cpu_time_list(num_device);
+  vec<vec<GRBLinExpr>>    remote_time_list(num_device, vec<GRBLinExpr>(num_link));
+  std::vector<GRBLinExpr> local_weight_list(num_device);
+  std::vector<double>     total_weight_list(num_device);
+  std::vector<GRBLinExpr> cpu_weight_list(num_device);
+
+  // for each dst, 
+  // sum a_dst_src <= 1
+  // src
+  auto constraint_connect_a_c = [&](GRBModel & model, uint32_t block_id) {
+    if (block_density_array[block_id] == 0) return;
+    FOR_LOOP(dst_dev, num_device) {
+      GRBLinExpr expr;
+      FOR_LOOP(src_link, num_link) {
+        expr += a_list[block_id][dst_dev][src_link].ref();
+      }
+      model.addConstr(expr + c_list[block_id].ref() + x_list[block_id][dst_dev].ref() == 1);
+    }
+  };
+
+  // for each src,
+  // x_src >= max(a_dst_src)
+  //          dst
+  auto constraint_connect_a_x = [&](GRBModel & model, uint32_t block_id) {
+    if (block_density_array[block_id] == 0) return;
+    FOR_LOOP(dst_dev, num_device) {
+      FOR_LOOP(src_link, num_link) {
+        GRBLinExpr expr;
+        for (auto src_dev : link_src[dst_dev][src_link]) {
+          expr += x_list[block_id][src_dev].ref();
+        }
+        model.addConstr(expr >= a_list[block_id][dst_dev][src_link].ref());
+      }
+    }
+  };
+
+  // for each src,
+  //  sum x_src < cache size
+  // block
+  auto constraint_capacity = [&](GRBModel & model, uint32_t src_dev) {
+    GRBLinExpr expr;
+    FOR_LOOP(block_id, num_block) {
+      if (block_density_array[block_id] == 0) continue;
+      expr += x_list[block_id][src_dev].ref() * block_density_array[block_id];
+    }
+    model.addConstr(expr <= cache_percent);
+  };
+  auto constraint_time = [&](GRBModel & model, uint32_t dst_dev) {
+    uint32_t stream_id = device_to_stream[dst_dev];
+    double sum_weight = 0;
+    GRBLinExpr &local_cpu_time = local_cpu_time_list[dst_dev];
+    FOR_LOOP(block_id, num_block) {
+      double weight = block_density_array[block_id] * block_freq_array[block_id][stream_id].ref();
+      if (weight == 0) continue;
+      sum_weight += weight;
+      local_cpu_time += c_list[block_id].ref() * T_cpu * weight;
+      local_cpu_time += x_list[block_id][dst_dev].ref() * T_local * weight;
+
+      local_weight_list[dst_dev] +=  weight * x_list[block_id][dst_dev].ref();
+      cpu_weight_list[dst_dev]   +=  weight * c_list[block_id].ref();
+    }
+    FOR_LOOP(src_link, num_link) {
+      GRBLinExpr &remote_time = remote_time_list[dst_dev][src_link];
+      FOR_LOOP(block_id, num_block) {
+        double weight = block_density_array[block_id] * block_freq_array[block_id][stream_id].ref();
+        if (weight == 0) continue;
+        remote_time += a_list[block_id][dst_dev][src_link].ref() * link_time[dst_dev][src_link] * weight;
+      }
+      model.addConstr(remote_time + local_cpu_time <= z);
+    }
+    total_weight_list[dst_dev] = sum_weight;
+  };
+
+  LOG(WARNING) << "Add Var...";
+  char var_type = (mode == "BIN") ? GRB_BINARY : GRB_CONTINUOUS;
+  FOR_LOOP(block_id, num_block) {
+    if (ignore_block(block_id, block_density_array[block_id])) {
+      continue;
+    }
+    c_list[block_id].ref() = model.addVar(0, 1, 0, var_type);
+    FOR_LOOP(dst_dev, num_device) {
+      x_list[block_id][dst_dev].ref() = model.addVar(0, 1, 0, var_type);
+      FOR_LOOP(src_link, num_link) {
+        a_list[block_id][dst_dev][src_link].ref() = model.addVar(0, 1, 0, var_type);
+      }
+    }
+  }
+
+  LOG(WARNING) << "Capacity...";
+  FOR_LOOP(device_id, num_device) {constraint_capacity(model, device_id);}
+
+  LOG(WARNING) << "Connect CPU...";
+  FOR_LOOP(block_id, num_block) {constraint_connect_a_c(model, block_id);}
+  LOG(WARNING) << "Connect Access To Storage...";
+  FOR_LOOP(block_id, num_block) {
+    FOR_LOOP(device_id, num_device) {constraint_connect_a_x(model, block_id);}
+  }
+  LOG(WARNING) << "Time...";
+  FOR_LOOP(device_id, num_device) {constraint_time(model, device_id);}
+
+  model.setObjective(z + 0, GRB_MINIMIZE);
+
+  model.optimize();
+
+  CHECK(num_device <= 8);
+  CHECK(block_placement->Shape() == std::vector<size_t>{num_block});
+  // num_link + local + cpu always <= 8
+  TensorView<uint8_t> block_placement_array(block_placement);
+  LOG(WARNING) << "Coll Cache init block placement array";
+  // #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+  FOR_LOOP(block_id, num_block) {
+    // by default, this block is placed at cpu
+    block_placement_array[block_id].ref() = 0;
+    // std::ios_base::fmtflags f( std::cerr.flags() );
+    // std::cerr << "block " << block_id
+    //           << std::fixed << std::setw(8) << std::setprecision(6)
+    //           << ", density=" << block_density_array[block_id]
+    //           << std::fixed << std::setw(8) << std::setprecision(3)
+    //           << ", freq=" << block_freq_array[block_id][0].ref();
+    if (ignore_block(block_id, block_density_array[block_id])) {
+      continue;
+    }
+    FOR_LOOP(device_id, num_device) {
+      uint8_t x_result = (uint8_t)std::round(x_list[block_id][device_id].ref().get(GRB_DoubleAttr::GRB_DoubleAttr_X));
+      block_placement_array[block_id].ref() |= (x_result << device_id);
+    }
+    // std::bitset<8> bs(block_placement_array[block_id].ref());
+    // std::cerr << "  storage is " << bs << "\n";
+    // std::cerr.flags(f);
+  }
+  std::cout << "coll_cache:optimal_local_rate=";
+  FOR_LOOP(part_id, num_device) { std::cout << local_weight_list[part_id].getValue() / total_weight_list[part_id] << ","; }
+  std::cout << "\n";
+  std::cout << "coll_cache:optimal_remote_rate=";
+  FOR_LOOP(part_id, num_device) { std::cout << 1 - (local_weight_list[part_id].getValue() + cpu_weight_list[part_id].getValue()) / total_weight_list[part_id] << ","; }
+  std::cout << "\n";
+  std::cout << "coll_cache:optimal_cpu_rate=";
+  FOR_LOOP(part_id, num_device) { std::cout << cpu_weight_list[part_id].getValue() / total_weight_list[part_id] << ","; }
+  std::cout << "\n";
+  std::cout << "z=" << z.get(GRB_DoubleAttr::GRB_DoubleAttr_X) << "\n";
+  LOG(WARNING) << "Coll Cache init block placement array done";
+  model.reset(1);
+  LOG(WARNING) << "Coll Cache model reset done";
+}
 
 void SingleStreamSolverBase::Build(TensorPtr stream_id_list,
                                    TensorPtr stream_freq_list,

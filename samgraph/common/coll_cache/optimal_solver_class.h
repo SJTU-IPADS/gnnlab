@@ -150,6 +150,19 @@ protected:
   }
 };
 
+class OptimalAsymmLinkSolver : public OptimalSolver {
+  template<typename T>
+  using vec=std::vector<T>;
+ public:
+  OptimalAsymmLinkSolver(vec<vec<vec<int>>> link_src, vec<vec<double>> link_time) : link_src(link_src), link_time(link_time) {}
+  void Solve(std::vector<int> device_to_stream,
+             std::vector<int> device_to_cache_percent, std::string mode,
+             double T_local = 2, double T_remote = 15,
+             double T_cpu = 60) override;
+  vec<vec<vec<int>>> link_src;
+  vec<vec<double>> link_time;
+};
+
 class SingleStreamSolverBase : public CollCacheSolver {
  public:
   void Build(TensorPtr stream_id_list, TensorPtr stream_freq_list,
