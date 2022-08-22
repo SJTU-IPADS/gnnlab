@@ -19,6 +19,7 @@
 
 #include "constant.h"
 #include "logging.h"
+#include <unordered_set>
 
 namespace samgraph {
 namespace common {
@@ -109,6 +110,7 @@ double               RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)1
 coll_cache::AsymmLinkDesc RunConfig::coll_cache_link_desc;
 
 void RunConfig::LoadConfigFromEnv() {
+  std::unordered_set<std::string> ture_values = {"TRUE", "1", "ON"};
   if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {
     RunConfig::option_samback_cuda_launch_blocking = true;
   }
@@ -157,8 +159,11 @@ void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet("SAMGRAPH_COLL_CACHE_NO_GROUP")) {
     RunConfig::coll_cache_no_group = true;
   }
-  if (IsEnvSet("SAMGRAPH_COLL_CACHE_CONCURRENT_LINK")) {
-    RunConfig::coll_cache_concurrent_link = true;
+  if (GetEnv("SAMGRAPH_COLL_CACHE_CONCURRENT_LINK") != "") {
+    RunConfig::coll_cache_concurrent_link = ture_values.find(GetEnv("SAMGRAPH_COLL_CACHE_CONCURRENT_LINK")) != ture_values.end();
+  } else {
+    // auto enable coll cache concurrent link
+    RunConfig::coll_cache_concurrent_link = coll_cache::AutoEnableConcurrentLink();
   }
   if (GetEnv("SAMGRAPH_MQ_SIZE") != "") {
     RunConfig::option_mq_size = std::stoull(GetEnv("SAMGRAPH_MQ_SIZE"));
