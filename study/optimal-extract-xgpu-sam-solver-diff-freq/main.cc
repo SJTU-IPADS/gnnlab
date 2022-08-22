@@ -8,6 +8,7 @@
 #include <CLI/Formatter.hpp>
 #include <sys/fcntl.h>
 #include <unistd.h>
+#include <unordered_set>
 
 using namespace samgraph;
 using namespace samgraph::common;
@@ -90,8 +91,28 @@ std::unordered_map<std::string, MethodType> method_name_mapping {
 };
 #undef F
 
+bool AutoEnableConcurrentLink(MethodType method) {
+  switch(method) {
+    case k_coll_cache_asymm_link:
+    case k_coll_cache:
+    case k_coll_cache_single_stream:
+    case k_coll_intuitive:
+    case k_local_int:
+      return true;
+    default:
+      return false;
+  }
+}
+
 template<typename T>
 using vec = std::vector<T>;
+
+bool is_true_val(std::string val) {
+  return std::unordered_set<std::string>({"true", "on", "TRUE", "ON", "1"}).count(val) > 0;
+}
+bool is_false_val(std::string val) {
+  return std::unordered_set<std::string>({"false", "off", "FALSE", "OFF", "0"}).count(val) > 0;
+}
 
 int main(int argc, char** argv) {
   RunConfig::omp_thread_num = sysconf(_SC_NPROCESSORS_ONLN) / 2;
@@ -109,6 +130,7 @@ int main(int argc, char** argv) {
   std::vector<int> stream_mapping;
   std::string method = "coll_intuitive";
   std::string gpu = "A100";
+  std::string concurrent_link_enable = "auto";
   int clique_size = 1;
   CLI::App _app;
   _app.add_option("--fi,--file-id", file_id, "ranked id file")->required();
@@ -121,6 +143,7 @@ int main(int argc, char** argv) {
   _app.add_option("-c,--cache-percent", cache_percent, "cache percent");
   _app.add_option("--coe", RunConfig::coll_cache_coefficient, "coll cache coefficient");
   _app.add_option("--clique", clique_size);
+  _app.add_option("--cc,--concurrent-link", concurrent_link_enable);
   try {
     _app.parse(argc, argv);
   } catch (const CLI::ParseError &e) {
@@ -138,26 +161,29 @@ int main(int argc, char** argv) {
   // for 6 or 8 trainer, depends on gpu type:
   //   A100, num link = 1; src per link = trainer -1
   //   V100, we should hand write the topo
-  vec<vec<vec<int>>> link_src;
-  vec<vec<double>> link_time;
-  if (gpu == "V100" && RunConfig::num_train_worker == 8) {
-  } else {
-    int num_link = 1;
-    int src_per_link = RunConfig::num_train_worker - 1;
-    if (RunConfig::num_train_worker <= 4) {
-      std::swap(num_link, src_per_link);
-    }
-    link_src = vec<vec<vec<int>>>(RunConfig::num_train_worker, vec<vec<int>>(num_link, vec<int>(src_per_link)));
-    link_time = vec<vec<double>>(RunConfig::num_train_worker, vec<double>(num_link, RunConfig::coll_cache_hyperparam_T_remote));
-    for (size_t dst_dev = 0; dst_dev < RunConfig::num_train_worker; dst_dev++) {
-      for (size_t src_link = 0; src_link < num_link; src_link++) {
-        std::cout << dst_dev << " : link #" << src_link << " : ";
-        for (size_t src_dev = 0; src_dev < src_per_link; src_dev++) {
-          link_src[dst_dev][src_link][src_dev] = (dst_dev + 1 + src_link + src_dev) % RunConfig::num_train_worker;
-          std::cout << link_src[dst_dev][src_link][src_dev] << ",";
-        }
-        std::cout << "\n";
+  std::unordered_map<int, int> num_train_to_total_gpu = { {3, 4}, {4, 4}, {6, 8}, {8, 8}};
+  RunConfig::coll_cache_link_desc = AsymmLinkDesc::AutoBuild(RunConfig::num_train_worker, num_train_to_total_gpu[RunConfig::num_train_worker], gpu);
+  {
+    vec<vec<vec<int>>> link_src;
+    vec<vec<double>> link_time;
+    if (gpu == "V100" && RunConfig::num_train_worker >= 6) {
+    } else {
+      int num_link = 1;
+      int src_per_link = RunConfig::num_train_worker - 1;
+      if (RunConfig::num_train_worker <= 4) {
+        std::swap(num_link, src_per_link);
       }
+      link_src = vec<vec<vec<int>>>(RunConfig::num_train_worker, vec<vec<int>>(num_link, vec<int>(src_per_link)));
+      link_time = vec<vec<double>>(RunConfig::num_train_worker, vec<double>(num_link, RunConfig::coll_cache_hyperparam_T_remote));
+      for (size_t dst_dev = 0; dst_dev < RunConfig::num_train_worker; dst_dev++) {
+        for (size_t src_link = 0; src_link < num_link; src_link++) {
+          for (size_t src_dev = 0; src_dev < src_per_link; src_dev++) {
+            link_src[dst_dev][src_link][src_dev] = (dst_dev + 1 + src_link + src_dev) % RunConfig::num_train_worker;
+          }
+        }
+      }
+      CHECK(link_src == RunConfig::coll_cache_link_desc.link_src);
+      CHECK(link_time == RunConfig::coll_cache_link_desc.link_time);
     }
   }
 
@@ -229,6 +255,11 @@ int main(int argc, char** argv) {
   }
   CollCacheSolver * solver = nullptr;
   MethodType method_t = method_name_mapping[method];
+  if (concurrent_link_enable == "auto") {
+    RunConfig::coll_cache_concurrent_link = AutoEnableConcurrentLink(method_t);
+  } else {
+    RunConfig::coll_cache_concurrent_link = is_true_val(concurrent_link_enable);
+  }
   switch (method_t) {
     // single stream(global shuffle)
     case k_part_rep: solver = new PartRepSolver; break;
@@ -238,7 +269,7 @@ int main(int argc, char** argv) {
     case k_coll_cache_single_stream:
     // multi stream(local shuffle)
     case k_coll_cache: solver = new OptimalSolver; break;
-    case k_coll_cache_asymm_link: solver = new OptimalAsymmLinkSolver(link_src, link_time); break;
+    case k_coll_cache_asymm_link: solver = new OptimalAsymmLinkSolver; break;
     case k_selfish : solver = new SelfishSolver; break;
     case k_part_rep_diff_freq: solver = new PartRepMultiStream; break;
     case k_partition_diff_freq: solver = new PartitionMultiStream; break;
@@ -253,7 +284,6 @@ int main(int argc, char** argv) {
     auto dev_cache_size_list = std::vector<int> (RunConfig::num_train_worker, cache_percent);
     solver->Solve(stream_mapping, dev_cache_size_list, "BIN",
           RunConfig::coll_cache_hyperparam_T_local,
-          RunConfig::coll_cache_hyperparam_T_remote,
           RunConfig::coll_cache_hyperparam_T_cpu);
   }
   return 0;

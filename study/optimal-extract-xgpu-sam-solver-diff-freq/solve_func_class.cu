@@ -3,7 +3,7 @@
 #include "common/cuda/cuda_utils.h"
 #include "common/run_config.h"
 #include "common/cpu/mmap_cpu_device.h"
-#include "common/coll_cache/optimal_solver.h"
+#include "common/coll_cache/optimal_solver_class.h"
 #include "common/coll_cache/ndarray.h"
 #include "solve_func_class.h"
 #include <omp.h>

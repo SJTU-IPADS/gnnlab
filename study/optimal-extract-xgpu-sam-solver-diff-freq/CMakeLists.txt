@@ -26,7 +26,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
   set(COMMON_FLAGS " -O3 -g -DSXN_REVISED ")
 endif()
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  ${COMMON_FLAGS} -fPIC -Wall -fopenmp -march=native -D_GLIBCXX_USE_CXX11_ABI=0 -L/opt/gurobi-install/gurobi951/linux64/lib")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${COMMON_FLAGS} --compiler-options '-fPIC -fopenmp -D_GLIBCXX_USE_CXX11_ABI=0' -gencode=arch=compute_35,code=sm_35 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_80,code=sm_80")
 message(DEBUG "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
@@ -50,6 +50,7 @@ link_directories(
 
 file(GLOB_RECURSE SAMGRAPH_SRC
   ../../samgraph/common/coll_cache/optimal_solver_class.cc
+  ../../samgraph/common/coll_cache/asymm_link_desc.cc
   ../../samgraph/common/common.cc
   ../../samgraph/common/common.cc
   ../../samgraph/common/constant.cc
