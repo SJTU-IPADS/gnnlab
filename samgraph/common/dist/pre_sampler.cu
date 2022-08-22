@@ -116,6 +116,7 @@ void PreSampler::DoPreSample(){
         case kCollCacheIntuitive:
         case kCollCache:
         case kPartRepCache:
+        case kRepCache:
         case kPartitionCache:
         case kCacheByPreSample:
           DoGPUSample(task);

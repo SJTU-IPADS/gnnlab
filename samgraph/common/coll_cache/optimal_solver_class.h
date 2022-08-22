@@ -203,6 +203,13 @@ public:
              double T_local, double T_remote, double T_cpu);
 };
 
+class RepSolver : public SingleStreamSolverBase {
+public:
+  using SingleStreamSolverBase::Solve;
+  void Solve(std::vector<int> device_to_stream,
+             std::vector<int> device_to_cache_percent, std::string mode,
+             double T_local, double T_cpu);
+};
 } // namespace coll_cache
 } // namespace common
 } // namespace samgraph

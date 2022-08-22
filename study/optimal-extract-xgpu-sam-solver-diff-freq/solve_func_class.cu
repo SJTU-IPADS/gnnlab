@@ -16,52 +16,6 @@ namespace coll_cache{
 
 #define FOR_LOOP(iter, len) for (uint32_t iter = 0; iter < (len); iter++)
 
-void RepSolver::Solve(std::vector<int> device_to_stream,
-                      std::vector<int> device_to_cache_percent,
-                      std::string mode, double T_local, double T_remote,
-                      double T_cpu) {
-  CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
-  const int num_device = 2;
-  const int num_block = 2;
-  const IdType num_node = stream_freq_list->Shape()[1];
-  // the freq list must already be sorted
-  // now calculate the boundary
-  const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
-
-  LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
-
-  const IdType * freq_array = stream_freq_list->Ptr<IdType>();
-
-  const IdType replicate_size = num_cached_nodes;
-  const IdType cpu_size = num_node - replicate_size;
-
-  double rep_w = 0, cpu_w = 0, total_w = 0;
-
-#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : rep_w, cpu_w, total_w)
-  for (IdType rank = 0; rank < num_node; rank++) {
-    IdType node_id = stream_id_list->Ptr<IdType>()[rank];
-    if (rank < replicate_size) {
-      nid_to_block->Ptr<IdType>()[node_id] = 0;
-      rep_w += freq_array[rank];
-    } else {
-      nid_to_block->Ptr<IdType>()[node_id] = 1;
-      cpu_w += freq_array[rank];
-    }
-    total_w += freq_array[rank];
-  }
-  double local_w = rep_w;
-  std::cout << "coll_cache:optimal_rep_storage=" << replicate_size / (double)num_node << "\n";
-  std::cout << "coll_cache:optimal_part_storage=" << 0 << "\n";
-  std::cout << "coll_cache:optimal_cpu_storage=" << cpu_size / (double)num_node << "\n";
-  std::cout << "coll_cache:optimal_local_storage=" << replicate_size / (double)num_node << "\n";
-  std::cout << "coll_cache:optimal_remote_storage=" << 0 << "\n";
-  std::cout << "coll_cache:optimal_local_rate=" << local_w / total_w << "\n";
-  std::cout << "coll_cache:optimal_remote_rate=" << 0 << "\n";
-  std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
-  std::cout << "z=" << local_w * 100 / num_node * T_local + cpu_w * 100 / num_node * T_cpu << "\n";
-}
-
-
 void MultiStreamSolverBase::Build(TensorPtr stream_id_list,
                                   TensorPtr stream_freq_list,
                                   std::vector<int> device_to_stream,

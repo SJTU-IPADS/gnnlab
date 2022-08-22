@@ -156,6 +156,7 @@ void DistEngine::Init() {
         _dataset->ranking_nodes = Tensor::Empty(kI32, {_dataset->num_node}, MMAP(MMAP_RW_DEVICE), "ranking_nodes");
         break;
       }
+      case kRepCache:
       case kPartRepCache:
       case kPartitionCache:
       case kCollCacheIntuitive:
@@ -480,6 +481,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         time_presample = tp.Passed();
         break;
       }
+      case kRepCache:
       case kPartRepCache:
       case kPartitionCache:
       case kCollCacheIntuitive:
@@ -510,6 +512,10 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(ctx);
           coll_cache::CollCacheSolver * solver = nullptr;
           switch (RunConfig::cache_policy) {
+            case kRepCache: {
+              solver = new coll_cache::RepSolver();
+              break;
+            }
             case kPartRepCache: {
               solver = new coll_cache::PartRepSolver();
               break;
@@ -716,6 +722,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   if ((RunConfig::cache_policy == kCollCache || 
        RunConfig::cache_policy == kCollCacheIntuitive || 
        RunConfig::cache_policy == kPartRepCache || 
+       RunConfig::cache_policy == kRepCache || 
        RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {
     {
       size_t file_nbytes, &num_blocks=file_nbytes;

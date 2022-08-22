@@ -8,13 +8,6 @@ namespace samgraph {
 namespace common {
 namespace coll_cache {
 
-class RepSolver : public SingleStreamSolverBase {
-public:
-  void Solve(std::vector<int> device_to_stream,
-             std::vector<int> device_to_cache_percent, std::string mode,
-             double T_local, double T_remote, double T_cpu);
-};
-
 class MultiStreamSolverBase : public CollCacheSolver {
 public:
   using CollCacheSolver::Solve;
