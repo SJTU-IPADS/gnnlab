@@ -5,17 +5,69 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
+import dgl.function as fn
 from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel
-import os
+import dgl
 import sys
-import samgraph.torch as sam
+import os
 import datetime
+'''
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+os.environ["NCCL_DEBUG"] = "INFO"
+'''
+import samgraph.torch as sam
 from common_config import *
 
+"""
+  We have made the following modification(or say, simplification) on PinSAGE,
+  because we only want to focus on the core algorithm of PinSAGE:
+    1. we modify PinSAGE to make it be able to be trained on homogenous graph.
+    2. we use cross-entropy loss instead of max-margin ranking loss describe in the paper.
+"""
 
-class GCN(nn.Module):
+
+class WeightedSAGEConv(nn.Module):
+    def __init__(self, input_dims, hidden_dims, output_dims, dropout, act=F.relu):
+        super().__init__()
+
+        self.act = act
+        self.Q = nn.Linear(input_dims, hidden_dims)
+        self.W = nn.Linear(input_dims + hidden_dims, output_dims)
+        self.reset_parameters()
+        self.dropout = nn.Dropout(dropout)
+
+    def reset_parameters(self):
+        gain = nn.init.calculate_gain('relu')
+        nn.init.xavier_uniform_(self.Q.weight, gain=gain)
+        nn.init.xavier_uniform_(self.W.weight, gain=gain)
+        nn.init.constant_(self.Q.bias, 0)
+        nn.init.constant_(self.W.bias, 0)
+
+    def forward(self, g, h, weights):
+        """
+        g : graph
+        h : node features
+        weights : scalar edge weights
+        """
+        h_src, h_dst = h
+        with g.local_scope():
+            g.srcdata['n'] = self.act(self.Q(self.dropout(h_src)))
+            g.edata['w'] = weights.float()
+            g.update_all(fn.u_mul_e('n', 'w', 'm'), fn.sum('m', 'n'))
+            g.update_all(fn.copy_e('w', 'm'), fn.sum('m', 'ws'))
+            n = g.dstdata['n']
+            ws = g.dstdata['ws'].unsqueeze(1).clamp(min=1)
+            z = self.act(self.W(self.dropout(torch.cat([n / ws, h_dst], 1))))
+            z_norm = z.norm(2, 1, keepdim=True)
+            z_norm = torch.where(
+                z_norm == 0, torch.tensor(1.).to(z_norm), z_norm)
+            z = z / z_norm
+            return z
+
+
+class PinSAGE(nn.Module):
     def __init__(self,
                  in_feats,
                  n_hidden,
@@ -23,42 +75,58 @@ class GCN(nn.Module):
                  n_layers,
                  activation,
                  dropout):
-        super(GCN, self).__init__()
+        super().__init__()
+        self.n_layers = n_layers
+        self.n_hidden = n_hidden
+        self.n_classes = n_classes
         self.layers = nn.ModuleList()
-        # input layer
-        self.layers.append(
-            GraphConv(in_feats, n_hidden, activation=activation, allow_zero_in_degree=True))
-        # hidden layers
-        for _ in range(n_layers - 2):
-            self.layers.append(
-                GraphConv(n_hidden, n_hidden, activation=activation, allow_zero_in_degree=True))
-        # output layer
-        self.layers.append(
-            GraphConv(n_hidden, n_classes, allow_zero_in_degree=True))
-        self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, blocks, features):
-        h = features
-        for i, layer in enumerate(self.layers):
-            if i != 0:
-                h = self.dropout(h)
-            h = layer(blocks[i], h)
+        self.layers.append(WeightedSAGEConv(
+            in_feats, n_hidden, n_hidden, dropout, activation))
+        for _ in range(1, n_layers - 1):
+            self.layers.append(WeightedSAGEConv(
+                n_hidden, n_hidden, n_hidden, dropout, activation))
+        self.layers.append(WeightedSAGEConv(
+            n_hidden, n_hidden, n_classes, dropout, activation))
+
+    def forward(self, blocks, h):
+        for layer, block in zip(self.layers, blocks):
+            h_dst = h[:block.number_of_nodes('DST/' + block.ntypes[0])]
+            h = layer(block, (h, h_dst), block.edata['weights'])
         return h
 
+class DotPredictor(nn.Module):
+    def forward(self, g, h):
+        with g.local_scope():
+            g.ndata['h'] = h
+            # Compute a new edge feature named 'score' by a dot-product between the
+            # source node feature 'h' and destination node feature 'h'.
+            g.apply_edges(dgl.function.u_dot_v('h', 'h', 'score'))
+            # u_dot_v returns a 1-element vector for each edge so you need to squeeze it.
+            return g.edata['score'][:, 0]
 
 def parse_args(default_run_config):
-    argparser = argparse.ArgumentParser("GCN Training")
+    argparser = argparse.ArgumentParser("PinSAGE Training")
 
     add_common_arguments(argparser, default_run_config)
 
-    argparser.add_argument('--fanout', nargs='+',
-                           type=int, default=default_run_config['fanout'])
-    argparser.add_argument('--lr', type=float,
-                           default=default_run_config['lr'])
+    argparser.add_argument('--random-walk-length', type=int,
+                           default=default_run_config['random_walk_length'])
+    argparser.add_argument('--random-walk-restart-prob',
+                           type=float, default=default_run_config['random_walk_restart_prob'])
+    argparser.add_argument('--num-random-walk', type=int,
+                           default=default_run_config['num_random_walk'])
+    argparser.add_argument('--num-neighbor', type=int,
+                           default=default_run_config['num_neighbor'])
+    argparser.add_argument('--num-layer', type=int,
+                           default=default_run_config['num_layer'])
+
+    argparser.add_argument(
+        '--lr', type=float, default=default_run_config['lr'])
     argparser.add_argument('--dropout', type=float,
                            default=default_run_config['dropout'])
-    argparser.add_argument('--weight-decay', type=float,
-                           default=default_run_config['weight_decay'])
+    argparser.add_argument('--no-ddp', action='store_false', dest='use_ddp',
+                           default=default_run_config['use_ddp'])
 
     return vars(argparser.parse_args())
 
@@ -67,23 +135,29 @@ def get_run_config():
     run_config = {}
 
     run_config.update(get_default_common_config(run_mode=RunMode.FGNN))
-    run_config['sample_type'] = 'khop2'
+    run_config['sample_type'] = 'random_walk'
 
-    run_config['fanout'] = [5, 10, 15]
+    run_config['random_walk_length'] = 3
+    run_config['random_walk_restart_prob'] = 0.5
+    run_config['num_random_walk'] = 4
+    run_config['num_neighbor'] = 5
+    run_config['num_layer'] = 3
+
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
-    run_config['weight_decay'] = 0.0005
+    run_config['use_ddp'] = True
+    run_config['unsupervised'] = True
 
     run_config.update(parse_args(run_config))
 
     process_common_config(run_config)
     assert(run_config['arch'] == 'arch5')
-    assert(run_config['sample_type'] != 'random_walk')
-
-    run_config['num_fanout'] = run_config['num_layer'] = len(
-        run_config['fanout'])
+    assert(run_config['sample_type'] == 'random_walk')
 
     print_run_config(run_config)
+
+    if run_config['validate_configs']:
+        sys.exit()
 
     return run_config
 
@@ -97,6 +171,7 @@ def run_init(run_config):
 
 
 def run_sample(worker_id, run_config):
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     num_worker = run_config['num_sample_worker']
     global_barrier = run_config['global_barrier']
 
@@ -104,6 +179,7 @@ def run_sample(worker_id, run_config):
 
     print('[Sample Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
+
     sam.sample_init(worker_id, ctx)
     sam.notify_sampler_ready(global_barrier)
 
@@ -111,37 +187,32 @@ def run_sample(worker_id, run_config):
     num_step = sam.num_local_step()
 
     epoch_sample_total_times_python = []
-    epoch_pipeline_sample_total_times_python = []
+    epoch_pipleine_sample_total_times_python = []
     epoch_sample_total_times_profiler = []
     epoch_sample_times = []
     epoch_get_cache_miss_index_times = []
     epoch_enqueue_samples_times = []
 
-    sampler0_step_sample_time = []
-    sampler0_step_coo_time = []
-    sampler0_step_remap_time = []
-    sampler0_step_num_samples = []
-
     print('[Sample Worker {:d}] run sample for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
-    sys.stdout.flush()
 
     # run start barrier
     global_barrier.wait()
 
     for epoch in range(num_epoch):
-        if run_config['pipeline']:
+        if (run_config['pipeline']):
             # epoch start barrier 1
             global_barrier.wait()
 
         tic = time.time()
         for step in range(num_step):
+            # print(f'sample epoch {epoch}, step {step}')
             sam.sample_once()
             # sam.report_step(epoch, step)
 
         toc0 = time.time()
 
-        if not run_config['pipeline']:
+        if (not run_config['pipeline']):
             # epoch start barrier 2
             global_barrier.wait()
 
@@ -151,7 +222,7 @@ def run_sample(worker_id, run_config):
         toc1 = time.time()
 
         epoch_sample_total_times_python.append(toc0 - tic)
-        epoch_pipeline_sample_total_times_python.append(toc1 - tic)
+        epoch_pipleine_sample_total_times_python.append(toc1 - tic)
         epoch_sample_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime))
         epoch_get_cache_miss_index_times.append(
@@ -165,21 +236,11 @@ def run_sample(worker_id, run_config):
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
         )
 
-        if worker_id == 0:
-            # worker 0 offset is 0, so use local step
-            for step in range(num_step):
-                sampler0_step_sample_time.append(sam.get_log_step_value(epoch, step, sam.kLogL1SampleTime))
-                sampler0_step_coo_time.append(sam.get_log_step_value(epoch, step, sam.kLogL3KHopSampleCooTime))
-                sampler0_step_remap_time.append(sam.get_log_step_value(epoch, step, sam.kLogL2IdRemapTime))
-                sampler0_step_num_samples.append(sam.get_log_step_value(epoch, step, sam.kLogL1NumSample))
-        if worker_id == 0:
-            sam.print_memory_usage()
+    print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
+        worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
 
     if worker_id == 0:
         sam.report_step_average(num_epoch - 1, num_step - 1)
-
-    print('[Sample Worker {:d}] Avg Sample Total Time {:.4f} | Sampler Total Time(Profiler) {:.4f}'.format(
-        worker_id, np.mean(epoch_sample_total_times_python[1:]), np.mean(epoch_sample_total_times_profiler[1:])))
 
     # run end barrier
     global_barrier.wait()
@@ -188,7 +249,6 @@ def run_sample(worker_id, run_config):
         sam.report_init()
 
     if worker_id == 0:
-        sam.print_memory_usage()
         test_result = []
         test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
         test_result.append(('get_cache_miss_index_time', np.mean(
@@ -199,22 +259,9 @@ def run_sample(worker_id, run_config):
             epoch_sample_total_times_python[1:])))
         if run_config['pipeline']:
             test_result.append(
-                ('pipeline_sample_epoch_time', np.mean(epoch_pipeline_sample_total_times_python[1:])))
-        test_result.append(('init:presample', sam.get_log_init_value(sam.kLogInitL2Presample)))
-        test_result.append(('init:load_dataset:mmap', sam.get_log_init_value(sam.kLogInitL3LoadDatasetMMap)))
-        test_result.append(('init:load_dataset:copy:sampler', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
-        test_result.append(('init:dist_queue:alloc+push',
-          sam.get_log_init_value(sam.kLogInitL3DistQueueAlloc)+sam.get_log_init_value(sam.kLogInitL3DistQueuePush)))
-        test_result.append(('init:dist_queue:pin:sampler', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
-        test_result.append(('init:internal:sampler', sam.get_log_init_value(sam.kLogInitL2InternalState)))
-        test_result.append(('init:cache:sampler', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
-
-        test_result.append((f'step_sample_time:sampler({worker_id})', np.mean(sampler0_step_sample_time[num_step:])))
-        test_result.append((f'step_coo_time:sampler({worker_id})', np.mean(sampler0_step_coo_time[num_step:])))
-        test_result.append((f'step_remap_time:sampler({worker_id})', np.mean(sampler0_step_remap_time[num_step:])))
-        test_result.append((f'step_num_samples:sampler({worker_id})', np.mean(sampler0_step_num_samples[num_step:])))
+                ('pipeline_sample_epoch_time', np.mean(epoch_pipleine_sample_total_times_python[1:])))
         for k, v in test_result:
-            print('test_result:{:}={:.6f}'.format(k, v))
+            print('test_result:{:}={:.4f}'.format(k, v))
 
     global_barrier.wait()  # barrier for pretty print
     # trainer print result
@@ -223,6 +270,7 @@ def run_sample(worker_id, run_config):
 
 
 def run_train(worker_id, run_config):
+    # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
     ctx = run_config['train_workers'][worker_id]
     num_worker = run_config['num_train_worker']
     global_barrier = run_config['global_barrier']
@@ -236,7 +284,7 @@ def run_train(worker_id, run_config):
     sam.wait_for_sampler_ready(global_barrier)
     sam.train_init(worker_id, ctx)
 
-    if num_worker > 1:
+    if (num_worker > 1) and (run_config['use_ddp']):
         dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='12345')
         world_size = num_worker
@@ -250,17 +298,16 @@ def run_train(worker_id, run_config):
     num_class = sam.num_class()
     num_layer = run_config['num_layer']
 
-    model = GCN(in_feat, run_config['num_hidden'], num_class,
-                num_layer, F.relu, run_config['dropout'])
+    model = PinSAGE(in_feat, run_config['num_hidden'], num_class,
+                    num_layer, F.relu, run_config['dropout'])
     model = model.to(train_device)
-    if num_worker > 1:
-        model = DistributedDataParallel(
-            model, device_ids=[train_device], output_device=train_device)
+    predictor = DotPredictor().to(train_device)
+    if (num_worker > 1) and (run_config['use_ddp']):
+        model = DistributedDataParallel(model, device_ids=[train_device], output_device=train_device)
+        if len(list(predictor.parameters())) > 0:
+            predictor = DistributedDataParallel(predictor, device_ids=[train_device], output_device=train_device)
 
-    loss_fcn = nn.CrossEntropyLoss()
-    loss_fcn = loss_fcn.to(train_device)
-    optimizer = optim.Adam(
-        model.parameters(), lr=run_config['lr'], weight_decay=run_config['weight_decay'])
+    optimizer = optim.Adam(list(model.parameters()) + list(predictor.parameters()), lr=run_config['lr'])
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -272,24 +319,28 @@ def run_train(worker_id, run_config):
     epoch_train_times = []
     epoch_total_times_python = []
     epoch_train_total_times_profiler = []
-    epoch_pipeline_train_total_times_python = []
     epoch_cache_hit_rates = []
-    epoch_miss_nbytes = []
-    epoch_feat_nbytes = []
 
-    copy_times = []
-    convert_times = []
-    train_times = []
-    total_times = []
+    # copy_times = []
+    # convert_times = []
+    # train_times = []
+    # total_times = []
 
     align_up_step = int(
         int((num_step + num_worker - 1) / num_worker) * num_worker)
+
+    batch_keys = [0 for _ in range(align_up_step * num_epoch // num_worker)]
+    train_local_time = [0 for _ in range(align_up_step * num_epoch // num_worker)]
+    train_barrier_time = [0 for _ in range(align_up_step * num_epoch // num_worker)]
 
     # run start barrier
     global_barrier.wait()
     print('[Train  Worker {:d}] run train for {:d} epochs with {:d} steps'.format(
         worker_id, num_epoch, num_step))
     run_start = time.time()
+
+    train_barrier = run_config['train_barrier']
+    cur_num_batch = 0
 
     for epoch in range(num_epoch):
         # epoch start barrier
@@ -298,33 +349,37 @@ def run_train(worker_id, run_config):
         tic = time.time()
         if run_config['pipeline'] or run_config['single_gpu']:
             need_steps = int(num_step / num_worker)
-            if worker_id < num_step % num_worker:
+            if (worker_id < num_step % num_worker):
                 need_steps += 1
             sam.extract_start(need_steps)
 
         for step in range(worker_id, align_up_step, num_worker):
-            
-            if step < num_step:
+            if (step < num_step):
                 t0 = time.time()
                 if (not run_config['pipeline']) and (not run_config['single_gpu']):
                     sam.sample_once()
+                # sam.sample_once()
                 batch_key = sam.get_next_batch()
                 t1 = time.time()
-                blocks, batch_input, batch_label = sam.get_dgl_blocks(
-                    batch_key, num_layer)
+                # blocks, batch_input, pair_graph, batch_label = sam.get_dgl_unsupervised_blocks(batch_key, num_layer)
+                blocks, batch_input, batch_label = sam.get_dgl_blocks_with_weights(batch_key, num_layer)
+                pair_graph = sam.get_dgl_unsupervised_pair_graph(batch_key)
                 t2 = time.time()
             else:
                 t0 = t1 = t2 = time.time()
 
             # Compute loss and prediction
             batch_pred = model(blocks, batch_input)
-            loss = loss_fcn(batch_pred, batch_label)
+            score = predictor(pair_graph, batch_pred)
+            loss = F.binary_cross_entropy_with_logits(score, batch_label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             # wait for the train finish then we can free the data safely
             event_sync()
+            # t_train_f_b = time.time()
+            # train_barrier.wait()
 
             if (step + num_worker < num_step):
                 batch_input = None
@@ -343,16 +398,27 @@ def run_train(worker_id, run_config):
             sam.log_epoch_add(epoch, sam.kLogEpochConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
+            batch_keys[cur_num_batch] = batch_key
+            # train_local_time[cur_num_batch] = t_train_f_b - t2
+            # train_barrier_time[cur_num_batch] = t3 - t_train_f_b
+            cur_num_batch+=1
 
-            copy_times.append(copy_time)
-            convert_times.append(convert_time)
-            train_times.append(train_time)
-            total_times.append(total_time)
+            feat_nbytes = sam.get_log_epoch_value(
+                epoch, sam.kLogEpochFeatureBytes)
+            miss_nbytes = sam.get_log_epoch_value(
+                epoch, sam.kLogEpochMissBytes)
+            epoch_cache_hit_rates.append(
+                (feat_nbytes - miss_nbytes) / feat_nbytes)
 
-            # sam.report_step_average(epoch, step)
+            # copy_times.append(copy_time)
+            # convert_times.append(convert_time)
+            # train_times.append(train_time)
+            # total_times.append(total_time)
+
+            # sam.report_step(epoch, step)
 
         # sync the train workers
-        if num_worker > 1:
+        if (num_worker > 1) and (run_config['use_ddp']):
             torch.distributed.barrier()
 
         toc = time.time()
@@ -366,8 +432,6 @@ def run_train(worker_id, run_config):
             epoch, sam.kLogEpochFeatureBytes)
         miss_nbytes = sam.get_log_epoch_value(
             epoch, sam.kLogEpochMissBytes)
-        epoch_miss_nbytes.append(miss_nbytes)
-        epoch_feat_nbytes.append(feat_nbytes)
         epoch_cache_hit_rates.append(
             (feat_nbytes - miss_nbytes) / feat_nbytes)
         epoch_copy_times.append(
@@ -387,10 +451,10 @@ def run_train(worker_id, run_config):
         sys.stderr.flush()
 
     # sync the train workers
-    if num_worker > 1:
+    if (num_worker > 1) and (run_config['use_ddp']):
         torch.distributed.barrier()
 
-    print('[Train  Worker {:d}] Avg Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
+    print('[Train  Worker {:d}] Epoch Time {:.4f} | Train Total Time(Profiler) {:.4f} | Copy Time {:.4f}'.format(
           worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_train_total_times_profiler[1:]), np.mean(epoch_copy_times[1:])))
 
     # run end barrier
@@ -400,13 +464,13 @@ def run_train(worker_id, run_config):
 
     # sampler print init and result
     global_barrier.wait()  # barrier for pretty print
-    # sam.report_step_average(num_epoch - 1, num_step - 1)
-    # sam.report_init()
 
     if worker_id == 0:
         print(torch.cuda.memory_summary())
         sam.print_memory_usage()
         sam.report_step_average(num_epoch - 1, num_step - 1)
+        sam.report_step_max(num_epoch - 1, num_step - 1)
+        sam.report_step_min(num_epoch - 1, num_step - 1)
         sam.report_init()
         test_result = []
         test_result.append(('epoch_time:copy_time',
@@ -419,20 +483,10 @@ def run_train(worker_id, run_config):
             ('cache_percentage', run_config['cache_percentage']))
         test_result.append(('cache_hit_rate', np.mean(
             epoch_cache_hit_rates[1:])))
-        test_result.append(('epoch_feat_nbytes', np.mean(epoch_feat_nbytes[1:])))
-        test_result.append(('batch_feat_nbytes', np.mean(epoch_feat_nbytes[1:])/(align_up_step/num_worker)))
-        test_result.append(('epoch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])))
-        test_result.append(('batch_miss_nbytes', np.mean(epoch_miss_nbytes[1:])/(align_up_step/num_worker)))
-        test_result.append(('batch_copy_time', np.mean(epoch_copy_times[1:])/(align_up_step/num_worker)))
-        test_result.append(('batch_train_time', np.mean(epoch_train_total_times_profiler[1:])/(align_up_step/num_worker)))
+        test_result.append(('run_time', run_end - run_start))
         if run_config['pipeline']:
             test_result.append(
                 ('pipeline_train_epoch_time', np.mean(epoch_total_times_python[1:])))
-        test_result.append(('run_time', run_end - run_start))
-        test_result.append(('init:load_dataset:copy:trainer', sam.get_log_init_value(sam.kLogInitL3LoadDatasetCopy)))
-        test_result.append(('init:dist_queue:pin:trainer', sam.get_log_init_value(sam.kLogInitL3DistQueuePin)))
-        test_result.append(('init:internal:trainer', sam.get_log_init_value(sam.kLogInitL2InternalState)))
-        test_result.append(('init:cache:trainer', sam.get_log_init_value(sam.kLogInitL2BuildCache)))
         for k, v in test_result:
             print('test_result:{:}={:.4f}'.format(k, v))
 
@@ -451,17 +505,20 @@ if __name__ == '__main__':
     # global barrier is used to sync all the sample workers and train workers
     run_config['global_barrier'] = mp.Barrier(
         num_sample_worker + num_train_worker, timeout=get_default_timeout())
+    run_config['train_barrier'] = mp.Barrier(num_train_worker, timeout=get_default_timeout())
 
     workers = []
     # sample processes
     for worker_id in range(num_sample_worker):
-        p = mp.Process(target=run_sample, args=(worker_id, run_config))
+        p = mp.Process(target=run_sample, args=(
+            worker_id, run_config))
         p.start()
         workers.append(p)
 
     # train processes
     for worker_id in range(num_train_worker):
-        p = mp.Process(target=run_train, args=(worker_id, run_config))
+        p = mp.Process(target=run_train, args=(
+            worker_id, run_config))
         p.start()
         workers.append(p)
 
