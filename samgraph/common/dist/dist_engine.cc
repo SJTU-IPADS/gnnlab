@@ -43,7 +43,7 @@
 #include "dist_shuffler_aligned_trainer.h"
 #include "pre_sampler.h"
 #include "dist_um_sampler.h"
-#include "../coll_cache/optimal_solver.h"
+#include "../coll_cache/optimal_solver_class.h"
 #include "../coll_cache/ndarray.h"
 
 namespace samgraph {
@@ -507,41 +507,30 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
         std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
         if (worker_id == 0) {
+          coll_cache::CollCacheSolver * solver = nullptr;
           switch (RunConfig::cache_policy) {
             case kPartRepCache: {
-              coll_cache::solve_partition_rep(
-                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-                  _dataset->nid_to_block, _dataset->block_placement, "",
-                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              solver = new coll_cache::PartRepSolver();
               break;
             }
             case kPartitionCache: {
-              coll_cache::solve_partition(
-                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-                  _dataset->nid_to_block, _dataset->block_placement, "",
-                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              solver = new coll_cache::PartitionSolver();
               break;
             }
             case kCollCacheIntuitive: {
-              coll_cache::solve_intuitive(
-                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-                  _dataset->nid_to_block, _dataset->block_placement, "BIN",
-                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              solver = new coll_cache::IntuitiveSolver();
               break;
             }
             case kCollCache: {
-              coll_cache::solve(
-                  _dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, 
-                  _dataset->num_node, trainer_to_stream, trainer_cache_percent,
-                  _dataset->nid_to_block, _dataset->block_placement, "BIN",
-                  RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+              solver = new coll_cache::OptimalSolver();
               break;
             }
             default: CHECK(false);
           }
+          solver->Build(_dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, trainer_to_stream, _dataset->num_node, _dataset->nid_to_block);
+          solver->Solve(trainer_to_stream, trainer_cache_percent, "BIN", RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+          _dataset->block_placement = solver->block_placement;
+          delete solver;
         }
         _sampler_barrier->Wait();
         time_presample = tp.Passed();

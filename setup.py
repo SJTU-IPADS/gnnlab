@@ -66,7 +66,7 @@ else:
 # Where the magic happens:
 
 cxx_flags = [
-    '-std=c++14', '-g',
+    '-std=c++17', '-g',
     # '-fopt-info',
     '-fPIC',
     '-Ofast',
@@ -76,7 +76,7 @@ cxx_flags = [
 ]
 cuda_flags = [
     '-Wno-deprecated-gpu-targets',
-    '-std=c++14',
+    '-std=c++17',
     '-g',
     # '-G',
     #  '--ptxas-options=-v',
@@ -176,7 +176,7 @@ setup(
                 'samgraph/common/cuda/cuda_utils.cu',
                 'samgraph/common/cuda/pre_sampler.cc',
                 'samgraph/common/cuda/um_pre_sampler.cc',
-                'samgraph/common/coll_cache/optimal_solver.cc',
+                'samgraph/common/coll_cache/optimal_solver_class.cc',
                 'samgraph/common/dist/collaborative_cache_manager_device.cu',
                 'samgraph/common/dist/dist_engine.cc',
                 'samgraph/common/dist/dist_loops.cc',
@@ -195,10 +195,12 @@ setup(
             include_dirs=[
                 # os.path.join(here, '3rdparty/cub'),
                 os.path.join(here, '3rdparty/parallel-hashmap'),
-                '/opt/gurobi-install/gurobi951/linux64/include'],
-            libraries=['cudart', 'cusparse', 'gurobi95', 'gurobi_c++'],
+                '/opt/intel/oneapi/tbb/latest/include',
+                '/opt/gurobi-install/gurobi-latest/linux64/include'],
+            libraries=['cudart', 'cusparse', 'gurobi95', 'gurobi_c++', 'tbb'],
             library_dirs=[
-                '/opt/gurobi-install/gurobi951/linux64/lib',
+                '/opt/gurobi-install/gurobi-latest/linux64/lib',
+                '/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8',
             ],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
             # these custom march may should be remove and merged
