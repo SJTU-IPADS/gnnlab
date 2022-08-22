@@ -14,7 +14,6 @@
   limitations under the License.
 """
 
-from numpy import NaN
 from runner_helper import RunConfig, ConfigList, SampleType, CachePolicy, percent_gen, Dataset, App, Arch
 import copy
 import re
@@ -155,21 +154,23 @@ class BenchInstance:
       fname = cfg.get_log_fname() + '.log'
       self.vals = {}
       self.fname = fname
-      self.prepare_config(cfg)
+      self.cfg = cfg
+      self.prepare_torch_summary(cfg)
+      self.prepare_sam_workspace(cfg)
       self.prepare_init(cfg)
       self.prepare_epoch_eval(cfg)
       self.prepare_coll_cache(cfg)
       self.prepare_profiler_log(cfg)
+      self.prepare_config(cfg)
       self.vals['optimal_hit_percent'] = self.get_optimal()
     except Exception as e:
       print("error when ", fname)
       print(traceback.format_exc())
       traceback.print_exc()
-      raise e
+      # raise e
     return self
 
   def prepare_config(self, cfg):
-    self.cfg = cfg
     fname = cfg.get_log_fname() + '.log'
     l = fname.split('/')[-1].split('.')[0].split('_')
     i = iter(l)
@@ -195,6 +196,7 @@ class BenchInstance:
     for k,v in cfg.__dict__.items():
       self.vals[k] = v
     self.vals['dataset'] = str(cfg.dataset)
+    self.vals['dataset_short'] = dataset_str_short[self.get_val('dataset')]
     self.vals['cache_policy'] = policy_str[cfg.cache_policy.value]
     self.vals['cache_policy_short'] = policy_str_short[cfg.cache_policy.value]
     self.vals['sample_type_short'] = sample_method_str_short(cfg)
@@ -239,7 +241,7 @@ class BenchInstance:
         key = m2.group(1)
         value = m2.group(2)
         self.vals[key] = float(value)
-    if self.vals['init:presample'] is not math.nan:
+    if not math.isnan(self.vals['init:presample']):
       self.vals['init:load_dataset:copy'] = self.vals['init:load_dataset:copy:sampler'] + self.vals['init:load_dataset:copy:trainer']
       self.vals['init:dist_queue']        = self.vals['init:dist_queue:alloc+push']     + self.vals['init:dist_queue:pin:sampler']   + self.vals['init:dist_queue:pin:trainer']
       self.vals['init:internal']          = self.vals['init:internal:sampler']          + self.vals['init:internal:trainer']
@@ -256,15 +258,29 @@ class BenchInstance:
         value = m2.group(2)
         self.vals[key] = float(value.split(',')[0])
 
+    fname = cfg.get_log_fname() + '.err.log'
+    coll_rst_list = grep_from(fname, r".*remote ([0-9]+) / ([0-9]+) nodes.*", [0, 0])
+    if len(coll_rst_list) == 0:
+      self.vals["coll_cache:local_cache_rate"] = cfg.cache_percent
+      self.vals["coll_cache:global_cache_rate"] = cfg.cache_percent
+      self.vals["coll_cache:remote_cache_rate"] = 0
+    else:
+      m = re.match(r".*remote ([0-9]+) / ([0-9]+) nodes.*", coll_rst_list[0])
+      self.vals["coll_cache:remote_cache_rate"] = float(m.group(1)) / float(m.group(2))
+      coll_rst_list = grep_from(fname, r".*local ([0-9]+) / ([0-9]+) nodes.*", [0, 0])
+      m = re.match(r".*local ([0-9]+) / ([0-9]+) nodes.*", coll_rst_list[0])
+      self.vals["coll_cache:local_cache_rate"] = float(m.group(1)) / float(m.group(2))
+      self.vals["coll_cache:global_cache_rate"] = self.vals["coll_cache:remote_cache_rate"] + self.vals["coll_cache:local_cache_rate"]
+
   def prepare_epoch_eval(self, cfg):
     self.vals['epoch_time'] = math.nan
     fname = cfg.get_log_fname() + '.log'
     epoch_rst_list = exclude_from(grep_from(fname, "^test_result:.*", [0, 0]), "^test_result:init:.*")
-    self.vals['pipeline_train_epoch_time'] = NaN
-    self.vals['pipeline_train_epoch_time'] = NaN
-    self.vals['epoch_time:sample_total']   = NaN
-    self.vals['epoch_time:copy_time']      = NaN
-    self.vals['epoch_time:train_total']    = NaN
+    self.vals['pipeline_train_epoch_time'] = math.nan
+    self.vals['pipeline_train_epoch_time'] = math.nan
+    self.vals['epoch_time:sample_total']   = math.nan
+    self.vals['epoch_time:copy_time']      = math.nan
+    self.vals['epoch_time:train_total']    = math.nan
     for line in epoch_rst_list:
       m2 = re.match(r'test_result:(.+)=(.+)\n', line)
       if m2:
@@ -273,14 +289,14 @@ class BenchInstance:
         if key != 'cache_percentage':
           self.vals[key] = float(value)
     if 'cache_hit_rate' not in self.vals:
-      self.vals['hit_percent'] = NaN
+      self.vals['hit_percent'] = math.nan
     if 'hit_percent' not in self.vals:
       self.vals['hit_percent'] = float(self.vals['cache_hit_rate'])*100
     if cfg.pipeline:
       self.vals['epoch_time'] = self.vals['pipeline_train_epoch_time']
       self.vals['train_process_time'] = self.vals['pipeline_train_epoch_time']
     else:
-      if self.vals['epoch_time:sample_total'] is NaN and 'epoch_time:sample_time' in self.vals:
+      if math.isnan(self.vals['epoch_time:sample_total']) and 'epoch_time:sample_time' in self.vals:
         self.vals['epoch_time:sample_total'] = self.vals['epoch_time:sample_time']
       self.vals['epoch_time'] = self.vals['epoch_time:sample_total'] + self.vals['epoch_time:copy_time'] + self.vals['epoch_time:train_total']
       self.vals['train_process_time'] = self.vals['epoch_time:copy_time'] + self.vals['epoch_time:train_total']
@@ -304,7 +320,7 @@ class BenchInstance:
     if len(line_list) == 0:
       return None
     assert(line_list[0].startswith('    ['))
-    global_prefix = line_list[0].strip()[1:5]
+    global_prefix = re.match(r'    \[([^ ]+) .*', line_list[0]).group(1)
     for i in range(1, len(line_list)):
       line = line_list[i].strip()
       if line.find(':') != -1:

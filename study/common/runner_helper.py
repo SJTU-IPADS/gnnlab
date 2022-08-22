@@ -18,6 +18,7 @@ import os
 import datetime
 from enum import Enum
 import copy
+import math
 
 LOG_DIR='run-logs/logs_samgraph_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 TMP_LOG_DIR='run-logs/tmp_log_dir'
@@ -29,6 +30,10 @@ def percent_gen(lb, ub, gap=1):
     ret.append(i/100)
     i += gap
   return ret
+
+def reverse_percent_gen(lb, ub, gap=1):
+  ret = percent_gen(lb, ub, gap)
+  return list(reversed(ret))
 
 class System(Enum):
   samgraph = 0
@@ -343,10 +348,14 @@ class RunConfig:
         cmd_line += f'python ../../example/samgraph/multi_gpu/async/train_{self.app.name}.py'
       elif self.mps_mode != None:
         cmd_line += f'python ../../example/samgraph/multi_gpu/mps/train_{self.app.name}.py'
+      elif self.unsupervised:
+        cmd_line += f'python ../../example/samgraph/multi_gpu/unsupervised/train_{self.app.name}.py'
       else:
         cmd_line += f'python ../../example/samgraph/multi_gpu/train_{self.app.name}.py'
     elif self.multi_gpu_sgnn:
       cmd_line += f'python ../../example/samgraph/sgnn/train_{self.app.name}.py'
+    elif self.unsupervised:
+      cmd_line += f'python ../../example/samgraph/unsupervised/train_{self.app.name}.py'
     else:
       cmd_line += f'python ../../example/samgraph/train_{self.app.name}.py --arch {self.arch.name}'
 
@@ -410,16 +419,17 @@ class RunConfig:
     std_out_log += '_'.join(
       [self.system.name]+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
-      [f'cache_rate_{int(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}']) 
+      [f'cache_rate_{round(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}']) 
     return std_out_log
 
   def beauty(self):
     self.preprocess_sample_type()
     msg = ' '.join(
       ['Running', self.system.name] + self.cache_log_name() + self.pipe_log_name() + 
+      (["unsupervised"] if self.unsupervised else []) +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
-      [f'cache rate:{int(self.cache_percent*100):0>3}%', f'batch size:{self.batch_size}', ])
-    return msg
+      [f'cache rate:{round(self.cache_percent*100):0>3}%', f'batch size:{self.batch_size}', ])
+    return datetime.datetime.now().strftime('[%H:%M:%S]') + msg
     
   def run(self, mock=False, durable_log=True, callback = None):
     if mock:
@@ -428,10 +438,13 @@ class RunConfig:
       print(self.beauty())
       if durable_log:
         os.system('mkdir -p {}'.format(self.logdir))
-      os.system(self.form_cmd(durable_log))
+      status = os.system(self.form_cmd(durable_log))
+      if os.WEXITSTATUS(status) != 0:
+        print("FAILED!")
+        return 1
       if callback != None:
         callback(self)
-    pass
+    return 0
 
 def run_in_list(conf_list : list, mock=False, durable_log=True, callback = None):
   for conf in conf_list:
@@ -482,6 +495,20 @@ class ConfigList:
         setattr(cfg, key, val)
       self.conf_list += new_list
     return self
+
+  def hyper_override(self, key_array, val_matrix):
+    if len(key_array) == 0 or len(val_matrix) == 0:
+      return self
+    orig_list = self.conf_list
+    self.conf_list = []
+    for cfg in orig_list:
+      for val_list in val_matrix:
+        cfg = copy.deepcopy(cfg)
+        for idx in range(len(key_array)):
+          setattr(cfg, key_array[idx], val_list[idx])
+        self.conf_list.append(cfg)
+    return self
+
   def concat(self, another_list):
     self.conf_list += copy.deepcopy(another_list.conf_list)
     return self
@@ -492,3 +519,39 @@ class ConfigList:
     ret = ConfigList()
     ret.conf_list = []
     return ret
+  @staticmethod
+  def MakeList(conf):
+    ret = ConfigList()
+    if isinstance(conf, list):
+      ret.conf_list = conf
+    elif isinstance(conf, RunConfig):
+      ret.conf_list = [conf]
+    else:
+      raise Exception("Please construct fron runconfig or list of it")
+    return ret
+
+  def run(self, mock=False, durable_log=True, callback = None):
+    for conf in self.conf_list:
+      conf : RunConfig
+      conf.run(mock, durable_log, callback)
+
+  def run_stop_on_fail(self, mock=False, durable_log=True, callback = None):
+    last_conf = None
+    last_ret = None
+    for conf in self.conf_list:
+      conf : RunConfig
+      if last_conf != None and (
+                      conf.unsupervised == last_conf.unsupervised and 
+                      conf.app == last_conf.app and 
+                      conf.sample_type == last_conf.sample_type and 
+                      conf.batch_size == last_conf.batch_size and 
+                      conf.dataset == last_conf.dataset):
+        if conf.cache_percent == last_conf.cache_percent and last_ret != 0:
+          continue
+        if conf.cache_percent > last_conf.cache_percent and last_ret != 0 :
+          continue
+        if conf.cache_percent < last_conf.cache_percent and last_ret == 0 :
+          continue
+      ret = conf.run(mock, durable_log, callback)
+      last_conf = conf
+      last_ret = ret
