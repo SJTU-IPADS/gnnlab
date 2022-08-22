@@ -669,14 +669,15 @@ void CollCacheManager::CombineAllGroup(const SrcKey * src_index, const DstVal * 
 
 template<int NUM_LINK>
 void CollCacheManager::CombineConcurrent(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream) {
-  CHECK(NUM_LINK == _remote_device_list.size());
+  CHECK(NUM_LINK == _asymm_link_desc.link_src[_local_location_id].size());
   ExtractConcurrentParam<NUM_LINK, DataIter<SrcOffIter>, DataIter<DstOffIter>> param;
   IdType total_required_num_sm = 0;
   TensorPtr link_mapping = Tensor::Empty(kI32, {108}, CPU(), "");
   IdType total_num_node = 0;
   for (int i = 0; i < NUM_LINK; i++) {
-    const int dev_id = _remote_device_list[i];
-    const int num_sm = _remote_sm_list[i];
+    CHECK(_asymm_link_desc.link_src[_local_location_id][i].size() == 1);
+    const int dev_id = _asymm_link_desc.link_src[_local_location_id][i][0];
+    const int num_sm = _asymm_link_desc.link_sm[_local_location_id][i];
     param.full_src_array[i] = DataIter<SrcOffIter>(SrcOffIter(dst_index + group_offset[dev_id]), _device_cache_data[dev_id], _dim);
     param.dst_index_array[i] = DataIter<DstOffIter>(DstOffIter(dst_index + group_offset[dev_id]), output, _dim);
     param.num_node_array[i] = group_offset[dev_id + 1] - group_offset[dev_id];
@@ -881,7 +882,7 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
     {
       // impl1: single kernel, limited num block
       t1.Reset();
-      switch(_remote_device_list.size()) {
+      switch(_asymm_link_desc.link_src[_local_location_id].size()) {
         case 2: CombineConcurrent<2>(src_index, dst_index, group_offset, output, stream); break;
         case 3: CombineConcurrent<3>(src_index, dst_index, group_offset, output, stream); break;
         case 4: CombineConcurrent<4>(src_index, dst_index, group_offset, output, stream); break;
@@ -1320,12 +1321,14 @@ CollCacheManager CollCacheManager::BuildCollCache(
     }
     cudaDeviceProp prop;
     CUDA_CALL(cudaGetDeviceProperties(&prop, trainer_ctx.device_id));
-    cm._remote_device_list.resize(RunConfig::num_train_worker - 1);
-    cm._remote_sm_list.resize(RunConfig::num_train_worker - 1);
-    for (int remote_order = 0; remote_order < RunConfig::num_train_worker - 1; remote_order++) {
-      cm._remote_device_list[remote_order] = (trainer_ctx.device_id + remote_order + 1) % (int)RunConfig::num_train_worker;
-      cm._remote_sm_list[remote_order] = prop.multiProcessorCount / (RunConfig::num_train_worker - 1);
-    }
+    // std::vector<std::vector<int>> remote_device_list(RunConfig::num_train_worker - 1);
+    // std::vector<int> remote_sm_list(RunConfig::num_train_worker - 1);
+    // for (int remote_order = 0; remote_order < RunConfig::num_train_worker - 1; remote_order++) {
+    //   remote_device_list[remote_order] = {(trainer_ctx.device_id + remote_order + 1) % (int)RunConfig::num_train_worker};
+    //   remote_sm_list[remote_order] = prop.multiProcessorCount / (RunConfig::num_train_worker - 1);
+    // }
+    cm._asymm_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(trainer_ctx);
+    // CHECK(remote_device_list == cm._asymm_link_desc.link_src[local_location_id]);
   }
 
   LOG(ERROR) << "Collaborative GPU cache (policy: " << RunConfig::cache_policy << ") | "

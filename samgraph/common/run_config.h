@@ -24,6 +24,7 @@
 
 #include "common.h"
 #include "cpu/cpu_common.h"
+#include "coll_cache/asymm_link_desc.h"
 
 namespace samgraph {
 namespace common {
@@ -115,6 +116,8 @@ struct RunConfig {
   static double               coll_cache_hyperparam_T_local;
   static double               coll_cache_hyperparam_T_remote;
   static double               coll_cache_hyperparam_T_cpu;
+
+  static coll_cache::AsymmLinkDesc coll_cache_link_desc;
 
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;

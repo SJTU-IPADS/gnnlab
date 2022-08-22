@@ -106,6 +106,7 @@ double               RunConfig::coll_cache_coefficient = 1.05;
 double               RunConfig::coll_cache_hyperparam_T_local  = 1;
 double               RunConfig::coll_cache_hyperparam_T_remote = 438 / (double)213;  // performance on A100
 double               RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)11.8; // performance on A100
+coll_cache::AsymmLinkDesc RunConfig::coll_cache_link_desc;
 
 void RunConfig::LoadConfigFromEnv() {
   if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {

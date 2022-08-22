@@ -507,6 +507,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
         std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
         if (worker_id == 0) {
+          RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(ctx);
           coll_cache::CollCacheSolver * solver = nullptr;
           switch (RunConfig::cache_policy) {
             case kPartRepCache: {
@@ -528,7 +529,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
             default: CHECK(false);
           }
           solver->Build(_dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, trainer_to_stream, _dataset->num_node, _dataset->nid_to_block);
-          solver->Solve(trainer_to_stream, trainer_cache_percent, "BIN", RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_remote, RunConfig::coll_cache_hyperparam_T_cpu);
+          solver->Solve(trainer_to_stream, trainer_cache_percent, "BIN", RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_cpu);
           _dataset->block_placement = solver->block_placement;
           delete solver;
         }

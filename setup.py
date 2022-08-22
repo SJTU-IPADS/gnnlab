@@ -177,6 +177,7 @@ setup(
                 'samgraph/common/cuda/pre_sampler.cc',
                 'samgraph/common/cuda/um_pre_sampler.cc',
                 'samgraph/common/coll_cache/optimal_solver_class.cc',
+                'samgraph/common/coll_cache/asymm_link_desc.cc',
                 'samgraph/common/dist/collaborative_cache_manager_device.cu',
                 'samgraph/common/dist/dist_engine.cc',
                 'samgraph/common/dist/dist_loops.cc',

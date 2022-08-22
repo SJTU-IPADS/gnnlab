@@ -20,6 +20,7 @@
 #ifndef SAMGRAPH_COLL_CACHE_MANAGER_H
 #define SAMGRAPH_COLL_CACHE_MANAGER_H
 
+#include "../coll_cache/asymm_link_desc.h"
 #include "../common.h"
 #include "../logging.h"
 #include <cuda_runtime.h>
@@ -109,8 +110,9 @@ class CollCacheManager {
   HashTableEntryOffset* _hash_table_offset = nullptr;
   std::vector<void*> _device_cache_data;
 
-  std::vector<int> _remote_device_list;
-  std::vector<int> _remote_sm_list;
+  coll_cache::AsymmLinkDesc _asymm_link_desc;
+  // std::vector<int> _remote_device_list;
+  // std::vector<int> _remote_sm_list;
   std::vector<StreamHandle> _concurrent_stream_array;
 
  public:

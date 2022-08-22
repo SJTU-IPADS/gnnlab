@@ -21,6 +21,12 @@ namespace samgraph {
 namespace common {
 namespace coll_cache {
 
+void CollCacheSolver::Solve(std::vector<int> device_to_stream,
+                            std::vector<int> device_to_cache_percent,
+                            std::string mode, double T_local, double T_cpu) {
+  Solve(device_to_stream, device_to_cache_percent, mode, T_local, RunConfig::coll_cache_link_desc.AggregatedRemoteTime(), T_cpu);
+};
+
 void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, std::vector<int> device_to_stream, const IdType num_node, const TensorPtr nid_to_block_tensor) {
   CHECK_EQ(stream_id_list->Shape().size(), 2);
   CHECK_EQ(stream_freq_list->Shape().size(), 2);
@@ -150,6 +156,7 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
 }
 
 void OptimalSolver::Solve(std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent, std::string mode, double T_local, double T_remote, double T_cpu) {
+  CHECK(RunConfig::coll_cache_link_desc._topo_type != AsymmLinkDesc::kHardWiredAsymm) << "OptimalSolver does not support asymm link topo";
   CHECK(mode == "BIN");
   CHECK(block_density_tensor->Defined());
   double* block_density_array = block_density_tensor->Ptr<double>();
@@ -305,7 +312,7 @@ void OptimalSolver::Solve(std::vector<int> device_to_stream, std::vector<int> de
   LOG(INFO) << "Coll Cache model reset done";
 }
 
-void OptimalAsymmLinkSolver::Solve(std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent, std::string mode, double T_local, double T_remote, double T_cpu) {
+void OptimalAsymmLinkSolver::Solve(std::vector<int> device_to_stream, std::vector<int> device_to_cache_percent, std::string mode, double T_local, double T_cpu) {
   CHECK(mode == "BIN");
   CHECK(block_density_tensor->Defined());
   double*            block_density_array = block_density_tensor->Ptr<double>();
@@ -515,6 +522,7 @@ void IntuitiveSolver::Solve(std::vector<int> device_to_stream,
                             std::vector<int> device_to_cache_percent,
                             std::string mode, double T_local, double T_remote,
                             double T_cpu) {
+  CHECK(RunConfig::coll_cache_link_desc._topo_type != AsymmLinkDesc::kHardWiredAsymm) << "IntuitiveSolver does not support asymm link topo";
   CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
   const int num_device = device_to_stream.size();
   const int num_block = num_device + 2;
@@ -620,6 +628,7 @@ void PartitionSolver::Solve(std::vector<int> device_to_stream,
                             std::vector<int> device_to_cache_percent,
                             std::string mode, double T_local, double T_remote,
                             double T_cpu) {
+  CHECK(RunConfig::coll_cache_link_desc._topo_type != AsymmLinkDesc::kHardWiredAsymm) << "PartitionSolver does not support asymm link topo";
   CHECK(stream_id_list->Shape()[0] == 1);
   CHECK(stream_freq_list->Shape()[0] == 1);
   CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
@@ -673,6 +682,7 @@ void PartRepSolver::Solve(std::vector<int> device_to_stream,
                             std::vector<int> device_to_cache_percent,
                             std::string mode, double T_local, double T_remote,
                             double T_cpu) {
+  CHECK(RunConfig::coll_cache_link_desc._topo_type != AsymmLinkDesc::kHardWiredAsymm) << "PartRepSolver does not support asymm link topo";
   CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
   const int num_device = device_to_stream.size();
   const int num_block = num_device + 2;
