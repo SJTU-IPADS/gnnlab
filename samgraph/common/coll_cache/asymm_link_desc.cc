@@ -132,6 +132,7 @@ AsymmLinkDesc AsymmLinkDesc::AutoBuild(int num_trainer, int total_gpu,
     desc.BuildAsymmHardWire(num_trainer);
   } else if (gpu_model.find("A100") != std::string::npos) {
     desc.BuildSwitch(num_trainer);
+    RunConfig::coll_cache_concurrent_link = false;
   } else {
     CHECK(false) << "Unsupported configuration";
   }
@@ -147,7 +148,9 @@ AsymmLinkDesc AsymmLinkDesc::AutoBuild(Context ctx) {
   return desc;
 }
 void AsymmLinkDesc::SMPercentToNum(int total_sm) {
+  link_sm.resize(compute_percent.size());
   FOR_LOOP(dev_id, compute_percent.size()) {
+    link_sm[dev_id].resize(compute_percent[dev_id].size());
     FOR_LOOP(link, compute_percent[dev_id].size()) {
       link_sm[dev_id][link] = total_sm * compute_percent[dev_id][link];
     }
