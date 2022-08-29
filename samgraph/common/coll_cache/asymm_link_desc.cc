@@ -126,16 +126,23 @@ void AsymmLinkDesc::BuildAsymmHardWire(int num_trainer) {
 AsymmLinkDesc AsymmLinkDesc::AutoBuild(int num_trainer, int total_gpu,
                                        std::string gpu_model) {
   AsymmLinkDesc desc;
+  std::string topo_name;
   if (total_gpu <= 4) {
+    topo_name = "symm";
     desc.BuildSymmHardWire(num_trainer);
   } else if (gpu_model.find("V100") != std::string::npos) {
+    topo_name = "asymm";
     desc.BuildAsymmHardWire(num_trainer);
   } else if (gpu_model.find("A100") != std::string::npos) {
+    topo_name = "switch";
     desc.BuildSwitch(num_trainer);
     RunConfig::coll_cache_concurrent_link = false;
   } else {
-    CHECK(false) << "Unsupported configuration";
+    CHECK(false) << "Unsupported configuration: " << total_gpu << " X " << gpu_model;
   }
+  LOG(ERROR) << "build " << topo_name << " link desc with " << num_trainer << "X " << gpu_model << " out of " << total_gpu;
+  LOG(ERROR) << "remote time is " << RunConfig::coll_cache_hyperparam_T_remote;
+  LOG(ERROR) << "cpu time is " << RunConfig::coll_cache_hyperparam_T_cpu;
   return desc;
 }
 AsymmLinkDesc AsymmLinkDesc::AutoBuild(Context ctx) {

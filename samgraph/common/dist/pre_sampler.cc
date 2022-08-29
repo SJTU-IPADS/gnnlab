@@ -132,7 +132,7 @@ void PreSampler::DoPreSample(){
   }
   double & sf = DistEngine::Get()->GetGraphDataset()->scale_factor->Ptr<double>()[0];
   sf = std::max(sf, max_num_inputs / (double)min_num_inputs + 0.03);
-  LOG(ERROR) << "max_num_inputs = " << max_num_inputs << ", min_num_inputs" << min_num_inputs;
+  LOG(ERROR) << "max_num_inputs = " << max_num_inputs << ", min_num_inputs = " << min_num_inputs;
   std::cout << "test_result:init:input_scale_factor=" << sf << "\n";
   Timer ts;
 #ifdef __linux__

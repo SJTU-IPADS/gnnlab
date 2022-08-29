@@ -511,6 +511,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           pre_sampler->GetRankNode(_dataset->ranking_nodes);
           LOG(INFO) << "Coll Cache for validate, prepare ranking nodes for legacy cache done";
 #endif
+          LOG(ERROR) << "pre sample done, delete it";
           delete pre_sampler;
         }
         std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
@@ -549,8 +550,11 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
             }
             default: CHECK(false);
           }
+          LOG(ERROR) << "solver created. now build & solve";
           solver->Build(_dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, trainer_to_stream, _dataset->num_node, _dataset->nid_to_block);
+          LOG(ERROR) << "solver built. now solve";
           solver->Solve(trainer_to_stream, trainer_cache_percent, "BIN", RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_cpu);
+          LOG(ERROR) << "solver solved";
           _dataset->block_placement = solver->block_placement;
           delete solver;
         }
