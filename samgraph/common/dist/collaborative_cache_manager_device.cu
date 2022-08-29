@@ -720,7 +720,7 @@ void CollCacheManager::CombineConcurrent(const SrcKey * src_index, const DstVal 
   auto device = Device::Get(_trainer_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
-  dim3 block(256, 1);
+  dim3 block(512, 1);
   while (static_cast<size_t>(block.x) >= 2 * _dim) {
     block.x /= 2;
     block.y *= 2;

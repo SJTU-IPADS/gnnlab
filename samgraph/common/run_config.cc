@@ -103,7 +103,7 @@ std::vector<Context> RunConfig::unified_memory_ctxes;
 bool                 RunConfig::coll_cache_concurrent_link = false;
 bool                 RunConfig::coll_cache_no_group    = false;
 size_t               RunConfig::coll_cache_num_slot    = 100;
-double               RunConfig::coll_cache_coefficient = 1.05;
+double               RunConfig::coll_cache_coefficient = 1.1;
 double               RunConfig::coll_cache_hyperparam_T_local  = 1;
 double               RunConfig::coll_cache_hyperparam_T_remote = 438 / (double)213;  // performance on A100
 double               RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)11.8; // performance on A100

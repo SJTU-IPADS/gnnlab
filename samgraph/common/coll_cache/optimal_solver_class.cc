@@ -35,7 +35,9 @@ void OptimalSolver::Build(TensorPtr stream_id_list, TensorPtr stream_freq_list, 
   CHECK_EQ(stream_id_list->Shape()[1], num_node);
   IdType num_stream = stream_id_list->Shape()[0];
   auto cpu_ctx = CPU(CPU_CLIB_MALLOC_DEVICE);
-  max_size_per_block = num_node / 10000;
+  // coarse-grained slice to reduce asymm solve time
+  // symmetric & switch's precision still holds
+  max_size_per_block = num_node / 1000;
   auto freq_to_slot = [this](float freq, uint32_t rank, IdType num_node){ return this->freq_to_slot_1(freq, rank, num_node);};
 
   TensorPtr nid_to_rank_tensor  = Tensor::Empty(kI32, {num_node, num_stream}, cpu_ctx, "coll_cache.nid_to_rank");
@@ -172,14 +174,32 @@ void OptimalSolver::Solve(std::vector<int> device_to_stream, std::vector<int> de
 
   GRBEnv env = GRBEnv(true);
   env.set("LogFile", "cppsolver.log");
-  env.set(GRB_IntParam_Presolve, 0);
-  // env.set(GRB_IntParam_Method, 2);
+  // env.set(GRB_IntParam_Presolve, 0);
+  // // env.set(GRB_IntParam_Method, 2);
+  // // env.set(GRB_IntParam_Method, -1);
+  // env.set(GRB_IntParam_Method, 3);
+  // env.set(GRB_IntParam_Threads, RunConfig::omp_thread_num);
+  // env.set(GRB_DoubleParam_BarConvTol, 1e-3);
+  // env.set(GRB_DoubleParam_OptimalityTol, 1e-2);
+  // env.set(GRB_DoubleParam_MIPGap, 2e-3);
+
+
+  env.set(GRB_IntParam_ConcurrentMIP, 50);
+  // env.set(GRB_DoubleParam_Heuristics, 0.5);
+  // env.set(GRB_DoubleParam_NoRelHeurTime, 10);
+  env.set(GRB_IntParam_Presolve, 1);
+  env.set(GRB_IntParam_MIPFocus, 1);
+  // env.set(GRB_IntParam_Crossover, 0);
+  // env.set(GRB_IntParam_Presolve, -1);
+  env.set(GRB_IntParam_Method, 2);
+  // env.set(GRB_IntParam_NodeMethod, 2);
   // env.set(GRB_IntParam_Method, -1);
-  env.set(GRB_IntParam_Method, 3);
-  env.set(GRB_IntParam_Threads, RunConfig::omp_thread_num);
-  env.set(GRB_DoubleParam_BarConvTol, 1e-3);
-  env.set(GRB_DoubleParam_OptimalityTol, 1e-2);
-  env.set(GRB_DoubleParam_MIPGap, 2e-3);
+  // env.set(GRB_IntParam_Method, 3);
+  env.set(GRB_IntParam_Threads, RunConfig::omp_thread_num*2);
+  env.set(GRB_DoubleParam_BarConvTol, 1e-4);
+  env.set(GRB_DoubleParam_OptimalityTol, 2e-2);
+  env.set(GRB_DoubleParam_MIPGap, 2e-2);
+
   env.start();
 
   GRBModel model = GRBModel(env);
@@ -336,14 +356,36 @@ void OptimalAsymmLinkSolver::Solve(std::vector<int> device_to_stream, std::vecto
   env.set(GRB_IntParam_MIPFocus, 1);
   // env.set(GRB_IntParam_Crossover, 0);
   // env.set(GRB_IntParam_Presolve, -1);
-  env.set(GRB_IntParam_Method, 2);
+  // env.set(GRB_IntParam_Method, 2);
   // env.set(GRB_IntParam_NodeMethod, 2);
   // env.set(GRB_IntParam_Method, -1);
-  // env.set(GRB_IntParam_Method, 3);
+  env.set(GRB_IntParam_Method, 3);
   env.set(GRB_IntParam_Threads, RunConfig::omp_thread_num*2);
   env.set(GRB_DoubleParam_BarConvTol, 1e-4);
   env.set(GRB_DoubleParam_OptimalityTol, 1e-2);
   env.set(GRB_DoubleParam_MIPGap, 1e-2);
+
+  env.set(GRB_DoubleParam_TimeLimit, 200);
+
+  // tuned
+  env.set(GRB_DoubleParam_MIPGap, 0.03);
+  env.set(GRB_IntParam_MIPFocus, 2);
+  env.set(GRB_IntParam_ConcurrentMIP, 36);
+  env.set(GRB_IntParam_Threads, 108);
+  env.set(GRB_IntParam_BranchDir, 1);
+  env.set(GRB_IntParam_AggFill, 100);
+  env.set(GRB_IntParam_NormAdjust, 3);
+  env.set(GRB_IntParam_Presolve, 2);
+  env.set(GRB_IntParam_SimplexPricing, 2);
+  env.set(GRB_IntParam_DegenMoves, 0);
+  env.set(GRB_IntParam_CutPasses, 5);
+  env.set(GRB_IntParam_PrePasses, 8);
+  env.set(GRB_DoubleParam_Heuristics, 0.001);
+  env.set(GRB_IntParam_ScaleFlag, 0);
+  env.set(GRB_IntParam_StrongCGCuts, 0);
+  env.set(GRB_IntParam_MIRCuts, 1);
+  env.set(GRB_IntParam_Cuts, 3);
+
   env.start();
 
   GRBModel model = GRBModel(env);
