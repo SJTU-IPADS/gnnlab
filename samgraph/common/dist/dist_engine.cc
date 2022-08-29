@@ -160,6 +160,7 @@ void DistEngine::Init() {
       case kPartRepCache:
       case kPartitionCache:
       case kCollCacheIntuitive:
+      case kCliquePart:
       case kCollCacheAsymmLink:
       case kCollCache: {
 #ifndef SAMGRAPH_COLL_CACHE_ENABLE
@@ -178,7 +179,7 @@ void DistEngine::Init() {
       }
       default: ;
     }
-    if (RunConfig::cache_policy == kCollCacheAsymmLink) {
+    if (RunConfig::cache_policy == kCollCacheAsymmLink || RunConfig::cache_policy == kCliquePart) {
       _dataset->block_access_advise = Tensor::Null();
     }
   }
@@ -488,6 +489,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       case kRepCache:
       case kPartRepCache:
       case kPartitionCache:
+      case kCliquePart:
       case kCollCacheIntuitive:
       case kCollCacheAsymmLink:
       case kCollCache: {
@@ -539,6 +541,10 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
             }
             case kCollCacheAsymmLink: {
               solver = new coll_cache::OptimalAsymmLinkSolver();
+              break;
+            }
+            case kCliquePart: {
+              solver = new coll_cache::CliquePartSolver(3);
               break;
             }
             default: CHECK(false);
@@ -732,6 +738,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   if ((RunConfig::cache_policy == kCollCache || 
        RunConfig::cache_policy == kCollCacheIntuitive || 
        RunConfig::cache_policy == kCollCacheAsymmLink || 
+       RunConfig::cache_policy == kCliquePart || 
        RunConfig::cache_policy == kPartRepCache || 
        RunConfig::cache_policy == kRepCache || 
        RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {

@@ -213,6 +213,17 @@ public:
              std::vector<int> device_to_cache_percent, std::string mode,
              double T_local, double T_cpu);
 };
+
+class CliquePartSolver : public SingleStreamSolverBase {
+public:
+  CliquePartSolver(int clique_size) : clique_size(clique_size) {}
+  using SingleStreamSolverBase::Solve;
+  void Solve(std::vector<int> device_to_stream,
+             std::vector<int> device_to_cache_percent, std::string mode,
+             double T_local, double T_cpu);
+  int clique_size;
+};
+
 } // namespace coll_cache
 } // namespace common
 } // namespace samgraph

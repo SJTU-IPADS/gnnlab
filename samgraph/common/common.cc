@@ -700,6 +700,9 @@ std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
     case kCollCacheAsymmLink:
       os << "coll_cache_asymm_link";
       break;
+    case kCliquePart:
+      os << "clique_part";
+      break;
     case kPartitionCache:
       os << "partition_cache";
       break;

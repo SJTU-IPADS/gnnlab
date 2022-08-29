@@ -392,6 +392,7 @@ void Engine::LoadGraphDataset() {
       case kPartitionCache:
       case kPartRepCache:
       case kRepCache:
+      case kCliquePart:
         break;
       default:
         CHECK(0);
