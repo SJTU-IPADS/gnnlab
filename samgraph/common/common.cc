@@ -427,6 +427,37 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std
 
   return tensor;
 }
+TensorPtr Tensor::CopyLine(TensorPtr source, size_t line_idx, Context ctx, StreamHandle stream, double scale) {
+  CHECK(source && source->Defined());
+  const std::vector<size_t> & shape = source->_shape;
+  CHECK_GT(shape.size(), 0);
+  CHECK_LT(line_idx, shape[0]);
+
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(source->_dtype, shape.begin() + 1, shape.end());
+
+  tensor->_dtype = source->_dtype;
+  tensor->_shape = std::vector<size_t>(shape.begin() + 1, shape.end());
+  tensor->_nbytes = nbytes;
+  tensor->_ctx = ctx;
+  tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes, scale);
+  tensor->_name = source->_name;
+  if (RunConfig::run_arch == kArch9 && ctx.device_type == DeviceType::kGPU_UM) {
+    for (auto um_ctx : RunConfig::unified_memory_ctxes) {
+        Device::Get(um_ctx)->CopyDataFromTo(source->_data, nbytes * line_idx, tensor->_data, 0, nbytes, source->_ctx, um_ctx);
+    }
+    Device::Get(ctx)->StreamSync(ctx, stream);
+  } else {
+    Context work_ctx = ctx;
+    if ((source->Ctx().device_type == kGPU || source->Ctx().device_type == kGPU_UM) && ctx.device_type != kGPU) {
+      work_ctx = source->Ctx();
+    }
+    Device::Get(work_ctx)->CopyDataFromTo(source->_data, nbytes * line_idx, tensor->_data, 0, nbytes, source->_ctx, tensor->_ctx, stream);
+    Device::Get(work_ctx)->StreamSync(work_ctx, stream);
+  }
+
+  return tensor;
+}
 
 TensorPtr Tensor::UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams) {
   return UMCopyTo(source, ctxes, streams, source->_name);
