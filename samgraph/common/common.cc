@@ -697,6 +697,9 @@ std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
     case kCollCacheIntuitive:
       os << "coll_cache_naive";
       break;
+    case kCollCacheAsymmLink:
+      os << "coll_cache_asymm_link";
+      break;
     case kPartitionCache:
       os << "partition_cache";
       break;

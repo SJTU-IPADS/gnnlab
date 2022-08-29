@@ -467,6 +467,29 @@ __global__ void decide_source_location(const IdType* nid_to_block_id, const uint
   }
 }
 
+
+template <size_t BLOCK_SIZE=Constant::kCudaBlockSize, size_t TILE_SIZE=Constant::kCudaTileSize, bool USE_EMPTY_FEAT=false>
+__global__ void decide_source_location_advised(const IdType* nid_to_block_id, const uint8_t* block_access_advise, 
+    HashTableEntryLocation* hash_table_location, HashTableEntryOffset* hash_table_offset, 
+    IdType num_total_nodes, IdType num_blocks, 
+    IdType local_location_id, IdType cpu_location_id, size_t empty_feat = 0) {
+  assert(BLOCK_SIZE == blockDim.x);
+  const size_t block_start = TILE_SIZE * blockIdx.x;
+  const size_t block_end = TILE_SIZE * (blockIdx.x + 1);
+
+  for (IdType nid = block_start + threadIdx.x; nid < block_end; nid += BLOCK_SIZE) {
+    if (nid < num_total_nodes) {
+      IdType block_id = nid_to_block_id[nid];
+      hash_table_location[nid] = block_access_advise[block_id];
+      if (USE_EMPTY_FEAT) {
+        hash_table_offset[nid] = nid % (1 << empty_feat);
+      } else {
+        hash_table_offset[nid] = nid;
+      }
+    }
+  }
+}
+
 #ifdef DEAD_CODE
 template<typename Location_t, class LocGet = LocationGetter<Location_t>>
 void _SplitGroup(const Location_t * src_index, const size_t len, IdType * & group_offset, 
@@ -669,15 +692,15 @@ void CollCacheManager::CombineAllGroup(const SrcKey * src_index, const DstVal * 
 
 template<int NUM_LINK>
 void CollCacheManager::CombineConcurrent(const SrcKey * src_index, const DstVal * dst_index, const IdType * group_offset, void* output, StreamHandle stream) {
-  CHECK(NUM_LINK == _asymm_link_desc.link_src[_local_location_id].size());
+  CHECK(NUM_LINK == RunConfig::coll_cache_link_desc.link_src[_local_location_id].size());
   ExtractConcurrentParam<NUM_LINK, DataIter<SrcOffIter>, DataIter<DstOffIter>> param;
   IdType total_required_num_sm = 0;
   TensorPtr link_mapping = Tensor::Empty(kI32, {108}, CPU(), "");
   IdType total_num_node = 0;
   for (int i = 0; i < NUM_LINK; i++) {
-    CHECK(_asymm_link_desc.link_src[_local_location_id][i].size() == 1);
-    const int dev_id = _asymm_link_desc.link_src[_local_location_id][i][0];
-    const int num_sm = _asymm_link_desc.link_sm[_local_location_id][i];
+    CHECK(RunConfig::coll_cache_link_desc.link_src[_local_location_id][i].size() == 1);
+    const int dev_id = RunConfig::coll_cache_link_desc.link_src[_local_location_id][i][0];
+    const int num_sm = RunConfig::coll_cache_link_desc.link_sm[_local_location_id][i];
     param.full_src_array[i] = DataIter<SrcOffIter>(SrcOffIter(dst_index + group_offset[dev_id]), _device_cache_data[dev_id], _dim);
     param.dst_index_array[i] = DataIter<DstOffIter>(DstOffIter(dst_index + group_offset[dev_id]), output, _dim);
     param.num_node_array[i] = group_offset[dev_id + 1] - group_offset[dev_id];
@@ -882,7 +905,8 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
     {
       // impl1: single kernel, limited num block
       t1.Reset();
-      switch(_asymm_link_desc.link_src[_local_location_id].size()) {
+      switch(RunConfig::coll_cache_link_desc.link_src[_local_location_id].size()) {
+        case 1: CombineConcurrent<1>(src_index, dst_index, group_offset, output, stream); break;
         case 2: CombineConcurrent<2>(src_index, dst_index, group_offset, output, stream); break;
         case 3: CombineConcurrent<3>(src_index, dst_index, group_offset, output, stream); break;
         case 4: CombineConcurrent<4>(src_index, dst_index, group_offset, output, stream); break;
@@ -946,27 +970,51 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
     // std::cout << "Split GrOup " <<t1.Passed() << "\n";
     double combine_times[3] = {0, 0, 0};
     // cpu first, then remote, then local 
-    for (int order = 0; order < _num_location; order++) {
-      int src_loc_id = _cpu_location_id;
-      if (order != 0) {
-        src_loc_id = (_local_location_id + order) % _cpu_location_id;
+    Timer t_cpu;
+    CombineOneGroup(src_index + group_offset[_cpu_location_id], dst_index + group_offset[_cpu_location_id], nodes + group_offset[_cpu_location_id], group_offset[_cpu_location_id+1] - group_offset[_cpu_location_id], _device_cache_data[_cpu_location_id], output, stream);
+    combine_times[0] = t_cpu.Passed();
+
+    DistEngine::Get()->GetTrainerBarrier()->Wait();
+    {
+      t1.Reset();
+      for (auto & link : RunConfig::coll_cache_link_desc.link_src[_local_location_id]) {
+        for (auto dev_id : link) {
+          IdType offset = group_offset[dev_id];
+          IdType link_num_node = group_offset[dev_id+1] - offset;
+          CombineOneGroup(src_index + offset, dst_index + offset, nodes + offset, link_num_node, _device_cache_data[dev_id], output, stream);
+        }
       }
-      LOG(DEBUG) << "CollCache(" << _local_location_id << "): ExtractFeat: coll, combining group " << src_loc_id << " [" << group_offset[src_loc_id] << "," << group_offset[src_loc_id+1] << ")...";
-      Timer t1;
-      CombineOneGroup(
-          src_index + group_offset[src_loc_id], dst_index + group_offset[src_loc_id], 
-          nodes + group_offset[src_loc_id], 
-          group_offset[src_loc_id+1] - group_offset[src_loc_id], 
-          _device_cache_data[src_loc_id], output, stream);
-      double combine_time = t1.Passed();
-      if (src_loc_id == _local_location_id) {
-        combine_times[2] = combine_time;
-      } else if (src_loc_id == _cpu_location_id) {
-        combine_times[0] = combine_time;
-      } else {
-        combine_times[1] += combine_time;
-      }
+      combine_times[1] = t1.Passed();
     }
+
+    t1.Reset();
+    CombineOneGroup(src_index + group_offset[_local_location_id], dst_index + group_offset[_local_location_id], nodes + group_offset[_local_location_id], group_offset[_local_location_id+1] - group_offset[_local_location_id], _device_cache_data[_local_location_id], output, stream);
+    combine_times[2] = t1.Passed();
+
+    // for (int order = 0; order < _num_location; order++) {
+    //   int src_loc_id = _cpu_location_id;
+    //   if (order != 0) {
+    //     src_loc_id = (_local_location_id + order) % _cpu_location_id;
+    //   }
+    //   if (order == 1) {
+    //     DistEngine::Get()->GetTrainerBarrier()->Wait();
+    //   }
+    //   LOG(DEBUG) << "CollCache(" << _local_location_id << "): ExtractFeat: coll, combining group " << src_loc_id << " [" << group_offset[src_loc_id] << "," << group_offset[src_loc_id+1] << ")...";
+    //   Timer t1;
+    //   CombineOneGroup(
+    //       src_index + group_offset[src_loc_id], dst_index + group_offset[src_loc_id], 
+    //       nodes + group_offset[src_loc_id], 
+    //       group_offset[src_loc_id+1] - group_offset[src_loc_id], 
+    //       _device_cache_data[src_loc_id], output, stream);
+    //   double combine_time = t1.Passed();
+    //   if (src_loc_id == _local_location_id) {
+    //     combine_times[2] = combine_time;
+    //   } else if (src_loc_id == _cpu_location_id) {
+    //     combine_times[0] = combine_time;
+    //   } else {
+    //     combine_times[1] += combine_time;
+    //   }
+    // }
     trainer_gpu_device->FreeWorkspace(_trainer_ctx, src_index);
     trainer_gpu_device->FreeWorkspace(_trainer_ctx, dst_index);
     if (task_key != 0xffffffffffffffff) {
@@ -1327,11 +1375,165 @@ CollCacheManager CollCacheManager::BuildCollCache(
     //   remote_device_list[remote_order] = {(trainer_ctx.device_id + remote_order + 1) % (int)RunConfig::num_train_worker};
     //   remote_sm_list[remote_order] = prop.multiProcessorCount / (RunConfig::num_train_worker - 1);
     // }
-    cm._asymm_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(trainer_ctx);
-    // CHECK(remote_device_list == cm._asymm_link_desc.link_src[local_location_id]);
+    // RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(trainer_ctx);
+    // CHECK(remote_device_list == cm.RunConfig::coll_cache_link_desc.link_src[local_location_id]);
   }
 
   LOG(ERROR) << "Collaborative GPU cache (policy: " << RunConfig::cache_policy << ") | "
+            << "local "  << num_cached_nodes << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_cached_nodes / (double)num_total_nodes) << "~" << ToPercentage(cache_percentage) << ") | "
+            << "remote " << num_remote_nodes << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_remote_nodes / (double)num_total_nodes) << ") | "
+            << "cpu "    << num_cpu_nodes    << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_cpu_nodes    / (double)num_total_nodes) << ") | "
+            << ToReadableSize(cm._cache_nbytes) << " | " << t.Passed()
+            << " secs ";
+  std::cout << "test_result:init:feat_nbytes=" << GetTensorBytes(dtype, {num_total_nodes, dim}) << "\n";
+  std::cout << "test_result:init:cache_nbytes=" << cm._cache_nbytes << "\n";
+  return cm;
+}
+
+CollCacheManager CollCacheManager::BuildCollCacheAccessAdvise(
+    TensorPtr node_to_block, TensorPtr block_placement, TensorPtr block_access_advise, size_t num_device,
+    Context trainer_ctx, void* cpu_src_data, DataType dtype, size_t dim, 
+    int local_location_id,
+    double cache_percentage, StreamHandle stream) {
+  LOG(ERROR) << "Building Coll Cache with ... num gpu device is " << num_device;
+
+  cudaIpcMemHandle_t * hash_table_offset_list;
+  cudaIpcMemHandle_t * device_cache_data_list;
+
+  {
+    int fd = cpu::MmapCPUDevice::CreateShm(4096 * 2, Constant::kCollCacheBuilderShmName);
+    void* shared_memory = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RW_DEVICE), 4096*2, fd);
+    hash_table_offset_list = static_cast<cudaIpcMemHandle_t*>(shared_memory);
+    device_cache_data_list = hash_table_offset_list + num_device;
+  }
+
+  CollCacheManager cm(trainer_ctx, dtype, dim, num_device);
+  cm._local_location_id = local_location_id;
+  size_t num_total_nodes = node_to_block->Shape()[0];
+  size_t num_blocks = block_placement->Shape()[0];
+
+  // RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(trainer_ctx);
+  if (RunConfig::coll_cache_concurrent_link) {
+    cm._concurrent_stream_array.resize(RunConfig::num_train_worker - 1);
+    for (auto & stream : cm._concurrent_stream_array) {
+      cudaStream_t & cu_s = reinterpret_cast<cudaStream_t &>(stream);
+      CUDA_CALL(cudaStreamCreate(&cu_s));
+    }
+  }
+
+  Timer t;
+
+  auto trainer_gpu_device = Device::Get(trainer_ctx);
+  auto cpu_device = Device::Get(CPU(CPU_CUDA_HOST_MALLOC_DEVICE));
+
+  cm._device_cache_data.resize(num_device + 1, nullptr);
+  cm._device_cache_data[cm._cpu_location_id] = cpu_src_data;
+  cm._hash_table_location = (HashTableEntryLocation*)
+    trainer_gpu_device->AllocDataSpace(trainer_ctx, sizeof(HashTableEntryLocation) * num_total_nodes);
+  cm._hash_table_offset   = (HashTableEntryOffset*)
+    trainer_gpu_device->AllocDataSpace(trainer_ctx, sizeof(HashTableEntryOffset)   * num_total_nodes);
+
+
+  LOG(INFO) << "CollCacheManager: Initializing hashtable location...";
+
+  auto cu_stream = static_cast<cudaStream_t>(stream);
+  // 1. Build a mapping from node id to target device
+  {
+    TensorPtr node_to_block_gpu   = Tensor::CopyTo(node_to_block, trainer_ctx, stream);   // large
+    TensorPtr block_access_advise_gpu = Tensor::CopyLine(block_access_advise, trainer_ctx.device_id, trainer_ctx, stream); // small
+
+    SAM_CUDA_PREPARE_1D(num_total_nodes);
+    if (RunConfig::option_empty_feat == 0) {
+      decide_source_location_advised<Constant::kCudaBlockSize, Constant::kCudaTileSize><<<grid, block, 0, cu_stream>>>(
+        node_to_block_gpu->CPtr<IdType>(), block_access_advise_gpu->CPtr<uint8_t>(),
+        cm._hash_table_location, cm._hash_table_offset, num_total_nodes,
+        num_blocks, local_location_id, cm._cpu_location_id);
+    } else {
+      LOG(WARNING) << "using empty feat=" << RunConfig::option_empty_feat;
+      decide_source_location_advised<Constant::kCudaBlockSize, Constant::kCudaTileSize, true><<<grid, block, 0, cu_stream>>>(
+        node_to_block_gpu->CPtr<IdType>(), block_access_advise_gpu->CPtr<uint8_t>(),
+        cm._hash_table_location, cm._hash_table_offset, num_total_nodes,
+        num_blocks, local_location_id, cm._cpu_location_id, RunConfig::option_empty_feat);
+    }
+    trainer_gpu_device->StreamSync(trainer_ctx, stream);
+  }
+  LOG(INFO) << "CollCacheManager: Initializing hashtable location done";
+
+  /**
+   * 2. build list of cached node
+   *    prepare local cache
+   *    fill hash table for local nodes.
+   */
+  LOG(INFO) << "CollCacheManager: grouping node of same location";
+  // auto loc_list  = (HashTableEntryLocation*)trainer_gpu_device->AllocDataSpace(trainer_ctx, sizeof(HashTableEntryLocation) * num_total_nodes);
+  IdType* node_list_buffer = trainer_gpu_device->AllocArray<IdType>(trainer_ctx, num_total_nodes);
+  // IdType * group_offset;
+  size_t num_cached_nodes;
+  size_t num_cpu_nodes;
+  {
+    IdType* cache_node_list = node_list_buffer;
+    // now we want to select nodes with hash_table_location==local id
+    cuda::CubSelectIndexByEq<IdType>(trainer_ctx, (const IdType *)cm._hash_table_location, num_total_nodes, cache_node_list, num_cached_nodes, cm._local_location_id, stream);
+    cuda::CubCountByEq<IdType>(trainer_ctx, (const IdType *)cm._hash_table_location, num_total_nodes, num_cpu_nodes, cm._cpu_location_id, stream);
+    // CHECK_NE(num_cached_nodes, 0);
+    cm._cache_nbytes = GetTensorBytes(cm._dtype, {num_cached_nodes, cm._dim});
+    cm._device_cache_data[local_location_id] = trainer_gpu_device->AllocDataSpace(trainer_ctx, cm._cache_nbytes);
+    if (num_cached_nodes > 0) {
+      if (RunConfig::option_empty_feat == 0) {
+        const DataIter<const IdType*> src_data_iter(cache_node_list, cpu_src_data, dim);
+        DataIter<DirectOffIter> dst_data_iter(DirectOffIter(), cm._device_cache_data[local_location_id], dim);
+        Combine(src_data_iter, dst_data_iter, num_cached_nodes, trainer_ctx, dtype, dim, stream);
+      } else {
+        const DataIter<MockOffIter> src_data_iter(MockOffIter(), cpu_src_data, dim);
+        DataIter<DirectOffIter> dst_data_iter(DirectOffIter(), cm._device_cache_data[local_location_id], dim);
+        Combine(src_data_iter, dst_data_iter, num_cached_nodes, trainer_ctx, dtype, dim, stream);
+      }
+
+      LOG(INFO) << "CollCacheManager: fix offset of local nodes in hash table";
+      SAM_CUDA_PREPARE_1D(num_cached_nodes);
+      init_hash_table_local<><<<grid, block, 0, cu_stream>>>(
+          cm._hash_table_location, cm._hash_table_offset, 
+          cache_node_list, num_cached_nodes, local_location_id);
+      trainer_gpu_device->StreamSync(trainer_ctx, stream);
+    }
+  }
+
+  LOG(INFO) << "CollCacheManager: waiting for remotes, here is " << local_location_id;
+  CUDA_CALL(cudaIpcGetMemHandle(&hash_table_offset_list[local_location_id], cm._hash_table_offset));
+  if (num_cached_nodes > 0) {
+    CUDA_CALL(cudaIpcGetMemHandle(&device_cache_data_list[local_location_id], cm._device_cache_data[local_location_id]));
+  }
+  // wait until all device's hashtable is ready
+  DistEngine::Get()->GetTrainerBarrier()->Wait();
+
+  /**
+   * 3. get hashtable entry, cache data from remote devices
+   */
+  for (auto & link : RunConfig::coll_cache_link_desc.link_src[local_location_id]) {
+    for (auto dev_id : link) {
+      LOG(ERROR) << "Device " << local_location_id << " init p2p of link " << dev_id;
+      IdType * remote_node_list = node_list_buffer;
+      size_t num_remote_nodes;
+      cuda::CubSelectIndexByEq<IdType>(trainer_ctx, (const IdType *)cm._hash_table_location, num_total_nodes, remote_node_list, num_remote_nodes, dev_id, stream);
+      if (num_remote_nodes == 0) continue;
+      CUDA_CALL(cudaIpcOpenMemHandle(&cm._device_cache_data[dev_id], device_cache_data_list[dev_id], cudaIpcMemLazyEnablePeerAccess));
+      const HashTableEntryOffset * remote_hash_table_offset;
+      CUDA_CALL(cudaIpcOpenMemHandle((void**)&remote_hash_table_offset, hash_table_offset_list[dev_id], cudaIpcMemLazyEnablePeerAccess));
+
+      SAM_CUDA_PREPARE_1D(num_remote_nodes);
+      init_hash_table_remote<><<<grid, block, 0, cu_stream>>>(
+          cm._hash_table_location, cm._hash_table_offset, 
+          remote_hash_table_offset, remote_node_list, num_remote_nodes, dev_id);
+      trainer_gpu_device->StreamSync(trainer_ctx, stream);
+      CUDA_CALL(cudaIpcCloseMemHandle((void*)remote_hash_table_offset))
+    }
+  }
+  // 4. Free index
+  trainer_gpu_device->FreeWorkspace(trainer_ctx, node_list_buffer);
+
+  size_t num_remote_nodes = num_total_nodes - num_cached_nodes - num_cpu_nodes;
+
+  LOG(ERROR) << "Asymm Coll cache (policy: " << RunConfig::cache_policy << ") | "
             << "local "  << num_cached_nodes << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_cached_nodes / (double)num_total_nodes) << "~" << ToPercentage(cache_percentage) << ") | "
             << "remote " << num_remote_nodes << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_remote_nodes / (double)num_total_nodes) << ") | "
             << "cpu "    << num_cpu_nodes    << " / " << num_total_nodes << " nodes ( "<< ToPercentage(num_cpu_nodes    / (double)num_total_nodes) << ") | "

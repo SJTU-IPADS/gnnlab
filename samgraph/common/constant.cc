@@ -81,6 +81,7 @@ const std::string Constant::kNodeAccessFileSuffix = ".txt";
 
 const std::string Constant::kCollCacheBuilderShmName = "coll_cache_shm";
 const std::string Constant::kCollCachePlacementShmName = "coll_cache_block_placement";
+const std::string Constant::kCollCacheAccessShmName = "coll_cache_block_access_from";
 
 }  // namespace common
 }  // namespace samgraph

@@ -79,6 +79,7 @@ kCollCacheIntuitive     = 9
 kPartitionCache         = 10
 kPartRepCache           = 11
 kRepCache               = 12
+kCollCacheAsymmLink     = 13
 
 
 def cpu(device_id=0):
@@ -153,6 +154,7 @@ cache_policies = {
     'partition'       : kPartitionCache,
     'part_rep'        : kPartRepCache,
     'rep'             : kRepCache,
+    'coll_cache_asymm_link'  : kCollCacheAsymmLink,
 }
 
 _init_log_val = [0]

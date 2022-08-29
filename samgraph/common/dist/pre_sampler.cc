@@ -87,6 +87,7 @@ void PreSampler::DoPreSample(){
       Timer t0;
       auto task = DoPreSampleShuffle();
       switch (RunConfig::cache_policy) {
+        case kCollCacheAsymmLink:
         case kCollCacheIntuitive:
         case kCollCache:
         case kPartRepCache:

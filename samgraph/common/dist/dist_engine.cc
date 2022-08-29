@@ -160,6 +160,7 @@ void DistEngine::Init() {
       case kPartRepCache:
       case kPartitionCache:
       case kCollCacheIntuitive:
+      case kCollCacheAsymmLink:
       case kCollCache: {
 #ifndef SAMGRAPH_COLL_CACHE_ENABLE
         CHECK(false) << "coll cache not enabled.";
@@ -176,6 +177,9 @@ void DistEngine::Init() {
         break;
       }
       default: ;
+    }
+    if (RunConfig::cache_policy == kCollCacheAsymmLink) {
+      _dataset->block_access_advise = Tensor::Null();
     }
   }
   double init_load_ds_mmap_time = t_l2_init_load_ds_mmap.Passed();
@@ -485,6 +489,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       case kPartRepCache:
       case kPartitionCache:
       case kCollCacheIntuitive:
+      case kCollCacheAsymmLink:
       case kCollCache: {
         Timer tp;
         // currently we only allow single stream
@@ -530,6 +535,10 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
             }
             case kCollCache: {
               solver = new coll_cache::OptimalSolver();
+              break;
+            }
+            case kCollCacheAsymmLink: {
+              solver = new coll_cache::OptimalAsymmLinkSolver();
               break;
             }
             default: CHECK(false);
@@ -691,6 +700,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
   double time_create_stream = t_create_stream.Passed();
   update_coll_cache_hyper_param(_trainer_ctx);
+  RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(_trainer_ctx);
   // next code is for CPU sampling
   /*
   _work_stream = static_cast<cudaStream_t>(
@@ -721,22 +731,30 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _coll_cache_manager = new CollCacheManager();
   if ((RunConfig::cache_policy == kCollCache || 
        RunConfig::cache_policy == kCollCacheIntuitive || 
+       RunConfig::cache_policy == kCollCacheAsymmLink || 
        RunConfig::cache_policy == kPartRepCache || 
        RunConfig::cache_policy == kRepCache || 
        RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {
     {
-      size_t file_nbytes, &num_blocks=file_nbytes;
-      int fd = cpu::MmapCPUDevice::OpenShm(Constant::kCollCachePlacementShmName, &file_nbytes);
-      void* shared_memory = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RO_DEVICE), file_nbytes, fd);
-      _dataset->block_placement = Tensor::FromBlob(
-        shared_memory, DataType::kU8, {num_blocks}, MMAP(MMAP_RO_DEVICE), "coll_cache_block_placement");
+      _dataset->block_placement = Tensor::OpenShm(Constant::kCollCachePlacementShmName, kU8, {}, "coll_cache_block_placement");
+      if (_dataset->block_access_advise != nullptr) {
+        size_t num_blocks = _dataset->block_placement->Shape()[0];
+        _dataset->block_access_advise = Tensor::OpenShm(Constant::kCollCacheAccessShmName, kU8, {RunConfig::num_train_worker, num_blocks}, "");
+      }
     }
-
+    if (_dataset->block_access_advise != nullptr) {
+    * _coll_cache_manager = CollCacheManager::BuildCollCacheAccessAdvise(
+              _dataset->nid_to_block, _dataset->block_placement, _dataset->block_access_advise, RunConfig::num_train_worker,
+              _trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
+              _dataset->feat->Shape()[1],
+              worker_id, RunConfig::cache_percentage, _trainer_copy_stream);
+    } else {
     * _coll_cache_manager = CollCacheManager::BuildCollCache(
               _dataset->nid_to_block, _dataset->block_placement, RunConfig::num_train_worker,
               _trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
               _dataset->feat->Shape()[1],
               worker_id, RunConfig::cache_percentage, _trainer_copy_stream);
+    }
   } else {
     *_coll_cache_manager = CollCacheManager::BuildLegacy(_trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
               _dataset->feat->Shape()[1],

@@ -3,6 +3,7 @@
 #include "../logging.h"
 #include "../device.h"
 #include "../cpu/mmap_cpu_device.h"
+#include "../cpu/cpu_utils.h"
 #include "ndarray.h"
 #include <omp.h>
 #include <sys/mman.h>
@@ -464,29 +465,77 @@ void OptimalAsymmLinkSolver::Solve(std::vector<int> device_to_stream, std::vecto
 
   model.setObjective(z + 0, GRB_MINIMIZE);
 
+  model.write("asymm.lp");
+
   model.optimize();
 
   CHECK(num_device <= 8);
   CHECK(block_placement->Shape() == std::vector<size_t>{num_block});
   // num_link + local + cpu always <= 8
+  block_access_from = Tensor::CreateShm(Constant::kCollCacheAccessShmName, kU8, {num_device, num_block}, "coll_cache_block_access");
   TensorView<uint8_t> block_placement_array(block_placement);
+  TensorView<uint8_t> block_access_from_array(block_access_from);
   LOG(WARNING) << "Coll Cache init block placement array";
   // #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+
+  auto get_val = [](GRBVar & var) { return var.get(GRB_DoubleAttr::GRB_DoubleAttr_X);};
+  auto get_int = [](GRBVar & var) { return std::round(var.get(GRB_DoubleAttr::GRB_DoubleAttr_X));};
+
+  vec<vec<uint8_t>> link_bitmap(num_device, vec<uint8_t>(num_link, 0));
+  for (uint32_t dev_id = 0; dev_id < num_device; dev_id++) {
+    for (uint32_t link = 0; link < num_link; link++) {
+      uint8_t & bitmap = link_bitmap[dev_id][link];
+      for (auto src_dev : this->link_src[dev_id][link]) {
+        bitmap |= 1 << src_dev;
+      }
+    }
+  }
+
+  vec<uint8_t> bitmap_to_src_dev(1 << num_device, 0);
+  PreDecideSrc(num_device, num_device + 1, bitmap_to_src_dev.data());
+
   FOR_LOOP(block_id, num_block) {
     // by default, this block is placed at cpu
     block_placement_array[block_id].ref() = 0;
+    FOR_LOOP(device_id, num_device) {
+      block_access_from_array[device_id][block_id].ref() = num_device; // num_device is treat as cpu
+    }
+
     // std::ios_base::fmtflags f( std::cerr.flags() );
     // std::cerr << "block " << block_id
     //           << std::fixed << std::setw(8) << std::setprecision(6)
     //           << ", density=" << block_density_array[block_id]
     //           << std::fixed << std::setw(8) << std::setprecision(3)
     //           << ", freq=" << block_freq_array[block_id][0].ref();
+
+    // x == 1 -> access from = local dev id
+    // x == 0, a != 0 -> <bitmap of this link> & <storage bitmap>, then choose one from it
+    // x == 0, a == 0 -> cpu
     if (ignore_block(block_id, block_density_array[block_id])) {
       continue;
     }
     FOR_LOOP(device_id, num_device) {
       uint8_t x_result = (uint8_t)std::round(x_list[block_id][device_id].ref().get(GRB_DoubleAttr::GRB_DoubleAttr_X));
       block_placement_array[block_id].ref() |= (x_result << device_id);
+    }
+    // build access from
+    FOR_LOOP(device_id, num_device) {
+      if (get_int(x_list[block_id][device_id].ref())) {
+        block_access_from_array[device_id][block_id].ref() = device_id;
+        continue;
+      }
+      if (get_int(c_list[block_id].ref())) {
+        block_access_from_array[device_id][block_id].ref() = num_device; // num_device is treat as cpu
+        continue;
+      }
+      for (uint32_t src_link = 0; src_link < num_link; src_link ++) {
+        if (get_int(a_list[block_id][device_id][src_link].ref()) == 0) continue;
+        const uint8_t link_src_bitmap = link_bitmap[device_id][src_link];
+        const uint8_t storage_bit_map = block_placement_array[block_id].ref();
+        const uint8_t candidate_bit_map = link_src_bitmap & storage_bit_map;
+        block_access_from_array[device_id][block_id].ref() = bitmap_to_src_dev[candidate_bit_map];
+        break;
+      }
     }
     // std::bitset<8> bs(block_placement_array[block_id].ref());
     // std::cerr << "  storage is " << bs << "\n";
@@ -505,6 +554,30 @@ void OptimalAsymmLinkSolver::Solve(std::vector<int> device_to_stream, std::vecto
   LOG(WARNING) << "Coll Cache init block placement array done";
   model.reset(1);
   LOG(WARNING) << "Coll Cache model reset done";
+}
+void OptimalAsymmLinkSolver::PreDecideSrc(int num_bits,
+                                          int cpu_location_id,
+                                          uint8_t *placement_to_src) {
+  auto g = std::default_random_engine(
+      std::chrono::system_clock::now().time_since_epoch().count());
+  for (int placement = 0; placement < (1 << num_bits); placement++) {
+    if (placement == 0) {
+      placement_to_src[placement] = cpu_location_id;
+    } else {
+      int num_nz = cpu::CountBits(placement);
+      int location = 0;
+      // scan all 1, and choose current 1 uniformly
+      for (; location < num_bits; location++) {
+        if ((placement & (1 << location)) == 0) continue;
+        int choice = std::uniform_int_distribution<int>(1, num_nz)(g);
+        if (choice == 1) {
+          break;
+        }
+        num_nz--;
+      }
+      placement_to_src[placement] = location;
+    }
+  }
 }
 
 void SingleStreamSolverBase::Build(TensorPtr stream_id_list,

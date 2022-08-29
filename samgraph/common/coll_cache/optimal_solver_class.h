@@ -6,6 +6,7 @@
 #include "../run_config.h"
 #include "gurobi_c++.h"
 #include "ndarray.h"
+#include "asymm_link_desc.h"
 #include <bitset>
 #include <cstring>
 #include <iomanip>
@@ -46,6 +47,7 @@ class CollCacheSolver {
   TensorPtr block_density_tensor;
   TensorPtr block_freq_tensor;
   TensorPtr block_placement;
+  TensorPtr block_access_from;
 };
 
 class OptimalSolver : public CollCacheSolver {
@@ -167,6 +169,7 @@ class OptimalAsymmLinkSolver : public OptimalSolver {
              double T_local,double T_cpu) override;
   vec<vec<vec<int>>> link_src;
   vec<vec<double>> link_time;
+  static void PreDecideSrc(int num_bits, int cpu_location_id, uint8_t *placement_to_src);
  private:
   using OptimalSolver::Solve;
 };

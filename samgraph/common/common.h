@@ -113,6 +113,7 @@ enum CachePolicy {
   kPartitionCache,
   kPartRepCache,
   kRepCache,
+  kCollCacheAsymmLink,
 };
 
 enum class UMPolicy {
@@ -267,6 +268,7 @@ struct Dataset {
   TensorPtr ranking_nodes_list;
   TensorPtr ranking_nodes_freq_list;
   TensorPtr nid_to_block, block_placement;
+  TensorPtr block_access_advise;
 
   // Node feature and label
   size_t num_class;

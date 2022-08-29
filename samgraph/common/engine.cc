@@ -388,6 +388,7 @@ void Engine::LoadGraphDataset() {
       case kDynamicCache:
       case kCollCache:
       case kCollCacheIntuitive:
+      case kCollCacheAsymmLink:
       case kPartitionCache:
       case kPartRepCache:
       case kRepCache:

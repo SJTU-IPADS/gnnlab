@@ -110,7 +110,6 @@ class CollCacheManager {
   HashTableEntryOffset* _hash_table_offset = nullptr;
   std::vector<void*> _device_cache_data;
 
-  coll_cache::AsymmLinkDesc _asymm_link_desc;
   // std::vector<int> _remote_device_list;
   // std::vector<int> _remote_sm_list;
   std::vector<StreamHandle> _concurrent_stream_array;
@@ -134,6 +133,12 @@ class CollCacheManager {
   static CollCacheManager BuildCollCache(
       TensorPtr node_to_block, TensorPtr block_placement, size_t num_device,
       Context trainer_ctx, 
+      void* cpu_src_data, DataType dtype, size_t dim,
+      int local_location_id,
+      double cache_percentage, StreamHandle stream = nullptr);
+  static CollCacheManager BuildCollCacheAccessAdvise(
+      TensorPtr node_to_block, TensorPtr block_placement, TensorPtr block_access_from,
+      size_t num_device, Context trainer_ctx, 
       void* cpu_src_data, DataType dtype, size_t dim,
       int local_location_id,
       double cache_percentage, StreamHandle stream = nullptr);
