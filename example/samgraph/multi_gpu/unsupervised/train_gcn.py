@@ -328,13 +328,13 @@ def run_train(worker_id, run_config):
             batch_key = sam.get_next_batch()
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(batch_key, num_layer)
-            batch_input = batch_input.half()
             pair_graph = sam.get_dgl_unsupervised_pair_graph(batch_key)
-            event_sync()
             t2 = time.time()
 
             # Compute loss and prediction
             if use_amp:
+                batch_input = batch_input.half()
+                event_sync()
                 with autocast(enabled=use_amp):
                     batch_pred = model(blocks, batch_input)
                     score = predictor(pair_graph, batch_pred)
