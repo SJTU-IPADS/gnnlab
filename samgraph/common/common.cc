@@ -156,6 +156,13 @@ TensorPtr Tensor::OpenShm(std::string shm_path, DataType dtype,
   struct stat st;
   fstat(fd, &st);
   size_t file_nbytes = st.st_size;
+
+  if (shape.size() == 0) {
+    // auto infer shape, 1-D only
+    shape = {file_nbytes / GetDataTypeBytes(dtype)};
+    nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+  }
+
   CHECK_EQ(nbytes, file_nbytes);
 
   void* data = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RW_DEVICE), nbytes, fd);
