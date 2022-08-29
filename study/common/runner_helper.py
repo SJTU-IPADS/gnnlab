@@ -101,7 +101,24 @@ class CachePolicy(Enum):
   partition_max = 81
 
   part_rep_1 = 91
+  part_rep_2 = 92
+  part_rep_10 = 100
   part_rep_max = 101
+
+  rep_1 = 111
+  rep_2 = 112
+  rep_10 = 120
+  rep_max = 121
+
+  coll_cache_asymm_link_1 = 131
+  coll_cache_asymm_link_2 = 132
+  coll_cache_asymm_link_10 = 140
+  coll_cache_asymm_link_max = 141
+
+  clique_part_1 = 151
+  clique_part_2 = 152
+  clique_part_10 = 160
+  clique_part_max = 161
 
   no_cache = 200
   def get_samgraph_policy_param_name(self):
@@ -115,6 +132,12 @@ class CachePolicy(Enum):
       return "partition"
     if self.value in range(CachePolicy.part_rep_1.value, CachePolicy.part_rep_max.value):
       return "part_rep"
+    if self.value in range(CachePolicy.rep_1.value, CachePolicy.rep_max.value):
+      return "rep"
+    if self.value in range(CachePolicy.coll_cache_asymm_link_1.value, CachePolicy.coll_cache_asymm_link_max.value):
+      return "coll_cache_asymm_link"
+    if self.value in range(CachePolicy.clique_part_1.value, CachePolicy.clique_part_max.value):
+      return "clique_part"
     name_list = [
       'degree',
       'heuristic',
@@ -140,6 +163,12 @@ class CachePolicy(Enum):
       return self.value - CachePolicy.partition_1.value + 1
     if self.value in range(CachePolicy.part_rep_1.value, CachePolicy.part_rep_max.value):
       return self.value - CachePolicy.part_rep_1.value + 1
+    if self.value in range(CachePolicy.rep_1.value, CachePolicy.rep_max.value):
+      return self.value - CachePolicy.rep_1.value + 1
+    if self.value in range(CachePolicy.coll_cache_asymm_link_1.value, CachePolicy.coll_cache_asymm_link_max.value):
+      return self.value - CachePolicy.coll_cache_asymm_link_1.value + 1
+    if self.value in range(CachePolicy.clique_part_1.value, CachePolicy.clique_part_max.value):
+      return self.value - CachePolicy.clique_part_1.value + 1
     return 1
   def get_log_fname(self):
     if self is CachePolicy.cache_by_presample:
@@ -212,6 +241,8 @@ class Dataset(Enum):
     return self.name
   def FeatGB(self):
     return [0.522,0.912,52.96,34.22, None ,74.14,39.72, 52.96,349.27][self.value]
+  def TopoGB(self):
+    return [math.nan, 0.4700, 6.4326, 13.7007, math.nan , 11.3358, 5.6252, 12.4394, 13.7785][self.value]
 
 class RunConfig:
   def __init__(self, app:App, dataset:Dataset, 
@@ -259,6 +290,8 @@ class RunConfig:
     self.root_path="/graph-learning/samgraph/"
     self.unsupervised = False
     self.max_num_step = None
+    self.coll_cache_no_group = False
+    self.coll_cache_concurrent_link = False
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -339,6 +372,10 @@ class RunConfig:
     cmd_line += 'SAMGRAPH_LOG_NODE_ACCESS=0 '
     cmd_line += f'SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal} '
     cmd_line += f'SAMGRAPH_DUMP_TRACE={self.dump_trace} '
+    if self.coll_cache_no_group != False:
+      cmd_line += f'SAMGRAPH_COLL_CACHE_NO_GROUP=1 '
+    if self.coll_cache_concurrent_link != False:
+      cmd_line += f'SAMGRAPH_COLL_CACHE_CONCURRENT_LINK=1 '
     if self.num_feat_dim_hack != None:
       cmd_line += f'SAMGRAPH_FAKE_FEAT_DIM={self.num_feat_dim_hack} '
     if self.custom_env != '':
@@ -494,6 +531,34 @@ class ConfigList:
       for cfg in new_list:
         setattr(cfg, key, val)
       self.conf_list += new_list
+    return self
+
+  def override_T(self, key, val_list):
+    if len(val_list) == 0:
+      return self
+    orig_list = self.conf_list
+    self.conf_list = []
+    for cfg in orig_list:
+      for val in val_list:
+        cfg = copy.deepcopy(cfg)
+        setattr(cfg, key, val)
+        self.conf_list.append(cfg)
+    return self
+
+  def part_override(self, filter_key, filter_val_list, override_key, override_val_list):
+    newlist = []
+    for cfg in self.conf_list:
+      # print(cfg.cache_impl, cfg.logdir, filter_key, filter_val_list)
+      if getattr(cfg, filter_key) in filter_val_list:
+        # print(cfg.cache_impl, cfg.logdir)
+        for val in override_val_list:
+          # print(cfg.cache_impl, cfg.logdir)
+          cfg = copy.deepcopy(cfg)
+          setattr(cfg, override_key, val)
+          newlist.append(cfg)
+      else:
+        newlist.append(cfg)
+    self.conf_list = newlist
     return self
 
   def hyper_override(self, key_array, val_matrix):

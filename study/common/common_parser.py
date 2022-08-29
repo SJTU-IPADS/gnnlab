@@ -47,7 +47,15 @@ policy_str = {
   51: "coll_intuitive_1",
   60: "coll_intuitive_10",
   71: "partition_1",
+  72: "partition_2",
   80: "partition_10",
+  91: "part_rep_1",
+  111: "rep_1",
+  112: "rep_2",
+  131: "coll_cache_asymm_link_1",
+  132: "coll_cache_asymm_link_2",
+  151: "clique_part_1",
+  152: "clique_part_2",
   100: "no_cache",
 }
 policy_str_short = {
@@ -73,7 +81,15 @@ policy_str_short = {
   51: "CoInt_1",
   60: "CoInt_10",
   71: "Part_1",
+  72: "Part_2",
   80: "Part_10",
+  91: "PartRep_1",
+  111: "Rep_1",
+  112: "Rep_2",
+  131: "Coll_1",
+  132: "Coll_2",
+  151: "Cliq_1",
+  152: "Cliq_2",
   # 17: "presample_max",
   # 20: "no_cache",
 }
@@ -94,6 +110,7 @@ size_unit_to_coefficient = {
   'MB':1024*1024,
   'KB':1024,
   'Bytes':1,
+  'B':1,
 }
 
 def sample_method_str_short(cfg):
@@ -115,15 +132,22 @@ def my_assert_eq(a, b):
 
 def grep_from(fname, pattern, line_ctx=[0,0]):
   p = re.compile(pattern)
-  with open(fname) as f:
-    lines = f.readlines()
-    ret_lines = []
-    if len(lines) == 0:
-      return ret_lines
-    for i in range(len(lines)):
-      if p.match(lines[i]):
-        ret_lines += lines[max(0, i - line_ctx[0]):min(len(lines), i + line_ctx[1] + 1)]
+  try:
+    with open(fname) as f:
+      lines = f.readlines()
+      ret_lines = []
+      if len(lines) == 0:
+        return ret_lines
+      for i in range(len(lines)):
+        if p.match(lines[i]):
+          ret_lines += lines[max(0, i - line_ctx[0]):min(len(lines), i + line_ctx[1] + 1)]
     return ret_lines
+  except Exception as e:
+    print("error when ", fname)
+    print(traceback.format_exc())
+    traceback.print_exc()
+    return []
+
 def filter_from(line_list, pattern):
   ret_lines = []
   p = re.compile(pattern)
