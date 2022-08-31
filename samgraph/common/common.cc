@@ -190,9 +190,24 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   size_t file_nbytes = st.st_size;
   CHECK_EQ(nbytes, file_nbytes);
 
+  // alloc memory
   int fd = open(filepath.c_str(), O_RDONLY, 0);
-  void *data = cpu::MmapCPUDevice::MapFd(MMAP(MMAP_RO_DEVICE), nbytes, fd);
+  int device_id = ctx.device_id;
+  ctx.device_id = MMAP_RW_DEVICE;
+  void *data = Device::Get(ctx)->AllocDataSpace(ctx, nbytes, nbytes);
+  ctx.device_id = device_id;
   CHECK_NE(data, (void *)-1);
+  
+  // read huge file
+  size_t read_bytes = 0;
+  while (read_bytes < nbytes)
+  {
+    ssize_t res = read(fd, data + read_bytes, nbytes - read_bytes);
+    CHECK_GT(res, 0);
+    read_bytes += res;
+  }
+  CHECK_EQ(read_bytes, nbytes);
+  CHECK_EQ(mprotect(data, nbytes, PROT_READ), 0);
   close(fd);
 
   tensor->_dtype = dtype;

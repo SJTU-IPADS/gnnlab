@@ -16,6 +16,7 @@
  */
 
 #include "constant.h"
+#include <cstdlib>
 
 namespace samgraph {
 namespace common {
@@ -79,9 +80,9 @@ const std::string Constant::kNodeAccessSimilarityFile = "node_access_similarity"
 const std::string Constant::kNodeAccessPreSampleSimFile = "node_access_presample";
 const std::string Constant::kNodeAccessFileSuffix = ".txt";
 
-const std::string Constant::kCollCacheBuilderShmName = "coll_cache_shm";
-const std::string Constant::kCollCachePlacementShmName = "coll_cache_block_placement";
-const std::string Constant::kCollCacheAccessShmName = "coll_cache_block_access_from";
+const std::string Constant::kCollCacheBuilderShmName = "coll_cache_shm_" + std::string(std::getenv("USER"));
+const std::string Constant::kCollCachePlacementShmName = "coll_cache_block_placement_" + std::string(std::getenv("USER"));
+const std::string Constant::kCollCacheAccessShmName = "coll_cache_block_access_from_" + std::string(std::getenv("USER"));
 
 }  // namespace common
 }  // namespace samgraph
