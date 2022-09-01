@@ -84,6 +84,8 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
     default_common_config['omp_thread_num'] = 40
     default_common_config['unsupervised'] = False
 
+    default_common_config['rolling'] = False
+    
     default_common_config.update(kwargs)
 
     return default_common_config
@@ -128,6 +130,11 @@ def add_common_arguments(argparser, run_config):
                             default=run_config['pipeline'])
     argparser.add_argument('--no-pipeline', action='store_false', dest='pipeline',
                             default=run_config['pipeline'])
+
+    argparser.add_argument('--rolling', action='store_true',
+                            default=run_config['rolling'])
+    argparser.add_argument('--no-rolling', action='store_false', dest='rolling',
+                            default=run_config['rolling'])
 
     argparser.add_argument('--root-path', type=str,
                            default=run_config['root_path'])

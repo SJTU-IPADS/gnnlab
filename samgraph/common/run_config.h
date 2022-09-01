@@ -119,6 +119,8 @@ struct RunConfig {
 
   static coll_cache::AsymmLinkDesc coll_cache_link_desc;
 
+  static bool                 rolling;
+
   static inline bool UseGPUCache() {
     return cache_percentage > 0 && run_arch != kArch1;
   }
