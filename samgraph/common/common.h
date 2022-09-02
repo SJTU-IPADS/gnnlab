@@ -130,6 +130,12 @@ enum NegativeSampleType {
   kSAGELike,
 };
 
+enum RollingPolicy {
+  AutoRolling = 0,
+  EnableRolling,
+  DisableRolling,
+};
+
 struct Context {
   DeviceType device_type;
   int device_id;

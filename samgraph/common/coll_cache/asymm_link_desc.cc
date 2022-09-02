@@ -13,10 +13,26 @@ namespace coll_cache {
 void AsymmLinkDesc::BuildSwitch(int num_trainer) {
   _topo_type = kSwitch;
   link_src = vec<vec<vec<int>>>(num_trainer, vec<vec<int>>(1, vec<int>(num_trainer - 1)));
+
+  bool useRolling = false;
+  switch (RunConfig::rolling) {
+    case AutoRolling:
+      switch(RunConfig::cache_policy) {
+        case kCollCacheAsymmLink: 
+        case kCollCacheIntuitive: 
+        case kCollCache: 
+          useRolling = true; break;
+        default: break;
+      }
+      break;
+    case EnableRolling: useRolling = true; break;
+    default: break;
+  }
+
   for (int dst_dev = 0; dst_dev < num_trainer; dst_dev++) {
     // each device has single link, which connect to all remote device
     std::cout << dst_dev << " : link #0 : ";
-    if (RunConfig::rolling) {
+    if (useRolling) {
       for (int remote_device = 0; remote_device < num_trainer - 1; remote_device++) {
         link_src[dst_dev][0][remote_device] = {(dst_dev + remote_device + 1) %  num_trainer};
         std::cout << link_src[dst_dev][0][remote_device] << ",";
