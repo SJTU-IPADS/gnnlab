@@ -202,11 +202,11 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   size_t read_bytes = 0;
   while (read_bytes < nbytes)
   {
-    ssize_t res = read(fd, data + read_bytes, nbytes - read_bytes);
+    ssize_t res = read(fd, ((uint8_t*)data) + read_bytes, nbytes - read_bytes);
     CHECK_GT(res, 0);
     read_bytes += res;
   }
-  CHECK_EQ(read_bytes, nbytes);
+  CHECK_EQ(read_bytes, nbytes) << "should read " << nbytes << ", actually read " << read_bytes;
   CHECK_EQ(mprotect(data, nbytes, PROT_READ), 0);
   close(fd);
 
@@ -418,18 +418,16 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, dou
 TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name, double scale) {
   CHECK(source && source->Defined());
   std::vector<size_t> shape = source->Shape();
-  auto dtype = source->_dtype;
   CHECK_GT(shape.size(), 0);
 
   TensorPtr tensor = std::make_shared<Tensor>();
-  size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
+  size_t nbytes = GetTensorBytes(source->_dtype, shape.begin(), shape.end());
 
   tensor->_dtype = source->_dtype;
   tensor->_shape = shape;
   tensor->_nbytes = source->_nbytes;
   tensor->_ctx = ctx;
-  tensor->_data =
-      Device::Get(ctx)->AllocWorkspace(ctx, nbytes, scale);
+  tensor->_data = Device::Get(ctx)->AllocWorkspace(ctx, nbytes, scale);
   tensor->_name = name;
   if (RunConfig::run_arch == kArch9 && ctx.device_type == DeviceType::kGPU_UM) {
     for (auto um_ctx : RunConfig::unified_memory_ctxes) {
