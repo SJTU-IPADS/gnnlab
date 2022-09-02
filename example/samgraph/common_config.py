@@ -83,6 +83,7 @@ def get_default_common_config(run_mode: RunMode = RunMode.NORMAL, **kwargs):
     # 40 is faster than 80 in aliyun machine
     default_common_config['omp_thread_num'] = 40
     default_common_config['unsupervised'] = False
+    default_common_config['amp'] = False
 
     default_common_config['rolling'] = 0
     
@@ -175,6 +176,7 @@ def add_common_arguments(argparser, run_config):
                            dest='_empty_feat', default='0')
     argparser.add_argument('-unsup', '--unsupervised', action='store_true', default=run_config['unsupervised'])
     argparser.add_argument('--no-unsupervised', action='store_false', dest='unsupervised', default=run_config['unsupervised'])
+    argparser.add_argument('--amp', action='store_true', default=run_config['amp'])
 
 
 def process_common_config(run_config):
