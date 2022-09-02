@@ -35,6 +35,7 @@ struct AsymmLinkDesc {
   static AsymmLinkDesc AutoBuild(Context ctx);
   void SMPercentToNum(int total_sm);
   double AggregatedRemoteTime();
+  int CliqueSize();
 };
 
 bool AutoEnableConcurrentLink();

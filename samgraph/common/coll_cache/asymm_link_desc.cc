@@ -215,6 +215,14 @@ double AsymmLinkDesc::AggregatedRemoteTime() {
     return RunConfig::coll_cache_hyperparam_T_remote;
   }
 }
+int AsymmLinkDesc::CliqueSize() {
+  switch (_topo_type) {
+    case kSwitch:
+    case kHardWiredSymm: return link_src.size();
+    case kHardWiredAsymm: CHECK((link_src.size() % 2) == 0); return link_src.size() / 2;
+    default: CHECK(false);
+  }
+}
 } // namespace coll_cache
 }
 }

@@ -545,7 +545,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
               break;
             }
             case kCliquePart: {
-              solver = new coll_cache::CliquePartSolver(3);
+              solver = new coll_cache::CliquePartSolver();
               break;
             }
             default: CHECK(false);
