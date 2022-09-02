@@ -706,6 +706,7 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   task->output_label = Tensor::Empty(label_type, {num_ouput}, DistEngine::Get()->GetTrainerCtx(),
                      "task.train_label_cuda_" + std::to_string(task->key));
   DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
+  Timer t_label;
   if (RunConfig::unsupervised_sample == false) {
     DistEngine::Get()->GetCollLabelManager()->ExtractFeat(output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream);
   } else {
@@ -717,7 +718,8 @@ void DoCollFeatLabelExtract(TaskPtr task) {
     cuda::ArrangeArray<float>(label_dst + num_pos, num_neg, 0, 0, copy_stream);
     Device::Get(train_ctx)->StreamSync(train_ctx, copy_stream);
   }
-
+  double time_label = t_label.Passed();
+  Profiler::Get().LogStep(task->key, kLogL3LabelExtractTime, time_label);
   Profiler::Get().LogStep(task->key, kLogL1LabelBytes, task->output_label->NumBytes());
   LOG(DEBUG) << "CollFeatExtract: process task with key " << task->key;
 }

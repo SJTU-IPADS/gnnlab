@@ -245,6 +245,7 @@ kLogL3CacheCopyMissTime          = _get_next_enum_val(_step_log_val)
 kLogL3CacheCombineMissTime       = _get_next_enum_val(_step_log_val)
 kLogL3CacheCombineCacheTime      = _get_next_enum_val(_step_log_val)
 kLogL3CacheCombineRemoteTime     = _get_next_enum_val(_step_log_val)
+kLogL3LabelExtractTime           = _get_next_enum_val(_step_log_val)
 
 # Epoch Log
 _epoch_log_val = [0]

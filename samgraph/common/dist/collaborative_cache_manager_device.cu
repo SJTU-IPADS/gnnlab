@@ -803,13 +803,13 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
     double combine_time = t0.Passed();
     if (task_key != 0xffffffffffffffff) {
       Profiler::Get().LogStep(task_key, kLogL1FeatureBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
-      Profiler::Get().LogStep(task_key, kLogL1MissBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
       // Profiler::Get().LogStep(task_key, kLogL3CacheGetIndexTime, get_index_time);
       if (_cpu_location_id == -1) {
         // full cache
         Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_time);
       } else {
         // no cache
+        Profiler::Get().LogStep(task_key, kLogL1MissBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
         Profiler::Get().LogStep(task_key, kLogL3CacheCombineMissTime,combine_time);
       }
       // Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_cache_time);
