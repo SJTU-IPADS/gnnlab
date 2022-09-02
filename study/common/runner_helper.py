@@ -120,6 +120,11 @@ class CachePolicy(Enum):
   clique_part_10 = 160
   clique_part_max = 161
 
+  clique_part_by_degree_1 = 171
+  clique_part_by_degree_2 = 172
+  clique_part_by_degree_10 = 180
+  clique_part_by_degree_max = 181
+
   no_cache = 200
   def get_samgraph_policy_param_name(self):
     if self.value in range(CachePolicy.cache_by_presample_1.value, CachePolicy.cache_by_presample_max.value):
@@ -138,6 +143,8 @@ class CachePolicy(Enum):
       return "coll_cache_asymm_link"
     if self.value in range(CachePolicy.clique_part_1.value, CachePolicy.clique_part_max.value):
       return "clique_part"
+    if self.value in range(CachePolicy.clique_part_by_degree_1.value, CachePolicy.clique_part_by_degree_max.value):
+      return "clique_part_by_degree"
     name_list = [
       'degree',
       'heuristic',
@@ -169,6 +176,8 @@ class CachePolicy(Enum):
       return self.value - CachePolicy.coll_cache_asymm_link_1.value + 1
     if self.value in range(CachePolicy.clique_part_1.value, CachePolicy.clique_part_max.value):
       return self.value - CachePolicy.clique_part_1.value + 1
+    if self.value in range(CachePolicy.clique_part_by_degree_1.value, CachePolicy.clique_part_by_degree_max.value):
+      return self.value - CachePolicy.clique_part_by_degree_1.value + 1
     return 1
   def get_log_fname(self):
     if self is CachePolicy.cache_by_presample:

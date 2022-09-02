@@ -115,6 +115,7 @@ enum CachePolicy {
   kRepCache,
   kCollCacheAsymmLink,
   kCliquePart,
+  kCliquePartByDegree,
 };
 
 enum class UMPolicy {

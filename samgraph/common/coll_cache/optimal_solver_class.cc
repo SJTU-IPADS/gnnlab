@@ -1019,6 +1019,140 @@ void CliquePartSolver::Solve(std::vector<int> device_to_stream,
     std::cerr << "\n";
   }
 }
+
+void CliquePartByDegreeSolver::Solve(std::vector<int> device_to_stream,
+                             std::vector<int> device_to_cache_percent,
+                             std::string mode, double T_local, double T_cpu) {
+  CHECK(ranking_nodes->Shape().size() == 1);
+  CHECK(stream_id_list->Shape()[0] == 1);
+  CHECK(stream_freq_list->Shape()[0] == 1);
+  CHECK(std::accumulate(device_to_stream.begin(), device_to_stream.end(), 0, std::plus<>()) == 0);
+  const size_t num_device = device_to_stream.size();
+  const int num_clique = RoundUpDiv<size_t>(num_device, clique_size);
+  const int num_block = clique_size + 1;
+  const IdType num_node = stream_freq_list->Shape()[1];
+  // the freq list must already be sorted
+  // now calculate the boundary
+  const IdType num_cached_nodes = num_node * (device_to_cache_percent[0] / (double)100);
+
+  // LOG(ERROR) << "num_cached_nodes = " << num_cached_nodes;
+  CHECK_EQ(stream_freq_list->Type(), kI32);
+
+  // map node id to freq
+  TensorPtr node_id_to_freq = Tensor::Empty(kI32, {num_node}, CPU_CLIB(), "");
+  {
+    const IdType * freq_id_array = stream_id_list->Ptr<IdType>();
+    const IdType * freq_array = stream_freq_list->Ptr<IdType>();
+    #pragma omp parallel for num_threads(RunConfig::omp_thread_num)
+    for (size_t i = 0; i < num_node; i++) {
+      IdType node_id = freq_id_array[i];
+      IdType freq = freq_array[i];
+      node_id_to_freq->Ptr<IdType>()[node_id] = freq;
+    }
+  }
+
+  // calculate partition
+  const IdType partition_size = std::min(num_cached_nodes, num_node / clique_size);
+
+  // distribute nodes onto GPU/CPU
+  double cpu_w = 0, total_w = 0;
+
+#pragma omp parallel for num_threads(RunConfig::omp_thread_num) reduction(+ : cpu_w, total_w)
+  for (IdType rank = 0; rank < num_node; rank++) {
+    IdType node_id = ranking_nodes->CPtr<IdType>()[rank];
+    IdType block_id = clique_size;
+    IdType freq = node_id_to_freq->CPtr<IdType>()[node_id];
+    if (rank < partition_size * clique_size) {
+      block_id = rank % clique_size;
+    } else {
+      block_id = clique_size;
+      cpu_w += freq;
+    }
+    total_w += freq;
+    nid_to_block->Ptr<IdType>()[node_id] = block_id;
+  }
+  double local_w = (total_w - cpu_w) / clique_size;
+  double remote_w = (total_w - cpu_w) / clique_size * (clique_size - 1);
+  double one_partition_w = local_w;
+
+  std::vector<double> z_list(num_device, 0);
+
+  for (IdType dev_id = 0; dev_id < num_device; dev_id++) {
+    z_list[dev_id] += local_w * 100 / num_node * T_local;
+    auto & link_list = RunConfig::coll_cache_link_desc.link_src[dev_id];
+    auto & link_time_list = RunConfig::coll_cache_link_desc.link_time[dev_id];
+    for (IdType link_id = 0; link_id < link_list.size(); link_id++) {
+      if (link_list[link_id].size() == 0) continue;
+      z_list[dev_id] += one_partition_w * 100 / num_node * link_time_list[link_id];
+    }
+    z_list[dev_id] += cpu_w * 100 / num_node * T_cpu;
+  }
+
+  std::cout << "coll_cache:optimal_rep_storage=" << 0 << "\n";
+  std::cout << "coll_cache:optimal_part_storage=" << partition_size * clique_size / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_cpu_storage=" << 1 - (partition_size * clique_size / (double)num_node) << "\n";
+  std::cout << "coll_cache:optimal_local_storage=" << partition_size / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_remote_storage=" << partition_size * (clique_size - 1) / (double)num_node << "\n";
+  std::cout << "coll_cache:optimal_local_rate=" << local_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_remote_rate=" << remote_w / total_w << "\n";
+  std::cout << "coll_cache:optimal_cpu_rate=" << cpu_w / total_w << "\n";
+  std::cout << "z=";
+  FOR_LOOP(dev_id, num_device) { std::cout << z_list[dev_id] << ","; }
+  std::cout << "\n";
+
+  auto dev_id_to_clique_id = [&](IdType dev_id) {
+    return dev_id / clique_size;
+  };
+  auto block_id_to_storage_dev_in_clique = [&](IdType block_id, IdType clique_id) {
+    return clique_id * clique_size + block_id;
+  };
+  auto block_id_to_storage_bitmap = [&](IdType block_id) {
+    uint8_t storage = 0;
+    for (IdType clique_id = 0; clique_id < num_clique; clique_id++) {
+      storage |= 1 << block_id_to_storage_dev_in_clique(block_id, clique_id);
+    }
+    return storage;
+  };
+  auto block_id_to_src_dev = [&](IdType block_id, IdType dst_dev) {
+    IdType clique_id = dev_id_to_clique_id(dst_dev);
+    return block_id_to_storage_dev_in_clique(block_id, clique_id);
+  };
+
+  block_placement = Tensor::CreateShm(Constant::kCollCachePlacementShmName, kU8, {static_cast<size_t>(num_block)}, "coll_cache_block_placement");
+  block_access_from = Tensor::CreateShm(Constant::kCollCacheAccessShmName, kU8, {num_device, static_cast<size_t>(num_block)}, "coll_cache_advise");
+  TensorView<uint8_t> block_access_from_array(block_access_from);
+  // there are clique_size + 1 blocks; first clique_size block is clique-partitioned, the last is on cpu
+  for (int block_id = 0; block_id < clique_size; block_id++) {
+    block_placement->Ptr<uint8_t>()[block_id] = block_id_to_storage_bitmap(block_id);
+    for (IdType dev_id = 0; dev_id < num_device; dev_id++) {
+      block_access_from_array[dev_id][block_id].ref() = block_id_to_src_dev(block_id, dev_id);
+    }
+  }
+  // the one on cpu
+  block_placement->Ptr<uint8_t>()[clique_size] = 0;
+  for (IdType dev_id = 0; dev_id < num_device; dev_id++) {
+    block_access_from_array[dev_id][clique_size].ref() = num_device;
+  }
+
+  FOR_LOOP(block_id, num_block) {
+    // std::ios_base::fmtflags f( std::cerr.flags() );
+    std::cerr << "block " << block_id
+    //           << std::fixed << std::setw(8) << std::setprecision(6)
+    //           << ", density=" << block_density_array[block_id]
+    //           << std::fixed << std::setw(8) << std::setprecision(3)
+    //           << ", freq=" << block_freq_array[block_id][0].ref()
+    ;
+    std::bitset<8> bs(block_placement->CPtr<uint8_t>()[block_id]);
+    std::cerr << " storage is " << bs << "\n";
+    // std::cerr.flags(f);
+    std::cerr << "\taccess is\t";
+    for (IdType dev_id = 0; dev_id < num_device; dev_id++) {
+      std::cerr << int(block_access_from_array[dev_id][block_id].ref()) << "\t";
+    }
+    std::cerr << "\n";
+  }
+}
+
 } // namespace coll_cache
 }
 }

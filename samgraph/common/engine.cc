@@ -352,6 +352,7 @@ void Engine::LoadGraphDataset() {
 
   if (RunConfig::UseGPUCache()) {
     switch (RunConfig::cache_policy) {
+      case kCliquePartByDegree:
       case kCacheByDegree:
         _dataset->ranking_nodes = Tensor::FromMmap(
             _dataset_path + Constant::kCacheByDegreeFile, DataType::kI32,
