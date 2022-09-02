@@ -739,6 +739,14 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   }
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
   _coll_cache_manager = new CollCacheManager();
+  // for half feature, treat as single precise with half dim
+  auto feat_dtype = _dataset->feat->Type();
+  auto feat_dim = _dataset->feat->Shape()[1];
+  if (feat_dtype == kF16) {
+    CHECK(feat_dim % 2 == 0);
+    feat_dtype = kF32;
+    feat_dim /= 2;
+  }
   if ((RunConfig::cache_policy == kCollCache || 
        RunConfig::cache_policy == kCollCacheIntuitive || 
        RunConfig::cache_policy == kCollCacheAsymmLink || 
@@ -756,19 +764,19 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
     if (_dataset->block_access_advise != nullptr) {
     * _coll_cache_manager = CollCacheManager::BuildCollCacheAccessAdvise(
               _dataset->nid_to_block, _dataset->block_placement, _dataset->block_access_advise, RunConfig::num_train_worker,
-              _trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
-              _dataset->feat->Shape()[1],
+              _trainer_ctx, _dataset->feat->MutableData(), feat_dtype,
+              feat_dim,
               worker_id, RunConfig::cache_percentage, _trainer_copy_stream);
     } else {
     * _coll_cache_manager = CollCacheManager::BuildCollCache(
               _dataset->nid_to_block, _dataset->block_placement, RunConfig::num_train_worker,
-              _trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
-              _dataset->feat->Shape()[1],
+              _trainer_ctx, _dataset->feat->MutableData(), feat_dtype,
+              feat_dim,
               worker_id, RunConfig::cache_percentage, _trainer_copy_stream);
     }
   } else {
-    *_coll_cache_manager = CollCacheManager::BuildLegacy(_trainer_ctx, _dataset->feat->MutableData(), _dataset->feat->Type(),
-              _dataset->feat->Shape()[1],
+    *_coll_cache_manager = CollCacheManager::BuildLegacy(_trainer_ctx, _dataset->feat->MutableData(), feat_dtype,
+              feat_dim,
               _dataset->ranking_nodes,
               _dataset->num_node, RunConfig::cache_percentage, _trainer_copy_stream);
   }
