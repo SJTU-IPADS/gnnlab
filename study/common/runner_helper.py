@@ -458,7 +458,9 @@ class RunConfig:
     std_out_log += '_'.join(
       [self.system.name]+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
-      [f'cache_rate_{round(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}', f'rolling_{self.rolling}']) 
+      [f'cache_rate_{round(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}'])
+    if self.rolling != 0:
+      std_out_log += f'rolling_{self.rolling}'
     return std_out_log
 
   def beauty(self):
