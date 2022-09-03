@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.cuda.amp import autocast, GradScaler
 import numpy as np
 from dgl.nn.pytorch import SAGEConv
 import dgl.multiprocessing as mp
@@ -51,6 +52,11 @@ class SAGE(nn.Module):
 
 class DotPredictor(nn.Module):
     def forward(self, g, h):
+        if use_amp:
+            u, v = g.edges()
+            u=u.long()
+            v=v.long()
+            return (h[u] * h[v]).sum(1)
         with g.local_scope():
             g.ndata['h'] = h
             # Compute a new edge feature named 'score' by a dot-product between the
@@ -225,6 +231,16 @@ def run_train(worker_id, run_config):
                             run_config['fanout'], run_config['batch_size'], acc_device)
 
     train_device = torch.device(ctx)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    try:
+        torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
+    except:
+        pass
+    try:
+        torch.set_float32_matmul_precision("medium")
+    except:
+        pass
     print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
 
@@ -260,6 +276,8 @@ def run_train(worker_id, run_config):
     # loss_fcn = loss_fcn.to(train_device)
     optimizer = optim.Adam(list(model.parameters()) + list(predictor.parameters()), lr=run_config['lr'])
 
+    scaler = GradScaler()
+
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
 
@@ -280,6 +298,9 @@ def run_train(worker_id, run_config):
 
     align_up_step = int(
         int((num_step + num_worker - 1) / num_worker) * num_worker)
+    if num_step != align_up_step:
+        print(num_step, align_up_step)
+        assert(num_step == align_up_step)
 
     batch_keys = [0 for _ in range(align_up_step * num_epoch // num_worker)]
     train_local_time = [0 for _ in range(align_up_step * num_epoch // num_worker)]
@@ -309,6 +330,7 @@ def run_train(worker_id, run_config):
             sam.extract_start(need_steps)
 
         for step in range(worker_id, align_up_step, num_worker):
+            optimizer.zero_grad(set_to_none=True)
             if step < num_step:
                 t0 = time.time()
                 if (not run_config['pipeline']) and (not run_config['single_gpu']):
@@ -322,12 +344,20 @@ def run_train(worker_id, run_config):
                 t2 = time.time()
 
             # Compute loss and prediction
-            batch_pred = model(blocks, batch_input)
-            score = predictor(pair_graph, batch_pred)
-            loss = F.binary_cross_entropy_with_logits(score, batch_label)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            if use_amp:
+                with autocast(enabled=use_amp):
+                    batch_pred = model(blocks, batch_input)
+                    score = predictor(pair_graph, batch_pred)
+                    loss = F.binary_cross_entropy_with_logits(score, batch_label)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                batch_pred = model(blocks, batch_input)
+                score = predictor(pair_graph, batch_pred)
+                loss = F.binary_cross_entropy_with_logits(score, batch_label)
+                loss.backward()
+                optimizer.step()
 
             # wait for the train finish then we can free the data safely
             event_sync()
@@ -462,6 +492,8 @@ def run_train(worker_id, run_config):
 if __name__ == '__main__':
     run_config = get_run_config()
     run_init(run_config)
+
+    use_amp = run_config['amp']
 
     num_sample_worker = run_config['num_sample_worker']
     num_train_worker = run_config['num_train_worker']

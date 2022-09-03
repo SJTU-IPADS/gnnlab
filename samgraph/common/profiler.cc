@@ -433,7 +433,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
     level = 3;
   }
 
-  if (level >= 1 && !RunConfig::UseGPUCache() && !RunConfig::UseDynamicGPUCache()) {
+  /*if (level >= 1 && !RunConfig::UseGPUCache() && !RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
         "        L1  sample         %10.6lf | send         %10.6lf\n"
@@ -451,7 +451,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         ToReadableSize(_step_buf[kLogL1IdBytes]).c_str(),
         ToReadableSize(_step_buf[kLogL1GraphBytes]).c_str(),
         _step_buf[kLogL1NumNode],_step_buf[kLogL1NumSample]);
-  } else if (level >= 1 && RunConfig::UseDynamicGPUCache()) {
+  } else */ if (level >= 1 && RunConfig::UseDynamicGPUCache()) {
     printf(
         "    [%s Profiler Level 1 E%u S%u]\n"
         "        L1  sample         %10.6lf | send         %10.6lf\n"
@@ -498,7 +498,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL1NumNode],_step_buf[kLogL1NumSample]);
   }
 
-  if (level >= 2 && !RunConfig::UseGPUCache()) {
+  /*if (level >= 2 && !RunConfig::UseGPUCache()) {
     printf(
         "    [%s Profiler Level 2 E%u S%u]\n"
         "        L2  shuffle     %.6lf | core sample  %.6lf | id remap  %.6lf\n"
@@ -510,7 +510,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL2GraphCopyTime], _step_buf[kLogL2IdCopyTime],
         _step_buf[kLogL2ExtractTime], _step_buf[kLogL2FeatCopyTime],
         _step_buf[kLogL2LastLayerTime], _step_buf[kLogL2LastLayerSize]);
-  } else if (level >= 2) {
+  } else */if (level >= 2) {
     printf(
         "    [%s Profiler Level 2 E%u S%u]\n"
         "        L2  shuffle     %.6lf | core sample  %.6lf | "
@@ -525,7 +525,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL2LastLayerTime], _step_buf[kLogL2LastLayerSize]);
   }
 
-  if (level >= 3 && !RunConfig::UseGPUCache()) {
+  /*if (level >= 3 && !RunConfig::UseGPUCache()) {
     printf(
         "     [%s Profiler Level 3 E%u S%u]\n"
         "        L3  khop sample coo  %.6lf | khop sort coo     %.6lf | "
@@ -553,7 +553,7 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL3RemapFillUniqueTime],
         _step_buf[kLogL3RemapPopulateTime], _step_buf[kLogL3RemapMapNodeTime],
         _step_buf[kLogL3RemapMapEdgeTime]);
-  } else if (level >= 3) {
+  } else */if (level >= 3) {
     printf(
         "    [%s Profiler Level 3 E%u S%u]\n"
         "        L3  khop sample coo  %.6lf | khop sort coo      %.6lf | "
@@ -568,7 +568,8 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         "        L3  cache get_index  %.6lf | cache copy_index   %.6lf | "
         "cache extract_miss  %.6lf\n"
         "        L3  cache copy_miss  %.6lf | cache combine_miss %.6lf | "
-        "cache combine cache %.6lf | cache combine remote %.6lf\n",
+        "cache combine cache %.6lf | cache combine remote %.6lf\n"
+        "        L3  label extract  %.6lf\n",
         type.c_str(), epoch, step, _step_buf[kLogL3KHopSampleCooTime],
         _step_buf[kLogL3KHopSampleSortCooTime],
         _step_buf[kLogL3KHopSampleCountEdgeTime],
@@ -590,7 +591,8 @@ void Profiler::OutputStep(uint64_t key, std::string type) {
         _step_buf[kLogL3CacheCopyMissTime],
         _step_buf[kLogL3CacheCombineMissTime],
         _step_buf[kLogL3CacheCombineCacheTime],
-        _step_buf[kLogL3CacheCombineRemoteTime]);
+        _step_buf[kLogL3CacheCombineRemoteTime],
+        _step_buf[kLogL3LabelExtractTime]);
   }
 }
 

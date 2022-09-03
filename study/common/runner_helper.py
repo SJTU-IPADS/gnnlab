@@ -289,6 +289,7 @@ class RunConfig:
     self.mps_mode = None
     self.root_path="/graph-learning/samgraph/"
     self.unsupervised = False
+    self.amp = False
     self.max_num_step = None
     self.coll_cache_no_group = False
     self.coll_cache_concurrent_link = False
@@ -407,6 +408,8 @@ class RunConfig:
       if self.mps_mode != None:
         cmd_line += f' --mps-mode {self.mps_mode} '
 
+    if self.amp:
+      cmd_line += ' --amp '
     if self.unsupervised:
       cmd_line += f' --unsupervised'
     if self.max_num_step:

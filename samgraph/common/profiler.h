@@ -113,6 +113,7 @@ enum LogStepItem {
   kLogL3CacheCombineMissTime,
   kLogL3CacheCombineCacheTime,
   kLogL3CacheCombineRemoteTime,
+  kLogL3LabelExtractTime,
   // Number of items
   kNumLogStepItems
 };

@@ -216,7 +216,7 @@ public:
 
 class CliquePartSolver : public SingleStreamSolverBase {
 public:
-  CliquePartSolver(int clique_size) : clique_size(clique_size) {}
+  CliquePartSolver() : clique_size(RunConfig::coll_cache_link_desc.CliqueSize()) {}
   using SingleStreamSolverBase::Solve;
   void Solve(std::vector<int> device_to_stream,
              std::vector<int> device_to_cache_percent, std::string mode,

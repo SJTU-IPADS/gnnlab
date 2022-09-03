@@ -720,7 +720,7 @@ void CollCacheManager::CombineConcurrent(const SrcKey * src_index, const DstVal 
   auto device = Device::Get(_trainer_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
-  dim3 block(512, 1);
+  dim3 block(1024, 1);
   while (static_cast<size_t>(block.x) >= 2 * _dim) {
     block.x /= 2;
     block.y *= 2;
@@ -745,12 +745,12 @@ void Combine(const SrcDataIter_T src_data_iter, DstDataIter_T dst_data_iter,
   auto device = Device::Get(_trainer_ctx);
   auto cu_stream = static_cast<cudaStream_t>(stream);
 
-  dim3 block(256, 1);
+  dim3 block(1024, 1);
   while (static_cast<size_t>(block.x) >= 2 * _dim) {
     block.x /= 2;
     block.y *= 2;
   }
-  dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y)));
+  dim3 grid(RoundUpDiv(num_node, static_cast<size_t>(block.y * 4)));
   if (limit_block != 0) {
     grid.x = limit_block;
   }
@@ -803,13 +803,13 @@ void CollCacheManager::ExtractFeat(const IdType* nodes, const size_t num_nodes,
     double combine_time = t0.Passed();
     if (task_key != 0xffffffffffffffff) {
       Profiler::Get().LogStep(task_key, kLogL1FeatureBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
-      Profiler::Get().LogStep(task_key, kLogL1MissBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
       // Profiler::Get().LogStep(task_key, kLogL3CacheGetIndexTime, get_index_time);
       if (_cpu_location_id == -1) {
         // full cache
         Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_time);
       } else {
         // no cache
+        Profiler::Get().LogStep(task_key, kLogL1MissBytes, GetTensorBytes(_dtype, {num_nodes, _dim}));
         Profiler::Get().LogStep(task_key, kLogL3CacheCombineMissTime,combine_time);
       }
       // Profiler::Get().LogStep(task_key, kLogL3CacheCombineCacheTime,combine_cache_time);

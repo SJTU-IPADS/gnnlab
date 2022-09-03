@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.cuda.amp import autocast, GradScaler
 import numpy as np
 from dgl.nn.pytorch import GraphConv
 import dgl.multiprocessing as mp
@@ -13,7 +14,6 @@ import sys
 import samgraph.torch as sam
 import datetime
 from common_config import *
-
 
 class GCN(nn.Module):
     def __init__(self,
@@ -228,6 +228,16 @@ def run_train(worker_id, run_config):
     global_barrier = run_config['global_barrier']
 
     train_device = torch.device(ctx)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    try:
+        torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
+    except:
+        pass
+    try:
+        torch.set_float32_matmul_precision("medium")
+    except:
+        pass
     print('[Train  Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
 
@@ -261,6 +271,7 @@ def run_train(worker_id, run_config):
     loss_fcn = loss_fcn.to(train_device)
     optimizer = optim.Adam(
         model.parameters(), lr=run_config['lr'], weight_decay=run_config['weight_decay'])
+    scaler = GradScaler()
 
     num_epoch = sam.num_epoch()
     num_step = sam.steps_per_epoch()
@@ -303,7 +314,7 @@ def run_train(worker_id, run_config):
             sam.extract_start(need_steps)
 
         for step in range(worker_id, align_up_step, num_worker):
-            
+            optimizer.zero_grad(set_to_none=True)
             if step < num_step:
                 t0 = time.time()
                 if (not run_config['pipeline']) and (not run_config['single_gpu']):
@@ -317,11 +328,18 @@ def run_train(worker_id, run_config):
                 t0 = t1 = t2 = time.time()
 
             # Compute loss and prediction
-            batch_pred = model(blocks, batch_input)
-            loss = loss_fcn(batch_pred, batch_label)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            if use_amp:
+                with autocast(enabled=use_amp):
+                    batch_pred = model(blocks, batch_input)
+                    loss = loss_fcn(batch_pred, batch_label)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                batch_pred = model(blocks, batch_input)
+                loss = loss_fcn(batch_pred, batch_label)
+                loss.backward()
+                optimizer.step()
 
             # wait for the train finish then we can free the data safely
             event_sync()
@@ -444,6 +462,8 @@ def run_train(worker_id, run_config):
 if __name__ == '__main__':
     run_config = get_run_config()
     run_init(run_config)
+
+    use_amp = run_config['amp']
 
     num_sample_worker = run_config['num_sample_worker']
     num_train_worker = run_config['num_train_worker']

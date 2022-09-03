@@ -79,8 +79,8 @@ num_local_step = _basics.num_local_step
 
 def get_graph_feat(batch_key):
     batch_feat = c_lib.samgraph_torch_get_graph_feat(batch_key)
-    if batch_feat.dtype != torch.float32:
-        batch_feat = batch_feat.float()
+    # if batch_feat.dtype != torch.float32:
+    #     batch_feat = batch_feat.float()
     return batch_feat
 
 

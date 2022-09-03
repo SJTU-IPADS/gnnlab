@@ -229,6 +229,7 @@ bool RunDataCopySubLoopOnce() {
     Profiler::Get().LogStep(task->key, kLogL1RecvTime, recv_time);
     Profiler::Get().LogStep(task->key, kLogL2GraphCopyTime, graph_copy_time);
     Profiler::Get().LogStep(task->key, kLogL2ExtractTime, extract_time);
+    Profiler::Get().LogStep(task->key, kLogL2CacheCopyTime, extract_time);
     Profiler::Get().LogStep(task->key, kLogL2FeatCopyTime, feat_copy_time);
     Profiler::Get().LogEpochAdd(
         task->key, kLogEpochCopyTime,

@@ -16,9 +16,6 @@ import samgraph.torch as sam
 import datetime
 from common_config import *
 
-# use_amp = True
-use_amp = False
-
 class GCN(nn.Module):
     def __init__(self,
                  in_feats,
@@ -51,10 +48,11 @@ class GCN(nn.Module):
 
 class DotPredictor(nn.Module):
     def forward(self, g, h):
-        # u, v = g.edges()
-        # u=u.long()
-        # v=v.long()
-        # return (h[u] * h[v]).sum(1)
+        if use_amp:
+            u, v = g.edges()
+            u=u.long()
+            v=v.long()
+            return (h[u] * h[v]).sum(1)
         with g.local_scope():
             g.ndata['h'] = h
             # Compute a new edge feature named 'score' by a dot-product between the
@@ -233,8 +231,14 @@ def run_train(worker_id, run_config):
 
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
-    # torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
-    # torch.set_float32_matmul_precision("medium")
+    try:
+        torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
+    except:
+        pass
+    try:
+        torch.set_float32_matmul_precision("medium")
+    except:
+        pass
 
     # let the trainer initialization after sampler
     # sampler should presample before trainer initialization
@@ -333,8 +337,6 @@ def run_train(worker_id, run_config):
 
             # Compute loss and prediction
             if use_amp:
-                batch_input = batch_input.half()
-                event_sync()
                 with autocast(enabled=use_amp):
                     batch_pred = model(blocks, batch_input)
                     score = predictor(pair_graph, batch_pred)
@@ -477,6 +479,8 @@ def run_train(worker_id, run_config):
 if __name__ == '__main__':
     run_config = get_run_config()
     run_init(run_config)
+
+    use_amp = run_config['amp']
 
     num_sample_worker = run_config['num_sample_worker']
     num_train_worker = run_config['num_train_worker']
