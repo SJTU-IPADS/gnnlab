@@ -56,6 +56,8 @@ policy_str = {
   132: "coll_cache_asymm_link_2",
   151: "clique_part_1",
   152: "clique_part_2",
+  171: "clique_part_by_degree_1",
+  172: "clique_part_by_degree_2",
   100: "no_cache",
 }
 policy_str_short = {
@@ -90,6 +92,8 @@ policy_str_short = {
   132: "Coll_2",
   151: "Cliq_1",
   152: "Cliq_2",
+  171: "CliqDeg_1",
+  172: "CliqDeg_2",
   # 17: "presample_max",
   # 20: "no_cache",
 }

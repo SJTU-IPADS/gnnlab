@@ -224,6 +224,17 @@ public:
   int clique_size;
 };
 
+class CliquePartByDegreeSolver : public SingleStreamSolverBase {
+public:
+  CliquePartByDegreeSolver(TensorPtr ranking_nodes) : clique_size(RunConfig::coll_cache_link_desc.CliqueSize()), ranking_nodes(ranking_nodes) {}
+  using SingleStreamSolverBase::Solve;
+  void Solve(std::vector<int> device_to_stream,
+             std::vector<int> device_to_cache_percent, std::string mode,
+             double T_local, double T_cpu);
+  int clique_size;
+  TensorPtr ranking_nodes;
+};
+
 } // namespace coll_cache
 } // namespace common
 } // namespace samgraph

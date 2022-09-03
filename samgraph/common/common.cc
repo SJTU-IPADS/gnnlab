@@ -716,6 +716,9 @@ std::ostream& operator<<(std::ostream& os, const CachePolicy policy) {
     case kCliquePart:
       os << "clique_part";
       break;
+    case kCliquePartByDegree:
+      os << "clique_part_by_degree";
+      break;
     case kPartitionCache:
       os << "partition_cache";
       break;

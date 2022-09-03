@@ -81,6 +81,7 @@ kPartRepCache           = 11
 kRepCache               = 12
 kCollCacheAsymmLink     = 13
 kCliquePart             = 14
+kCliquePartByDegree     = 15
 
 
 def cpu(device_id=0):
@@ -142,21 +143,22 @@ builtin_archs = {
 
 
 cache_policies = {
-    'degree'          : kCacheByDegree,
-    'heuristic'       : kCacheByHeuristic,
-    'pre_sample'      : kCacheByPreSample,
-    'degree_hop'      : kCacheByDegreeHop,
-    'presample_static': kCacheByPreSampleStatic,
-    'fake_optimal'    : kCacheByFakeOptimal,
-    'dynamic_cache'   : kDynamicCache,
-    'random'          : kCacheByRandom,
-    'coll_cache'      : kCollCache,
-    'coll_intuitive'  : kCollCacheIntuitive,
-    'partition'       : kPartitionCache,
-    'part_rep'        : kPartRepCache,
-    'rep'             : kRepCache,
-    'coll_cache_asymm_link'  : kCollCacheAsymmLink,
-    'clique_part'  : kCliquePart,
+    'degree'                : kCacheByDegree,
+    'heuristic'             : kCacheByHeuristic,
+    'pre_sample'            : kCacheByPreSample,
+    'degree_hop'            : kCacheByDegreeHop,
+    'presample_static'      : kCacheByPreSampleStatic,
+    'fake_optimal'          : kCacheByFakeOptimal,
+    'dynamic_cache'         : kDynamicCache,
+    'random'                : kCacheByRandom,
+    'coll_cache'            : kCollCache,
+    'coll_intuitive'        : kCollCacheIntuitive,
+    'partition'             : kPartitionCache,
+    'part_rep'              : kPartRepCache,
+    'rep'                   : kRepCache,
+    'coll_cache_asymm_link' : kCollCacheAsymmLink,
+    'clique_part'           : kCliquePart,
+    'clique_part_by_degree' : kCliquePartByDegree,
 }
 
 _init_log_val = [0]
