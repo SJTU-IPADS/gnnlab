@@ -109,6 +109,8 @@ double               RunConfig::coll_cache_hyperparam_T_remote = 438 / (double)2
 double               RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)11.8; // performance on A100
 coll_cache::AsymmLinkDesc RunConfig::coll_cache_link_desc;
 
+RollingPolicy        RunConfig::rolling = AutoRolling;
+
 void RunConfig::LoadConfigFromEnv() {
   std::unordered_set<std::string> ture_values = {"TRUE", "1", "ON"};
   if (IsEnvSet(Constant::kEnvSamBackCudaLaunchBlocking)) {

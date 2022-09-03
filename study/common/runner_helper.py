@@ -292,6 +292,7 @@ class RunConfig:
     self.max_num_step = None
     self.coll_cache_no_group = False
     self.coll_cache_concurrent_link = False
+    self.rolling = 0
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -437,6 +438,7 @@ class RunConfig:
     cmd_line += f' --log-level {self.log_level}'
     cmd_line += f' --empty-feat {self.empty_feat}'
     cmd_line += f' {self.custom_arg} '
+    cmd_line += f' --rolling {self.rolling}'
 
     if durable_log:
       std_out_log = self.get_log_fname() + '.log'
@@ -456,7 +458,9 @@ class RunConfig:
     std_out_log += '_'.join(
       [self.system.name]+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
-      [f'cache_rate_{round(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}']) 
+      [f'cache_rate_{round(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}'])
+    if self.rolling != 0:
+      std_out_log += f'_rolling_{self.rolling}'
     return std_out_log
 
   def beauty(self):

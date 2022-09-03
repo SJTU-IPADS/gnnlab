@@ -102,6 +102,8 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   }
   RC::step_max_boundary = std::stoull(configs["max_num_step"]);
 
+  RC::rolling = static_cast<RollingPolicy>(std::stoi(configs["rolling"]));
+
   switch (RC::run_arch) {
     case kArch0:
     case kArch1:
