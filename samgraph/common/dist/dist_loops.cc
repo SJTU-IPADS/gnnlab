@@ -705,10 +705,12 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   task->input_feat->ForceScale(feat_type, {num_input, feat_dim}, DistEngine::Get()->GetTrainerCtx(), "task.train_feat_cuda_" + std::to_string(task->key));
   task->output_label = Tensor::Empty(label_type, {num_ouput}, DistEngine::Get()->GetTrainerCtx(),
                      "task.train_label_cuda_" + std::to_string(task->key));
-  DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
+  DistEngine::Get()->GetCollCacheManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream);
+  // DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
   Timer t_label;
   if (RunConfig::unsupervised_sample == false) {
-    DistEngine::Get()->GetCollLabelManager()->ExtractFeat(output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream);
+    DistEngine::Get()->GetCollLabelManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream);
+    // DistEngine::Get()->GetCollLabelManager()->ExtractFeat(output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream);
   } else {
     CHECK_EQ(label_type, kF32);
     auto label_dst = task->output_label->Ptr<float>();

@@ -245,6 +245,7 @@ void DistEngine::Init() {
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
   _trainer_barrier = new DistSharedBarrier(RunConfig::num_train_worker);
   _global_barrier = new DistSharedBarrier(RunConfig::num_train_worker + RunConfig::num_sample_worker);
+  _collcache_barrier = std::make_shared<CollCacheMPBarrier>(RunConfig::num_train_worker);
 
   LOG(INFO) << "Pre-fork init done...";
   double init_time = t_l1_init.Passed();
@@ -698,6 +699,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _dist_type = dist_type;
   RunConfig::worker_id = worker_id;
   RunConfig::trainer_ctx = ctx;
+  coll_cache_lib::common::RunConfig::worker_id = worker_id;
   _trainer_ctx = RunConfig::trainer_ctx;
   LOG(WARNING) << "Trainer[" << worker_id << "] initializing...";
   LOG_MEM_USAGE(INFO, "before train initialization", _trainer_ctx);
@@ -741,13 +743,23 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   LOG(WARNING) << "Trainer[" << worker_id << "] register host memory...";
   Timer t_build_cache;
 #ifdef SAMGRAPH_COLL_CACHE_ENABLE
-  CUDA_CALL(cudaHostRegister(_dataset->feat->MutableData(), RoundUp<size_t>(_dataset->feat->NumBytes(), 1 << 21), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
-  CUDA_CALL(cudaHostRegister(_dataset->label->MutableData(), RoundUp<size_t>(_dataset->label->NumBytes(), 1 << 21), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
-  if (_dataset->ranking_nodes != nullptr && _dataset->ranking_nodes->Defined()) {
-    CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
-  }
+  // CUDA_CALL(cudaHostRegister(_dataset->feat->MutableData(), RoundUp<size_t>(_dataset->feat->NumBytes(), 1 << 21), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  // CUDA_CALL(cudaHostRegister(_dataset->label->MutableData(), RoundUp<size_t>(_dataset->label->NumBytes(), 1 << 21), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  // if (_dataset->ranking_nodes != nullptr && _dataset->ranking_nodes->Defined()) {
+  //   CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
+  // }
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
-  _coll_cache_manager = new CollCacheManager();
+  _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
+  std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
+    int dev_id = ctx.GetCudaDeviceId();
+    LOG(WARNING) << "dev " << dev_id << " try to allocate " << ToReadableSize(nbytes) << " on device " << dev_id;
+    CUDA_CALL(cudaSetDevice(dev_id));
+    void* ptr;
+    CUDA_CALL(cudaMalloc(&ptr, nbytes));
+    std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();
+    handle->dev_ptr = ptr;
+    return handle;
+  };
   // for half feature, treat as single precise with half dim
   auto feat_dtype = _dataset->feat->Type();
   auto feat_dim = _dataset->feat->Shape()[1];
@@ -763,37 +775,22 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
        RunConfig::cache_policy == kCliquePartByDegree || 
        RunConfig::cache_policy == kPartRepCache || 
        RunConfig::cache_policy == kRepCache || 
-       RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::cache_percentage != 1) {
-    {
-      _dataset->block_placement = Tensor::OpenShm(Constant::kCollCachePlacementShmName, kU8, {}, "coll_cache_block_placement");
-      if (_dataset->block_access_advise != nullptr) {
-        size_t num_blocks = _dataset->block_placement->Shape()[0];
-        _dataset->block_access_advise = Tensor::OpenShm(Constant::kCollCacheAccessShmName, kU8, {RunConfig::num_train_worker, num_blocks}, "");
-      }
-    }
-    if (_dataset->block_access_advise != nullptr) {
-    * _coll_cache_manager = CollCacheManager::BuildCollCacheAccessAdvise(
-              _dataset->nid_to_block, _dataset->block_placement, _dataset->block_access_advise, RunConfig::num_train_worker,
-              _trainer_ctx, _dataset->feat->MutableData(), feat_dtype,
-              feat_dim,
-              worker_id, RunConfig::cache_percentage, _trainer_copy_stream);
-    } else {
-    * _coll_cache_manager = CollCacheManager::BuildCollCache(
-              _dataset->nid_to_block, _dataset->block_placement, RunConfig::num_train_worker,
-              _trainer_ctx, _dataset->feat->MutableData(), feat_dtype,
-              feat_dim,
-              worker_id, RunConfig::cache_percentage, _trainer_copy_stream);
-    }
-  } else {
-    *_coll_cache_manager = CollCacheManager::BuildLegacy(_trainer_ctx, _dataset->feat->MutableData(), feat_dtype,
-              feat_dim,
-              _dataset->ranking_nodes,
-              _dataset->num_node, RunConfig::cache_percentage, _trainer_copy_stream);
+       RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0) {
+    _coll_cache_manager->build_v2(worker_id, _dataset->ranking_nodes_list->Ptr<IdType>(), 
+                          _dataset->ranking_nodes_freq_list->Ptr<IdType>(), _dataset->num_node, 
+                          gpu_mem_allocator, _dataset->feat->MutableData(), 
+                          static_cast<coll_cache_lib::common::DataType>(feat_dtype), feat_dim, 
+                          RunConfig::cache_percentage, _trainer_copy_stream);
   }
+  else assert(false);
+
   if (RunConfig::unsupervised_sample == false) {
-    _coll_label_manager = new CollCacheManager();
-    *_coll_label_manager = CollCacheManager::BuildNoCache(_trainer_ctx, _dataset->label->MutableData(), _dataset->label->Type(),
-              1, _trainer_copy_stream);
+    _coll_label_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
+    _coll_label_manager->build_v2(worker_id, _dataset->ranking_nodes_list->Ptr<IdType>(), 
+                      _dataset->ranking_nodes_freq_list->Ptr<IdType>(), _dataset->num_node, 
+                      gpu_mem_allocator, _dataset->label->MutableData(), 
+                      static_cast<coll_cache_lib::common::DataType>(_dataset->label->Type()), 1, 
+                      0, _trainer_copy_stream);
   }
 #endif
   if (RunConfig::UseGPUCache()) {
