@@ -195,17 +195,17 @@ setup(
             ],
             include_dirs=[
                 # os.path.join(here, '3rdparty/cub'),
-                os.path.join(here, 'coll_cache_lib'),
+                os.path.join(here, '3rdparty/collcachelib'),
                 os.path.join(here, '3rdparty/parallel-hashmap'),
                 '/opt/intel/oneapi/tbb/latest/include',
                 '/opt/gurobi-install/gurobi-latest/linux64/include'],
             libraries=['cudart', 'cusparse', 'gurobi95', 'gurobi_c++', 'tbb', 'coll_cache'],
             library_dirs=[
-                os.path.join(here, 'coll_cache_lib/build'),
+                os.path.join(here, '3rdparty/collcachelib/build'),
                 '/opt/gurobi-install/gurobi-latest/linux64/lib',
                 '/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8',
             ],
-            extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
+            extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp', '-Wl,-rpath=' + os.path.join(here, '3rdparty/collcachelib/build')],
             # these custom march may should be remove and merged
             extra_compile_args={
                 'cxx': cxx_flags,
@@ -218,10 +218,10 @@ setup(
             ],
             include_dirs=[
                 # os.path.join(here, '3rdparty/cub'),
-                os.path.join(here, 'coll_cache_lib'),
+                os.path.join(here, '3rdparty/collcachelib'),
                 os.path.join(here, '3rdparty/parallel-hashmap')],
             libraries=['cusparse', 'coll_cache'],
-            library_dirs=[os.path.join(here, 'coll_cache_lib/build')],
+            library_dirs=[os.path.join(here, '3rdparty/collcachelib/build')],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
             # these custom march may should be remove and merged
             extra_compile_args={
@@ -248,11 +248,11 @@ setup(
             ],
             include_dirs=[
                 # os.path.join(here, '3rdparty/cub'),
-                os.path.join(here, 'coll_cache_lib'),
+                os.path.join(here, '3rdparty/collcachelib'),
                 os.path.join(here, '3rdparty/parallel-hashmap'),
                 os.path.join(os.environ['CONDA_PREFIX'], 'include')],
             libraries=['cusparse', 'cudart', 'cudnn', 'cublas', 'curand', 'coll_cache'],
-            library_dirs=[os.path.join(here, 'coll_cache_lib/build')],
+            library_dirs=[os.path.join(here, '3rdparty/collcachelib/build')],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
             # these custom march may should be remove and merged
             extra_compile_args={
