@@ -751,10 +751,9 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
   _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
-    int dev_id = ctx.GetCudaDeviceId();
-    CUDA_CALL(cudaSetDevice(dev_id));
+    auto device = Device::Get(ctx);
     void* ptr;
-    CUDA_CALL(cudaMalloc(&ptr, nbytes));
+    ptr = device->AllocWorkspace(ctx, nbytes);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();
     handle->dev_ptr = ptr;
     return handle;
