@@ -752,7 +752,6 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
     int dev_id = ctx.GetCudaDeviceId();
-    LOG(WARNING) << "dev " << dev_id << " try to allocate " << ToReadableSize(nbytes) << " on device " << dev_id;
     CUDA_CALL(cudaSetDevice(dev_id));
     void* ptr;
     CUDA_CALL(cudaMalloc(&ptr, nbytes));

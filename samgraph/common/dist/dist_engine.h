@@ -81,7 +81,6 @@ class CollCacheMPMemHandle : public coll_cache_lib::common::ExternelGPUMemoryHan
   void* dev_ptr = nullptr;
   void* ptr() override {return dev_ptr;}
   ~CollCacheMPMemHandle() {
-    LOG(WARNING) << "CollCacheMPMemHandle release";
     CUDA_CALL(cudaFree(dev_ptr)); 
   }
 };

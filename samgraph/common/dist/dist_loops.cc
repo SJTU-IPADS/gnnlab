@@ -723,6 +723,7 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   double time_label = t_label.Passed();
   Profiler::Get().LogStep(task->key, kLogL3LabelExtractTime, time_label);
   Profiler::Get().LogStep(task->key, kLogL1LabelBytes, task->output_label->NumBytes());
+  Profiler::Get().LogEpochAdd(task->key, kLogEpochFeatureBytes, GetTensorBytes(feat_type, {num_input, feat_dim}));
   LOG(DEBUG) << "CollFeatExtract: process task with key " << task->key;
 }
 #endif
