@@ -79,9 +79,12 @@ class CollCacheMPBarrier : public coll_cache_lib::common::ExternalBarrierHandler
 class CollCacheMPMemHandle : public coll_cache_lib::common::ExternelGPUMemoryHandler {
  public:
   void* dev_ptr = nullptr;
+  Context ctx;
+  size_t nbytes;
   void* ptr() override {return dev_ptr;}
   ~CollCacheMPMemHandle() {
-    CUDA_CALL(cudaFree(dev_ptr)); 
+    auto device = Device::Get(ctx);
+    device->FreeWorkspace(ctx, dev_ptr, nbytes);
   }
 };
 

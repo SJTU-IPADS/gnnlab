@@ -755,6 +755,8 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
     void* ptr;
     ptr = device->AllocWorkspace(ctx, nbytes);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();
+    handle->ctx = ctx;
+    handle->nbytes = nbytes;
     handle->dev_ptr = ptr;
     return handle;
   };
@@ -779,8 +781,9 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
                           gpu_mem_allocator, _dataset->feat->MutableData(), 
                           static_cast<coll_cache_lib::common::DataType>(feat_dtype), feat_dim, 
                           RunConfig::cache_percentage, _trainer_copy_stream);
+  } else {
+    CHECK(false) << "Cache policy is unsupported by collcache lib";
   }
-  else assert(false);
 
   if (RunConfig::unsupervised_sample == false) {
     _coll_label_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
