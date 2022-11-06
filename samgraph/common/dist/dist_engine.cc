@@ -752,12 +752,10 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
     auto device = Device::Get(ctx);
-    void* ptr;
-    ptr = device->AllocWorkspace(ctx, nbytes);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();
-    handle->ctx = ctx;
+    handle->dev_ptr = device->AllocWorkspace(ctx, nbytes);
     handle->nbytes = nbytes;
-    handle->dev_ptr = ptr;
+    handle->ctx = ctx;
     return handle;
   };
   // for half feature, treat as single precise with half dim
