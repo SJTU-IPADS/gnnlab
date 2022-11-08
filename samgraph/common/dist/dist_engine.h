@@ -23,6 +23,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <iostream>
+#include <random>
 
 #include "../common.h"
 #include "../cuda/cuda_cache_manager.h"
@@ -39,6 +41,15 @@
 #include "dist_um_sampler.h"
 #include "collaborative_cache_manager.h"
 
+// coll cache lib
+#include "coll_cache_lib/common.h"
+#include "coll_cache_lib/constant.h"
+#include "coll_cache_lib/logging.h"
+#include "coll_cache_lib/facade.h"
+#include "coll_cache_lib/cpu/cpu_utils.h"
+#include "coll_cache_lib/cuda/cuda_device.h"
+#include "coll_cache_lib/atomic_barrier.h"
+
 namespace samgraph {
 namespace common {
 namespace dist {
@@ -52,6 +63,29 @@ class DistSharedBarrier {
   void Wait();
  private:
   pthread_barrier_t* _barrier_ptr;
+};
+
+class CollCacheMPBarrier : public coll_cache_lib::common::ExternalBarrierHandler {
+ public:
+  coll_cache_lib::common::AtomicBarrier* barrier;
+  CollCacheMPBarrier(int worker) {
+    auto mmap_ctx = MMAP(MMAP_RW_DEVICE);
+    auto dev = Device::Get(mmap_ctx);
+    barrier = new(dev->AllocArray<coll_cache_lib::common::AtomicBarrier>(mmap_ctx, 1)) coll_cache_lib::common::AtomicBarrier(worker);
+  }
+  void Wait() override { barrier->Wait(); }
+};
+
+class CollCacheMPMemHandle : public coll_cache_lib::common::ExternelGPUMemoryHandler {
+ public:
+  void* dev_ptr = nullptr;
+  Context ctx;
+  size_t nbytes;
+  void* ptr() override {return dev_ptr;}
+  ~CollCacheMPMemHandle() {
+    auto device = Device::Get(ctx);
+    device->FreeWorkspace(ctx, dev_ptr, nbytes);
+  }
 };
 
 enum class DistType {Sample = 0, Extract, Switch, Default};
@@ -93,8 +127,8 @@ class DistEngine : public Engine {
   cuda::GPUCacheManager* GetGPUCacheManager() { return _gpu_cache_manager; }
 #endif
 #ifdef SAMGRAPH_COLL_CACHE_ENABLE
-  CollCacheManager* GetCollCacheManager() { return _coll_cache_manager; }
-  CollCacheManager* GetCollLabelManager() { return _coll_label_manager; }
+  std::shared_ptr<coll_cache_lib::CollCache> GetCollCacheManager() { return _coll_cache_manager; }
+  std::shared_ptr<coll_cache_lib::CollCache> GetCollLabelManager() { return _coll_label_manager; }
 #endif
   cuda::FrequencyHashmap* GetFrequencyHashmap() { return _frequency_hashmap; }
 #ifdef SAMGRAPH_LEGACY_CACHE_ENABLE
@@ -166,8 +200,8 @@ class DistEngine : public Engine {
 #endif
 #ifdef SAMGRAPH_COLL_CACHE_ENABLE
   // Collaborative cache manager
-  CollCacheManager* _coll_cache_manager;
-  CollCacheManager* _coll_label_manager;
+  std::shared_ptr<coll_cache_lib::CollCache> _coll_cache_manager;
+  std::shared_ptr<coll_cache_lib::CollCache> _coll_label_manager;
 #endif
   // Frequency hashmap
   cuda::FrequencyHashmap* _frequency_hashmap;
@@ -187,6 +221,8 @@ class DistEngine : public Engine {
   std::vector<DistUMSampler*> _um_samplers;
   DistSharedBarrier *_trainer_barrier;
   DistSharedBarrier *_global_barrier;
+
+  coll_cache_lib::common::BarHandle _collcache_barrier;
 };
 
 }  // namespace dist

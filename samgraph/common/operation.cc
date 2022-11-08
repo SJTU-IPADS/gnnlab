@@ -39,6 +39,7 @@
 #include "run_config.h"
 #include "timer.h"
 #include "cuda/cuda_engine.h"
+#include "coll_cache_lib/run_config.h"
 
 namespace samgraph {
 namespace common {
@@ -62,6 +63,7 @@ void samgraph_config(const char **config_keys, const char **config_values,
 
 void samgraph_config_from_map(std::unordered_map<std::string, std::string>& configs) {
   using RC = RunConfig;
+  using CRC = coll_cache_lib::common::RunConfig;
   CHECK(!RC::is_configured);
 
   CHECK(configs.count("dataset_path"));
@@ -97,6 +99,10 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   RC::dropout = std::stod(configs["dropout"]);
   RC::num_layer = std::stoull(configs["num_layer"]);
 
+  CRC::cache_percentage = RC::cache_percentage;
+  CRC::omp_thread_num = RC::omp_thread_num;
+  CRC::cache_policy = static_cast<coll_cache_lib::common::CachePolicy>(RC::cache_policy);
+
   if (configs["unsupervised"] == "True") {
     RC::unsupervised_sample = true;
   }
@@ -120,6 +126,10 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       CHECK(configs.count("num_train_worker"));
       RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
       RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+      CRC::cross_process = true;
+      CRC::num_device = RC::num_train_worker;
+      CRC::device_id_list.resize(CRC::num_device);
+      for (int i = 0; i < CRC::num_device; i++) CRC::device_id_list[i] = i;
       if (!configs.count("have_switcher")) {
         configs["have_switcher"] = "0";
       }
@@ -129,6 +139,10 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       CHECK(configs.count("num_worker"));
       RC::num_sample_worker = std::stoull(configs["num_worker"]);
       RC::num_train_worker = std::stoull(configs["num_worker"]);
+      CRC::cross_process = true;
+      CRC::num_device = RC::num_train_worker;
+      CRC::device_id_list.resize(CRC::num_device);
+      for (int i = 0; i < CRC::num_device; i++) CRC::device_id_list[i] = i;
       break;
     case kArch7:
       CHECK(configs.count("worker_id"));
@@ -139,12 +153,21 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       RC::num_worker = std::stoull(configs["num_worker"]);
       RC::sampler_ctx = Context(configs["sampler_ctx"]);
       RC::trainer_ctx = Context(configs["trainer_ctx"]);
+      CRC::cross_process = true;
+      CRC::worker_id = RC::worker_id;
+      CRC::num_device = RC::num_worker;
+      CRC::device_id_list.resize(CRC::num_device);
+      for (int i = 0; i < CRC::num_device; i++) CRC::device_id_list[i] = i;
       break;
     case kArch9:
       CHECK(configs.count("num_sample_worker"));
       CHECK(configs.count("num_train_worker"));
       RC::num_sample_worker = std::stoi(configs["num_sample_worker"]);
       RC::num_train_worker = std::stoi(configs["num_train_worker"]);
+      CRC::cross_process = true;
+      CRC::num_device = RC::num_train_worker;
+      CRC::device_id_list.resize(CRC::num_device);
+      for (int i = 0; i < CRC::num_device; i++) CRC::device_id_list[i] = i;
       CHECK(configs.count("unified_memory"));
       CHECK(configs.count("unified_memory_ctx"));
       break;
