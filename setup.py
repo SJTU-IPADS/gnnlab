@@ -197,13 +197,11 @@ setup(
                 # os.path.join(here, '3rdparty/cub'),
                 os.path.join(here, '3rdparty/collcachelib'),
                 os.path.join(here, '3rdparty/parallel-hashmap'),
-                '/opt/intel/oneapi/tbb/latest/include',
                 '/opt/gurobi-install/gurobi-latest/linux64/include'],
-            libraries=['cudart', 'cusparse', 'gurobi95', 'gurobi_c++', 'tbb', 'coll_cache'],
+            libraries=['cudart', 'cusparse', 'coll_cache'],
             library_dirs=[
                 os.path.join(here, '3rdparty/collcachelib/build'),
                 '/opt/gurobi-install/gurobi-latest/linux64/lib',
-                '/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8',
             ],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp', '-Wl,-rpath=' + os.path.join(here, '3rdparty/collcachelib/build')],
             # these custom march may should be remove and merged
