@@ -147,6 +147,7 @@ void DistEngine::Init() {
   LoadGraphDataset();
   _dataset->scale_factor = Tensor::Empty(kF64, {1}, MMAP(MMAP_RW_DEVICE), "");
   _dataset->scale_factor->Ptr<double>()[0] = 1.1;
+  coll_cache_lib::RunConfig::num_total_item = _dataset->num_node;
 
   LOG(INFO) << "Preparing for cache space...";
   if (RunConfig::UseGPUCache()) {
@@ -206,6 +207,7 @@ void DistEngine::Init() {
     _num_step = RoundUp(_num_step, RunConfig::num_sample_worker);
     _num_local_step = _num_local_step / RunConfig::num_sample_worker;
   }
+  coll_cache_lib::RunConfig::num_global_step_per_epoch = _num_step;
 
   LOG(INFO) << "Making message queue...";
   Timer t_l2_init_build_queue;
