@@ -43,7 +43,7 @@
 #include "dist_shuffler_aligned_trainer.h"
 #include "pre_sampler.h"
 #include "dist_um_sampler.h"
-#include "../coll_cache/optimal_solver_class.h"
+// #include "../coll_cache/optimal_solver_class.h"
 #include "../coll_cache/ndarray.h"
 
 namespace samgraph {
@@ -522,54 +522,6 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           LOG(ERROR) << "pre sample done, delete it";
           delete pre_sampler;
         }
-        std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
-        std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
-        if (worker_id == 0) {
-          RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(ctx);
-          coll_cache::CollCacheSolver * solver = nullptr;
-          switch (RunConfig::cache_policy) {
-            case kRepCache: {
-              solver = new coll_cache::RepSolver();
-              break;
-            }
-            case kPartRepCache: {
-              solver = new coll_cache::PartRepSolver();
-              break;
-            }
-            case kPartitionCache: {
-              solver = new coll_cache::PartitionSolver();
-              break;
-            }
-            case kCollCacheIntuitive: {
-              solver = new coll_cache::IntuitiveSolver();
-              break;
-            }
-            case kCollCache: {
-              solver = new coll_cache::OptimalSolver();
-              break;
-            }
-            case kCollCacheAsymmLink: {
-              solver = new coll_cache::OptimalAsymmLinkSolver();
-              break;
-            }
-            case kCliquePart: {
-              solver = new coll_cache::CliquePartSolver();
-              break;
-            }
-            case kCliquePartByDegree: {
-              solver = new coll_cache::CliquePartByDegreeSolver(_dataset->ranking_nodes);
-              break;
-            }
-            default: CHECK(false);
-          }
-          LOG(ERROR) << "solver created. now build & solve";
-          solver->Build(_dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, trainer_to_stream, _dataset->num_node, _dataset->nid_to_block);
-          LOG(ERROR) << "solver built. now solve";
-          solver->Solve(trainer_to_stream, trainer_cache_percent, "BIN", RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_cpu);
-          LOG(ERROR) << "solver solved";
-          _dataset->block_placement = solver->block_placement;
-          delete solver;
-        }
         _sampler_barrier->Wait();
         time_presample = tp.Passed();
         break;
@@ -723,7 +675,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
   double time_create_stream = t_create_stream.Passed();
   update_coll_cache_hyper_param(_trainer_ctx);
-  RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(_trainer_ctx);
+  // RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(_trainer_ctx);
   // next code is for CPU sampling
   /*
   _work_stream = static_cast<cudaStream_t>(

@@ -39,7 +39,7 @@
 #include "../task_queue.h"
 #include "dist_cache_manager.h"
 #include "dist_um_sampler.h"
-#include "collaborative_cache_manager.h"
+// #include "collaborative_cache_manager.h"
 
 // coll cache lib
 #include "coll_cache_lib/common.h"
