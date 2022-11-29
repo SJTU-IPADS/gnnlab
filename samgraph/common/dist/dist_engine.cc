@@ -263,9 +263,10 @@ void DistEngine::Init() {
 }
 
 void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
-  _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU(), stream);
-  _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU(), stream);
-  _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU(), stream);
+  // ingore valid/test for faster init
+  _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU(), stream, Constant::kAllocNoScale);
+  // _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU(), stream);
+  // _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU(), stream);
   if (sampler_ctx.device_type == kGPU) {
     _dataset->indptr = Tensor::CopyTo(_dataset->indptr, sampler_ctx, stream, Constant::kAllocNoScale);
     _dataset->indices = Tensor::CopyTo(_dataset->indices, sampler_ctx, stream, Constant::kAllocNoScale);
@@ -280,9 +281,10 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
 }
 
 void DistEngine::UMSampleLoadGraph() {
+  // ingore valid/test for faster init
   _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU());
-  _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU());
-  _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU());
+  // _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU());
+  // _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU());
   _dataset->indptr = Tensor::UMCopyTo(_dataset->indptr, RunConfig::unified_memory_ctxes);
   _dataset->indices = Tensor::UMCopyTo(_dataset->indices, RunConfig::unified_memory_ctxes);
   if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
@@ -536,6 +538,8 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
 #endif
   }
   double time_sampler_init = t0.Passed();
+  // parallel initialization of sampler/trainer
+  GetGlobalBarrier()->Wait();
   Profiler::Get().LogInit   (kLogInitL1Sampler,         time_sampler_init);
 
   Profiler::Get().LogInitAdd(kLogInitL2InternalState,   time_cuda_context);
@@ -702,6 +706,8 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   // if (_dataset->ranking_nodes != nullptr && _dataset->ranking_nodes->Defined()) {
   //   CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
   // }
+  // parallel initialization of sampler/trainer
+  GetGlobalBarrier()->Wait();
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
   _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
