@@ -176,9 +176,9 @@ setup(
                 'samgraph/common/cuda/cuda_utils.cu',
                 'samgraph/common/cuda/pre_sampler.cc',
                 'samgraph/common/cuda/um_pre_sampler.cc',
-                'samgraph/common/coll_cache/optimal_solver_class.cc',
+                # 'samgraph/common/coll_cache/optimal_solver_class.cc',
                 'samgraph/common/coll_cache/asymm_link_desc.cc',
-                'samgraph/common/dist/collaborative_cache_manager_device.cu',
+                # 'samgraph/common/dist/collaborative_cache_manager_device.cu',
                 'samgraph/common/dist/dist_engine.cc',
                 'samgraph/common/dist/dist_loops.cc',
                 'samgraph/common/dist/dist_loops_arch5.cc',
@@ -197,13 +197,11 @@ setup(
                 # os.path.join(here, '3rdparty/cub'),
                 os.path.join(here, '3rdparty/collcachelib'),
                 os.path.join(here, '3rdparty/parallel-hashmap'),
-                '/opt/intel/oneapi/tbb/latest/include',
                 '/opt/gurobi-install/gurobi-latest/linux64/include'],
-            libraries=['cudart', 'cusparse', 'gurobi95', 'gurobi_c++', 'tbb', 'coll_cache'],
+            libraries=['cudart', 'cusparse', 'coll_cache'],
             library_dirs=[
                 os.path.join(here, '3rdparty/collcachelib/build'),
                 '/opt/gurobi-install/gurobi-latest/linux64/lib',
-                '/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8',
             ],
             extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp', '-Wl,-rpath=' + os.path.join(here, '3rdparty/collcachelib/build')],
             # these custom march may should be remove and merged
@@ -228,37 +226,37 @@ setup(
                 'cxx': cxx_flags,
                 'nvcc': cuda_flags
             }),
-        TinyCUDAExtension(
-            name='samgraph.sam_backend.c_lib',
-            sources=[
-                'samgraph/sam_backend/adapter.cc',
-                'samgraph/sam_backend/activation.cu',
-                'samgraph/sam_backend/bias.cu',
-                'samgraph/sam_backend/common.cc',
-                'samgraph/sam_backend/dropout.cu',
-                'samgraph/sam_backend/element.cu',
-                'samgraph/sam_backend/graph_norm.cu',
-                'samgraph/sam_backend/initializer.cu',
-                'samgraph/sam_backend/linear.cu',
-                'samgraph/sam_backend/model.cc',
-                'samgraph/sam_backend/optimizer.cu',
-                'samgraph/sam_backend/scattergather.cu',
-                'samgraph/sam_backend/softmax.cu',
-                'samgraph/sam_backend/utils.cu',
-            ],
-            include_dirs=[
-                # os.path.join(here, '3rdparty/cub'),
-                os.path.join(here, '3rdparty/collcachelib'),
-                os.path.join(here, '3rdparty/parallel-hashmap'),
-                os.path.join(os.environ['CONDA_PREFIX'], 'include')],
-            libraries=['cusparse', 'cudart', 'cudnn', 'cublas', 'curand', 'coll_cache'],
-            library_dirs=[os.path.join(here, '3rdparty/collcachelib/build')],
-            extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
-            # these custom march may should be remove and merged
-            extra_compile_args={
-                'cxx': cxx_flags,
-                'nvcc': cuda_flags
-            })
+        # TinyCUDAExtension(
+        #     name='samgraph.sam_backend.c_lib',
+        #     sources=[
+        #         'samgraph/sam_backend/adapter.cc',
+        #         'samgraph/sam_backend/activation.cu',
+        #         'samgraph/sam_backend/bias.cu',
+        #         'samgraph/sam_backend/common.cc',
+        #         'samgraph/sam_backend/dropout.cu',
+        #         'samgraph/sam_backend/element.cu',
+        #         'samgraph/sam_backend/graph_norm.cu',
+        #         'samgraph/sam_backend/initializer.cu',
+        #         'samgraph/sam_backend/linear.cu',
+        #         'samgraph/sam_backend/model.cc',
+        #         'samgraph/sam_backend/optimizer.cu',
+        #         'samgraph/sam_backend/scattergather.cu',
+        #         'samgraph/sam_backend/softmax.cu',
+        #         'samgraph/sam_backend/utils.cu',
+        #     ],
+        #     include_dirs=[
+        #         # os.path.join(here, '3rdparty/cub'),
+        #         os.path.join(here, '3rdparty/collcachelib'),
+        #         os.path.join(here, '3rdparty/parallel-hashmap'),
+        #         os.path.join(os.environ['CONDA_PREFIX'], 'include')],
+        #     libraries=['cusparse', 'cudart', 'cudnn', 'cublas', 'curand', 'coll_cache'],
+        #     library_dirs=[os.path.join(here, '3rdparty/collcachelib/build')],
+        #     extra_link_args=['-Wl,--version-script=samgraph.lds', '-fopenmp'],
+        #     # these custom march may should be remove and merged
+        #     extra_compile_args={
+        #         'cxx': cxx_flags,
+        #         'nvcc': cuda_flags
+        #     })
     ],
     # $ setup.py publish support.
     cmdclass={

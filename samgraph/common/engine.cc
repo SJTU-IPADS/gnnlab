@@ -248,26 +248,27 @@ void Engine::LoadGraphDataset() {
     _dataset->train_set = Tensor::FromMmap(_dataset_path + Constant::kLinkTrainSetFile, 
         DataType::kI32, {meta[Constant::kMetaNumTrainSet]},
         ctx_map[Constant::kTrainSetFile], "dataset.train_set");
-    _dataset->test_set = Tensor::FromMmap(_dataset_path + Constant::kLinkTestSetFile, 
-        DataType::kI32, {meta[Constant::kMetaNumTestSet]},
-        ctx_map[Constant::kTestSetFile], "dataset.test_set");
-    _dataset->valid_set = Tensor::FromMmap(_dataset_path + Constant::kLinkValidSetFile, 
-        DataType::kI32, {meta[Constant::kMetaNumValidSet]},
-        ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+    // _dataset->test_set = Tensor::FromMmap(_dataset_path + Constant::kLinkTestSetFile, 
+    //     DataType::kI32, {meta[Constant::kMetaNumTestSet]},
+    //     ctx_map[Constant::kTestSetFile], "dataset.test_set");
+    // _dataset->valid_set = Tensor::FromMmap(_dataset_path + Constant::kLinkValidSetFile, 
+    //     DataType::kI32, {meta[Constant::kMetaNumValidSet]},
+    //     ctx_map[Constant::kValidSetFile], "dataset.valid_set");
   } else {
     // no train set file. randomly generate from all edge
     auto cpu_ctx = CPU_CLIB();
     auto full_eid = Tensor::EmptyNoScale(kI32, {_dataset->num_edge}, cpu_ctx, "full_eid");
     cpu::ArrangeArray(full_eid->Ptr<IdType>(), _dataset->num_edge);
-    size_t efficient_shuffle_range = meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet] + meta[Constant::kMetaNumValidSet];
+    // size_t efficient_shuffle_range = meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet] + meta[Constant::kMetaNumValidSet];
+    size_t efficient_shuffle_range = meta[Constant::kMetaNumTrainSet];
     shuffle(full_eid->Ptr<IdType>(), _dataset->num_edge, &efficient_shuffle_range);
     slice_train_should_shuffle = false;
     _dataset->train_set = Tensor::CopyBlob(full_eid->Ptr<IdType>(),
         DataType::kI32, {meta[Constant::kMetaNumTrainSet]}, cpu_ctx, ctx_map[Constant::kTrainSetFile], "dataset.train_set");
-    _dataset->test_set  = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet],
-        DataType::kI32, {meta[Constant::kMetaNumTestSet]},  cpu_ctx, ctx_map[Constant::kTestSetFile], "dataset.test_set");
-    _dataset->valid_set = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet],
-        DataType::kI32, {meta[Constant::kMetaNumValidSet]}, cpu_ctx, ctx_map[Constant::kValidSetFile], "dataset.valid_set");
+    // _dataset->test_set  = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet],
+    //     DataType::kI32, {meta[Constant::kMetaNumTestSet]},  cpu_ctx, ctx_map[Constant::kTestSetFile], "dataset.test_set");
+    // _dataset->valid_set = Tensor::CopyBlob(full_eid->Ptr<IdType>() + meta[Constant::kMetaNumTrainSet] + meta[Constant::kMetaNumTestSet],
+    //     DataType::kI32, {meta[Constant::kMetaNumValidSet]}, cpu_ctx, ctx_map[Constant::kValidSetFile], "dataset.valid_set");
     LOG(ERROR) << "Train set size " << ToReadableSize(_dataset->train_set->NumBytes());
   }
 

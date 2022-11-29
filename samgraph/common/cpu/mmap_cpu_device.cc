@@ -91,7 +91,8 @@ void *MmapCPUDevice::AllocDataSpace(Context ctx, size_t nbytes,
   if (nbytes > 1024*1024*1024) {
     LOG(WARNING) << "mmap allocating space " << ToReadableSize(nbytes);
   }
-  void* ptr = mmap(nullptr, nbytes, prot, MAP_ANON | MAP_SHARED | MAP_LOCKED, -1, 0);
+  // remove lock for faster mmap
+  void* ptr = mmap(nullptr, nbytes, prot, MAP_ANON | MAP_SHARED, -1, 0);
   if (nbytes > 1024*1024*1024) {
     LOG(WARNING) << "mmap allocating space " << ToReadableSize(nbytes) << " done";
   }

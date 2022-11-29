@@ -121,7 +121,7 @@ def run_sample(worker_id, run_config):
     print('[Sample Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
     sam.sample_init(worker_id, ctx)
-    sam.notify_sampler_ready(global_barrier)
+    # sam.notify_sampler_ready(global_barrier)
 
     num_epoch = sam.num_epoch()
     num_step = sam.num_local_step()
@@ -242,7 +242,7 @@ def run_train(worker_id, run_config):
 
     # let the trainer initialization after sampler
     # sampler should presample before trainer initialization
-    sam.wait_for_sampler_ready(global_barrier)
+    # sam.wait_for_sampler_ready(global_barrier)
     sam.train_init(worker_id, ctx)
 
     if num_worker > 1:

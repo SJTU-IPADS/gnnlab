@@ -43,7 +43,7 @@
 #include "dist_shuffler_aligned_trainer.h"
 #include "pre_sampler.h"
 #include "dist_um_sampler.h"
-#include "../coll_cache/optimal_solver_class.h"
+// #include "../coll_cache/optimal_solver_class.h"
 #include "../coll_cache/ndarray.h"
 
 namespace samgraph {
@@ -147,6 +147,7 @@ void DistEngine::Init() {
   LoadGraphDataset();
   _dataset->scale_factor = Tensor::Empty(kF64, {1}, MMAP(MMAP_RW_DEVICE), "");
   _dataset->scale_factor->Ptr<double>()[0] = 1.1;
+  coll_cache_lib::RunConfig::num_total_item = _dataset->num_node;
 
   LOG(INFO) << "Preparing for cache space...";
   if (RunConfig::UseGPUCache()) {
@@ -206,6 +207,7 @@ void DistEngine::Init() {
     _num_step = RoundUp(_num_step, RunConfig::num_sample_worker);
     _num_local_step = _num_local_step / RunConfig::num_sample_worker;
   }
+  coll_cache_lib::RunConfig::num_global_step_per_epoch = _num_step;
 
   LOG(INFO) << "Making message queue...";
   Timer t_l2_init_build_queue;
@@ -261,9 +263,10 @@ void DistEngine::Init() {
 }
 
 void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
-  _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU(), stream);
-  _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU(), stream);
-  _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU(), stream);
+  // ingore valid/test for faster init
+  _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU(), stream, Constant::kAllocNoScale);
+  // _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU(), stream);
+  // _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU(), stream);
   if (sampler_ctx.device_type == kGPU) {
     _dataset->indptr = Tensor::CopyTo(_dataset->indptr, sampler_ctx, stream, Constant::kAllocNoScale);
     _dataset->indices = Tensor::CopyTo(_dataset->indices, sampler_ctx, stream, Constant::kAllocNoScale);
@@ -278,9 +281,10 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
 }
 
 void DistEngine::UMSampleLoadGraph() {
+  // ingore valid/test for faster init
   _dataset->train_set = Tensor::CopyTo(_dataset->train_set, CPU());
-  _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU());
-  _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU());
+  // _dataset->valid_set = Tensor::CopyTo(_dataset->valid_set, CPU());
+  // _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU());
   _dataset->indptr = Tensor::UMCopyTo(_dataset->indptr, RunConfig::unified_memory_ctxes);
   _dataset->indices = Tensor::UMCopyTo(_dataset->indices, RunConfig::unified_memory_ctxes);
   if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
@@ -520,54 +524,6 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
           LOG(ERROR) << "pre sample done, delete it";
           delete pre_sampler;
         }
-        std::vector<int> trainer_to_stream(RunConfig::num_train_worker, 0);
-        std::vector<int> trainer_cache_percent(RunConfig::num_train_worker, std::round(RunConfig::cache_percentage*100));
-        if (worker_id == 0) {
-          RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(ctx);
-          coll_cache::CollCacheSolver * solver = nullptr;
-          switch (RunConfig::cache_policy) {
-            case kRepCache: {
-              solver = new coll_cache::RepSolver();
-              break;
-            }
-            case kPartRepCache: {
-              solver = new coll_cache::PartRepSolver();
-              break;
-            }
-            case kPartitionCache: {
-              solver = new coll_cache::PartitionSolver();
-              break;
-            }
-            case kCollCacheIntuitive: {
-              solver = new coll_cache::IntuitiveSolver();
-              break;
-            }
-            case kCollCache: {
-              solver = new coll_cache::OptimalSolver();
-              break;
-            }
-            case kCollCacheAsymmLink: {
-              solver = new coll_cache::OptimalAsymmLinkSolver();
-              break;
-            }
-            case kCliquePart: {
-              solver = new coll_cache::CliquePartSolver();
-              break;
-            }
-            case kCliquePartByDegree: {
-              solver = new coll_cache::CliquePartByDegreeSolver(_dataset->ranking_nodes);
-              break;
-            }
-            default: CHECK(false);
-          }
-          LOG(ERROR) << "solver created. now build & solve";
-          solver->Build(_dataset->ranking_nodes_list, _dataset->ranking_nodes_freq_list, trainer_to_stream, _dataset->num_node, _dataset->nid_to_block);
-          LOG(ERROR) << "solver built. now solve";
-          solver->Solve(trainer_to_stream, trainer_cache_percent, "BIN", RunConfig::coll_cache_hyperparam_T_local, RunConfig::coll_cache_hyperparam_T_cpu);
-          LOG(ERROR) << "solver solved";
-          _dataset->block_placement = solver->block_placement;
-          delete solver;
-        }
         _sampler_barrier->Wait();
         time_presample = tp.Passed();
         break;
@@ -582,6 +538,8 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
 #endif
   }
   double time_sampler_init = t0.Passed();
+  // parallel initialization of sampler/trainer
+  GetGlobalBarrier()->Wait();
   Profiler::Get().LogInit   (kLogInitL1Sampler,         time_sampler_init);
 
   Profiler::Get().LogInitAdd(kLogInitL2InternalState,   time_cuda_context);
@@ -721,7 +679,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Device::Get(_trainer_ctx)->StreamSync(_trainer_ctx, _trainer_copy_stream);
   double time_create_stream = t_create_stream.Passed();
   update_coll_cache_hyper_param(_trainer_ctx);
-  RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(_trainer_ctx);
+  // RunConfig::coll_cache_link_desc = coll_cache::AsymmLinkDesc::AutoBuild(_trainer_ctx);
   // next code is for CPU sampling
   /*
   _work_stream = static_cast<cudaStream_t>(
@@ -748,6 +706,8 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   // if (_dataset->ranking_nodes != nullptr && _dataset->ranking_nodes->Defined()) {
   //   CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes->MutableData(), _dataset->ranking_nodes->NumBytes(), cudaHostRegisterDefault | cudaHostRegisterReadOnly));
   // }
+  // parallel initialization of sampler/trainer
+  GetGlobalBarrier()->Wait();
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
   _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
