@@ -391,6 +391,63 @@ class BenchInstance:
     self.vals['num_step'] = num_step + 1
     # print(result_map_list)
 
+  @staticmethod
+  def grep_from_log(cfg, pattern):
+    return grep_from(cfg.get_log_fname() + '.log', pattern)
+  def match_single_line_from_log(cfg, pattern):
+    line_list = BenchInstance.grep_from_log(cfg, pattern)
+    if len(line_list) == 0:
+      return None
+    return re.match(pattern, line_list[-1])
+
+  def prepare_torch_summary(self, cfg):
+    line_list = grep_from(cfg.get_log_fname() + '.log', r'.*GPU reserved memory.*')
+    if len(line_list) == 0:
+      return
+    m=re.match(r' *([0-9\.]*) (MB|B|KB|GB) ', line_list[-1].split('|')[3])
+    self.vals['mem.trainer.torch.reserve'] = float(m.group(1)) * size_unit_to_coefficient[m.group(2)]
+
+    line_list = grep_from(cfg.get_log_fname() + '.log', r'.*Active memory.*')
+    m=re.match(r' *([0-9\.]*) (MB|B|KB|GB) ', line_list[-1].split('|')[3])
+    self.vals['mem.trainer.torch.reserve.allocated'] = float(m.group(1)) * size_unit_to_coefficient[m.group(2)]
+  def prepare_sam_workspace(self, cfg):
+    line_list = grep_from(cfg.get_log_fname() + '.log', r'^\[SAM\] cuda0 workspace  .*')
+    if len(line_list) == 0:
+      return
+    # print(line_list)
+    m=re.match(r'^\[SAM\] cuda0 workspace *: *([0-9\.]*) (MB|B|KB|GB).*', line_list[-1])
+    self.vals['sam.workspace.max'] = float(m.group(1)) * size_unit_to_coefficient[m.group(2)]
+
+    m = BenchInstance.match_single_line_from_log(cfg, r'^\[CUDA\] cuda0: usage: *([0-9\.]*) (MB|B|KB|GB).*.*')
+    self.vals['mem.trainer.total'] = float(m.group(1)) * size_unit_to_coefficient[m.group(2)]
+
+    m = BenchInstance.match_single_line_from_log(cfg, r'^\[SAM\] cuda0 total *: *([0-9\.]*) (MB|B|KB|GB).*')
+    self.vals['mem.trainer.sam.total'] = float(m.group(1)) * size_unit_to_coefficient[m.group(2)]
+
+    m = BenchInstance.match_single_line_from_log(cfg, r'^\[SAM\] cuda0 total *: *([0-9\.]*) (MB|B|KB|GB).*')
+    self.vals['mem.trainer.uncountable'] = self.get_val('mem.trainer.total') - self.get_val('mem.trainer.sam.total') - self.get_val('mem.trainer.torch.reserve')
+
+    sampler_0_id = str(cfg.num_trainer)
+    m = BenchInstance.match_single_line_from_log(cfg, r'^\[CUDA\] cuda' + sampler_0_id + r': usage: *([0-9\.]*) (MB|B|KB|GB).*.*')
+    if not m:
+      return
+    self.vals['mem.sampler.total'] = float(m.group(1)) * size_unit_to_coefficient[m.group(2)]
+
+    m = BenchInstance.match_single_line_from_log(cfg, r'^\[SAM\] cuda' + sampler_0_id + r' total *: *([0-9\.]*) (MB|B|KB|GB).*')
+    self.vals['mem.sampler.sam.total'] = float(m.group(1)) * size_unit_to_coefficient[m.group(2)]
+
+    m = BenchInstance.match_single_line_from_log(cfg, r'^\[SAM\] cuda' + sampler_0_id + r' total *: *([0-9\.]*) (MB|B|KB|GB).*')
+    self.vals['mem.sampler.uncountable'] = self.get_val('mem.sampler.total') - self.get_val('mem.sampler.sam.total')
+
+    # memory:
+    #  - total cuda usage
+    #    - torch reserved
+    #      - torch allocated
+    #    - samgraph total
+    #      - cache
+    #      - batch feat * 2
+    #    - un-countable
+
   def to_formated_str(self):
     pass
     self.vals['dataset_short'] = dataset_str_short[self.get_val('dataset')]

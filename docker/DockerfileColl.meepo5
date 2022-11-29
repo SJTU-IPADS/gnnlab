@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1.2
+# use me with:
+#   cd tools/dockerfiles
+#   docker build --pull -t torch-gnn -f DockerfileColl.meepo5 --build-arg RELEASE=false .
+#   docker run --runtime=nvidia --privileged=true --cap-add=SYS_ADMIN --cap-add=SYS_NICE --ipc=host -v ${samgraph}:/samgraph -v /disk1:/nvme --name sxn-dev-gnn -it torch-gnn zsh
+
+ARG RELEASE=false
+ARG HUGECTR_DEV_MODE=true 
+
+ARG BASE_IMAGE=nvcr.io/nvidia/merlin/merlin-pytorch:22.11
+
+# FROM ${DLFW_IMAGE} as dlfw
+# FROM ${FULL_IMAGE} as triton
+FROM ${BASE_IMAGE} as base
+
+ENV LANG=en_US.UTF-8
+ENV USER=root
+
+# # Triton TF backends
+# COPY --chown=1000:1000 --from=triton /opt/tritonserver/backends/tensorflow2 backends/tensorflow2/
+
+# # Tensorflow dependencies (only)
+# # Pinning to pass hugectr sok tests
+# RUN pip install tensorflow-gpu==2.9.2 \
+#     && pip uninstall tensorflow-gpu keras -y
+
+# # DLFW Tensorflow packages
+# COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python3.8/dist-packages/tensorflow /usr/local/lib/python3.8/dist-packages/tensorflow/
+# COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python3.8/dist-packages/keras /usr/local/lib/python3.8/dist-packages/keras/
+# COPY --chown=1000:1000 --from=dlfw /usr/local/lib/tensorflow/ /usr/local/lib/tensorflow/
+# COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python3.8/dist-packages/horovod /usr/local/lib/python3.8/dist-packages/horovod/
+# COPY --chown=1000:1000 --from=dlfw /usr/local/bin/horovodrun /usr/local/bin/horovodrun
+
+
+# apt install -y --no-install-recommends \
+#     #   Required to build RocksDB.
+#         libgflags-dev \
+#         zlib1g-dev libbz2-dev libsnappy-dev liblz4-dev libzstd-dev \
+#     #   Required to build RdKafka.
+#         zlib1g-dev libzstd-dev \
+#         libssl-dev libsasl2-dev && \
+
+# Install dependencies for hps tf plugin
+RUN chmod 1777 /tmp
+RUN apt update -y --fix-missing && \
+    apt install -y --no-install-recommends zsh tmux htop &&\
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
+
+
+# Install HugeCTR
+# ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:$LD_LIBRARY_PATH \
+#     LIBRARY_PATH=/usr/local/hugectr/lib:$LIBRARY_PATH \
+#     SOK_COMPILE_UNIT_TEST=ON
+
+ENV http_proxy="http://192.168.23.105:7890"
+ENV https_proxy="http://192.168.23.105:7890"
+ENV all_proxy="http://192.168.23.105:7890"
+ENV HTTP_PROXY="http://192.168.23.105:7890"
+ENV HTTPS_PROXY="http://192.168.23.105:7890"
+ENV ALL_PROXY="http://192.168.23.105:7890"
+
+RUN pip install ninja numba
+
+RUN git clone --depth 1 --branch 0.9.1 --recursive https://github.com/dmlc/dgl.git /dgl
+#  && \
+#     pushd /dgl && \
+#     cmake -S . -B build -DUSE_CUDA=ON -DBUILD_TORCH=ON -DCMAKE_BUILD_TYPE=Release -DUSE_FP16=ON && \
+#     make -j -C build && \
+#     pushd python && python setup.py build && python setup.py install && \
+#     popd && popd;
