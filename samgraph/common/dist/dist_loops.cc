@@ -709,7 +709,7 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   // DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
   Timer t_label;
   if (RunConfig::unsupervised_sample == false) {
-    DistEngine::Get()->GetCollLabelManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream, task->key);
+    DistEngine::Get()->GetCollLabelManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream, 0xffffffffffffffff);
     // DistEngine::Get()->GetCollLabelManager()->ExtractFeat(output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream);
   } else {
     CHECK_EQ(label_type, kF32);
