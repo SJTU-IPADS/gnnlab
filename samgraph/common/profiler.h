@@ -189,7 +189,7 @@ class Profiler {
   void ResetStepEpoch();
   void LogInit(LogInitItem item, double val);
   void LogInitAdd(LogInitItem item, double val);
-  void LogStep(uint64_t key, LogStepItem item, double val);
+  void _LogStep(uint64_t key, LogStepItem item, double val);
   void LogStepAdd(uint64_t key, LogStepItem item, double val);
   void LogEpochAdd(uint64_t key, LogEpochItem item, double val);
 
@@ -202,7 +202,7 @@ class Profiler {
 
   void ReportInit();
   void ReportStep(uint64_t epoch, uint64_t step);
-  void ReportStepAverage(uint64_t epoch, uint64_t step);
+  void _ReportStepAverage(uint64_t epoch, uint64_t step);
   void ReportStepMax(uint64_t epoch, uint64_t step);
   void ReportStepMin(uint64_t epoch, uint64_t step);
   void ReportEpoch(uint64_t epoch);
@@ -217,6 +217,9 @@ class Profiler {
   void ReportPreSampleSimilarity();
 
   static Profiler &Get();
+
+  std::function<void(uint64_t epoch, uint64_t step)> ReportStepAverage;
+  std::function<void(uint64_t key, LogStepItem item, double val)> LogStep;
 
  private:
   template<typename ReduceOp>

@@ -710,6 +710,13 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   GetGlobalBarrier()->Wait();
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
   _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
+  Profiler::Get().ReportStepAverage = [this](uint64_t epoch, uint64_t step){
+    _coll_cache_manager->_profiler->ReportStepAverage(epoch, step);
+  };
+  CHECK((int)(kNumLogStepItems) == (int)(coll_cache_lib::common::kNumLogStepItems));
+  Profiler::Get().LogStep = [this](uint64_t key, LogStepItem item, double val){
+    _coll_cache_manager->_profiler->LogStep(key, (coll_cache_lib::common::LogStepItem)item, val);
+  };
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
     auto device = Device::Get(ctx);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();

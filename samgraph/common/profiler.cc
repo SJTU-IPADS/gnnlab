@@ -129,6 +129,12 @@ Profiler::Profiler() {
     _epoch_cur_visit.resize(Engine::Get()->GetGraphDataset()->num_node, 0);
     _epoch_similarity.resize(num_epoch_logs);
   }
+  this->ReportStepAverage = [this](uint64_t epoch, uint64_t step){
+    _ReportStepAverage(epoch, step);
+  };
+  this->LogStep = [this](uint64_t key, LogStepItem item, double val){
+    _LogStep(key, item, val);
+  };
 }
 
 void Profiler::ResetStepEpoch() {
@@ -184,7 +190,7 @@ void Profiler::LogInitAdd(LogInitItem item, double val) {
   _init_data[item].bitmap[key] = true;
 }
 
-void Profiler::LogStep(uint64_t key, LogStepItem item, double val) {
+void Profiler::_LogStep(uint64_t key, LogStepItem item, double val) {
   size_t item_idx = static_cast<size_t>(item);
   _step_data[item_idx].vals[key] = val;
   _step_data[item_idx].sum += val;
@@ -299,7 +305,7 @@ void Profiler::ReportStep(uint64_t epoch, uint64_t step) {
   OutputStep(key, "Step");
 }
 
-void Profiler::ReportStepAverage(uint64_t epoch, uint64_t step) {
+void Profiler::_ReportStepAverage(uint64_t epoch, uint64_t step) {
   uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
 
   size_t num_items = static_cast<size_t>(kNumLogStepItems);
