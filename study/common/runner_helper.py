@@ -300,8 +300,8 @@ class RunConfig:
     self.unsupervised = False
     self.amp = False
     self.max_num_step = None
-    self.coll_cache_no_group = False
-    self.coll_cache_concurrent_link = False
+    self.coll_cache_no_group = ""
+    self.coll_cache_concurrent_link = ""
     self.rolling = 0
 
   def cache_log_name(self):
@@ -384,10 +384,12 @@ class RunConfig:
     cmd_line += 'SAMGRAPH_LOG_NODE_ACCESS=0 '
     cmd_line += f'SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal} '
     cmd_line += f'SAMGRAPH_DUMP_TRACE={self.dump_trace} '
-    if self.coll_cache_no_group != False:
-      cmd_line += f'SAMGRAPH_COLL_CACHE_NO_GROUP=1 '
-    if self.coll_cache_concurrent_link != False:
-      cmd_line += f'SAMGRAPH_COLL_CACHE_CONCURRENT_LINK=1 '
+    if self.coll_cache_no_group != "":
+      cmd_line += f'SAMGRAPH_COLL_CACHE_NO_GROUP={self.coll_cache_no_group} '
+    if self.coll_cache_concurrent_link != "":
+      cmd_line += f' SAMGRAPH_COLL_CACHE_CONCURRENT_LINK_IMPL={self.coll_cache_concurrent_link} SAMGRAPH_COLL_CACHE_CONCURRENT_LINK=1 '
+    else:
+      cmd_line += f' SAMGRAPH_COLL_CACHE_CONCURRENT_LINK=0 '
     if self.num_feat_dim_hack != None:
       cmd_line += f'SAMGRAPH_FAKE_FEAT_DIM={self.num_feat_dim_hack} '
     if self.custom_env != '':
@@ -474,6 +476,10 @@ class RunConfig:
       [f'cache_rate_{round(self.cache_percent*100):0>3}', f'batch_size_{self.batch_size}'])
     if self.rolling != 0:
       std_out_log += f'_rolling_{self.rolling}'
+    if self.coll_cache_no_group != "":
+      std_out_log += f'_nogroup_{self.coll_cache_no_group}'
+    if self.coll_cache_concurrent_link != "":
+      std_out_log += f'_concurrent_impl_{self.coll_cache_concurrent_link}'
     return std_out_log
 
   def beauty(self):
@@ -483,6 +489,10 @@ class RunConfig:
       (["unsupervised"] if self.unsupervised else []) +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
       [f'cache rate:{round(self.cache_percent*100):0>3}%', f'batch size:{self.batch_size}', ])
+    if self.coll_cache_no_group != "":
+      msg += f' nogroup={self.coll_cache_no_group}'
+    if self.coll_cache_concurrent_link != "":
+      msg += f' concurrent_link={self.coll_cache_concurrent_link}'
     return datetime.datetime.now().strftime('[%H:%M:%S]') + msg
     
   def run(self, mock=False, durable_log=True, callback = None):
