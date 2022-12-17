@@ -1,0 +1,258 @@
+[2022-12-08 18:53:31.156400: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 12.87 GB
+[2022-12-08 18:53:31.156501: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 12.87 GB done
+[2022-12-08 18:53:36.376394: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 48.00 GB
+[2022-12-08 18:53:36.376508: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 48.00 GB done
+[2022-12-08 18:53:36.376551: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 1.82 GB
+[2022-12-08 18:53:36.376585: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 1.82 GB done
+[2022-12-08 18:53:36.376646: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 12.87 GB
+[2022-12-08 18:53:37.260361: E /samgraph/samgraph/common/engine.cc:272] Train set size 7.64 MB
+[2022-12-08 18:53:37.261091: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 68.50 GB
+[2022-12-08 18:53:37.261130: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 68.50 GB done
+/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn't match a supported version!
+  warnings.warn("urllib3 ({}) or chardet ({}) doesn't match a supported "
+[2022-12-08 18:53:37.452257: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[0] initializing...
+[2022-12-08 18:53:37.494604: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[1] initializing...
+[2022-12-08 18:53:37.495824: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[2] initializing...
+[2022-12-08 18:53:38.954337: W /samgraph/samgraph/common/dist/dist_engine.cc:666] Trainer[0] pin memory queue...
+[2022-12-08 18:53:38.964709: W /samgraph/samgraph/common/dist/dist_engine.cc:666] Trainer[1] pin memory queue...
+[2022-12-08 18:53:38.974003: W /samgraph/samgraph/common/dist/dist_engine.cc:666] Trainer[2] pin memory queue...
+[2022-12-08 18:54:03. 56776: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-08 18:54:03. 57159: E /samgraph/samgraph/common/dist/dist_engine.cc:[852022-12-08 18:54:03] .Running on V100 57220
+: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[2] register host memory...
+[2022-12-08 18:54:03. 57601: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[1] register host memory...
+[2022-12-08 18:54:03. 58706: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-08 18:54:03. 59015: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[0] register host memory...
+[2022-12-08 18:54:03.307976: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-08 18:54:03.313548: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 931.40 MB
+[2022-12-08 18:54:03.535933: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 12.87 GB
+[2022-12-08 18:54:06.496049: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 64.00 MB
+[2022-12-08 18:54:06.501616: E /samgraph/samgraph/common/dist/pre_sampler.cc:41] Dist Presampler making shuffler...
+[2022-12-08 18:54:06.507948: E /samgraph/samgraph/common/dist/pre_sampler.cc:44] Dist Presampler making shuffler...Done
+[2022-12-08 18:54:06.507994: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 1.82 GB
+[2022-12-08 18:54:07.640189: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 0
+[2022-12-08 18:54:16.  4806: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 3.70752 on sample, 0.305442 on copy, 4.33889 on count
+[2022-12-08 18:54:16.  4888: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 1
+[2022-12-08 18:54:24.536763: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 7.38681 on sample, 0.606683 on copy, 8.87764 on count
+[2022-12-08 18:54:24.536896: E /samgraph/samgraph/common/dist/pre_sampler.cc:136] max_num_inputs = 977929, min_num_inputs = 930829
+[2022-12-08 18:54:25.491742: E /samgraph/samgraph/common/dist/pre_sampler.cc:148] presample spend 0.954746 on sort freq.
+[2022-12-08 18:54:26.828431: E /samgraph/samgraph/common/dist/dist_engine.cc:524] pre sample done, delete it
+[[2022-12-08 18:54:27.2022-12-08 18:54:27287991[.2022-12-08 18:54:27: 287998.W: 288023 W: /samgraph/samgraph/common/dist/dist_engine.cc W:/samgraph/samgraph/common/dist/dist_engine.cc 711:/samgraph/samgraph/common/dist/dist_engine.cc] 711:Trainer[1] building cache...] 711
+Trainer[2] building cache...] 
+Trainer[0] building cache...
+[2022-12-08 18:54:27.290616: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:200] build symm link desc with 3X Tesla V100-SXM2-16GB out of 4
+[2022-12-08 18:54:27.290673: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:201] remote time is 8.68421
+[2022-12-08 18:54:27.290703: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:202] cpu time is 30
+[2022-12-08 18:54:27.290710: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:200] build symm link desc with 3X Tesla V100-SXM2-16GB out of 4
+[2022-12-08 18:54:27.290771: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:201] remote time is 8.68421
+[2022-12-08 18:54:27.290801: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:202] cpu time is 30
+[2022-12-08 18:54:27.291159: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:200] build symm link desc with 3X Tesla V100-SXM2-16GB out of 4
+[2022-12-08 18:54:27.291230: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:201] remote time is 8.68421
+[2022-12-08 18:54:27.291271: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:202] cpu time is 30
+[2022-12-08 18:55:12.282011: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:118] solver created. now build & solve
+[2022-12-08 18:55:12.385450: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:123] solver built. now solve
+[2022-12-08 18:55:12.385513: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:895] num_cached_nodes = 7324814
+[2022-12-08 18:55:13.759650: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:127] solver solved
+[2022-12-08 18:55:13.759763: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:195] 0 solved master
+[2022-12-08 18:55:13.759809: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:202] 0 solved
+[2022-12-08 18:55:13.759837: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:205] worker 0 thread 0 initing device 0
+[2022-12-08 18:55:13.804402: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:202] 2 solved
+[2022-12-08 18:55:13.804473: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:205] worker 2 thread 2 initing device 2
+[2022-12-08 18:55:13.804507: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:202] 1 solved
+[2022-12-08 18:55:13.804564: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:205] worker 1 thread 1 initing device 1
+[2022-12-08 18:55:13.896438: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1634] using empty feat=25
+[2022-12-08 18:55:14. 33539: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1634] using empty feat=25
+[2022-12-08 18:55:14. 53753: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1634] using empty feat=25
+[2022-12-08 18:55:15.  1242: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1744] Collaborative GPU cache (policy: rep_cache) | local 7324814 / 244160499 nodes ( 3.00 %~3.00 %) | remote 0 / 244160499 nodes ( 0.00 %) | cpu 236835685 / 244160499 nodes ( 97.00 %) | 10.48 GB | 1.1956 secs 
+[2022-12-08 18:55:15.  1431: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1744] Collaborative GPU cache (policy: rep_cache) | local 7324814 / 244160499 nodes ( 3.00 %~3.00 %) | remote 0 / 244160499 nodes ( 0.00 %) | cpu 236835685 / 244160499 nodes ( 97.00 %) | 10.48 GB | 1.19438 secs 
+[2022-12-08 18:55:15.  1538: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1744] Collaborative GPU cache (policy: rep_cache) | local 7324814 / 244160499 nodes ( 3.00 %~3.00 %) | remote 0 / 244160499 nodes ( 0.00 %) | cpu 236835685 / 244160499 nodes ( 97.00 %) | 10.48 GB | 1.23969 secs 
+[2022-12-08 18:55:21.666704: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 1.50 GB
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+Process Process-4:
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 33, in decorated_function
+    raise exception.__class__(trace)
+dgl._ffi.base.DGLError: Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 21, in _queue_result
+    res = func(*args, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 349, in run_train
+    batch_pred = model(blocks, batch_input)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 1009, in forward
+    output = self._run_ddp_forward(*inputs, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 970, in _run_ddp_forward
+    return module_to_run(*inputs[0], **kwargs[0])
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 47, in forward
+    h = layer(block, h)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/nn/pytorch/conv/sageconv.py", line 235, in forward
+    graph.update_all(msg_fn, fn.mean('m', 'neigh'))
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/heterograph.py", line 4895, in update_all
+    ndata = core.message_passing(g, message_func, reduce_func, apply_node_func)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/core.py", line 357, in message_passing
+    ndata = invoke_gspmm(g, mfunc, rfunc)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/core.py", line 332, in invoke_gspmm
+    z = op(graph, x)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/ops/spmm.py", line 189, in func
+    return gspmm(g, 'copy_lhs', reduce_op, x, None)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/ops/spmm.py", line 75, in gspmm
+    ret = gspmm_internal(g._graph, op,
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/backend/pytorch/sparse.py", line 724, in gspmm
+    return GSpMM.apply(gidx, op, reduce_op, lhs_data, rhs_data)
+  File "/usr/local/lib/python3.8/dist-packages/torch/cuda/amp/autocast_mode.py", line 103, in decorate_fwd
+    return fwd(*_cast(args, cast_inputs), **_cast(kwargs, cast_inputs))
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/backend/pytorch/sparse.py", line 106, in forward
+    out, (argX, argY) = _gspmm(gidx, op, reduce_op, X, Y)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/sparse.py", line 228, in _gspmm
+    _CAPI_DGLKernelSpMM(gidx, op, reduce_op,
+  File "dgl/_ffi/_cython/./function.pxi", line 293, in dgl._ffi._cy3.core.FunctionBase.__call__
+  File "dgl/_ffi/_cython/./function.pxi", line 239, in dgl._ffi._cy3.core.FuncCall
+dgl._ffi.base.DGLError: [18:55:22] /dgl/src/runtime/cuda/cuda_device_api.cc:303: Check failed: e == cudaSuccess || e == cudaErrorCudartUnloading: CUDA: out of memory
+Stack trace:
+  [bt] (0) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(+0x89f388) [0x7f5b47065388]
+  [bt] (1) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::runtime::CUDADeviceAPI::CopyDataFromTo(void const*, unsigned long, void*, unsigned long, unsigned long, DLContext, DLContext, DLDataType)+0x87) [0x7f5b47066c47]
+  [bt] (2) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::runtime::NDArray::CopyFromTo(DLTensor*, DLTensor*)+0x1c3) [0x7f5b46ebf013]
+  [bt] (3) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::COOSort(dgl::aten::COOMatrix, bool)+0x284) [0x7f5b46b715a4]
+  [bt] (4) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::CSRMatrix dgl::aten::impl::COOToCSR<(DLDeviceType)2, int>(dgl::aten::COOMatrix)+0xe4) [0x7f5b47094564]
+  [bt] (5) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::COOToCSR(dgl::aten::COOMatrix)+0x443) [0x7f5b46b288f3]
+  [bt] (6) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::UnitGraph::GetInCSR(bool) const+0xf5) [0x7f5b47020455]
+  [bt] (7) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::UnitGraph::GetCSCMatrix(unsigned long) const+0x2c) [0x7f5b47020c8c]
+  [bt] (8) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::HeteroGraph::GetCSCMatrix(unsigned long) const+0x38) [0x7f5b46f147d8]
+
+
+
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+Process Process-2:
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 33, in decorated_function
+    raise exception.__class__(trace)
+dgl._ffi.base.DGLError: Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 21, in _queue_result
+    res = func(*args, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 349, in run_train
+    batch_pred = model(blocks, batch_input)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 1009, in forward
+    output = self._run_ddp_forward(*inputs, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 970, in _run_ddp_forward
+    return module_to_run(*inputs[0], **kwargs[0])
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 47, in forward
+    h = layer(block, h)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/nn/pytorch/conv/sageconv.py", line 235, in forward
+    graph.update_all(msg_fn, fn.mean('m', 'neigh'))
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/heterograph.py", line 4895, in update_all
+    ndata = core.message_passing(g, message_func, reduce_func, apply_node_func)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/core.py", line 357, in message_passing
+    ndata = invoke_gspmm(g, mfunc, rfunc)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/core.py", line 332, in invoke_gspmm
+    z = op(graph, x)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/ops/spmm.py", line 189, in func
+    return gspmm(g, 'copy_lhs', reduce_op, x, None)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/ops/spmm.py", line 75, in gspmm
+    ret = gspmm_internal(g._graph, op,
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/backend/pytorch/sparse.py", line 724, in gspmm
+    return GSpMM.apply(gidx, op, reduce_op, lhs_data, rhs_data)
+  File "/usr/local/lib/python3.8/dist-packages/torch/cuda/amp/autocast_mode.py", line 103, in decorate_fwd
+    return fwd(*_cast(args, cast_inputs), **_cast(kwargs, cast_inputs))
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/backend/pytorch/sparse.py", line 106, in forward
+    out, (argX, argY) = _gspmm(gidx, op, reduce_op, X, Y)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/sparse.py", line 228, in _gspmm
+    _CAPI_DGLKernelSpMM(gidx, op, reduce_op,
+  File "dgl/_ffi/_cython/./function.pxi", line 293, in dgl._ffi._cy3.core.FunctionBase.__call__
+  File "dgl/_ffi/_cython/./function.pxi", line 239, in dgl._ffi._cy3.core.FuncCall
+dgl._ffi.base.DGLError: [18:55:22] /dgl/src/runtime/cuda/cuda_device_api.cc:303: Check failed: e == cudaSuccess || e == cudaErrorCudartUnloading: CUDA: out of memory
+Stack trace:
+  [bt] (0) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(+0x89f388) [0x7f5b47065388]
+  [bt] (1) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::runtime::CUDADeviceAPI::CopyDataFromTo(void const*, unsigned long, void*, unsigned long, unsigned long, DLContext, DLContext, DLDataType)+0x87) [0x7f5b47066c47]
+  [bt] (2) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::runtime::NDArray::CopyFromTo(DLTensor*, DLTensor*)+0x1c3) [0x7f5b46ebf013]
+  [bt] (3) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::COOSort(dgl::aten::COOMatrix, bool)+0x284) [0x7f5b46b715a4]
+  [bt] (4) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::CSRMatrix dgl::aten::impl::COOToCSR<(DLDeviceType)2, int>(dgl::aten::COOMatrix)+0xe4) [0x7f5b47094564]
+  [bt] (5) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::COOToCSR(dgl::aten::COOMatrix)+0x443) [0x7f5b46b288f3]
+  [bt] (6) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::UnitGraph::GetInCSR(bool) const+0xf5) [0x7f5b47020455]
+  [bt] (7) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::UnitGraph::GetCSCMatrix(unsigned long) const+0x2c) [0x7f5b47020c8c]
+  [bt] (8) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::HeteroGraph::GetCSCMatrix(unsigned long) const+0x38) [0x7f5b46f147d8]
+
+
+
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+Process Process-3:
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 33, in decorated_function
+    raise exception.__class__(trace)
+dgl._ffi.base.DGLError: Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 21, in _queue_result
+    res = func(*args, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 349, in run_train
+    batch_pred = model(blocks, batch_input)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 1009, in forward
+    output = self._run_ddp_forward(*inputs, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 970, in _run_ddp_forward
+    return module_to_run(*inputs[0], **kwargs[0])
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 47, in forward
+    h = layer(block, h)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/nn/pytorch/conv/sageconv.py", line 235, in forward
+    graph.update_all(msg_fn, fn.mean('m', 'neigh'))
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/heterograph.py", line 4895, in update_all
+    ndata = core.message_passing(g, message_func, reduce_func, apply_node_func)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/core.py", line 357, in message_passing
+    ndata = invoke_gspmm(g, mfunc, rfunc)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/core.py", line 332, in invoke_gspmm
+    z = op(graph, x)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/ops/spmm.py", line 189, in func
+    return gspmm(g, 'copy_lhs', reduce_op, x, None)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/ops/spmm.py", line 75, in gspmm
+    ret = gspmm_internal(g._graph, op,
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/backend/pytorch/sparse.py", line 724, in gspmm
+    return GSpMM.apply(gidx, op, reduce_op, lhs_data, rhs_data)
+  File "/usr/local/lib/python3.8/dist-packages/torch/cuda/amp/autocast_mode.py", line 103, in decorate_fwd
+    return fwd(*_cast(args, cast_inputs), **_cast(kwargs, cast_inputs))
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/backend/pytorch/sparse.py", line 106, in forward
+    out, (argX, argY) = _gspmm(gidx, op, reduce_op, X, Y)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/sparse.py", line 228, in _gspmm
+    _CAPI_DGLKernelSpMM(gidx, op, reduce_op,
+  File "dgl/_ffi/_cython/./function.pxi", line 293, in dgl._ffi._cy3.core.FunctionBase.__call__
+  File "dgl/_ffi/_cython/./function.pxi", line 239, in dgl._ffi._cy3.core.FuncCall
+dgl._ffi.base.DGLError: [18:55:22] /dgl/src/runtime/cuda/cuda_device_api.cc:303: Check failed: e == cudaSuccess || e == cudaErrorCudartUnloading: CUDA: out of memory
+Stack trace:
+  [bt] (0) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(+0x89f388) [0x7f5b47065388]
+  [bt] (1) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::runtime::CUDADeviceAPI::CopyDataFromTo(void const*, unsigned long, void*, unsigned long, unsigned long, DLContext, DLContext, DLDataType)+0x87) [0x7f5b47066c47]
+  [bt] (2) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::runtime::NDArray::CopyFromTo(DLTensor*, DLTensor*)+0x1c3) [0x7f5b46ebf013]
+  [bt] (3) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::COOSort(dgl::aten::COOMatrix, bool)+0x284) [0x7f5b46b715a4]
+  [bt] (4) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::CSRMatrix dgl::aten::impl::COOToCSR<(DLDeviceType)2, int>(dgl::aten::COOMatrix)+0xe4) [0x7f5b47094564]
+  [bt] (5) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::aten::COOToCSR(dgl::aten::COOMatrix)+0x443) [0x7f5b46b288f3]
+  [bt] (6) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::UnitGraph::GetInCSR(bool) const+0xf5) [0x7f5b47020455]
+  [bt] (7) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::UnitGraph::GetCSCMatrix(unsigned long) const+0x2c) [0x7f5b47020c8c]
+  [bt] (8) /usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/libdgl.so(dgl::HeteroGraph::GetCSCMatrix(unsigned long) const+0x38) [0x7f5b46f147d8]
+
+
+
+[2022-12-08 18:55:28.717025: E /samgraph/samgraph/common/operation.cc:567] detect a terminated child 173989, status is 1

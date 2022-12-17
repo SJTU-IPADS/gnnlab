@@ -1,0 +1,123 @@
+[2022-12-09 08:47:06.102458: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 12.87 GB
+[2022-12-09 08:47:06.102584: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 12.87 GB done
+[2022-12-09 08:47:11.363277: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 48.00 GB
+[2022-12-09 08:47:11.363384: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 48.00 GB done
+[2022-12-09 08:47:11.363425: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 1.82 GB
+[2022-12-09 08:47:11.363459: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 1.82 GB done
+[2022-12-09 08:47:11.363525: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 12.87 GB
+[2022-12-09 08:47:12.191002: E /samgraph/samgraph/common/engine.cc:272] Train set size 7.64 MB
+[2022-12-09 08:47:12.191802: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 68.50 GB
+[2022-12-09 08:47:12.191846: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 68.50 GB done
+/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn't match a supported version!
+  warnings.warn("urllib3 ({}) or chardet ({}) doesn't match a supported "
+[2022-12-09 08:47:12.399965: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[0] initializing...
+[2022-12-09 08:47:12.450173: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[2] initializing...
+[2022-12-09 08:47:12.451859: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[1] initializing...
+[2022-12-09 08:47:13.883620: W /samgraph/samgraph/common/dist/dist_engine.cc:666] Trainer[0] pin memory queue...
+[[2022-12-09 08:47:13.2022-12-09 08:47:13924363.: 924378W:  W/samgraph/samgraph/common/dist/dist_engine.cc :/samgraph/samgraph/common/dist/dist_engine.cc666:] 666Trainer[1] pin memory queue...] 
+Trainer[2] pin memory queue...
+[2022-12-09 08:47:47.111376: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-09 08:47:47.111801: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[1] register host memory...
+[2022-12-09 08:47:47.112171: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-09 08:47:47.112602: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[2] register host memory...
+[2022-12-09 08:47:47.140686: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-09 08:47:47.140782: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[0] register host memory...
+[2022-12-09 08:47:47.408374: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-09 08:47:47.417163: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 931.40 MB
+[2022-12-09 08:47:47.639775: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 12.87 GB
+[2022-12-09 08:47:50.606873: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 64.00 MB
+[2022-12-09 08:47:50.616070: E /samgraph/samgraph/common/dist/pre_sampler.cc:41] Dist Presampler making shuffler...
+[2022-12-09 08:47:50.625062: E /samgraph/samgraph/common/dist/pre_sampler.cc:44] Dist Presampler making shuffler...Done
+[2022-12-09 08:47:50.625109: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 1.82 GB
+[2022-12-09 08:47:51.916665: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 0
+[2022-12-09 08:48:01.332008: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 3.72595 on sample, 0.30531 on copy, 5.36987 on count
+[2022-12-09 08:48:01.332123: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 1
+[2022-12-09 08:48:09.797633: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 7.38774 on sample, 0.606331 on copy, 9.86035 on count
+[2022-12-09 08:48:09.797772: E /samgraph/samgraph/common/dist/pre_sampler.cc:136] max_num_inputs = 980013, min_num_inputs = 929030
+[2022-12-09 08:48:10.828867: E /samgraph/samgraph/common/dist/pre_sampler.cc:148] presample spend 1.03099 on sort freq.
+[2022-12-09 08:48:12.160443: E /samgraph/samgraph/common/dist/dist_engine.cc:524] pre sample done, delete it
+[[[2022-12-09 08:48:122022-12-09 08:48:122022-12-09 08:48:12...494326494327494343: : W /samgraph/samgraph/common/dist/dist_engine.cc:711] Trainer[0] building cache...
+: W /samgraph/samgraph/common/dist/dist_engine.ccW: 711/samgraph/samgraph/common/dist/dist_engine.cc] :Trainer[1] building cache...711
+] Trainer[2] building cache...
+[[2022-12-09 08:48:122022-12-09 08:48:12[..2022-12-09 08:48:12497971497971.: : 498001EE:   E/samgraph/3rdparty/collcachelib/coll_cache_lib/run_config.cc/samgraph/3rdparty/collcachelib/coll_cache_lib/run_config.cc ::/samgraph/3rdparty/collcachelib/coll_cache_lib/run_config.cc134134:] ] 134using concurrent impl MPSusing concurrent impl MPS] 
+
+using concurrent impl MPS
+[2022-12-09 08:48:12.499773: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:[1882022-12-09 08:48:12] .assigning 16 to cpu499823
+: [E2022-12-09 08:48:12 ./samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc499864:: [188E2022-12-09 08:48:12]  .assigning 16 to cpu/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc499900
+:: 188E]  assigning 16 to cpu/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[
+:2022-12-09 08:48:12204.] 500021build symm link desc with 3X Tesla V100-SXM2-16GB out of 4: 
+E[ 2022-12-09 08:48:12/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc.[:5000812022-12-09 08:48:12204: .] E500114build symm link desc with 3X Tesla V100-SXM2-16GB out of 4 : 
+/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.ccE: 204[/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc] 2022-12-09 08:48:12:build symm link desc with 3X Tesla V100-SXM2-16GB out of 4.205
+500229] : remote time is 8.68421E
+ [/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc2022-12-09 08:48:12[:.2022-12-09 08:48:12205500313.] : 500329remote time is 8.68421E: 
+ E/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc [:/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc2022-12-09 08:48:12205:.] 206500432remote time is 8.68421] : 
+cpu time is 30E
+ [/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc2022-12-09 08:48:12:.206500535] : cpu time is 30E
+ /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:206] cpu time is 30
+[2022-12-09 08:49:14.460937: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:118] solver created. now build & solve
+[2022-12-09 08:49:14.580216: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 931.40 MB
+[2022-12-09 08:49:14.580300: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 931.40 MB
+[2022-12-09 08:49:14.581356: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:68] mapping nid to rank...
+[2022-12-09 08:49:15.455338: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:85] counting slots...
+[2022-12-09 08:49:17.612560: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:99] Final num slot is 35
+[2022-12-09 08:49:17.612641: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:103] counting blocks...
+[2022-12-09 08:49:35.920098: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:112] Final num block is 1018
+[2022-12-09 08:49:35.920288: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:117] counting freq and density...
+[2022-12-09 08:49:40.122534: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:148] averaging freq and density...
+[2022-12-09 08:49:40.122639: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:149] 1018
+[2022-12-09 08:49:40.200658: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:123] solver built. now solve
+[2022-12-09 08:49:40.200732: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:348] constructing optimal solver, device=3, stream=1
+1018 blocks, 3 devices
+[2022-12-09 08:49:40.224019: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:503] Add Var...
+[2022-12-09 08:49:40.232849: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:521] Capacity...
+[2022-12-09 08:49:40.233526: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:524] Connect CPU...
+[2022-12-09 08:49:40.240601: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:526] Connect Access To Storage...
+[2022-12-09 08:49:40.276548: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:530] Time...
+[2022-12-09 08:49:41.111238: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:545] Coll Cache init block placement array
+[2022-12-09 08:49:41.113988: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:621] Coll Cache init block placement array done
+[2022-12-09 08:49:41.114080: W /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:623] Coll Cache model reset done
+[2022-12-09 08:49:41.117878: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:127] solver solved
+[2022-12-09 08:49:41.117928: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:195] 0 solved master
+[2022-12-09 08:49:41.117972: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:202] 0 solved
+[2022-12-09 08:49:41.118000: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:205] worker 0 thread 0 initing device 0
+[2022-12-09 08:49:41.119473: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1766] Building Coll Cache with ... num gpu device is 3
+[2022-12-09 08:49:41.161925: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:202] 1 solved
+[2022-12-09 08:49:41.162012: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:205] worker 1 thread 1 initing device 1
+[2022-12-09 08:49:41.162352: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:202] 2 solved
+[2022-12-09 08:49:41.162421: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:205] worker 2 thread 2 initing device 2
+[2022-12-09 08:49:41.164181: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1766] Building Coll Cache with ... num gpu device is 3
+[2022-12-09 08:49:41.164506: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1766] Building Coll Cache with ... num gpu device is 3
+[2022-12-09 08:49:41.333538: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1806] using empty feat=25
+[[2022-12-09 08:49:412022-12-09 08:49:41..388826388815: : WW  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu::18061806] ] using empty feat=25using empty feat=25
+
+[[2022-12-09 08:49:41[2022-12-09 08:49:41.2022-12-09 08:49:41.724067.724067: 724068: E: E E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1877:1877] 1877] Device 2 init p2p of link 0Device 1 init p2p of link 2] 
+
+Device 0 init p2p of link 1
+[2022-12-09 08:49:41.732464: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1877] Device 2 init p2p of link 1
+[2022-12-09 08:49:41.732622: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1877] Device 0 init p2p of link 2
+[2022-12-09 08:49:41.732697: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1877] Device 1 init p2p of link 0
+[2022-12-09 08:49:41.737672: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1906] Asymm Coll cache (policy: coll_cache_asymm_link) | local 2441363 / 244160499 nodes ( 1.00 %~1.00 %) | remote 4881789 / 244160499 nodes ( 2.00 %) | cpu 236837347 / 244160499 nodes ( 97.00 %) | 3.53 GB | 0.573123 secs 
+[2022-12-09 08:49:41.738250: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1906] Asymm Coll cache (policy: coll_cache_asymm_link) | local 2440189 / 244160499 nodes ( 1.00 %~1.00 %) | remote 4882963 / 244160499 nodes ( 2.00 %) | cpu 236837347 / 244160499 nodes ( 97.00 %) | 3.53 GB | 0.618733 secs 
+[2022-12-09 08:49:41.738424: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1906] Asymm Coll cache (policy: coll_cache_asymm_link) | local 2441600 / 244160499 nodes ( 1.00 %~1.00 %) | remote 4881552 / 244160499 nodes ( 2.00 %) | cpu 236837347 / 244160499 nodes ( 97.00 %) | 3.53 GB | 0.574199 secs 
+[2022-12-09 08:49:41.738660: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] before create ctx, mem is 6.27 GB
+[2022-12-09 08:49:43. 79579: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2016] after create ctx, mem is 6.74 GB
+[2022-12-09 08:49:43. 79688: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2023] after create stream, mem is 6.74 GB
+[2022-12-09 08:49:43. 79946: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] before create ctx, mem is 6.74 GB
+[2022-12-09 08:49:44.167418: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2016] after create ctx, mem is 7.22 GB
+[2022-12-09 08:49:44.167542: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2023] after create stream, mem is 7.22 GB
+[2022-12-09 08:49:44.167863: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] before create ctx, mem is 7.22 GB
+[2022-12-09 08:49:45.343266: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2016] after create ctx, mem is 7.82 GB
+[2022-12-09 08:49:45.343397: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2023] after create stream, mem is 7.82 GB
+[2022-12-09 08:49:45.343708: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] before create ctx, mem is 7.82 GB
+[2022-12-09 08:49:46.532037: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2016] after create ctx, mem is 8.22 GB
+[2022-12-09 08:49:46.532150: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2023] after create stream, mem is 8.22 GB
+[2022-12-09 08:49:53.825888: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 1.50 GB
+[2022-12-09 08:49:53.826769: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 10.01 MB
+[2022-12-09 08:49:53.829141: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 10.01 MB
+[2022-12-09 08:49:55.386115: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 1.50 GB
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")

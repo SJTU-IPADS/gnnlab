@@ -1,0 +1,117 @@
+config:eval_tsp="2022-12-08 19:33:20"
+config:arch=arch5
+config:num_train_worker=3
+config:num_sample_worker=1
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=mag240m-homo
+config:pipeline=False
+config:cache_policy=coll_cache_asymm_link
+config:cache_percentage=0.02
+config:num_epoch=4
+config:batch_size=8000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=13
+config:unsupervised=False
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=100000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/mag240m-homo
+config:torch_thread_num=13
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2']
+config:sample_workers=['cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=25
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=13
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter GomoryPasses to value 0
+Set parameter Aggregate to value 0
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 26
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.1 build v9.5.1rc2 (linux64)
+Thread count: 40 physical cores, 80 logical processors, using up to 26 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 21267 rows, 10124 columns and 63771 nonzeros
+Model fingerprint: 0x9808c322
+Variable types: 4 continuous, 10120 integer (10120 binary)
+Coefficient statistics:
+  Matrix range     [9e-04, 2e+02]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 7e+01]
+Presolve removed 12146 rows and 0 columns
+Presolve time: 0.12s
+Presolved: 9121 rows, 10124 columns, 37457 nonzeros
+Variable types: 4 continuous, 10120 integer (10120 binary)
+Found heuristic solution: objective 2620.3568627
+Found heuristic solution: objective 513.5264224
+
+Root relaxation: objective 3.004542e+02, 8520 iterations, 0.24 seconds (0.15 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0  300.45421    0   26  513.52642  300.45421  41.5%     -    0s
+H    0     0                     327.9511358  300.45421  8.38%     -    0s
+H    0     0                     301.5971869  300.45421  0.38%     -    1s
+
+Explored 1 nodes (11963 simplex iterations) in 1.74 seconds (0.85 work units)
+Thread count was 26 (of 80 available processors)
+
+Solution count 4: 301.597 327.951 513.526 2620.36 
+
+Optimal solution found (tolerance 5.00e-02)
+Best objective 3.015971868857e+02, best bound 3.004542086518e+02, gap 0.3790%
+coll_cache:optimal_local_rate=0.481471,0.477616,0.479415,
+coll_cache:optimal_remote_rate=0.455859,0.459715,0.457916,
+coll_cache:optimal_cpu_rate=0.0626693,0.0626693,0.0626693,
+z=301.597
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=7535752704
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=7530994176
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=7528487424
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
