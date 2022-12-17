@@ -1,0 +1,87 @@
+config:eval_tsp="2022-11-29 05:42:48"
+config:arch=arch5
+config:num_train_worker=6
+config:num_sample_worker=2
+config:sample_type=khop2
+config:root_path=/nvme/songxiaoniu/graph-learning/samgraph/
+config:dataset=papers100M-undir
+config:pipeline=False
+config:cache_policy=clique_part
+config:cache_percentage=0.5
+config:num_epoch=4
+config:batch_size=8000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=40
+config:unsupervised=True
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=1000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/songxiaoniu/graph-learning/samgraph/papers100M-undir
+config:torch_thread_num=9
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2', 'cuda:3', 'cuda:4', 'cuda:5']
+config:sample_workers=['cuda:6', 'cuda:7']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=0
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=14
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 0}, {link #4 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2},
+4 :  {link #0 : 5}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3},
+5 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 0}, {link #4 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2},
+4 :  {link #0 : 5}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3},
+5 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 0}, {link #4 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2},
+4 :  {link #0 : 5}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3},
+5 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 0}, {link #4 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2},
+4 :  {link #0 : 5}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3},
+5 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 0}, {link #4 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2},
+4 :  {link #0 : 5}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3},
+5 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 0}, {link #4 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2},
+4 :  {link #0 : 5}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3},
+5 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4},
+coll_cache:optimal_rep_storage=0
+coll_cache:optimal_part_storage=1
+coll_cache:optimal_cpu_storage=3.60166e-08
+coll_cache:optimal_local_storage=0.166667
+coll_cache:optimal_remote_storage=0.833333
+coll_cache:optimal_local_rate=0.166667
+coll_cache:optimal_remote_rate=0.833333
+coll_cache:optimal_cpu_rate=0
+z=71165.5,71165.5,71165.5,71165.5,71165.5,71165.5,
