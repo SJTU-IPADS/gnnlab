@@ -1,0 +1,104 @@
+config:eval_tsp="2022-12-05 19:05:29"
+config:arch=arch5
+config:num_train_worker=3
+config:num_sample_worker=1
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=com-friendster
+config:pipeline=False
+config:cache_policy=coll_cache_asymm_link
+config:cache_percentage=0.2
+config:num_epoch=4
+config:batch_size=8000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=13
+config:unsupervised=False
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=100000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/com-friendster
+config:torch_thread_num=13
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2']
+config:sample_workers=['cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=0
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=13
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter GomoryPasses to value 0
+Set parameter Aggregate to value 0
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 26
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.1 build v9.5.1rc2 (linux64)
+Thread count: 40 physical cores, 80 logical processors, using up to 26 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 21372 rows, 10174 columns and 64086 nonzeros
+Model fingerprint: 0x976052d9
+Variable types: 4 continuous, 10170 integer (10170 binary)
+Coefficient statistics:
+  Matrix range     [3e-04, 2e+02]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+02]
+Found heuristic solution: objective 2.000000e+09
+Presolve removed 12206 rows and 0 columns
+Presolve time: 0.09s
+Presolved: 9166 rows, 10174 columns, 37642 nonzeros
+Found heuristic solution: objective 9817.3993225
+Variable types: 4 continuous, 10170 integer (10170 binary)
+
+Root relaxation: objective 8.620322e+02, 8167 iterations, 0.27 seconds (0.24 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0  862.03217    0   26 9817.39932  862.03217  91.2%     -    0s
+H    0     0                     863.0379050  862.03217  0.12%     -    1s
+
+Explored 1 nodes (11220 simplex iterations) in 1.45 seconds (1.08 work units)
+Thread count was 26 (of 80 available processors)
+
+Solution count 3: 863.038 9817.4 2e+09 
+
+Optimal solution found (tolerance 5.00e-02)
+Best objective 8.630379049665e+02, best bound 8.620321672709e+02, gap 0.1165%
+coll_cache:optimal_local_rate=0.674161,0.673561,0.674176,
+coll_cache:optimal_remote_rate=0.2824,0.283,0.282385,
+coll_cache:optimal_cpu_rate=0.0434391,0.0434391,0.0434391,
+z=863.038
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=13438983168
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=13434832896
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=13443147776

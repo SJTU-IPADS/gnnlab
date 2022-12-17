@@ -1,0 +1,110 @@
+config:eval_tsp="2022-12-05 16:44:21"
+config:arch=arch5
+config:num_train_worker=3
+config:num_sample_worker=1
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=papers100M-undir
+config:pipeline=False
+config:cache_policy=coll_cache_asymm_link
+config:cache_percentage=0.2
+config:num_epoch=4
+config:batch_size=2000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=13
+config:unsupervised=True
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=1000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/papers100M-undir
+config:torch_thread_num=13
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2']
+config:sample_workers=['cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=0
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=13
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter GomoryPasses to value 0
+Set parameter Aggregate to value 0
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 26
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.1 build v9.5.1rc2 (linux64)
+Thread count: 40 physical cores, 80 logical processors, using up to 26 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 21498 rows, 10234 columns and 64464 nonzeros
+Model fingerprint: 0xfde5fac3
+Variable types: 4 continuous, 10230 integer (10230 binary)
+Coefficient statistics:
+  Matrix range     [5e-05, 9e+02]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+03]
+Found heuristic solution: objective 2.000000e+09
+Presolve removed 12278 rows and 0 columns
+Presolve time: 0.11s
+Presolved: 9220 rows, 10234 columns, 37864 nonzeros
+Found heuristic solution: objective 45166.183171
+Variable types: 4 continuous, 10230 integer (10230 binary)
+
+Root relaxation: objective 4.753214e+03, 8316 iterations, 0.27 seconds (0.18 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 4753.21400    0   26 45166.1832 4753.21400  89.5%     -    0s
+H    0     0                    4775.3742401 4753.21400  0.46%     -    0s
+
+Explored 1 nodes (12880 simplex iterations) in 0.74 seconds (0.44 work units)
+Thread count was 26 (of 80 available processors)
+
+Solution count 3: 4775.37 45166.2 2e+09 
+
+Optimal solution found (tolerance 5.00e-02)
+Best objective 4.775374240147e+03, best bound 4.753214001726e+03, gap 0.4641%
+coll_cache:optimal_local_rate=0.545127,0.544644,0.542982,
+coll_cache:optimal_remote_rate=0.398436,0.398919,0.400581,
+coll_cache:optimal_cpu_rate=0.0564371,0.0564371,0.0564371,
+z=4775.37
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11377037824
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11376057344
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11374810112
+[Train  Worker 0/3] Started with PID 125495(Tesla V100-SXM2-16GB)
+[Train  Worker 0] run train for 4 epochs with 1002 steps
+[Train  Worker 1/3] Started with PID 125497(Tesla V100-SXM2-16GB)
+[Train  Worker 1] run train for 4 epochs with 1002 steps
+[Train  Worker 2/3] Started with PID 125500(Tesla V100-SXM2-16GB)
+[Train  Worker 2] run train for 4 epochs with 1002 steps

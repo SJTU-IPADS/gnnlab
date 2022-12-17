@@ -1,0 +1,186 @@
+[2022-12-05 16:42:43.638477: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 12.03 GB
+[2022-12-05 16:42:43.638596: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 12.03 GB done
+[2022-12-05 16:42:48.765975: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 52.96 GB
+[2022-12-05 16:42:48.766081: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 52.96 GB done
+[2022-12-05 16:42:48.766167: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 12.03 GB
+[2022-12-05 16:42:49.577332: E /samgraph/samgraph/common/engine.cc:272] Train set size 7.64 MB
+[2022-12-05 16:42:49.578148: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:92] mmap allocating space 68.50 GB
+[2022-12-05 16:42:49.578191: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:97] mmap allocating space 68.50 GB done
+/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn't match a supported version!
+  warnings.warn("urllib3 ({}) or chardet ({}) doesn't match a supported "
+[2022-12-05 16:42:49.772319: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[0] initializing...
+[2022-12-05 16:42:49.780556: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[2] initializing...
+[2022-12-05 16:42:49.780747: W /samgraph/samgraph/common/dist/dist_engine.cc:662] Trainer[1] initializing...
+[2022-12-05 16:42:51.224322: W /samgraph/samgraph/common/dist/dist_engine.cc:666] Trainer[0] pin memory queue...
+[2022-12-05 16:42:51.224830: W /samgraph/samgraph/common/dist/dist_engine.cc:666] Trainer[2] pin memory queue...
+[2022-12-05 16:42:51.228622: W /samgraph/samgraph/common/dist/dist_engine.cc:666] Trainer[1] pin memory queue...
+[2022-12-05 16:43:14.370755: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-05 16:43:14.371242: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[0] register host memory...
+[2022-12-05 16:43:14.373700: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-05 16:43:14.374087: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[1] register host memory...
+[2022-12-05 16:43:14.374826: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-05 16:43:14.375165: W /samgraph/samgraph/common/dist/dist_engine.cc:701] Trainer[2] register host memory...
+[2022-12-05 16:43:14.619920: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2022-12-05 16:43:14.625062: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 423.66 MB
+[2022-12-05 16:43:14.740865: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 12.03 GB
+[2022-12-05 16:43:17.733083: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[3] alloc cuda memory 64.00 MB
+[2022-12-05 16:43:17.738477: E /samgraph/samgraph/common/dist/pre_sampler.cc:41] Dist Presampler making shuffler...
+[2022-12-05 16:43:17.743545: E /samgraph/samgraph/common/dist/pre_sampler.cc:44] Dist Presampler making shuffler...Done
+[2022-12-05 16:43:17.743592: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 847.32 MB
+[2022-12-05 16:43:18. 35094: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 0
+[2022-12-05 16:43:27.514536: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 4.56749 on sample, 0.365032 on copy, 4.53533 on count
+[2022-12-05 16:43:27.514623: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 1
+[2022-12-05 16:43:37.  5353: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 9.1278 on sample, 0.727906 on copy, 9.09152 on count
+[2022-12-05 16:43:37.  5456: E /samgraph/samgraph/common/dist/pre_sampler.cc:136] max_num_inputs = 1173018, min_num_inputs = 1139453
+[2022-12-05 16:43:37.315790: E /samgraph/samgraph/common/dist/pre_sampler.cc:148] presample spend 0.310239 on sort freq.
+[2022-12-05 16:43:37.668683: E /samgraph/samgraph/common/dist/dist_engine.cc:524] pre sample done, delete it
+[2022-12-05 16:43:37[.[694396: W /samgraph/samgraph/common/dist/dist_engine.cc:711] Trainer[0] building cache...
+2022-12-05 16:43:37.694418: 2022-12-05 16:43:37W. 694412/samgraph/samgraph/common/dist/dist_engine.cc: :W711 ] /samgraph/samgraph/common/dist/dist_engine.ccTrainer[2] building cache...:
+711] Trainer[1] building cache...
+[2022-12-05 16:43:37.701547: E /samgraph/3rdparty/collcachelib/coll_cache_lib/run_config.cc:134] using concurrent impl MPS
+[[2022-12-05 16:43:372022-12-05 16:43:37..701992702001: : EE  /samgraph/3rdparty/collcachelib/coll_cache_lib/run_config.cc/samgraph/3rdparty/collcachelib/coll_cache_lib/run_config.cc::134134] ] using concurrent impl MPSusing concurrent impl MPS
+
+[2022-12-05 16:43:37.702152: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:196] build symm link desc with 3X Tesla V100-SXM2-16GB out of 4
+[2022-12-05 16:43:37.702265: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:197] remote time is 8.68421
+[2022-12-05 16:43:37.702343: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:198] cpu time is 30
+[2022-12-05 16:43:37.703126: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[:2022-12-05 16:43:37196.] 703133: build symm link desc with 3X Tesla V100-SXM2-16GB out of 4E
+ /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:196] build symm link desc with 3X Tesla V100-SXM2-16GB out of 4
+[2022-12-05 16:43:37.703957: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:197] remote time is 8.68421
+[2022-12-05 16:43:37.703994: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:198] cpu time is 30
+[2022-12-05 16:43:37.704215: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:197] remote time is 8.68421
+[2022-12-05 16:43:37.704304: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:198] cpu time is 30
+[2022-12-05 16:43:53.302063: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:115] solver created. now build & solve
+[2022-12-05 16:43:53.348178: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:120] solver built. now solve
+[2022-12-05 16:43:53.348220: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:895] num_cached_nodes = 22211991
+[2022-12-05 16:43:53.837851: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:124] solver solved
+[2022-12-05 16:43:53.837941: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:187] 0 solved master
+[2022-12-05 16:43:53.837995: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:194] 0 solved
+[2022-12-05 16:43:53.838023: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:197] worker 0 thread 0 initing device 0
+[2022-12-05 16:43:53.857836: [E2022-12-05 16:43:53 ./samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc857869:: 194E]  2 solved/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+:194] 1 solved[
+2022-12-05 16:43:53.857936: [E2022-12-05 16:43:53 ./samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc857947:: 197E]  worker 2 thread 2 initing device 2/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+:197] worker 1 thread 1 initing device 1
+[2022-12-05 16:43:54.929423: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1740] Collaborative GPU cache (policy: rep_cache) | local 22211991 / 111059956 nodes ( 20.00 %~20.00 %) | remote 0 / 111059956 nodes ( 0.00 %) | cpu 88847965 / 111059956 nodes ( 80.00 %) | 10.59 GB | 1.09012 secs 
+[2022-12-05 16:43:54.930113: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1740] Collaborative GPU cache (policy: rep_cache) | local 22211991 / 111059956 nodes ( 20.00 %~20.00 %) | remote 0 / 111059956 nodes ( 0.00 %) | cpu 88847965 / 111059956 nodes ( 80.00 %) | 10.59 GB | 1.0699 secs 
+[2022-12-05 16:43:54.930620: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu[:2022-12-05 16:43:541740.] 930636Collaborative GPU cache (policy: rep_cache) | local 22211991 / 111059956 nodes ( 20.00 %~20.00 %) | remote 0 / 111059956 nodes ( 0.00 %) | cpu 88847965 / 111059956 nodes ( 80.00 %) | 10.59 GB | 1.07048 secs : 
+W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2004] before create ctx, mem is 12.36 GB
+[2022-12-05 16:43:56.192434: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] after create ctx, mem is 12.84 GB
+[2022-12-05 16:43:56.192542: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2017] after create stream, mem is 12.84 GB
+[2022-12-05 16:43:56.192822: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2004] before create ctx, mem is 12.84 GB
+[2022-12-05 16:43:57.293517: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] after create ctx, mem is 13.33 GB
+[2022-12-05 16:43:57.293629: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2017] after create stream, mem is 13.33 GB
+[2022-12-05 16:43:57.293912: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2004] before create ctx, mem is 13.33 GB
+[2022-12-05 16:43:58.444605: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] after create ctx, mem is 13.97 GB
+[2022-12-05 16:43:58.444726: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2017] after create stream, mem is 13.97 GB
+[2022-12-05 16:43:58.445441: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2004] before create ctx, mem is 13.97 GB
+[2022-12-05 16:43:59.592002: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2010] after create ctx, mem is 14.35 GB
+[2022-12-05 16:43:59.592115: W /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2017] after create stream, mem is 14.35 GB
+[2022-12-05 16:44:06.547224: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 615.83 MB
+[2022-12-05 16:44:06.548065: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.03 MB
+[2022-12-05 16:44:06.548629: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.03 MB
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+Process Process-2:
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 33, in decorated_function
+    raise exception.__class__(trace)
+RuntimeError: Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 21, in _queue_result
+    res = func(*args, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 349, in run_train
+    batch_pred = model(blocks, batch_input)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 1009, in forward
+    output = self._run_ddp_forward(*inputs, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 970, in _run_ddp_forward
+    return module_to_run(*inputs[0], **kwargs[0])
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 47, in forward
+    h = layer(block, h)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/nn/pytorch/conv/sageconv.py", line 238, in forward
+    h_neigh = self.fc_neigh(h_neigh)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py", line 114, in forward
+    return F.linear(input, self.weight, self.bias)
+RuntimeError: CUDA error: CUBLAS_STATUS_NOT_INITIALIZED when calling `cublasCreate(handle)`
+
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+Process Process-3:
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 33, in decorated_function
+    raise exception.__class__(trace)
+RuntimeError: Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 21, in _queue_result
+    res = func(*args, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 349, in run_train
+    batch_pred = model(blocks, batch_input)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 1009, in forward
+    output = self._run_ddp_forward(*inputs, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 970, in _run_ddp_forward
+    return module_to_run(*inputs[0], **kwargs[0])
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 47, in forward
+    h = layer(block, h)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/nn/pytorch/conv/sageconv.py", line 238, in forward
+    h_neigh = self.fc_neigh(h_neigh)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py", line 114, in forward
+    return F.linear(input, self.weight, self.bias)
+RuntimeError: CUDA error: CUBLAS_STATUS_NOT_INITIALIZED when calling `cublasCreate(handle)`
+
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+Process Process-4:
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 33, in decorated_function
+    raise exception.__class__(trace)
+RuntimeError: Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/multiprocessing/pytorch.py", line 21, in _queue_result
+    res = func(*args, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 349, in run_train
+    batch_pred = model(blocks, batch_input)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 1009, in forward
+    output = self._run_ddp_forward(*inputs, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/distributed.py", line 970, in _run_ddp_forward
+    return module_to_run(*inputs[0], **kwargs[0])
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "../../example/samgraph/multi_gpu/unsupervised/train_graphsage.py", line 47, in forward
+    h = layer(block, h)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/dgl-0.9.1-py3.8-linux-x86_64.egg/dgl/nn/pytorch/conv/sageconv.py", line 238, in forward
+    h_neigh = self.fc_neigh(h_neigh)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/module.py", line 1186, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/usr/local/lib/python3.8/dist-packages/torch/nn/modules/linear.py", line 114, in forward
+    return F.linear(input, self.weight, self.bias)
+RuntimeError: CUDA error: CUBLAS_STATUS_NOT_INITIALIZED when calling `cublasCreate(handle)`
+
+[2022-12-05 16:44:10.975368: E /samgraph/samgraph/common/operation.cc:567] detect a terminated child 125170, status is 1

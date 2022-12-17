@@ -1,0 +1,163 @@
+config:eval_tsp="2022-12-06 13:52:59"
+config:arch=arch5
+config:num_train_worker=3
+config:num_sample_worker=1
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=com-friendster
+config:pipeline=False
+config:cache_policy=coll_cache_asymm_link
+config:cache_percentage=0.14
+config:num_epoch=4
+config:batch_size=8000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=13
+config:unsupervised=False
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=100000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/com-friendster
+config:torch_thread_num=13
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2']
+config:sample_workers=['cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=0
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=13
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter GomoryPasses to value 0
+Set parameter Aggregate to value 0
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 26
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.1 build v9.5.1rc2 (linux64)
+Thread count: 40 physical cores, 80 logical processors, using up to 26 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 21351 rows, 10164 columns and 64023 nonzeros
+Model fingerprint: 0xfce3e6ac
+Variable types: 4 continuous, 10160 integer (10160 binary)
+Coefficient statistics:
+  Matrix range     [3e-04, 2e+02]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+02]
+Found heuristic solution: objective 2.000000e+09
+Presolve removed 12194 rows and 0 columns
+Presolve time: 0.09s
+Presolved: 9157 rows, 10164 columns, 37605 nonzeros
+Found heuristic solution: objective 10282.841948
+Variable types: 4 continuous, 10160 integer (10160 binary)
+
+Root relaxation: objective 1.135527e+03, 7868 iterations, 0.14 seconds (0.11 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 1135.52715    0   29 10282.8419 1135.52715  89.0%     -    0s
+H    0     0                    1138.8375313 1135.52715  0.29%     -    0s
+
+Explored 1 nodes (10557 simplex iterations) in 0.42 seconds (0.30 work units)
+Thread count was 26 (of 80 available processors)
+
+Solution count 3: 1138.84 10282.8 2e+09 
+
+Optimal solution found (tolerance 5.00e-02)
+Best objective 1.138837531250e+03, best bound 1.135527152137e+03, gap 0.2907%
+coll_cache:optimal_local_rate=0.467541,0.468212,0.467121,
+coll_cache:optimal_remote_rate=0.468734,0.468063,0.469153,
+coll_cache:optimal_cpu_rate=0.063725,0.063725,0.063725,
+z=1138.84
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=9412166656
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=9406896128
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=9394001920
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter GomoryPasses to value 0
+Set parameter Aggregate to value 0
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 26
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.1 build v9.5.1rc2 (linux64)
+Thread count: 40 physical cores, 80 logical processors, using up to 26 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 21351 rows, 10164 columns and 64023 nonzeros
+Model fingerprint: 0x43ca4e2c
+Variable types: 4 continuous, 10160 integer (10160 binary)
+Coefficient statistics:
+  Matrix range     [3e-04, 2e+02]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+02]
+Found heuristic solution: objective 2.000000e+09
+Presolve removed 12194 rows and 0 columns
+Presolve time: 0.09s
+Presolved: 9157 rows, 10164 columns, 37605 nonzeros
+Found heuristic solution: objective 10611.610180
+Variable types: 4 continuous, 10160 integer (10160 binary)
+
+Root relaxation: objective 1.135527e+03, 9375 iterations, 0.34 seconds (0.31 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 1135.52669    0   26 10611.6102 1135.52669  89.3%     -    0s
+H    0     0                    1138.8375258 1135.52669  0.29%     -    0s
+
+Explored 1 nodes (11948 simplex iterations) in 0.63 seconds (0.51 work units)
+Thread count was 26 (of 80 available processors)
+
+Solution count 3: 1138.84 10611.6 2e+09 
+
+Optimal solution found (tolerance 5.00e-02)
+Best objective 1.138837525844e+03, best bound 1.135526694108e+03, gap 0.2907%
+coll_cache:optimal_local_rate=0.469386,0.46794,0.466063,
+coll_cache:optimal_remote_rate=0.466889,0.468335,0.470212,
+coll_cache:optimal_cpu_rate=0.063725,0.063725,0.063725,
+z=1138.84
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
