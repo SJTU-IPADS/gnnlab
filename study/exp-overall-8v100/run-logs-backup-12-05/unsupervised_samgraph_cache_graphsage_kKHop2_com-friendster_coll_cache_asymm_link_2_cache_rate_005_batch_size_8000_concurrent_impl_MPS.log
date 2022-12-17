@@ -1,0 +1,421 @@
+config:eval_tsp="2022-12-07 10:21:12"
+config:arch=arch5
+config:num_train_worker=6
+config:num_sample_worker=2
+config:sample_type=khop2
+config:root_path=/nvme/samgraph/
+config:dataset=com-friendster
+config:pipeline=False
+config:cache_policy=coll_cache_asymm_link
+config:cache_percentage=0.05
+config:num_epoch=4
+config:batch_size=8000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=6
+config:unsupervised=True
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=1000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/samgraph/com-friendster
+config:torch_thread_num=8
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2', 'cuda:3', 'cuda:4', 'cuda:5']
+config:sample_workers=['cuda:6', 'cuda:7']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=0
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=13
+test_result:init:input_scale_factor=1.1
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter GomoryPasses to value 0
+Set parameter Aggregate to value 0
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 12
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.2 build v9.5.2rc0 (linux64)
+Thread count: 48 physical cores, 96 logical processors, using up to 12 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 117912 rows, 25857 columns and 291624 nonzeros
+Model fingerprint: 0xb76ab208
+Variable types: 7 continuous, 25850 integer (25850 binary)
+Coefficient statistics:
+  Matrix range     [2e-04, 2e+04]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 3e+04]
+Presolve removed 93065 rows and 0 columns
+Presolve time: 0.29s
+Presolved: 24847 rows, 25857 columns, 100329 nonzeros
+Variable types: 7 continuous, 25850 integer (25850 binary)
+Found heuristic solution: objective 736194.34877
+
+Deterministic concurrent LP optimizer: primal and dual simplex
+Showing first log only...
+
+
+Use crossover to convert LP symmetric solution to basic solution...
+Concurrent spin time: 0.00s
+
+Solved with primal simplex
+
+Root relaxation: objective 3.608990e+05, 21217 iterations, 0.69 seconds (0.57 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 360898.952    0 5113 736194.349 360898.952  51.0%     -    1s
+H    0     0                    736117.22745 360898.952  51.0%     -    2s
+H    0     0                    540307.79330 360898.952  33.2%     -    3s
+     0     0 407561.251    0 3455 540307.793 407561.251  24.6%     -    3s
+H    0     0                    499998.42645 407561.251  18.5%     -    4s
+     0     0 416620.744    0 2779 499998.426 416620.744  16.7%     -    4s
+     0     0 423639.893    0 2766 499998.426 423639.893  15.3%     -    5s
+     0     0 438346.021    0 3205 499998.426 438346.021  12.3%     -    5s
+     0     0 440309.378    0 3263 499998.426 440309.378  11.9%     -    6s
+     0     0 441163.811    0 3404 499998.426 441163.811  11.8%     -    6s
+     0     0 441707.331    0 3634 499998.426 441707.331  11.7%     -    6s
+     0     0 443876.701    0 3718 499998.426 443876.701  11.2%     -    7s
+     0     0 445994.427    0 3705 499998.426 445994.427  10.8%     -    7s
+     0     0 447843.419    0 3696 499998.426 447843.419  10.4%     -    7s
+     0     0 449162.480    0 3702 499998.426 449162.480  10.2%     -    7s
+     0     0 450702.024    0 3731 499998.426 450702.024  9.86%     -    8s
+     0     0 451487.306    0 3761 499998.426 451487.306  9.70%     -    8s
+     0     0 452292.890    0 3734 499998.426 452292.890  9.54%     -    8s
+     0     0 452374.923    0 3726 499998.426 452374.923  9.52%     -    8s
+     0     0 452401.926    0 3774 499998.426 452401.926  9.52%     -    9s
+     0     0 452475.776    0 3760 499998.426 452475.776  9.50%     -    9s
+     0     0 452565.148    0 3750 499998.426 452565.148  9.49%     -    9s
+     0     0 452574.633    0 3745 499998.426 452574.633  9.48%     -   10s
+     0     0 452574.715    0 3731 499998.426 452574.715  9.48%     -   10s
+     0     0 452957.784    0 3472 499998.426 452957.784  9.41%     -   11s
+H    0     0                    499668.38135 452957.784  9.35%     -   11s
+     0     0 453002.892    0 3458 499668.381 453002.892  9.34%     -   11s
+     0     0 453129.593    0 3490 499668.381 453129.593  9.31%     -   11s
+     0     0 453198.084    0 3477 499668.381 453198.084  9.30%     -   12s
+     0     0 453207.669    0 3570 499668.381 453207.669  9.30%     -   12s
+     0     0 453648.006    0 3423 499668.381 453648.006  9.21%     -   13s
+H    0     0                    492852.68588 453648.006  7.95%     -   13s
+     0     0 453701.640    0 3498 492852.686 453701.640  7.94%     -   14s
+     0     0 453803.522    0 3506 492852.686 453803.522  7.92%     -   14s
+     0     0 453926.351    0 3558 492852.686 453926.351  7.90%     -   14s
+     0     0 453959.673    0 3586 492852.686 453959.673  7.89%     -   14s
+     0     0 453973.378    0 3627 492852.686 453973.378  7.89%     -   15s
+     0     0 456459.026    0 3338 492852.686 456459.026  7.38%     -   16s
+     0     0 456562.012    0 3339 492852.686 456562.012  7.36%     -   16s
+     0     0 456631.053    0 3389 492852.686 456631.053  7.35%     -   16s
+     0     0 456650.514    0 3383 492852.686 456650.514  7.35%     -   17s
+     0     0 457198.190    0 3383 492852.686 457198.190  7.23%     -   18s
+H    0     0                    491648.42984 457198.190  7.01%     -   19s
+     0     0 457956.796    0 3438 491648.430 457956.796  6.85%     -   19s
+     0     0 458196.309    0 3460 491648.430 458196.309  6.80%     -   19s
+     0     0 458462.364    0 3449 491648.430 458462.364  6.75%     -   19s
+     0     0 458700.934    0 3452 491648.430 458700.934  6.70%     -   19s
+     0     0 458940.371    0 3404 491648.430 458940.371  6.65%     -   20s
+     0     0 459065.660    0 3437 491648.430 459065.660  6.63%     -   20s
+     0     0 459189.657    0 3436 491648.430 459189.657  6.60%     -   20s
+     0     0 459339.334    0 3446 491648.430 459339.334  6.57%     -   20s
+     0     0 459400.763    0 3424 491648.430 459400.763  6.56%     -   20s
+     0     0 459416.390    0 3423 491648.430 459416.390  6.56%     -   21s
+     0     0 460985.752    0 3263 491648.430 460985.752  6.24%     -   21s
+     0     0 461131.400    0 3268 491648.430 461131.400  6.21%     -   22s
+     0     0 461254.142    0 3273 491648.430 461254.142  6.18%     -   22s
+     0     0 461283.879    0 3262 491648.430 461283.879  6.18%     -   22s
+     0     0 461407.992    0 3259 491648.430 461407.992  6.15%     -   23s
+H    0     0                    491648.02745 461407.992  6.15%     -   24s
+     0     0 461469.769    0 3261 491648.027 461469.769  6.14%     -   24s
+     0     0 461488.105    0 3258 491648.027 461488.105  6.13%     -   24s
+     0     0 461536.325    0 3249 491648.027 461536.325  6.12%     -   25s
+H    0     0                    491568.84074 461536.325  6.11%     -   25s
+     0     0 461542.361    0 3248 491568.841 461542.361  6.11%     -   25s
+     0     0 461787.775    0 3254 491568.841 461787.775  6.06%     -   26s
+     0     0 461787.775    0 3229 491568.841 461787.775  6.06%     -   27s
+     0     2 461787.775    0 3229 491568.841 461787.775  6.06%     -   44s
+     3     8 461791.302    2 3250 491568.841 461788.781  6.06%  3288   45s
+    27    40 461832.239    5 3265 491568.841 461798.626  6.06%  1493   70s
+H   29    40                    491568.50682 461798.626  6.06%  1417   70s
+    79    92 461832.367   10 3265 491568.507 461798.626  6.06%   696   94s
+    91   174 461832.424   11 3265 491568.507 461798.626  6.06%   614   95s
+   825  1127 462326.485   33 3215 491568.507 461798.626  6.06%   174  102s
+H 1126  1374                    491542.20083 461798.626  6.05%   178  105s
+  1689  1986 462421.741   70 3267 491542.201 461798.626  6.05%   195  111s
+  1985  2201 462859.224   85 3244 491542.201 461798.626  6.05%   204  115s
+H 2236  2408                    491239.93908 461798.626  5.99%   221  118s
+  2440  2613 466603.052  106 2841 491239.939 461798.626  5.99%   238  123s
+H 2455  2612                    490938.53040 461798.626  5.94%   239  123s
+H 2504  2612                    490937.30647 461798.626  5.94%   244  123s
+H 2534  2611                    490774.94555 461798.626  5.90%   248  123s
+  2645  2898 468464.696  116 2582 490774.946 461798.626  5.90%   251  127s
+H 2932  3074                    490747.83199 461798.626  5.90%   263  132s
+  3108  3329 473583.770  145 2206 490747.832 461798.626  5.90%   274  137s
+  3363  3615 475097.747  158 2005 490747.832 461798.626  5.90%   289  141s
+  3649  3968 477211.388  176 1892 490747.832 461798.626  5.90%   302  146s
+  4028  4253 479921.588  199 1738 490747.832 461798.626  5.90%   306  157s
+  4313  4668 480491.395  222 1662 490747.832 461798.626  5.90%   306  163s
+  4754  5138 480491.395  253 1667 490747.832 461798.626  5.90%   309  169s
+  5224  5608 480895.331  287 1568 490747.832 461798.626  5.90%   310  175s
+  5694  6135 482156.133  314 1407 490747.832 461798.626  5.90%   312  181s
+  6234  6708 485089.586  346 1244 490747.832 461798.649  5.90%   310  188s
+  6941  6929 461807.623    7 3222 490747.832 461798.649  5.90%   303  200s
+
+Cutting planes:
+  MIR: 211
+  Zero half: 238
+  Mod-K: 2455
+
+Explored 7266 nodes (2305922 simplex iterations) in 200.02 seconds (254.26 work units)
+Thread count was 12 (of 96 available processors)
+
+Solution count 10: 490748 490775 490937 ... 491648
+
+Time limit reached
+Best objective 4.907478319947e+05, best bound 4.617986491054e+05, gap 5.8990%
+coll_cache:optimal_local_rate=0.225259,0.226312,0.228008,0.208119,0.239898,0.231561,
+coll_cache:optimal_remote_rate=0.454296,0.453243,0.451547,0.471435,0.439657,0.447994,
+coll_cache:optimal_cpu_rate=0.320445,0.320445,0.320445,0.320445,0.320445,0.320445,
+z=490748
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=3365842944
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=3365863424
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=3365784576
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=3365359616
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=3365512192
+test_result:init:feat_nbytes=67182966784
+test_result:init:cache_nbytes=3365652480
+[Train  Worker 5/6] Started with PID 82881(Tesla V100-SXM2-32GB)
+[Train  Worker 5] run train for 4 epochs with 1002 steps
+[Train  Worker 2/6] Started with PID 82872(Tesla V100-SXM2-32GB)
+[Train  Worker 2] run train for 4 epochs with 1002 steps
+[Train  Worker 3/6] Started with PID 82875(Tesla V100-SXM2-32GB)
+[Train  Worker 3] run train for 4 epochs with 1002 steps
+[Train  Worker 1/6] Started with PID 82869(Tesla V100-SXM2-32GB)
+[Train  Worker 1] run train for 4 epochs with 1002 steps
+[CUDA] cuda0: usage: 19.83 GB
+[SAM] cuda0 data alloc        : 0.00 Bytes
+[SAM] cuda0 workspace         : 9.20 GB
+[SAM] cuda0 workspace reserve : 4.57 GB
+[SAM] cuda0 total             : 9.20 GB
+[Train  Worker 4/6] Started with PID 82878(Tesla V100-SXM2-32GB)
+[Train  Worker 4] run train for 4 epochs with 1002 steps
+[Train  Worker 0/6] Started with PID 82866(Tesla V100-SXM2-32GB)
+[Train  Worker 0] run train for 4 epochs with 1002 steps
+Epoch 00000 | Epoch Time 75.0986 | Total Train Time(Profiler) 37.0357 | Copy Time 38.0448
+[CUDA] cuda0: usage: 19.83 GB
+[SAM] cuda0 data alloc        : 0.00 Bytes
+[SAM] cuda0 workspace         : 9.20 GB
+[SAM] cuda0 workspace reserve : 4.56 GB
+[SAM] cuda0 total             : 9.20 GB
+Epoch 00001 | Epoch Time 73.3422 | Total Train Time(Profiler) 35.4925 | Copy Time 37.8318
+[CUDA] cuda0: usage: 19.83 GB
+[SAM] cuda0 data alloc        : 0.00 Bytes
+[SAM] cuda0 workspace         : 9.20 GB
+[SAM] cuda0 workspace reserve : 4.57 GB
+[SAM] cuda0 total             : 9.20 GB
+Epoch 00002 | Epoch Time 73.4973 | Total Train Time(Profiler) 35.6870 | Copy Time 37.7930
+[CUDA] cuda0: usage: 19.83 GB
+[SAM] cuda0 data alloc        : 0.00 Bytes
+[SAM] cuda0 workspace         : 9.20 GB
+[SAM] cuda0 workspace reserve : 4.56 GB
+[SAM] cuda0 total             : 9.20 GB
+Epoch 00003 | Epoch Time 73.4943 | Total Train Time(Profiler) 35.7249 | Copy Time 37.7503
+[Train  Worker 3] Avg Epoch Time 73.4447 | Train Total Time(Profiler) 5.8239 | Copy Time 67.6036
+[Train  Worker 1] Avg Epoch Time 73.4446 | Train Total Time(Profiler) 5.6643 | Copy Time 67.7638
+[Train  Worker 5] Avg Epoch Time 73.4446 | Train Total Time(Profiler) 35.3968 | Copy Time 38.0310
+[Train  Worker 2] Avg Epoch Time 73.4447 | Train Total Time(Profiler) 5.6853 | Copy Time 67.7433
+[Train  Worker 0] Avg Epoch Time 73.4446 | Train Total Time(Profiler) 35.6348 | Copy Time 37.7917
+[Train  Worker 4] Avg Epoch Time 73.4446 | Train Total Time(Profiler) 5.8224 | Copy Time 67.6021
+[Sample Worker 1/2] Started with PID 82863(Tesla V100-SXM2-32GB)
+[Sample Worker 1] run sample for 4 epochs with 501 steps
+[Sample Worker 1] Avg Sample Total Time 15.2670 | Sampler Total Time(Profiler) 15.2601
+    [Step(average) Profiler Level 1 E3 S500]
+        L1  sample           0.025353 | send           0.005024
+        L1  recv             0.000000 | copy           0.000000 | convert time 0.000000 | train  0.000000
+        L1  feature nbytes 0.00 Bytes | label nbytes 0.00 Bytes
+        L1  id nbytes      0.00 Bytes | graph nbytes 0.00 Bytes
+        L1  miss nbytes    0.00 Bytes | remote nbytes 0.00 Bytes
+        L1  num nodes         4298843 | num samples     5578498
+    [Step(average) Profiler Level 2 E3 S500]
+        L2  shuffle     0.000658 | core sample  0.011486 | id remap        0.012980
+        L2  graph copy  0.000000 | id copy      0.000000 | cache feat copy 0.000000
+        L2  last layer sample time 0.000748 | size 227995.466401
+    [Step(average) Profiler Level 3 E3 S500]
+        L3  khop sample coo  0.009184 | khop sort coo      0.000000 | khop count edge     0.000075 | khop compact edge 0.002163
+        L3  walk sample coo  0.000000 | walk topk total    0.000000 | walk topk step1     0.000000 | walk topk step2   0.000000
+        L3  walk topk step3  0.000000 | walk topk step4    0.000000 | walk topk step5     0.000000
+        L3  walk topk step6  0.000000 | walk topk step7    0.000000
+        L3  remap unique     0.000216 | remap populate     0.010689 | remap mapnode       0.000000 | remap mapedge     0.002311
+        L3  cache get_index  0.000000 | cache copy_index   0.000000 | cache extract_miss  0.000000
+        L3  cache copy_miss  0.000000 | cache combine_miss 0.000000 | cache combine cache 0.000000 | cache combine remote 0.000000
+        L3  label extract  0.000000
+    [Init Profiler Level 1]
+        L1  init     9.9697 | sampler init   276.9206 | trainer init 0.0000
+    [Init Profiler Level 2]
+        L2  load ds        13.0015 | init queue         153.6319
+        L2  presample     117.5262 | build interal ds     2.7259
+        L2  build cache     0.0000
+    [Init Profiler Level 3]
+        L3  load dataset: mmap     9.9659 | copy         3.0356
+        L3  dist queue: alloc      0.0009 | pin        153.6311 | push     0.0000
+        L3  presample: init        0.2395
+        L3  presample: sample     50.0738 | copy         2.7986
+        L3  presample: count      63.8292 | sort         0.2832
+        L3  presample: reset       0.0012 | get rank     0.0146
+        L3  internal: cuda ctx     2.3553 | cuda stream     0.3441
+[Sample Worker 0/2] Started with PID 82860(Tesla V100-SXM2-32GB)
+[Sample Worker 0] run sample for 4 epochs with 501 steps
+[Sample Worker 0] Avg Sample Total Time 15.2718 | Sampler Total Time(Profiler) 15.2191
+test_result:sample_time=12.7018
+test_result:get_cache_miss_index_time=0.0000
+test_result:enqueue_samples_time=2.5172
+test_result:epoch_time:sample_total=15.2718
+[CUDA] cuda0: usage: 19.83 GB
+[SAM] cuda0 data alloc        : 0.00 Bytes
+[SAM] cuda0 workspace         : 9.20 GB
+[SAM] cuda0 workspace reserve : 4.56 GB
+[SAM] cuda0 total             : 9.20 GB
+    [Step(average) Profiler Level 1 E3 S1001]
+        L1  sample           0.000000 | send           0.000000
+        L1  recv             0.008746 | copy           0.345825 | convert time 0.000493 | train  0.093368
+        L1  feature nbytes    4.10 GB | label nbytes   62.50 KB
+        L1  id nbytes      0.00 Bytes | graph nbytes 0.00 Bytes
+        L1  miss nbytes       1.32 GB | remote nbytes    1.85 GB
+        L1  num nodes               0 | num samples           0
+    [Step(average) Profiler Level 2 E3 S1001]
+        L2  shuffle     0.000000 | core sample  0.000000 | id remap        0.000000
+        L2  graph copy  0.000004 | id copy      0.000000 | cache feat copy 0.337075
+        L2  last layer sample time 0.000000 | size 0.000000
+    [Step(average) Profiler Level 3 E3 S1001]
+        L3  khop sample coo  0.000000 | khop sort coo      0.000000 | khop count edge     0.000000 | khop compact edge 0.000000
+        L3  walk sample coo  0.000000 | walk topk total    0.000000 | walk topk step1     0.000000 | walk topk step2   0.000000
+        L3  walk topk step3  0.000000 | walk topk step4    0.000000 | walk topk step5     0.000000
+        L3  walk topk step6  0.000000 | walk topk step7    0.000000
+        L3  remap unique     0.000000 | remap populate     0.000000 | remap mapnode       0.000000 | remap mapedge     0.000000
+        L3  cache get_index  0.002795 | cache copy_index   0.000000 | cache extract_miss  0.000000
+        L3  cache copy_miss  0.000000 | cache combine_miss 0.334243 | cache combine cache 0.003272 | cache combine remote 0.034702
+        L3  label extract  0.000023
+    [Step(max) Profiler Level 1 E3 S1001]
+        L1  sample           0.000000 | send           0.000000
+        L1  recv             0.000000 | copy           0.000000 | convert time 0.000000 | train  0.000000
+        L1  feature nbytes 0.00 Bytes | label nbytes 0.00 Bytes
+        L1  id nbytes      0.00 Bytes | graph nbytes   42.90 MB
+        L1  miss nbytes    0.00 Bytes | remote nbytes 0.00 Bytes
+        L1  num nodes               0 | num samples           0
+    [Step(max) Profiler Level 2 E3 S1001]
+        L2  shuffle     0.000000 | core sample  0.000000 | id remap        0.000000
+        L2  graph copy  0.000000 | id copy      0.000000 | cache feat copy 0.000000
+        L2  last layer sample time 0.000000 | size 0.000000
+    [Step(max) Profiler Level 3 E3 S1001]
+        L3  khop sample coo  0.000000 | khop sort coo      0.000000 | khop count edge     0.000000 | khop compact edge 0.000000
+        L3  walk sample coo  0.000000 | walk topk total    0.000000 | walk topk step1     0.000000 | walk topk step2   0.000000
+        L3  walk topk step3  0.000000 | walk topk step4    0.000000 | walk topk step5     0.000000
+        L3  walk topk step6  0.000000 | walk topk step7    0.000000
+        L3  remap unique     0.000000 | remap populate     0.000000 | remap mapnode       0.000000 | remap mapedge     0.000000
+        L3  cache get_index  0.000000 | cache copy_index   0.000000 | cache extract_miss  0.000000
+        L3  cache copy_miss  0.000000 | cache combine_miss 0.000000 | cache combine cache 0.000000 | cache combine remote 0.000000
+        L3  label extract  0.000000
+    [Step(min) Profiler Level 1 E3 S1001]
+        L1  sample           0.000000 | send           0.000000
+        L1  recv             0.000000 | copy           0.000000 | convert time 0.000000 | train  0.000000
+        L1  feature nbytes 0.00 Bytes | label nbytes 0.00 Bytes
+        L1  id nbytes      0.00 Bytes | graph nbytes   42.39 MB
+        L1  miss nbytes    0.00 Bytes | remote nbytes 0.00 Bytes
+        L1  num nodes               0 | num samples           0
+    [Step(min) Profiler Level 2 E3 S1001]
+        L2  shuffle     0.000000 | core sample  0.000000 | id remap        0.000000
+        L2  graph copy  0.000000 | id copy      0.000000 | cache feat copy 0.000000
+        L2  last layer sample time 0.000000 | size 0.000000
+    [Step(min) Profiler Level 3 E3 S1001]
+        L3  khop sample coo  0.000000 | khop sort coo      0.000000 | khop count edge     0.000000 | khop compact edge 0.000000
+        L3  walk sample coo  0.000000 | walk topk total    0.000000 | walk topk step1     0.000000 | walk topk step2   0.000000
+        L3  walk topk step3  0.000000 | walk topk step4    0.000000 | walk topk step5     0.000000
+        L3  walk topk step6  0.000000 | walk topk step7    0.000000
+        L3  remap unique     0.000000 | remap populate     0.000000 | remap mapnode       0.000000 | remap mapedge     0.000000
+        L3  cache get_index  0.000000 | cache copy_index   0.000000 | cache extract_miss  0.000000
+        L3  cache copy_miss  0.000000 | cache combine_miss 0.000000 | cache combine cache 0.000000 | cache combine remote 0.000000
+        L3  label extract  0.000000
+    [Init Profiler Level 1]
+        L1  init     9.9697 | sampler init     0.0000 | trainer init 521.7867
+    [Init Profiler Level 2]
+        L2  load ds         9.9659 | init queue         153.4441
+        L2  presample       0.0000 | build interal ds     2.2106
+        L2  build cache   366.1168
+    [Init Profiler Level 3]
+        L3  load dataset: mmap     9.9659 | copy         0.0000
+        L3  dist queue: alloc      0.0009 | pin        153.4432 | push     0.0000
+        L3  presample: init        0.0000
+        L3  presample: sample      0.0000 | copy         0.0000
+        L3  presample: count       0.0000 | sort         0.0000
+        L3  presample: reset       0.0000 | get rank     0.0000
+        L3  internal: cuda ctx     2.2106 | cuda stream     0.0001
+|===========================================================================|
+|                  PyTorch CUDA memory summary, device ID 0                 |
+|---------------------------------------------------------------------------|
+|            CUDA OOMs: 0            |        cudaMalloc retries: 0         |
+|===========================================================================|
+|        Metric         | Cur Usage  | Peak Usage | Tot Alloc  | Tot Freed  |
+|---------------------------------------------------------------------------|
+| Allocated memory      |   60024 KB |    2617 MB |    3608 GB |    3608 GB |
+|       from large pool |   51271 KB |    2615 MB |    3596 GB |    3596 GB |
+|       from small pool |    8753 KB |      11 MB |      12 GB |      12 GB |
+|---------------------------------------------------------------------------|
+| Active memory         |   60025 KB |    2617 MB |    3608 GB |    3608 GB |
+|       from large pool |   51271 KB |    2615 MB |    3596 GB |    3596 GB |
+|       from small pool |    8754 KB |      11 MB |      12 GB |      12 GB |
+|---------------------------------------------------------------------------|
+| GPU reserved memory   |    2642 MB |    2642 MB |    2642 MB |       0 B  |
+|       from large pool |    2626 MB |    2626 MB |    2626 MB |       0 B  |
+|       from small pool |      16 MB |      16 MB |      16 MB |       0 B  |
+|---------------------------------------------------------------------------|
+| Non-releasable memory |   28039 KB |    2244 MB |    3316 GB |    3316 GB |
+|       from large pool |   22457 KB |    2238 MB |    3304 GB |    3304 GB |
+|       from small pool |    5582 KB |       9 MB |      12 GB |      12 GB |
+|---------------------------------------------------------------------------|
+| Allocations           |      39    |      56    |   91555    |   91516    |
+|       from large pool |       3    |      14    |   36740    |   36737    |
+|       from small pool |      36    |      45    |   54815    |   54779    |
+|---------------------------------------------------------------------------|
+| Active allocs         |      40    |      56    |   91555    |   91515    |
+|       from large pool |       3    |      14    |   36740    |   36737    |
+|       from small pool |      37    |      45    |   54815    |   54778    |
+|---------------------------------------------------------------------------|
+| GPU reserved segments |      16    |      16    |      16    |       0    |
+|       from large pool |       8    |       8    |       8    |       0    |
+|       from small pool |       8    |       8    |       8    |       0    |
+|---------------------------------------------------------------------------|
+| Non-releasable allocs |      19    |      26    |   36209    |   36190    |
+|       from large pool |       4    |      10    |   20849    |   20845    |
+|       from small pool |      15    |      20    |   15360    |   15345    |
+|---------------------------------------------------------------------------|
+| Oversize allocations  |       0    |       0    |       0    |       0    |
+|---------------------------------------------------------------------------|
+| Oversize GPU segments |       0    |       0    |       0    |       0    |
+|===========================================================================|
+
+test_result:epoch_time:copy_time=37.7917
+test_result:convert_time=0.0832
+test_result:train_time=35.5516
+test_result:epoch_time:train_total=35.6348
+test_result:cache_percentage=0.0500
+test_result:cache_hit_rate=1.0000
+test_result:run_time=356.5683
