@@ -81,31 +81,31 @@ GraphSage
 cur_common_base = (cur_common_base.copy().override('app', [App.graphsage ]).override('sample_type', [SampleType.kKHop2]))
 cur_common_base = (cur_common_base.copy().override('unsupervised', [True]).override('max_num_step', [1000]))
 cur_common_base = (cur_common_base.copy().override('batch_size', [8000]).override('custom_env', [f'SAMGRAPH_MQ_SIZE={70*1024*1024}']))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', percent_gen(5, 25, 5)))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', percent_gen(5, 25, 5)).override('num_feat_dim_hack', [256]))
+# cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', percent_gen(5, 25, 5)))
+# cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', percent_gen(5, 25, 5)).override('num_feat_dim_hack', [256]))
 # # 1.2 unsup, small batch
 # cur_common_base = (cur_common_base.copy().override('batch_size', [4000]).override('custom_env', [f'SAMGRAPH_MQ_SIZE={150*1024*1024}']))
 # cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', percent_gen( 5, 25, 5)))
 # cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', percent_gen( 5, 25, 5)).override('num_feat_dim_hack', [256]))
 
-# # 1.3 unsup, mag 240 requires different batch
-# # cur_common_base = (cur_common_base.copy().override('batch_size', [4000]))
-# # cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', percent_gen( 6, 6, 2)))
-# cur_common_base = (cur_common_base.copy().)
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', [0.01] + percent_gen( 2, 10, 2)).override('batch_size', [1000, 2000]))
+# # # 1.3 unsup, mag 240 requires different batch
+# # # cur_common_base = (cur_common_base.copy().override('batch_size', [4000]))
+# # # cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', percent_gen( 6, 6, 2)))
+# # cur_common_base = (cur_common_base.copy().)
+# cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', [0.01] + percent_gen( 2, 10, 2)).override('batch_size', [1000, 2000]))
 
 
 cur_common_base = (cur_common_base.copy().override('unsupervised', [False]).override('max_num_step', [100000]))
 cur_common_base = (cur_common_base.copy().override('batch_size', [8000]).override('custom_env', [f'SAMGRAPH_MQ_SIZE={55*1024*1024}']))
 cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', [0.01, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.16, 0.20] +  percent_gen(25, 25, 5)))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', percent_gen(5, 25, 5)).override('num_feat_dim_hack', [256]))
+# cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', percent_gen(5, 25, 5)).override('num_feat_dim_hack', [256]))
 
-# cur_common_base = (cur_common_base.copy().override('batch_size', [2000]))
-# cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', percent_gen( 6, 6, 2)))
-# cur_common_base = (cur_common_base.copy().override('batch_size', [4000]))
-# cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', percent_gen( 6, 6, 2)))
-# cur_common_base = (cur_common_base.copy())
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', [0.01] + percent_gen( 2, 10, 2)).override('batch_size', [8000, 4000, 2000]))
+# # cur_common_base = (cur_common_base.copy().override('batch_size', [2000]))
+# # cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', percent_gen( 6, 6, 2)))
+# # cur_common_base = (cur_common_base.copy().override('batch_size', [4000]))
+# # cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', percent_gen( 6, 6, 2)))
+# # cur_common_base = (cur_common_base.copy())
+# cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', [0.01] + percent_gen( 2, 10, 2)).override('batch_size', [8000, 4000, 2000]))
 '''
 Untested application
 '''
