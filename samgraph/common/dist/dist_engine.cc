@@ -205,7 +205,7 @@ void DistEngine::Init() {
     // handle step boundary
     _num_step = std::min(_num_step, RunConfig::step_max_boundary);
     _num_step = RoundUp(_num_step, RunConfig::num_sample_worker);
-    _num_local_step = _num_local_step / RunConfig::num_sample_worker;
+    _num_local_step = _num_step / RunConfig::num_sample_worker;
   }
   coll_cache_lib::RunConfig::num_global_step_per_epoch = _num_step;
 

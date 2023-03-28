@@ -45,7 +45,7 @@ DistAlignedShuffler::DistAlignedShuffler(TensorPtr input, size_t num_epoch,
 
   size_t origin_num_data = input->Shape().front();
   // aligned to num_worker
-  _num_data = RoundUp(origin_num_data, num_worker);
+  _num_data = RoundUp(origin_num_data, num_worker * batch_size);
   _data = Tensor::Empty(input->Type(), {_num_data}, CPU(),
                         "DistAlignedShuffler data");
   Device::Get(CPU())->CopyDataFromTo(input->Data(), 0, _data->MutableData(), 0,
@@ -140,6 +140,12 @@ TensorPtr DistAlignedShuffler::GetBatch(StreamHandle stream) {
   CHECK(offset < _num_local_data);
   size_t size = (offset + _batch_size > _num_local_data) ? (_num_local_data - offset) : _batch_size;
 
+  if (_cur_local_step == 0 && _cur_epoch == 0) {
+    double scale_factor = DistEngine::Get()->GetGraphDataset()->scale_factor->CPtr<double>()[0];
+    size *= scale_factor;
+    size = RoundUp<size_t>(size, 8);
+    size = std::min((_num_local_data - offset), size);
+  }
   auto tensor =
       Tensor::Copy1D(_gpu_data, offset, {size}, "cuda_shuffler_batch", stream);
 
