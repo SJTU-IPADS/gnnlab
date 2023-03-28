@@ -717,6 +717,9 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   Profiler::Get().LogStep = [this](uint64_t key, LogStepItem item, double val){
     _coll_cache_manager->_profiler->LogStep(key, (coll_cache_lib::common::LogStepItem)item, val);
   };
+  Profiler::Get().LogStepAdd = [this](uint64_t key, LogStepItem item, double val){
+    _coll_cache_manager->_profiler->LogStepAdd(key, (coll_cache_lib::common::LogStepItem)item, val);
+  };
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
     auto device = Device::Get(ctx);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();

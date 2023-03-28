@@ -190,7 +190,7 @@ class Profiler {
   void LogInit(LogInitItem item, double val);
   void LogInitAdd(LogInitItem item, double val);
   void _LogStep(uint64_t key, LogStepItem item, double val);
-  void LogStepAdd(uint64_t key, LogStepItem item, double val);
+  void _LogStepAdd(uint64_t key, LogStepItem item, double val);
   void LogEpochAdd(uint64_t key, LogEpochItem item, double val);
 
   inline void TraceStepBegin(uint64_t key, TraceItem item, uint64_t us) { _step_trace[item].events[key].begin = us; }
@@ -220,6 +220,7 @@ class Profiler {
 
   std::function<void(uint64_t epoch, uint64_t step)> ReportStepAverage;
   std::function<void(uint64_t key, LogStepItem item, double val)> LogStep;
+  std::function<void(uint64_t key, LogStepItem item, double val)> LogStepAdd;
 
  private:
   template<typename ReduceOp>

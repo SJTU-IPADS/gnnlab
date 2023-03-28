@@ -135,6 +135,9 @@ Profiler::Profiler() {
   this->LogStep = [this](uint64_t key, LogStepItem item, double val){
     _LogStep(key, item, val);
   };
+  this->LogStepAdd = [this](uint64_t key, LogStepItem item, double val){
+    _LogStepAdd(key, item, val);
+  };
 }
 
 void Profiler::ResetStepEpoch() {
@@ -200,7 +203,7 @@ void Profiler::_LogStep(uint64_t key, LogStepItem item, double val) {
   _step_data[item_idx].bitmap[key] = true;
 }
 
-void Profiler::LogStepAdd(uint64_t key, LogStepItem item, double val) {
+void Profiler::_LogStepAdd(uint64_t key, LogStepItem item, double val) {
   size_t item_idx = static_cast<size_t>(item);
   _step_data[item_idx].vals[key] += val;
   _step_data[item_idx].sum += val;
