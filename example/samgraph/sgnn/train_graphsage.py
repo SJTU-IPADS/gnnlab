@@ -4,15 +4,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.cuda.amp import autocast, GradScaler
 import numpy as np
 from dgl.nn.pytorch import SAGEConv
 import dgl.multiprocessing as mp
+import dgl
 from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
 import datetime
-import samgraph.torch as sam
 import train_accuracy
+import samgraph.torch as sam
 from common_config import *
 
 
@@ -47,7 +49,7 @@ class SAGE(nn.Module):
 
 
 def parse_args(default_run_config):
-    argparser = argparse.ArgumentParser("GCN Training")
+    argparser = argparse.ArgumentParser("GraphSage Training")
 
     add_common_arguments(argparser, default_run_config)
 
@@ -111,9 +113,22 @@ def run(worker_id, run_config):
         accuracy = train_accuracy.Accuracy(dgl_graph, valid_set, test_set, feat, label,
                             run_config['fanout'], run_config['batch_size'], acc_device)
     train_device = torch.device(ctx)
-
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    try:
+        torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
+    except:
+        pass
+    try:
+        torch.set_float32_matmul_precision("medium")
+    except:
+        pass
     print('[Worker {:d}/{:d}] Started with PID {:d}({:s})'.format(
         worker_id, num_worker, os.getpid(), torch.cuda.get_device_name(ctx)))
+    print(f"worker {worker_id} at process {os.getpid()}")
+    with open(f"/tmp/infer_{worker_id}.pid", 'w') as f:
+        print(f"{os.getpid()}", file=f, flush=True)
+    time.sleep(5)
     sam.sample_init(worker_id, ctx)
     sam.train_init(worker_id, ctx)
 
@@ -142,8 +157,12 @@ def run(worker_id, run_config):
     loss_fcn = loss_fcn.to(device)
     optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
 
+    scaler = GradScaler()
+
     num_epoch = sam.num_epoch()
     num_step = sam.num_local_step()
+
+    model.train()
 
     epoch_sample_total_times = []
     epoch_sample_times = []
@@ -177,11 +196,12 @@ def run(worker_id, run_config):
         tic = time.time()
 
         for step in range(worker_id, num_step * num_worker, num_worker):
+            optimizer.zero_grad(set_to_none=True)
             t0 = time.time()
             if not run_config['pipeline']:
-              sam.sample_once()
+                sam.sample_once()
             elif epoch + step == worker_id:
-              sam.extract_start(0)
+                sam.extract_start(0)
             batch_key = sam.get_next_batch()
             t1 = time.time()
             blocks, batch_input, batch_label = sam.get_dgl_blocks(
@@ -189,12 +209,20 @@ def run(worker_id, run_config):
             t2 = time.time()
 
             # Compute loss and prediction
-            batch_pred = model(blocks, batch_input)
-            loss = loss_fcn(batch_pred, batch_label)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            if use_amp:
+                with autocast(enabled=use_amp):
+                    batch_pred = model(blocks, batch_input)
+                    loss = loss_fcn(batch_pred, batch_label)
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                batch_pred = model(blocks, batch_input)
+                loss = loss_fcn(batch_pred, batch_label)
+                loss.backward()
+                optimizer.step()
 
+            # wait for the train finish then we can free the data safely
             event_sync()
             batch_input = None
             batch_label = None
@@ -207,8 +235,8 @@ def run(worker_id, run_config):
             train_time = t3 - t2
             total_time = t3 - t1
 
-            sam.log_step(epoch, step, sam.kLogL1TrainTime, train_time)
-            sam.log_step(epoch, step, sam.kLogL1ConvertTime, convert_time)
+            sam.log_step_by_key(batch_key, sam.kLogL1TrainTime, train_time)
+            sam.log_step_by_key(batch_key, sam.kLogL1ConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochConvertTime, convert_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTrainTime, train_time)
             sam.log_epoch_add(epoch, sam.kLogEpochTotalTime, total_time)
@@ -252,13 +280,6 @@ def run(worker_id, run_config):
         epoch_sample_total_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTotalTime)
         )
-        epoch_sample_times.append(
-            sam.get_log_epoch_value(epoch, sam.kLogEpochSampleTime)
-        )
-        epoch_get_cache_miss_index_times.append(
-            sam.get_log_epoch_value(
-                epoch, sam.KLogEpochSampleGetCacheMissIndexTime)
-        )
         epoch_copy_times.append(
             sam.get_log_epoch_value(epoch, sam.kLogEpochCopyTime))
         epoch_convert_times.append(
@@ -288,23 +309,23 @@ def run(worker_id, run_config):
         acc_time = (time.time() - tt)
         run_acc_total += acc_time
         print('Test Acc: {:.2f}% | Acc Time: {:.4f} | Time Cost: {:.2f}'.format(acc * 100.0, acc_time, (time.time() - run_start - run_acc_total)))
+    print('[Train  Worker {:d}] Avg Epoch {:.4f} | Sample {:.4f} | Copy {:.4f} | Train Total (Profiler) {:.4f}'.format(
+          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_sample_total_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_total_times_profiler[1:])))
     # run end barrier
     global_barrier.wait()
     run_end = time.time()
 
-    print('[Train  Worker {:d}] Avg Epoch {:.4f} | Sample {:.4f} | Copy {:.4f} | Train Total (Profiler) {:.4f}'.format(
-          worker_id, np.mean(epoch_total_times_python[1:]), np.mean(epoch_sample_total_times[1:]), np.mean(epoch_copy_times[1:]), np.mean(epoch_train_total_times_profiler[1:])))
 
     global_barrier.wait()  # barrier for pretty print
 
     if worker_id == 0:
-        sam.report_step_average(epoch, step)
+        print(torch.cuda.memory_summary())
+        sam.print_memory_usage()
+        sam.report_step_average(num_epoch - 1, num_step - 1)
         sam.report_init()
 
         test_result = []
         test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
-        test_result.append(('get_cache_miss_index_time', np.mean(
-            epoch_get_cache_miss_index_times[1:])))
         test_result.append(
             ('epoch_time:sample_total', np.mean(epoch_sample_total_times[1:])))
         test_result.append(('epoch_time:copy_time',
@@ -321,7 +342,7 @@ def run(worker_id, run_config):
             ('epoch_time:total', np.mean(epoch_total_times_python[1:])))
         test_result.append(('run_time', run_end - run_start))
         for k, v in test_result:
-            print('test_result:{:}={:.2f}'.format(k, v))
+            print('test_result:{:}={:.4f}'.format(k, v))
 
         # sam.dump_trace()
 
@@ -331,6 +352,8 @@ def run(worker_id, run_config):
 if __name__ == '__main__':
     run_config = get_run_config()
     run_init(run_config)
+
+    use_amp = run_config['amp']
 
     num_worker = run_config['num_worker']
 
