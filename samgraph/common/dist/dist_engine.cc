@@ -725,7 +725,7 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
     auto device = Device::Get(ctx);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();
     handle->dev_ptr = device->AllocWorkspace(ctx, nbytes);
-    handle->nbytes = nbytes;
+    handle->_nbytes = nbytes;
     handle->ctx = ctx;
     return handle;
   };
