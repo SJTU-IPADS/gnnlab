@@ -246,7 +246,8 @@ void DistEngine::Init() {
   LOG(DEBUG) << "create sampler barrier with " << RunConfig::num_sample_worker << " samplers";
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
   _trainer_barrier = new DistSharedBarrier(RunConfig::num_train_worker);
-  _global_barrier = new DistSharedBarrier(RunConfig::num_train_worker + RunConfig::num_sample_worker);
+  _global_barrier = new DistSharedBarrier(RunConfig::num_worker);
+
   _collcache_barrier = std::make_shared<CollCacheMPBarrier>(RunConfig::num_train_worker);
 
   LOG(INFO) << "Pre-fork init done...";

@@ -127,6 +127,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       CHECK(configs.count("num_train_worker"));
       RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
       RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+      RC::num_worker = RC::num_sample_worker + RC::num_train_worker;
       CRC::cross_process = true;
       CRC::num_device = RC::num_train_worker;
       CRC::device_id_list.resize(CRC::num_device);
@@ -140,6 +141,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       CHECK(configs.count("num_worker"));
       RC::num_sample_worker = std::stoull(configs["num_worker"]);
       RC::num_train_worker = std::stoull(configs["num_worker"]);
+      RC::num_worker = std::stoull(configs["num_worker"]);
       CRC::cross_process = true;
       CRC::num_device = RC::num_train_worker;
       CRC::device_id_list.resize(CRC::num_device);
