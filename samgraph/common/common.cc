@@ -197,7 +197,10 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   void *data = Device::Get(ctx)->AllocDataSpace(ctx, nbytes, nbytes);
   ctx.device_id = device_id;
   CHECK_NE(data, (void *)-1);
-  
+
+  if (nbytes > 1024*1024*1024) {
+    LOG(ERROR) << "From MMAP reading disk " << ToReadableSize(nbytes);
+  }
   // read huge file
   size_t read_bytes = 0;
   while (read_bytes < nbytes)
@@ -209,6 +212,9 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   CHECK_EQ(read_bytes, nbytes) << "should read " << nbytes << ", actually read " << read_bytes;
   CHECK_EQ(mprotect(data, nbytes, PROT_READ), 0);
   close(fd);
+  if (nbytes > 1024*1024*1024) {
+    LOG(ERROR) << "From MMAP reading done";
+  }
 
   tensor->_dtype = dtype;
   tensor->_nbytes = nbytes;

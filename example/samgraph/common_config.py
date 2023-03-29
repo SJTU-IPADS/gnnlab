@@ -198,7 +198,7 @@ def process_common_config(run_config):
             run_config['trainer_ctx'] = run_config['override_train_device']
     elif run_mode == RunMode.FGNN:
         import_torch_func_ptr()
-        run_config['omp_thread_num'] //= run_config['num_train_worker']
+        # run_config['omp_thread_num'] //= run_config['num_train_worker']
         run_config['torch_thread_num'] = torch.get_num_threads() // run_config['num_train_worker']
         assert(
             'num_sample_worker' in run_config and run_config['num_sample_worker'] > 0)
@@ -216,7 +216,7 @@ def process_common_config(run_config):
             run_config['sample_workers'] = [sam.gpu(0)]
             run_config['pipeline'] = False
     elif run_mode == RunMode.SGNN:
-        run_config['omp_thread_num'] //= run_config['num_worker']
+        # run_config['omp_thread_num'] //= run_config['num_worker']
         run_config['workers'] = [sam.gpu(i)
                                  for i in range(run_config['num_worker'])]
     elif run_mode == RunMode.SGNN_DGL:

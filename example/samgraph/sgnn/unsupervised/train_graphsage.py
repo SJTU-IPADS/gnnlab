@@ -346,7 +346,7 @@ def run(worker_id, run_config):
     if worker_id == 0:
         print(torch.cuda.memory_summary())
         sam.print_memory_usage()
-        sam.report_step_average(num_epoch - 1, num_step - 1)
+        sam.report_step_average(num_epoch - 1, num_step * num_worker - 1)
         sam.report_init()
         test_result = []
         test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
