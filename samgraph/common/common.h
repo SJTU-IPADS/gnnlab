@@ -212,6 +212,8 @@ class Tensor {
   void ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
   void ReShape(std::vector<size_t> new_shape);
 
+  void ReadFromFile(std::string filepath);
+
   static TensorPtr Null();
 
   static TensorPtr CreateShm(std::string shm_path, DataType dtype,

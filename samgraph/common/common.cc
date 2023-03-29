@@ -151,11 +151,9 @@ TensorPtr Tensor::OpenShm(std::string shm_path, DataType dtype,
                           std::vector<size_t> shape, std::string name) {
   TensorPtr tensor = std::make_shared<Tensor>();
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
-  int fd = cpu::MmapCPUDevice::OpenShm(shm_path);
 
-  struct stat st;
-  fstat(fd, &st);
-  size_t file_nbytes = st.st_size;
+  size_t file_nbytes;
+  int fd = cpu::MmapCPUDevice::OpenShm(shm_path, &file_nbytes);
 
   if (shape.size() == 0) {
     // auto infer shape, 1-D only
@@ -175,6 +173,24 @@ TensorPtr Tensor::OpenShm(std::string shm_path, DataType dtype,
   tensor->_name = name;
 
   return tensor;
+}
+
+void Tensor::ReadFromFile(std::string filepath) {
+  int fd = open(filepath.c_str(), O_RDONLY, 0);
+  CHECK_NE(fd, -1);
+  struct stat st;
+  fstat(fd, &st);
+  size_t file_nbytes = st.st_size;
+  // read huge file
+  size_t read_bytes = 0;
+  while (read_bytes < file_nbytes)
+  {
+    ssize_t res = read(fd, ((uint8_t*)this->_data) + read_bytes, file_nbytes - read_bytes);
+    CHECK_GT(res, 0);
+    read_bytes += res;
+  }
+  CHECK_EQ(read_bytes, file_nbytes) << "should read " << file_nbytes << ", actually read " << read_bytes;
+  close(fd);
 }
 
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,

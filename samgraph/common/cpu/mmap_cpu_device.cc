@@ -52,19 +52,40 @@ int MmapCPUDevice::CreateShm(size_t nbytes, std::string name) {
   int fd = 0;
   fd = shm_open(name.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
   CHECK_NE(fd, -1) << "shm open faile, errno=" << errno;
-  int ret = ftruncate(fd, nbytes);
-  CHECK_NE(ret, -1);
+
+  {
+    auto sz_name = name + "_tensor_actual_size";
+    int sz_fd = shm_open(sz_name.c_str(), O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+
+    int ret = ftruncate(sz_fd, 8);
+    CHECK_NE(ret, -1);
+    size_t* sz_ptr = (size_t*)mmap(nullptr, 8, PROT_READ | PROT_WRITE, MAP_SHARED, sz_fd, 0);
+    CHECK_NE(sz_ptr, (size_t *)-1);
+    *sz_ptr = nbytes;
+  }
+
+  struct stat st;
+  fstat(fd, &st);
+  nbytes = RoundUp<size_t>(nbytes, 1<<21);
+  if (st.st_size < nbytes) {
+    int ret = ftruncate(fd, nbytes);
+    CHECK_NE(ret, -1);
+  }
+
   return fd;
 }
 
 int MmapCPUDevice::OpenShm(std::string name, size_t *nbytes) {
   int fd = 0;
   fd = shm_open(name.c_str(), O_RDWR, 0);
-  CHECK_NE(fd, -1) << "shm open faile, errno=" << errno;
+  CHECK_NE(fd, -1) << "shm open faile, errno=" << errno << ", fname " << name;
   if (nbytes) {
-    struct stat st;
-    fstat(fd, &st);
-    *nbytes = st.st_size;
+    auto sz_name = name + "_tensor_actual_size";
+    int sz_fd = shm_open(sz_name.c_str(), O_RDONLY, 0); CHECK_NE(sz_fd, -1);
+    CHECK_NE(sz_fd, -1);
+    size_t* sz_ptr = (size_t*)mmap(nullptr, 8, PROT_READ, MAP_SHARED, sz_fd, 0);
+    CHECK_NE(sz_ptr, (size_t *)-1);
+    *nbytes = *sz_ptr;
   }
   return fd;
 }

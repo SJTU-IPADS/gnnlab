@@ -200,25 +200,30 @@ void Engine::LoadGraphDataset() {
 
   if (RunConfig::option_fake_feat_dim != 0) {
     meta[Constant::kMetaFeatDim] = RunConfig::option_fake_feat_dim;
-    _dataset->feat = Tensor::EmptyNoScale(feat_data_type,
-                                          {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
-                                          ctx_map[Constant::kFeatFile], "dataset.feat");
+    _dataset->feat = Tensor::CreateShm("SAMG_FEAT_SHM", feat_data_type, {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, "dataset.feat");
+    // _dataset->feat = Tensor::EmptyNoScale(feat_data_type,
+    //                                       {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+    //                                       ctx_map[Constant::kFeatFile], "dataset.feat");
   } else if (FileExist(_dataset_path + Constant::kFeatFile) && RunConfig::option_empty_feat == 0) {
-    _dataset->feat = Tensor::FromMmap(
-        _dataset_path + Constant::kFeatFile, feat_data_type,
-        {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
-        ctx_map[Constant::kFeatFile], "dataset.feat");
+    _dataset->feat = Tensor::CreateShm("SAMG_FEAT_SHM", feat_data_type, {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, "dataset.feat");
+    _dataset->feat->ReadFromFile(_dataset_path + Constant::kFeatFile);
+    // _dataset->feat = Tensor::FromMmap(
+    //     _dataset_path + Constant::kFeatFile, feat_data_type,
+    //     {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+    //     ctx_map[Constant::kFeatFile], "dataset.feat");
   } else {
     if (RunConfig::option_empty_feat != 0) {
-      _dataset->feat = Tensor::EmptyNoScale(
-          feat_data_type,
-          {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]},
-          ctx_map[Constant::kFeatFile], "dataset.feat");
+      _dataset->feat = Tensor::CreateShm("SAMG_FEAT_SHM", feat_data_type, {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]}, "dataset.feat");
+      // _dataset->feat = Tensor::EmptyNoScale(
+      //     feat_data_type,
+      //     {1ull << RunConfig::option_empty_feat, meta[Constant::kMetaFeatDim]},
+      //     ctx_map[Constant::kFeatFile], "dataset.feat");
     } else {
-      _dataset->feat = Tensor::EmptyNoScale(
-          feat_data_type,
-          {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
-          ctx_map[Constant::kFeatFile], "dataset.feat");
+      _dataset->feat = Tensor::CreateShm("SAMG_FEAT_SHM", feat_data_type, {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]}, "dataset.feat");
+      // _dataset->feat = Tensor::EmptyNoScale(
+      //     feat_data_type,
+      //     {meta[Constant::kMetaNumNode], meta[Constant::kMetaFeatDim]},
+      //     ctx_map[Constant::kFeatFile], "dataset.feat");
     }
   }
 
