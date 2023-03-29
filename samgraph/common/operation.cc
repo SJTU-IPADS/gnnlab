@@ -104,6 +104,9 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   CRC::cache_policy = static_cast<coll_cache_lib::common::CachePolicy>(RC::cache_policy);
   CRC::num_epoch = RC::num_epoch;
 
+  if (configs["coll_ignore"] == "True") {
+    RC::coll_ignore = true;
+  }
   if (configs["unsupervised"] == "True") {
     RC::unsupervised_sample = true;
   }

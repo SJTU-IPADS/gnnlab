@@ -710,17 +710,19 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   // parallel initialization of sampler/trainer
   GetGlobalBarrier()->Wait();
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
-  _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
-  Profiler::Get().ReportStepAverage = [this](uint64_t epoch, uint64_t step){
-    _coll_cache_manager->_profiler->ReportStepAverage(epoch, step);
-  };
-  CHECK((int)(kNumLogStepItems) == (int)(coll_cache_lib::common::kNumLogStepItems));
-  Profiler::Get().LogStep = [this](uint64_t key, LogStepItem item, double val){
-    _coll_cache_manager->_profiler->LogStep(key, (coll_cache_lib::common::LogStepItem)item, val);
-  };
-  Profiler::Get().LogStepAdd = [this](uint64_t key, LogStepItem item, double val){
-    _coll_cache_manager->_profiler->LogStepAdd(key, (coll_cache_lib::common::LogStepItem)item, val);
-  };
+  if (RunConfig::coll_ignore == false) {
+    _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
+    Profiler::Get().ReportStepAverage = [this](uint64_t epoch, uint64_t step){
+      _coll_cache_manager->_profiler->ReportStepAverage(epoch, step);
+    };
+    CHECK((int)(kNumLogStepItems) == (int)(coll_cache_lib::common::kNumLogStepItems));
+    Profiler::Get().LogStep = [this](uint64_t key, LogStepItem item, double val){
+      _coll_cache_manager->_profiler->LogStep(key, (coll_cache_lib::common::LogStepItem)item, val);
+    };
+    Profiler::Get().LogStepAdd = [this](uint64_t key, LogStepItem item, double val){
+      _coll_cache_manager->_profiler->LogStepAdd(key, (coll_cache_lib::common::LogStepItem)item, val);
+    };
+  }
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
     auto device = Device::Get(ctx);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();
@@ -744,17 +746,17 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
        RunConfig::cache_policy == kCliquePartByDegree || 
        RunConfig::cache_policy == kPartRepCache || 
        RunConfig::cache_policy == kRepCache || 
-       RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0) {
+       RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::coll_ignore == false) {
     _coll_cache_manager->build_v2(worker_id, _dataset->ranking_nodes_list->Ptr<IdType>(), 
                           _dataset->ranking_nodes_freq_list->Ptr<IdType>(), _dataset->num_node, 
                           gpu_mem_allocator, _dataset->feat->MutableData(), 
                           static_cast<coll_cache_lib::common::DataType>(feat_dtype), feat_dim, 
                           RunConfig::cache_percentage, _trainer_copy_stream);
-  } else {
+  } else if (RunConfig::coll_ignore == false) {
     CHECK(false) << "Cache policy is unsupported by collcache lib";
   }
 
-  if (RunConfig::unsupervised_sample == false) {
+  if (RunConfig::unsupervised_sample == false && RunConfig::coll_ignore == false) {
     _coll_label_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
     _coll_label_manager->build_v2(worker_id, _dataset->ranking_nodes_list->Ptr<IdType>(), 
                       _dataset->ranking_nodes_freq_list->Ptr<IdType>(), _dataset->num_node, 

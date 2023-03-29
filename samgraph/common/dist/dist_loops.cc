@@ -697,7 +697,8 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   // to avoid wasted memory
   if (first_batch_num_input == 0) {
     first_batch_num_input = RoundUp<size_t>(num_input, 8);
-  } else {
+  } else if (RunConfig::coll_ignore == false) {
+    // when coll cahce is used in python api, sam can be reseted, and first batch num input is nolonger the max
     CHECK_LE(num_input, first_batch_num_input) << "first batch is smaller than this one" << first_batch_num_input << ", " << num_input;
   }
   task->input_feat = Tensor::EmptyNoScale(feat_type, {first_batch_num_input, feat_dim}, DistEngine::Get()->GetTrainerCtx(),
@@ -705,13 +706,15 @@ void DoCollFeatLabelExtract(TaskPtr task) {
   task->input_feat->ForceScale(feat_type, {num_input, feat_dim}, DistEngine::Get()->GetTrainerCtx(), "task.train_feat_cuda_" + std::to_string(task->key));
   task->output_label = Tensor::Empty(label_type, {num_ouput}, DistEngine::Get()->GetTrainerCtx(),
                      "task.train_label_cuda_" + std::to_string(task->key));
-  DistEngine::Get()->GetCollCacheManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
+  if (RunConfig::coll_ignore == false) {
+    DistEngine::Get()->GetCollCacheManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
+  }
   DistEngine::Get()->GetTrainerBarrier()->Wait();
-  // DistEngine::Get()->GetCollCacheManager()->ExtractFeat(input_nodes, task->input_nodes->Shape()[0], task->input_feat->MutableData(), copy_stream, task->key);
   Timer t_label;
   if (RunConfig::unsupervised_sample == false) {
-    DistEngine::Get()->GetCollLabelManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream, 0xffffffffffffffff);
-    // DistEngine::Get()->GetCollLabelManager()->ExtractFeat(output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream);
+    if (RunConfig::coll_ignore == false) {
+      DistEngine::Get()->GetCollLabelManager()->lookup(coll_cache_lib::common::RunConfig::worker_id, output_nodes, task->output_label->Shape()[0], task->output_label->MutableData(), copy_stream, 0xffffffffffffffff);
+    }
   } else {
     CHECK_EQ(label_type, kF32);
     auto label_dst = task->output_label->Ptr<float>();
