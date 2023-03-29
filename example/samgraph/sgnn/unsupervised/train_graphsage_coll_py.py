@@ -253,12 +253,12 @@ def run(worker_id, run_config):
                 #     event_sync()
                 #     co.coll_torch_record(worker_id, block_input_nodes)
                 # else:
-                t1 = time.time()
-                blocks, batch_input, batch_label = sam.get_dgl_blocks(
-                    batch_key, num_layer)
-                pair_graph = sam.get_dgl_unsupervised_pair_graph(batch_key)
                 block_input_nodes = sam.get_graph_input_nodes(batch_key)
                 batch_input = co.coll_torch_lookup_key_t_val_ret(worker_id, block_input_nodes)
+                t1 = time.time()
+                blocks, _, batch_label = sam.get_dgl_blocks(
+                    batch_key, num_layer)
+                pair_graph = sam.get_dgl_unsupervised_pair_graph(batch_key)
                 t2 = time.time()
 
             # Compute loss and prediction
