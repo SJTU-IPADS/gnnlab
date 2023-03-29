@@ -120,6 +120,8 @@ size_t samgraph_num_local_step();
 
 int samgraph_wait_one_child();
 
+void samgraph_reset_progress();
+
 void samgraph_print_memory_usage();
 }
 

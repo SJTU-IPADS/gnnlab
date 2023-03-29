@@ -575,6 +575,10 @@ int samgraph_wait_one_child() {
   } else return 0;
 }
 
+void samgraph_reset_progress() {
+  Engine::Get()->ResetProgress();
+}
+
 namespace {
 
 size_t get_cuda_used(Context ctx) {

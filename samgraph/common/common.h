@@ -419,7 +419,7 @@ class Shuffler {
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
   virtual size_t NumLocalStep() { CHECK(false) << "Unimplemented"; return 0; };
-  virtual void Reset() {};
+  virtual void Reset() { CHECK(false) << "Unimplemented"; };
 };
 
 std::ostream& operator<<(std::ostream&, const SampleType);

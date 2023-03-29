@@ -99,6 +99,9 @@ class DistEngine : public Engine {
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
+  void ResetProgress() override {
+    _shuffler->Reset();
+  }
   void SampleInit(int worker_id, Context ctx);
   void TrainInit(int worker_id, Context ctx, DistType dist_type);
   void UMSampleInit(int num_workers);
