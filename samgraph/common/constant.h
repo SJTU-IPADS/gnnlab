@@ -115,6 +115,9 @@ class Constant {
   static const std::string kCollCacheBuilderShmName;
   static const std::string kCollCachePlacementShmName;
   static const std::string kCollCacheAccessShmName;
+
+  static const std::string kProfilerValShmName;
+  static const std::string kProfilerBitmapShmName;
 };
 
 }  // namespace common

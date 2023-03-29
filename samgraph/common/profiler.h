@@ -141,9 +141,24 @@ struct LogData {
   std::vector<double> vals;
   double sum;
   size_t cnt;
-  std::vector<bool> bitmap;
+  std::vector<int> bitmap;
 
   LogData(size_t num_logs);
+};
+
+// log space across multiple process
+struct SharedLogData {
+  double* vals;
+  int* bitmap;
+
+  SharedLogData() {}
+};
+
+struct SortedLogData {
+  double* vals;
+  size_t cnt;
+
+  SortedLogData() {}
 };
 
 #define TRACE_TYPES( F ) \
@@ -224,15 +239,17 @@ class Profiler {
 
  private:
   template<typename ReduceOp>
-  void PrepareStepReduce(uint64_t epoch, uint64_t step, const double init, ReduceOp op);
+  void PrepareStepReduce(uint64_t epoch, uint64_t step, const double init, ReduceOp op, const double default_val = 0);
   void OutputStep(uint64_t key, std::string type);
   void OutputEpoch(uint64_t epoch, std::string type);
 
   std::vector<LogData> _init_data;
-  std::vector<LogData> _step_data;
+  std::vector<SharedLogData> _step_data;
   std::vector<double> _step_buf;
   std::vector<LogData> _epoch_data;
   std::vector<double> _epoch_buf;
+  TensorPtr _step_data_val_buf;
+  TensorPtr _step_data_bitmap_buf;
 
   // for trace
   std::vector<TraceData> _step_trace;
