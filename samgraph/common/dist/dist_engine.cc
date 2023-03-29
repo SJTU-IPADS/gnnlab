@@ -506,7 +506,7 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       case kCollCache: {
         Timer tp;
         // currently we only allow single stream
-        if (worker_id == 0) {
+        if (worker_id == 0 && RunConfig::coll_ignore == false) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
           auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
           pre_sampler->DoPreSample();
