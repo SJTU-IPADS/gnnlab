@@ -379,7 +379,10 @@ class RunConfig:
     assert(self.system is System.samgraph)
     self.preprocess_sample_type()
     cmd_line = ''
-    cmd_line += f'COLL_NUM_REPLICA={self.num_trainer} '
+    if self.multi_gpu:
+      cmd_line += f'COLL_NUM_REPLICA={self.num_trainer} '
+    elif self.multi_gpu_sgnn:
+      cmd_line += f'COLL_NUM_REPLICA={self.num_worker} '
     cmd_line += f'CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking} '
     cmd_line += 'SAMGRAPH_LOG_NODE_ACCESS=0 '
     cmd_line += f'SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal} '
@@ -404,7 +407,10 @@ class RunConfig:
       else:
         cmd_line += f'python ../../example/samgraph/multi_gpu/train_{self.app.name}.py'
     elif self.multi_gpu_sgnn:
-      cmd_line += f'python ../../example/samgraph/sgnn/train_{self.app.name}.py'
+      if self.unsupervised:
+        cmd_line += f'python ../../example/samgraph/sgnn/unsupervised/train_{self.app.name}.py'
+      else:
+        cmd_line += f'python ../../example/samgraph/sgnn/train_{self.app.name}.py'
     elif self.unsupervised:
       cmd_line += f'python ../../example/samgraph/unsupervised/train_{self.app.name}.py'
     else:
@@ -419,6 +425,8 @@ class RunConfig:
       cmd_line += f' --num-train-worker {self.num_trainer} '
       if self.mps_mode != None:
         cmd_line += f' --mps-mode {self.mps_mode} '
+    elif self.multi_gpu_sgnn:
+      cmd_line += f' --num-worker {self.num_worker} '
 
     if self.amp:
       cmd_line += ' --amp '
@@ -470,6 +478,8 @@ class RunConfig:
       std_out_log += "report_optimal_"
     if self.unsupervised:
       std_out_log += "unsupervised_"
+    if self.multi_gpu_sgnn:
+      std_out_log += "sgnn_"
     std_out_log += '_'.join(
       [self.system.name]+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
