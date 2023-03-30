@@ -504,21 +504,48 @@ class RunConfig:
     if self.coll_cache_concurrent_link != "":
       msg += f' concurrent_link={self.coll_cache_concurrent_link}'
     return datetime.datetime.now().strftime('[%H:%M:%S]') + msg
-    
-  def run(self, mock=False, durable_log=True, callback = None):
+
+  def run(self, mock=False, durable_log=True, callback = None, fail_only=False):
+    '''
+    fail_only: only run previously failed job. fail status is recorded in json file
+    '''
+    previous_succeed = False
+    if fail_only:
+      try:
+        with open(self.get_log_fname() + '.log', "r") as logf:
+          first_line = logf.readline().strip()
+        if first_line == "succeed=True":
+          previous_succeed = True
+      except Exception as e:
+        pass
+      if previous_succeed:
+        if callback != None:
+          callback(self)
+        return 0
+
     if mock:
       print(self.form_cmd(durable_log))
     else:
       print(self.beauty())
+
       if durable_log:
         os.system('mkdir -p {}'.format(self.logdir))
       status = os.system(self.form_cmd(durable_log))
       if os.WEXITSTATUS(status) != 0:
         print("FAILED!")
+        self.prepend_log_succeed(False)
         return 1
+      else:
+        self.prepend_log_succeed(True)
       if callback != None:
         callback(self)
     return 0
+  def prepend_log_succeed(self, succeed_bool):
+    with open(self.get_log_fname() + '.log', "r") as logf:
+      log_content = logf.readlines()
+    with open(self.get_log_fname() + '.log', "w") as logf:
+      print(f"succeed={succeed_bool}", file=logf)
+      print("".join(log_content), file=logf)
 
 def run_in_list(conf_list : list, mock=False, durable_log=True, callback = None):
   for conf in conf_list:
@@ -632,12 +659,12 @@ class ConfigList:
       raise Exception("Please construct fron runconfig or list of it")
     return ret
 
-  def run(self, mock=False, durable_log=True, callback = None):
+  def run(self, mock=False, durable_log=True, callback = None, fail_only=False):
     for conf in self.conf_list:
       conf : RunConfig
-      conf.run(mock, durable_log, callback)
+      conf.run(mock, durable_log, callback, fail_only=fail_only)
 
-  def run_stop_on_fail(self, mock=False, durable_log=True, callback = None):
+  def run_stop_on_fail(self, mock=False, durable_log=True, callback = None, fail_only=False):
     last_conf = None
     last_ret = None
     for conf in self.conf_list:
@@ -654,6 +681,6 @@ class ConfigList:
           continue
         if conf.cache_percent < last_conf.cache_percent and last_ret == 0 :
           continue
-      ret = conf.run(mock, durable_log, callback)
+      ret = conf.run(mock, durable_log, callback, fail_only=fail_only)
       last_conf = conf
       last_ret = ret
