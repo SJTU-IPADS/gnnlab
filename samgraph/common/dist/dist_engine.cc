@@ -270,7 +270,11 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
   // _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU(), stream);
   if (sampler_ctx.device_type == kGPU) {
     _dataset->indptr = Tensor::CopyTo(_dataset->indptr, sampler_ctx, stream, Constant::kAllocNoScale);
-    _dataset->indices = Tensor::CopyTo(_dataset->indices, sampler_ctx, stream, Constant::kAllocNoScale);
+    if (RunConfig::option_place_graph_on_host) {
+      _dataset->indices = Tensor::CopyTo(_dataset->indices, CPU(), stream);
+    } else {
+      _dataset->indices = Tensor::CopyTo(_dataset->indices, sampler_ctx, stream, Constant::kAllocNoScale);
+    }
     if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
       _dataset->prob_table = Tensor::CopyTo(_dataset->prob_table, sampler_ctx, stream, Constant::kAllocNoScale);
       _dataset->alias_table = Tensor::CopyTo(_dataset->alias_table, sampler_ctx, stream, Constant::kAllocNoScale);
@@ -509,7 +513,27 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
         if (worker_id == 0 && RunConfig::coll_ignore == false) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
           auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
+
+          auto indice_backup = _dataset->indices;
+          if (RunConfig::option_place_graph_on_host) {
+            // temp place graph back to gpu for faster presample
+            auto _eager_gpu_mem_allocator = [ctx](size_t nbytes)-> MemHandle{
+              std::shared_ptr<EagerGPUMemoryHandler> ret = std::make_shared<EagerGPUMemoryHandler>();
+              ret->dev_id_ = ctx.device_id;
+              ret->nbytes_ = nbytes;
+              CUDA_CALL(cudaSetDevice(ctx.device_id));
+              if (nbytes > 1<<21) {
+                nbytes = RoundUp(nbytes, (size_t)(1<<21));
+              }
+              CUDA_CALL(cudaMalloc(&ret->ptr_, nbytes));
+              return ret;
+            };
+            LOG(ERROR) << "worker 0 placing graph to gpu";
+            _dataset->indices = Tensor::CopyToExternal(indice_backup, _eager_gpu_mem_allocator, ctx, _sampler_copy_stream);
+          }
+
           pre_sampler->DoPreSample();
+          _dataset->indices = indice_backup;
           CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_list->MutableData(), _dataset->ranking_nodes_list->NumBytes(), cudaHostRegisterDefault));
           CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_freq_list->MutableData(), _dataset->ranking_nodes_freq_list->NumBytes(), cudaHostRegisterDefault));
           coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);

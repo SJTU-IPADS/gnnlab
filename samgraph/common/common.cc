@@ -45,6 +45,12 @@
 namespace samgraph {
 namespace common {
 
+namespace {
+Context Priority(Context c1, Context c2) {
+  return (c1.device_type >= c2.device_type) ? c1 : c2;
+}
+};
+
 Context::Context(std::string name) {
   size_t delim_pos = name.find(':');
   CHECK_NE(delim_pos, std::string::npos);
@@ -70,6 +76,11 @@ Tensor::Tensor() : _data(nullptr) {}
 
 Tensor::~Tensor() {
   if (!_data) {
+    return;
+  }
+
+  if (_external_mem_hanlder != nullptr) {
+    _external_mem_hanlder = nullptr;
     return;
   }
 
@@ -469,6 +480,29 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std
 
   return tensor;
 }
+
+TensorPtr Tensor::CopyToExternal(TensorPtr source, const std::function<MemHandle(size_t)> & allocator, Context ctx, StreamHandle stream, double scale) {
+  CHECK(source && source->Defined());
+  std::vector<size_t> shape = source->Shape();
+  CHECK_GT(shape.size(), 0);
+
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(source->_dtype, shape.begin(), shape.end());
+
+  tensor->_dtype = source->_dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = source->_nbytes;
+  tensor->_ctx = ctx;
+  tensor->_external_mem_hanlder = allocator(nbytes);
+  tensor->_data = tensor->_external_mem_hanlder->ptr();
+  tensor->_name = source->_name;
+  Context working_ctx = Priority(source->Ctx(), ctx);
+  Device::Get(working_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
+                                                nbytes, source->_ctx, tensor->_ctx, stream);
+  Device::Get(working_ctx)->StreamSync(working_ctx, stream);
+  return tensor;
+}
+
 TensorPtr Tensor::CopyLine(TensorPtr source, size_t line_idx, Context ctx, StreamHandle stream, double scale) {
   CHECK(source && source->Defined());
   const std::vector<size_t> & shape = source->_shape;

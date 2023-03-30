@@ -93,6 +93,8 @@ struct RunConfig {
   static double               option_train_set_percent;
   static int                  option_train_set_part_num;
   static int                  option_train_set_part_idx;
+
+  static bool                 option_place_graph_on_host;
   
   static size_t               option_fake_feat_dim;
 
