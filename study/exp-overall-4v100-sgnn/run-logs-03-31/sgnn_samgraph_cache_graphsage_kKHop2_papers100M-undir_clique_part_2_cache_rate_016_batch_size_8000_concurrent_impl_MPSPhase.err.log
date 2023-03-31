@@ -1,0 +1,12 @@
+[2023-03-31 07:32:48.616413: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:113] mmap allocating space 12.03 GB
+[2023-03-31 07:32:48.616510: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:118] mmap allocating space 12.03 GB done
+[2023-03-31 07:32:48.616540: E /samgraph/samgraph/common/common.cc:229] From MMAP reading disk 12.03 GB
+[2023-03-31 07:32:53.609030: E /samgraph/samgraph/common/common.cc:243] From MMAP reading done
+/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn't match a supported version!
+  warnings.warn("urllib3 ({}) or chardet ({}) doesn't match a supported "
+[2023-03-31 07:33:02.893610: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-31 07:33:02.895282: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-31 07:33:02.899590: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 423.66 MB
+[2023-03-31 07:33:02.911489: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-31 07:33:02.933971: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-31 07:33:03.  1107: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 15.03 GB

@@ -1,0 +1,73 @@
+succeed=False
+config:eval_tsp="2023-03-31 07:31:38"
+config:arch=arch6
+config:num_worker=4
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=papers100M-undir
+config:pipeline=False
+config:cache_policy=clique_part
+config:cache_percentage=0.16
+config:num_epoch=5
+config:batch_size=2000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=40
+config:unsupervised=True
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:max_num_step=1000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/papers100M-undir
+config:workers=['cuda:0', 'cuda:1', 'cuda:2', 'cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.SGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=25
+config:_arch=6
+config:_sample_type=5
+config:_cache_policy=14
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+coll_cache:optimal_rep_storage=0
+coll_cache:optimal_part_storage=0.64
+coll_cache:optimal_cpu_storage=0.36
+coll_cache:optimal_local_storage=0.16
+coll_cache:optimal_remote_storage=0.48
+coll_cache:optimal_local_rate=0.245002
+coll_cache:optimal_remote_rate=0.735006
+coll_cache:optimal_cpu_rate=0.0199925
+z=15049.7,15049.7,15049.7,15049.7,
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=9154893824
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=9154893824
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=9154893824
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=9154893824
+

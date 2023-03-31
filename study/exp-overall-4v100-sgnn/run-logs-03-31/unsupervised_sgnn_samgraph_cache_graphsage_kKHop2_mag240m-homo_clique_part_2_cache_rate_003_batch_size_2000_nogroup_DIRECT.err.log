@@ -1,0 +1,25 @@
+[2023-03-30 14:21:30.728101: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:113] mmap allocating space 12.87 GB
+[2023-03-30 14:21:30.728195: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:118] mmap allocating space 12.87 GB done
+[2023-03-30 14:21:30.728224: E /samgraph/samgraph/common/common.cc:229] From MMAP reading disk 12.87 GB
+[2023-03-30 14:21:36.703352: E /samgraph/samgraph/common/common.cc:243] From MMAP reading done
+[2023-03-30 14:21:42.660100: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:113] mmap allocating space 1.82 GB
+[2023-03-30 14:21:42.660182: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:118] mmap allocating space 1.82 GB done
+[2023-03-30 14:21:42.660246: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 12.87 GB
+[2023-03-30 14:21:43.274878: E /samgraph/samgraph/common/engine.cc:277] Train set size 7.63 MB
+/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn't match a supported version!
+  warnings.warn("urllib3 ({}) or chardet ({}) doesn't match a supported "
+[2023-03-30 14:21:50.367725: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-30 14:21:50.373470: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 931.40 MB
+[2023-03-30 14:21:50.584173: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 16.09 GB
+[2023-03-30 14:21:58.552340: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 64.00 MB
+[2023-03-30 14:21:58.557906: E /samgraph/samgraph/common/dist/pre_sampler.cc:41] Dist Presampler making shuffler...
+[2023-03-30 14:21:58.562885: E /samgraph/samgraph/common/dist/pre_sampler.cc:44] Dist Presampler making shuffler...Done
+[2023-03-30 14:21:58.562931: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 1.82 GB
+[2023-03-30 14:21:59.269303: E /samgraph/samgraph/common/dist/dist_engine.cc:531] worker 0 placing graph to gpu
+[2023-03-30 14:22:00.412152: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 0
+[2023-03-30 14:22:07.762055: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 3.79708 on sample, 0.307873 on copy, 3.22966 on count
+[2023-03-30 14:22:07.762147: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 1
+[2023-03-30 14:22:15.195606: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 7.5667 on sample, 0.610443 on copy, 6.57848 on count
+[2023-03-30 14:22:15.195722: E /samgraph/samgraph/common/dist/pre_sampler.cc:136] max_num_inputs = 975727, min_num_inputs = 928179
+[2023-03-30 14:22:15.998263: E /samgraph/samgraph/common/dist/pre_sampler.cc:148] presample spend 0.802463 on sort freq.
+[2023-03-30 14:22:17.485665: E /samgraph/samgraph/common/dist/dist_engine.cc:549] pre sample done, delete it
