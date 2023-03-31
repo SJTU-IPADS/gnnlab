@@ -1,0 +1,308 @@
+[2023-03-30 14:46:56.513086: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:113] mmap allocating space 12.87 GB
+[2023-03-30 14:46:56.513182: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:118] mmap allocating space 12.87 GB done
+[2023-03-30 14:46:56.513211: E /samgraph/samgraph/common/common.cc:229] From MMAP reading disk 12.87 GB
+[2023-03-30 14:47:01.822562: E /samgraph/samgraph/common/common.cc:243] From MMAP reading done
+[2023-03-30 14:47:07.776703: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:113] mmap allocating space 1.82 GB
+[2023-03-30 14:47:07.776786: W /samgraph/samgraph/common/cpu/mmap_cpu_device.cc:118] mmap allocating space 1.82 GB done
+/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn't match a supported version!
+  warnings.warn("urllib3 ({}) or chardet ({}) doesn't match a supported "
+[2023-03-30 14:47:14.811788: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-30 14:47:14.812959: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-30 14:47:14.813123: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-30 14:47:14.819920: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-30 14:47:14.824391: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 931.40 MB
+[2023-03-30 14:47:15. 46052: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 16.09 GB
+[2023-03-30 14:47:29.496201: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 64.00 MB
+[2023-03-30 14:47:29.501614: E /samgraph/samgraph/common/dist/pre_sampler.cc:41] Dist Presampler making shuffler...
+[2023-03-30 14:47:29.506987: E /samgraph/samgraph/common/dist/pre_sampler.cc:44] Dist Presampler making shuffler...Done
+[2023-03-30 14:47:29.507040: W /samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 1.82 GB
+[2023-03-30 14:47:30.799869: E /samgraph/samgraph/common/dist/dist_engine.cc:531] worker 0 placing graph to gpu
+[2023-03-30 14:47:31.943157: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 0
+[2023-03-30 14:47:33.173554: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 0.687597 on sample, 0.0542002 on copy, 0.485193 on count
+[2023-03-30 14:47:33.173644: E /samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 1
+[2023-03-30 14:47:34.406890: E /samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 1.37482 on sample, 0.106555 on copy, 0.975562 on count
+[2023-03-30 14:47:34.407016: E /samgraph/samgraph/common/dist/pre_sampler.cc:136] max_num_inputs = 591695, min_num_inputs = 563527
+[2023-03-30 14:47:35.286650: E /samgraph/samgraph/common/dist/pre_sampler.cc:148] presample spend 0.879484 on sort freq.
+[2023-03-30 14:47:36.656181: E /samgraph/samgraph/common/dist/dist_engine.cc:549] pre sample done, delete it
+[[[[2023-03-30 14:47:362023-03-30 14:47:362023-03-30 14:47:362023-03-30 14:47:36....990188990180990180990180: : : : WWWW    /samgraph/samgraph/common/dist/dist_engine.cc/samgraph/samgraph/common/dist/dist_engine.cc/samgraph/samgraph/common/dist/dist_engine.cc/samgraph/samgraph/common/dist/dist_engine.cc::::687687687687] ] ] ] Trainer[3] initializing...Trainer[1] initializing...Trainer[2] initializing...Trainer[0] initializing...
+
+
+
+[2023-03-30 14:47:36.990366: W /samgraph/samgraph/common/dist/dist_engine.cc[:2023-03-30 14:47:36691.] 990381Trainer[3] pin memory queue...[: 
+2023-03-30 14:47:36W[. 2023-03-30 14:47:36990394/samgraph/samgraph/common/dist/dist_engine.cc.: :990404W691:  ] W/samgraph/samgraph/common/dist/dist_engine.ccTrainer[1] pin memory queue... :
+/samgraph/samgraph/common/dist/dist_engine.cc691:] 691Trainer[2] pin memory queue...] 
+Trainer[0] pin memory queue...
+[2023-03-30 14:47:36.991394: E /samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-03-30 14:47:36.991483: E[ 2023-03-30 14:47:36/samgraph/samgraph/common/dist/dist_engine.cc.:99149585[: ] 2023-03-30 14:47:36WRunning on V100. 
+991518[/samgraph/samgraph/common/dist/dist_engine.cc: 2023-03-30 14:47:36:E.726 991538] /samgraph/samgraph/common/dist/dist_engine.cc: Trainer[3] register host memory...[:E
+2023-03-30 14:47:3685 .] /samgraph/samgraph/common/dist/dist_engine.cc991569Running on V100:: 
+85W]  Running on V100/samgraph/samgraph/common/dist/dist_engine.cc
+:726] Trainer[1] register host memory...
+[2023-03-30 14:47:36.991625: W /samgraph/samgraph/common/dist/dist_engine.cc[:2023-03-30 14:47:36726.] 991638Trainer[2] register host memory...: 
+W /samgraph/samgraph/common/dist/dist_engine.cc:726] Trainer[0] register host memory...
+[[[2023-03-30 14:47:36[2023-03-30 14:47:362023-03-30 14:47:36.2023-03-30 14:47:36..991685.991686991684: 991687: : W: WW W  /samgraph/samgraph/common/dist/dist_engine.cc /samgraph/samgraph/common/dist/dist_engine.cc/samgraph/samgraph/common/dist/dist_engine.cc:/samgraph/samgraph/common/dist/dist_engine.cc::736:736736] 736] ] Trainer[0] building cache...] Trainer[1] building cache...Trainer[3] building cache...
+Trainer[2] building cache...
+
+
+[2023-03-30 14:47:36.993480: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:[1962023-03-30 14:47:36] .assigning 0 to cpu993501
+: E [/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc2023-03-30 14:47:36:.[1969935242023-03-30 14:47:36] : .assigning 0 to cpu[E993540
+2023-03-30 14:47:36 : ./samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.ccE993550: : 196/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.ccE[] : 2023-03-30 14:47:36assigning 0 to cpu212/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc.
+] :993589build symm link desc with 4X Tesla V100-SXM2-16GB out of 4196: 
+] Eassigning 0 to cpu 
+[/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[2023-03-30 14:47:36:2023-03-30 14:47:36.212.993633] 993640: [build symm link desc with 4X Tesla V100-SXM2-16GB out of 4: E2023-03-30 14:47:36
+E . /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc993656/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[:: :2023-03-30 14:47:36212E213.]  ] 993684build symm link desc with 4X Tesla V100-SXM2-16GB out of 4/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.ccremote time is 8.68421: 
+:
+E212 ] /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[[:build symm link desc with 4X Tesla V100-SXM2-16GB out of 42023-03-30 14:47:362023-03-30 14:47:36213
+..] 993730993731remote time is 8.68421: [: 
+E2023-03-30 14:47:36E . [/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc993758/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc2023-03-30 14:47:36:: :.213E214993774]  ] : remote time is 8.68421/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cccpu time is 30E
+:
+ 213/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[] :[2023-03-30 14:47:36remote time is 8.684212142023-03-30 14:47:36.
+] .993825cpu time is 30993834: [
+: E2023-03-30 14:47:36E . [/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc993853/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc2023-03-30 14:47:36:: :.214E255993869]  ] : cpu time is 30/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.ccregistering cpu data with 48.00 GBE
+:
+ 214/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc[] :2023-03-30 14:47:36cpu time is 30255.
+] 993923registering cpu data with 48.00 GB: 
+[E2023-03-30 14:47:36 ./samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc993947:: 255E]  registering cpu data with 48.00 GB/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+:255] registering cpu data with 48.00 GB
+[2023-03-30 14:47:48. 34727: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[2023-03-30 14:47:48. 35700: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[2023-03-30 14:47:48. 36413: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[2023-03-30 14:47:48. 36524: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:78] creating solver
+[2023-03-30 14:47:48. 36568: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:118] solver created. now build & solve
+[2023-03-30 14:47:48. 50481: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[2023-03-30 14:47:48.138485: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:123] solver built. now solve
+block 0 storage is 00000001
+	access is	0	0	0	0	
+block 1 storage is 00000010
+	access is	1	1	1	1	
+block 2 storage is 00000100
+	access is	2	2	2	2	
+block 3 storage is 00001000
+	access is	3	3	3	3	
+block 4 storage is 00000000
+	access is	4	4	4	4	
+[2023-03-30 14:47:48.649672: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:127] solver solved
+[2023-03-30 14:47:48.649756: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:267] 0 solved master
+[2023-03-30 14:47:48.649800: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:274] 0 solved
+[2023-03-30 14:47:48.649827: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:277] worker 0 thread 0 initing device 0
+[2023-03-30 14:47:48.659836: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2265] Building Coll Cache with ... num gpu device is 4
+[2023-03-30 14:47:48.660089: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cuh:611] per src size local is 8057395
+[2023-03-30 14:47:48.725902: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:274] 3 solved
+[2023-03-30 14:47:48.725979: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:277] worker 3 thread 3 initing device 3
+[2023-03-30 14:47:48.727421: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2265] Building Coll Cache with ... num gpu device is 4
+[2023-03-30 14:47:48.730789: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:274] 1 solved
+[2023-03-30 14:47:48.730836: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:277] worker 1 thread 1 initing device 1
+[2023-03-30 14:47:48.731446: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:274] 2 solved
+[2023-03-30 14:47:48.731551: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:277] worker 2 thread 2 initing device 2
+[2023-03-30 14:47:48.732193: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2265] Building Coll Cache with ... num gpu device is 4
+[2023-03-30 14:47:48.735109: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2265] Building Coll Cache with ... num gpu device is 4
+[2023-03-30 14:47:48.879317: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2307] num cpu nodes is 214861243
+[2023-03-30 14:47:48.991296: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2307] num cpu nodes is 214861243
+[2023-03-30 14:47:49. 15948: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2307] num cpu nodes is 214861243
+[2023-03-30 14:47:49. 21007: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2307] num cpu nodes is 214861243
+[2023-03-30 14:47:49.812874: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 29299256 possible elem, scale to 67108864
+[2023-03-30 14:47:49.813017: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 512.00 MB
+[2023-03-30 14:47:49.922245: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 29299256 possible elem, scale to 67108864
+[2023-03-30 14:47:49.922307: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 512.00 MB
+[2023-03-30 14:47:49.958212: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 29299256 possible elem, scale to 67108864
+[2023-03-30 14:47:49.958266: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 512.00 MB
+[2023-03-30 14:47:49.960654: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 29299256 possible elem, scale to 67108864
+[2023-03-30 14:47:49.960707: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 512.00 MB
+[2023-03-30 14:47:50. 80553: E /samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:107] too many mem allocated for forcescale?7568975->244161
+[2023-03-30 14:47:50. 81438: E /samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:107] too many mem allocated for forcescale?7568975->244161
+[2023-03-30 14:47:50. 83292: E /samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:107] too many mem allocated for forcescale?7568975->244161
+[2023-03-30 14:47:50. 92403: E /samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:107] too many mem allocated for forcescale?7568975->244161
+[2023-03-30 14:47:50. 98439: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2382] Asymm Coll cache (policy: clique_part) | local 7324814 / 244160499 nodes ( 3.00 %~3.00 %) | remote 21974442 / 244160499 nodes ( 9.00 %) | cpu 214861243 / 244160499 nodes ( 88.00 %) | 10.83 GB | 1.36327 secs 
+[2023-03-30 14:47:50. 98575: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2382] Asymm Coll cache (policy: clique_part) | local 7324814 / 244160499 nodes ( 3.00 %~3.00 %) | remote 21974442 / 244160499 nodes ( 9.00 %) | cpu 214861243 / 244160499 nodes ( 88.00 %) | 10.83 GB | 1.43868 secs 
+[2023-03-30 14:47:50.131786: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2382] Asymm Coll cache (policy: clique_part) | local 7324814 / 244160499 nodes ( 3.00 %~3.00 %) | remote 21974442 / 244160499 nodes ( 9.00 %) | cpu 214861243 / 244160499 nodes ( 88.00 %) | 10.83 GB | 1.39955 secs 
+[2023-03-30 14:47:50.139257: E /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2382] Asymm Coll cache (policy: clique_part) | local 7324814 / 244160499 nodes ( 3.00 %~3.00 %) | remote 21974442 / 244160499 nodes ( 9.00 %) | cpu 214861243 / 244160499 nodes ( 88.00 %) | 10.83 GB | 1.4118 secs 
+[2023-03-30 14:47:50.140327: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:196] assigning 0 to cpu
+[2023-03-30 14:47:50.140382: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:212] build symm link desc with 4X Tesla V100-SXM2-16GB out of 4
+[2023-03-30 14:47:50.140423: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:213] remote time is 8.68421
+[2023-03-30 14:47:50.140458: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:214] cpu time is 30
+[2023-03-30 14:47:50.140500: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:255] registering cpu data with 1.82 GB
+[2023-03-30 14:47:50.143419: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:196] assigning 0 to cpu
+[2023-03-30 14:47:50.143481: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:212] build symm link desc with 4X Tesla V100-SXM2-16GB out of 4
+[2023-03-30 14:47:50.143523: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:213] remote time is 8.68421
+[2023-03-30 14:47:50.143557: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:214] cpu time is 30
+[2023-03-30 14:47:50.143600: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:255] registering cpu data with 1.82 GB
+[2023-03-30 14:47:50.145470: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:196] assigning 0 to cpu
+[2023-03-30 14:47:50[.2023-03-30 14:47:50145501.: 145517E:  E/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc :/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc196:] 212assigning 0 to cpu] 
+build symm link desc with 4X Tesla V100-SXM2-16GB out of 4
+[2023-03-30 14:47:50.145625: [E2023-03-30 14:47:50 ./samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc145638:: 213E]  remote time is 8.68421/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc
+:212] [build symm link desc with 4X Tesla V100-SXM2-16GB out of 42023-03-30 14:47:50
+.145720: E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[:2023-03-30 14:47:50214.] 145750cpu time is 30: 
+E /samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:213] remote time is 8.68421[
+2023-03-30 14:47:50.145805: E[ 2023-03-30 14:47:50/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc.:145824255: ] Eregistering cpu data with 1.82 GB 
+/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:214] cpu time is 30
+[2023-03-30 14:47:50.145919: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:255] registering cpu data with 1.82 GB
+[2023-03-30 14:47:53.113377: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[2023-03-30 14:47:53.114134: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[2023-03-30 14:47:53.114567: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[2023-03-30 14:47:53.116119: E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:257] registering cpu data done.
+[[[[2023-03-30 14:47:532023-03-30 14:47:532023-03-30 14:47:532023-03-30 14:47:53....116243116244116243116243: : : : EEEE    /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc::::274274274274] ] ] ] 3 solved1 solved2 solved0 solved
+
+
+
+[[2023-03-30 14:47:53[2023-03-30 14:47:53.[2023-03-30 14:47:53.1164322023-03-30 14:47:53.116436: .116440: E116444: E : E /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.ccE /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc: /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:277/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:277] :277] worker 3 thread 3 initing device 3277] worker 1 thread 1 initing device 1
+] worker 2 thread 2 initing device 2
+worker 0 thread 0 initing device 0
+
+[2023-03-30 14:47:54.985972: W /samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 925.24 MB
+[cf7fffbab8fd:20572:0:20576] Caught signal 11 (Segmentation fault: address not mapped to object at address 0xa41089b4)
+[cf7fffbab8fd:20574:0:20577] Caught signal 11 (Segmentation fault: address not mapped to object at address 0xa41089b4)
+[cf7fffbab8fd:20575:0:20578] Caught signal 11 (Segmentation fault: address not mapped to object at address 0xa41089b4)
+[cf7fffbab8fd:20571:0:20573] Caught signal 11 (Segmentation fault: Sent by the kernel at address (nil))
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+==== backtrace (tid:  20577) ====
+ 0 0x0000000000014420 __funlockfile()  :0
+ 1 0x000000000005b597 coll_cache_lib::common::SimpleHashTable::LookupValCustom<coll_cache_lib::GetIdxHelperMock>()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cuh:270
+ 2 0x000000000005b597 std::__shared_ptr_access<coll_cache_lib::common::SimpleHashTable, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 3 0x000000000005b597 coll_cache_lib::ExtractSession::GetMissCacheIndex()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:674
+ 4 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1167
+ 5 0x000000000005cf0f coll_cache_lib::common::Timer::Passed()  /samgraph/3rdparty/collcachelib/coll_cache_lib/timer.h:36
+ 6 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1168
+ 7 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:54
+ 8 0x00000000000d5c39 std::__shared_ptr_access<coll_cache_lib::common::Profiler, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 9 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:55
+10 0x0000000000164c4c samgraph::common::dist::DoCollFeatLabelExtract()  /samgraph/samgraph/common/dist/dist_loops.cc:716
+11 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+12 0x000000000016fa3b std::__shared_ptr<samgraph::common::Task, (__gnu_cxx::_Lock_policy)2>::~__shared_ptr()  /usr/include/c++/9/bits/shared_ptr_base.h:1169
+13 0x000000000016fa3b std::shared_ptr<samgraph::common::Task>::~shared_ptr()  /usr/include/c++/9/bits/shared_ptr.h:103
+14 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+15 0x000000000015eaad samgraph::common::dist::DistEngine::RunSampleOnce()  /samgraph/samgraph/common/dist/dist_engine.cc:1013
+16 0x0000000000006ff5 ffi_prep_go_closure()  ???:0
+17 0x000000000000640a ffi_closure_free()  ???:0
+18 0x00000000000137d9 _ctypes_callproc()  ???:0
+19 0x00000000000139ec _ctypes_callproc()  ???:0
+20 0x00000000005f74f6 _PyObject_MakeTpCall()  ???:0
+21 0x0000000000571164 _PyEval_EvalFrameDefault()  ???:0
+22 0x000000000050bb2e PyMethod_New()  ???:0
+23 0x0000000000570b26 _PyEval_EvalFrameDefault()  ???:0
+24 0x00000000005f6cd6 _PyFunction_Vectorcall()  ???:0
+25 0x00000000005f6082 PyObject_Call()  ???:0
+26 0x000000000056d2d5 _PyEval_EvalFrameDefault()  ???:0
+27 0x0000000000569dba _PyEval_EvalCodeWithName()  ???:0
+28 0x00000000005f6eb3 _PyFunction_Vectorcall()  ???:0
+29 0x00000000005f6082 PyObject_Call()  ???:0
+30 0x0000000000658dfc PyInit__thread()  ???:0
+31 0x0000000000679e18 _PyFloat_FormatAdvancedWriter()  ???:0
+32 0x0000000000008609 start_thread()  /build/glibc-SzIz7B/glibc-2.31/nptl/pthread_create.c:477
+33 0x000000000011f133 clone()  ???:0
+=================================
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+==== backtrace (tid:  20576) ====
+ 0 0x0000000000014420 __funlockfile()  :0
+ 1 0x000000000005b597 coll_cache_lib::common::SimpleHashTable::LookupValCustom<coll_cache_lib::GetIdxHelperMock>()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cuh:270
+ 2 0x000000000005b597 std::__shared_ptr_access<coll_cache_lib::common::SimpleHashTable, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 3 0x000000000005b597 coll_cache_lib::ExtractSession::GetMissCacheIndex()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:674
+ 4 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1167
+ 5 0x000000000005cf0f coll_cache_lib::common::Timer::Passed()  /samgraph/3rdparty/collcachelib/coll_cache_lib/timer.h:36
+ 6 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1168
+ 7 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:54
+ 8 0x00000000000d5c39 std::__shared_ptr_access<coll_cache_lib::common::Profiler, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 9 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:55
+10 0x0000000000164c4c samgraph::common::dist::DoCollFeatLabelExtract()  /samgraph/samgraph/common/dist/dist_loops.cc:716
+11 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+12 0x000000000016fa3b std::__shared_ptr<samgraph::common::Task, (__gnu_cxx::_Lock_policy)2>::~__shared_ptr()  /usr/include/c++/9/bits/shared_ptr_base.h:1169
+13 0x000000000016fa3b std::shared_ptr<samgraph::common::Task>::~shared_ptr()  /usr/include/c++/9/bits/shared_ptr.h:103
+14 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+15 0x000000000015eaad samgraph::common::dist::DistEngine::RunSampleOnce()  /samgraph/samgraph/common/dist/dist_engine.cc:1013
+16 0x0000000000006ff5 ffi_prep_go_closure()  ???:0
+17 0x000000000000640a ffi_closure_free()  ???:0
+18 0x00000000000137d9 _ctypes_callproc()  ???:0
+19 0x00000000000139ec _ctypes_callproc()  ???:0
+20 0x00000000005f74f6 _PyObject_MakeTpCall()  ???:0
+21 0x0000000000571164 _PyEval_EvalFrameDefault()  ???:0
+22 0x000000000050bb2e PyMethod_New()  ???:0
+23 0x0000000000570b26 _PyEval_EvalFrameDefault()  ???:0
+24 0x00000000005f6cd6 _PyFunction_Vectorcall()  ???:0
+25 0x00000000005f6082 PyObject_Call()  ???:0
+26 0x000000000056d2d5 _PyEval_EvalFrameDefault()  ???:0
+27 0x0000000000569dba _PyEval_EvalCodeWithName()  ???:0
+28 0x00000000005f6eb3 _PyFunction_Vectorcall()  ???:0
+29 0x00000000005f6082 PyObject_Call()  ???:0
+30 0x0000000000658dfc PyInit__thread()  ???:0
+31 0x0000000000679e18 _PyFloat_FormatAdvancedWriter()  ???:0
+32 0x0000000000008609 start_thread()  /build/glibc-SzIz7B/glibc-2.31/nptl/pthread_create.c:477
+33 0x000000000011f133 clone()  ???:0
+=================================
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+==== backtrace (tid:  20578) ====
+ 0 0x0000000000014420 __funlockfile()  :0
+ 1 0x000000000005b597 coll_cache_lib::common::SimpleHashTable::LookupValCustom<coll_cache_lib::GetIdxHelperMock>()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cuh:270
+ 2 0x000000000005b597 std::__shared_ptr_access<coll_cache_lib::common::SimpleHashTable, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 3 0x000000000005b597 coll_cache_lib::ExtractSession::GetMissCacheIndex()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:674
+ 4 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1167
+ 5 0x000000000005cf0f coll_cache_lib::common::Timer::Passed()  /samgraph/3rdparty/collcachelib/coll_cache_lib/timer.h:36
+ 6 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1168
+ 7 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:54
+ 8 0x00000000000d5c39 std::__shared_ptr_access<coll_cache_lib::common::Profiler, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 9 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:55
+10 0x0000000000164c4c samgraph::common::dist::DoCollFeatLabelExtract()  /samgraph/samgraph/common/dist/dist_loops.cc:716
+11 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+12 0x000000000016fa3b std::__shared_ptr<samgraph::common::Task, (__gnu_cxx::_Lock_policy)2>::~__shared_ptr()  /usr/include/c++/9/bits/shared_ptr_base.h:1169
+13 0x000000000016fa3b std::shared_ptr<samgraph::common::Task>::~shared_ptr()  /usr/include/c++/9/bits/shared_ptr.h:103
+14 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+15 0x000000000015eaad samgraph::common::dist::DistEngine::RunSampleOnce()  /samgraph/samgraph/common/dist/dist_engine.cc:1013
+16 0x0000000000006ff5 ffi_prep_go_closure()  ???:0
+17 0x000000000000640a ffi_closure_free()  ???:0
+18 0x00000000000137d9 _ctypes_callproc()  ???:0
+19 0x00000000000139ec _ctypes_callproc()  ???:0
+20 0x00000000005f74f6 _PyObject_MakeTpCall()  ???:0
+21 0x0000000000571164 _PyEval_EvalFrameDefault()  ???:0
+22 0x000000000050bb2e PyMethod_New()  ???:0
+23 0x0000000000570b26 _PyEval_EvalFrameDefault()  ???:0
+24 0x00000000005f6cd6 _PyFunction_Vectorcall()  ???:0
+25 0x00000000005f6082 PyObject_Call()  ???:0
+26 0x000000000056d2d5 _PyEval_EvalFrameDefault()  ???:0
+27 0x0000000000569dba _PyEval_EvalCodeWithName()  ???:0
+28 0x00000000005f6eb3 _PyFunction_Vectorcall()  ???:0
+29 0x00000000005f6082 PyObject_Call()  ???:0
+30 0x0000000000658dfc PyInit__thread()  ???:0
+31 0x0000000000679e18 _PyFloat_FormatAdvancedWriter()  ???:0
+32 0x0000000000008609 start_thread()  /build/glibc-SzIz7B/glibc-2.31/nptl/pthread_create.c:477
+33 0x000000000011f133 clone()  ???:0
+=================================
+BFD: DWARF error: section .debug_info is larger than its filesize! (0x93ef57 vs 0x530ea0)
+==== backtrace (tid:  20573) ====
+ 0 0x0000000000014420 __funlockfile()  :0
+ 1 0x000000000005b597 coll_cache_lib::common::SimpleHashTable::LookupValCustom<coll_cache_lib::GetIdxHelperMock>()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cuh:270
+ 2 0x000000000005b597 std::__shared_ptr_access<coll_cache_lib::common::SimpleHashTable, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 3 0x000000000005b597 coll_cache_lib::ExtractSession::GetMissCacheIndex()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:674
+ 4 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1167
+ 5 0x000000000005cf0f coll_cache_lib::common::Timer::Passed()  /samgraph/3rdparty/collcachelib/coll_cache_lib/timer.h:36
+ 6 0x000000000005cf0f coll_cache_lib::ExtractSession::ExtractFeat()  /samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:1168
+ 7 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:54
+ 8 0x00000000000d5c39 std::__shared_ptr_access<coll_cache_lib::common::Profiler, (__gnu_cxx::_Lock_policy)2, false, false>::operator->()  /usr/include/c++/9/bits/shared_ptr_base.h:1015
+ 9 0x00000000000d5c39 coll_cache_lib::CollCache::lookup()  /samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:55
+10 0x0000000000164c4c samgraph::common::dist::DoCollFeatLabelExtract()  /samgraph/samgraph/common/dist/dist_loops.cc:716
+11 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+12 0x000000000016fa3b std::__shared_ptr<samgraph::common::Task, (__gnu_cxx::_Lock_policy)2>::~__shared_ptr()  /usr/include/c++/9/bits/shared_ptr_base.h:1169
+13 0x000000000016fa3b std::shared_ptr<samgraph::common::Task>::~shared_ptr()  /usr/include/c++/9/bits/shared_ptr.h:103
+14 0x000000000016fa3b samgraph::common::dist::(anonymous namespace)::RunCacheDataCopySubLoopOnce()  /samgraph/samgraph/common/dist/dist_loops_arch6.cc:178
+15 0x000000000015eaad samgraph::common::dist::DistEngine::RunSampleOnce()  /samgraph/samgraph/common/dist/dist_engine.cc:1013
+16 0x0000000000006ff5 ffi_prep_go_closure()  ???:0
+17 0x000000000000640a ffi_closure_free()  ???:0
+18 0x00000000000137d9 _ctypes_callproc()  ???:0
+19 0x00000000000139ec _ctypes_callproc()  ???:0
+20 0x00000000005f74f6 _PyObject_MakeTpCall()  ???:0
+21 0x0000000000571164 _PyEval_EvalFrameDefault()  ???:0
+22 0x000000000050bb2e PyMethod_New()  ???:0
+23 0x0000000000570b26 _PyEval_EvalFrameDefault()  ???:0
+24 0x00000000005f6cd6 _PyFunction_Vectorcall()  ???:0
+25 0x00000000005f6082 PyObject_Call()  ???:0
+26 0x000000000056d2d5 _PyEval_EvalFrameDefault()  ???:0
+27 0x0000000000569dba _PyEval_EvalCodeWithName()  ???:0
+28 0x00000000005f6eb3 _PyFunction_Vectorcall()  ???:0
+29 0x00000000005f6082 PyObject_Call()  ???:0
+30 0x0000000000658dfc PyInit__thread()  ???:0
+31 0x0000000000679e18 _PyFloat_FormatAdvancedWriter()  ???:0
+32 0x0000000000008609 start_thread()  /build/glibc-SzIz7B/glibc-2.31/nptl/pthread_create.c:477
+33 0x000000000011f133 clone()  ???:0
+=================================
+[2023-03-30 14:48:24.920896: E /samgraph/samgraph/common/operation.cc:576] detect an abnormal terminated child, signal is Segmentation fault

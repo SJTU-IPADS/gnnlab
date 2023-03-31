@@ -1,0 +1,93 @@
+succeed=False
+config:eval_tsp="2023-03-30 14:46:56"
+config:arch=arch6
+config:num_worker=4
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=mag240m-homo
+config:pipeline=False
+config:cache_policy=clique_part
+config:cache_percentage=0.03
+config:num_epoch=4
+config:batch_size=4000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=40
+config:unsupervised=False
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:max_num_step=100000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/mag240m-homo
+config:workers=['cuda:0', 'cuda:1', 'cuda:2', 'cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.SGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=25
+config:_arch=6
+config:_sample_type=5
+config:_cache_policy=14
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+coll_cache:optimal_rep_storage=0
+coll_cache:optimal_part_storage=0.12
+coll_cache:optimal_cpu_storage=0.88
+coll_cache:optimal_local_storage=0.03
+coll_cache:optimal_remote_storage=0.09
+coll_cache:optimal_local_rate=0.25
+coll_cache:optimal_remote_rate=0.75
+coll_cache:optimal_cpu_rate=0
+z=889.481,889.481,889.481,889.481,
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=11625945600
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=11625945600
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=11625945600
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=11625945600
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 0},
+2 :  {link #0 : 3}, {link #1 : 0}, {link #2 : 1},
+3 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2},
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
+
