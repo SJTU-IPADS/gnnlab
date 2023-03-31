@@ -107,16 +107,19 @@ class CachePolicy(Enum):
 
   rep_1 = 111
   rep_2 = 112
+  rep_4 = 114
   rep_10 = 120
   rep_max = 121
 
   coll_cache_asymm_link_1 = 131
   coll_cache_asymm_link_2 = 132
+  coll_cache_asymm_link_4 = 134
   coll_cache_asymm_link_10 = 140
   coll_cache_asymm_link_max = 141
 
   clique_part_1 = 151
   clique_part_2 = 152
+  clique_part_4 = 154
   clique_part_10 = 160
   clique_part_max = 161
 
@@ -533,10 +536,12 @@ class RunConfig:
       status = os.system(self.form_cmd(durable_log))
       if os.WEXITSTATUS(status) != 0:
         print("FAILED!")
-        self.prepend_log_succeed(False)
+        if durable_log:
+          self.prepend_log_succeed(False)
         return 1
       else:
-        self.prepend_log_succeed(True)
+        if durable_log:
+          self.prepend_log_succeed(True)
       if callback != None:
         callback(self)
     return 0

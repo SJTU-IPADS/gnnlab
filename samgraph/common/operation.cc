@@ -373,6 +373,10 @@ uint64_t samgraph_get_next_batch() {
   return key;
 }
 
+void samgraph_unset_cur_batch() {
+  Engine::Get()->SetGraphBatch(nullptr);
+}
+
 void samgraph_sample_once() { Engine::Get()->RunSampleOnce(); }
 
 size_t samgraph_get_graph_num_src(uint64_t key, int graph_id) {

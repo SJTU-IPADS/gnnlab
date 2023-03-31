@@ -498,6 +498,9 @@ class SamGraphBasics(object):
     def get_unsupervised_graph_num_node(self, key):
         return self.C_LIB_CTYPES.samgraph_get_unsupervised_graph_num_node(key)
 
+    def unset_cur_batch(self):
+        return self.C_LIB_CTYPES.samgraph_unset_cur_batch()
+
     def sample_once(self):
         return self.C_LIB_CTYPES.samgraph_sample_once()
 
