@@ -93,6 +93,8 @@ struct RunConfig {
   static double               option_train_set_percent;
   static int                  option_train_set_part_num;
   static int                  option_train_set_part_idx;
+
+  static bool                 option_place_graph_on_host;
   
   static size_t               option_fake_feat_dim;
 
@@ -116,6 +118,9 @@ struct RunConfig {
   static double               coll_cache_hyperparam_T_local;
   static double               coll_cache_hyperparam_T_remote;
   static double               coll_cache_hyperparam_T_cpu;
+
+  // don't create,init,lookup coll. let python script use python api
+  static bool                 coll_ignore;
 
   // static coll_cache::AsymmLinkDesc coll_cache_link_desc;
 

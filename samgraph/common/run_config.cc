@@ -88,6 +88,8 @@ double               RunConfig::option_train_set_percent = 100;
 int                  RunConfig::option_train_set_part_num = 1;
 int                  RunConfig::option_train_set_part_idx = 0;
 
+bool                 RunConfig::option_place_graph_on_host = false;
+
 size_t               RunConfig::option_fake_feat_dim = 0;
 
 int                  RunConfig::omp_thread_num                 = 40;
@@ -107,6 +109,7 @@ double               RunConfig::coll_cache_coefficient = 1.1;
 double               RunConfig::coll_cache_hyperparam_T_local  = 1;
 double               RunConfig::coll_cache_hyperparam_T_remote = 438 / (double)213;  // performance on A100
 double               RunConfig::coll_cache_hyperparam_T_cpu    = 438 / (double)11.8; // performance on A100
+bool                 RunConfig::coll_ignore = false;
 // coll_cache::AsymmLinkDesc RunConfig::coll_cache_link_desc;
 
 RollingPolicy        RunConfig::rolling = AutoRolling;
@@ -167,6 +170,9 @@ void RunConfig::LoadConfigFromEnv() {
   //   // auto enable coll cache concurrent link
   //   RunConfig::coll_cache_concurrent_link = coll_cache::AutoEnableConcurrentLink();
   // }
+  if (GetEnv("SAMGRAPH_PLACE_GRAPH_ON_HOST") != "") {
+    RunConfig::option_place_graph_on_host = ture_values.find(GetEnv("SAMGRAPH_PLACE_GRAPH_ON_HOST")) != ture_values.end();
+  }
   if (GetEnv("SAMGRAPH_MQ_SIZE") != "") {
     RunConfig::option_mq_size = std::stoull(GetEnv("SAMGRAPH_MQ_SIZE"));
   }

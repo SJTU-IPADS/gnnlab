@@ -113,7 +113,19 @@ Profiler::Profiler() {
   size_t num_epoch_logs = Engine::Get()->NumEpoch();
 
   _init_data.resize(kNumLogInitItems, LogData(1));
-  _step_data.resize(num_step_items, LogData(num_step_logs));
+  // _step_data.resize(num_step_items, LogData(num_step_logs));
+
+  _step_data_val_buf = Tensor::CreateShm(Constant::kProfilerValShmName, kF64, {num_step_logs * num_step_items}, "");
+  _step_data_bitmap_buf = Tensor::CreateShm(Constant::kProfilerBitmapShmName, kI32, {num_step_logs * num_step_items}, "");
+  memset(_step_data_val_buf->MutableData(), 0, _step_data_val_buf->NumBytes());
+  memset(_step_data_bitmap_buf->MutableData(), 0, _step_data_bitmap_buf->NumBytes());
+
+  _step_data.resize(num_step_items, SharedLogData());
+  for (size_t i = 0; i < num_step_items; i++) {
+    _step_data[i].vals = _step_data_val_buf->Ptr<double>() + i * num_step_logs;
+    _step_data[i].bitmap = _step_data_bitmap_buf->Ptr<int>() + i * num_step_logs;
+  }
+
   _step_buf.resize(num_step_items);
   _epoch_data.resize(num_epoch_items, LogData(num_epoch_logs));
   _epoch_buf.resize(num_epoch_items);
@@ -135,15 +147,20 @@ Profiler::Profiler() {
   this->LogStep = [this](uint64_t key, LogStepItem item, double val){
     _LogStep(key, item, val);
   };
+  this->LogStepAdd = [this](uint64_t key, LogStepItem item, double val){
+    _LogStepAdd(key, item, val);
+  };
 }
 
 void Profiler::ResetStepEpoch() {
+  memset(_step_data_val_buf->MutableData(), 0, _step_data_val_buf->NumBytes());
+  memset(_step_data_bitmap_buf->MutableData(), 0, _step_data_bitmap_buf->NumBytes());
   size_t num_step_items = static_cast<size_t>(kNumLogStepItems);
   size_t num_step_logs = Engine::Get()->NumEpoch() * Engine::Get()->NumStep();
   size_t num_epoch_items = static_cast<size_t>(kNumLogEpochItems);
   size_t num_epoch_logs = Engine::Get()->NumEpoch();
-  _step_data.clear();
-  _step_data.resize(num_step_items, LogData(num_step_logs));
+  // _step_data.clear();
+  // _step_data.resize(num_step_items, LogData(num_step_logs));
   _step_buf.clear();
   _step_buf.resize(num_step_items);
   _epoch_data.clear();
@@ -193,20 +210,20 @@ void Profiler::LogInitAdd(LogInitItem item, double val) {
 void Profiler::_LogStep(uint64_t key, LogStepItem item, double val) {
   size_t item_idx = static_cast<size_t>(item);
   _step_data[item_idx].vals[key] = val;
-  _step_data[item_idx].sum += val;
-  _step_data[item_idx].cnt = _step_data[item_idx].bitmap[key]
-                                 ? _step_data[item_idx].cnt
-                                 : _step_data[item_idx].cnt + 1;
+  // _step_data[item_idx].sum += val;
+  // _step_data[item_idx].cnt = _step_data[item_idx].bitmap[key]
+  //                                ? _step_data[item_idx].cnt
+  //                                : _step_data[item_idx].cnt + 1;
   _step_data[item_idx].bitmap[key] = true;
 }
 
-void Profiler::LogStepAdd(uint64_t key, LogStepItem item, double val) {
+void Profiler::_LogStepAdd(uint64_t key, LogStepItem item, double val) {
   size_t item_idx = static_cast<size_t>(item);
   _step_data[item_idx].vals[key] += val;
-  _step_data[item_idx].sum += val;
-  _step_data[item_idx].cnt = _step_data[item_idx].bitmap[key]
-                                 ? _step_data[item_idx].cnt
-                                 : _step_data[item_idx].cnt + 1;
+  // _step_data[item_idx].sum += val;
+  // _step_data[item_idx].cnt = _step_data[item_idx].bitmap[key]
+  //                                ? _step_data[item_idx].cnt
+  //                                : _step_data[item_idx].cnt + 1;
   _step_data[item_idx].bitmap[key] = true;
 }
 
@@ -310,17 +327,16 @@ void Profiler::_ReportStepAverage(uint64_t epoch, uint64_t step) {
 
   size_t num_items = static_cast<size_t>(kNumLogStepItems);
   for (size_t i = 0; i < num_items; i++) {
-    if (_step_data[i].cnt <= 1) {
+    double sum = 0;
+    size_t cnt = 0;
+    for (size_t current_key = _num_step; current_key < key; current_key++) {
+      if (_step_data[i].bitmap[current_key] == false) continue;
+      sum += _step_data[i].vals[current_key];
+      cnt ++;
+    }
+    if (cnt <= 1) {
       _step_buf[i] = 0;
       continue;
-    }
-    // skip first epoch
-    double sum = _step_data[i].sum;
-    size_t cnt = _step_data[i].cnt;
-    for (size_t current_key = 0; Engine::Get()->GetEpochFromKey(current_key) == 0; current_key++) {
-      if (_step_data[i].bitmap[current_key] == false) continue;
-      sum -= _step_data[i].vals[current_key];
-      cnt --;
     }
     if (cnt == 0) {
       CHECK_LE(std::abs(sum), 1e-8) << " sum is " << sum;
@@ -332,22 +348,21 @@ void Profiler::_ReportStepAverage(uint64_t epoch, uint64_t step) {
   OutputStep(key, "Step(average)");
 }
 
+
 template<typename ReduceOp>
-void Profiler::PrepareStepReduce(uint64_t epoch, uint64_t step, const double init, ReduceOp op) {
+void Profiler::PrepareStepReduce(uint64_t epoch, uint64_t step, const double init, ReduceOp op, const double default_val) {
   uint64_t key = Engine::Get()->GetBatchKey(epoch, step);
 
   size_t num_items = static_cast<size_t>(kNumLogStepItems);
   for (size_t i = 0; i < num_items; i++) {
-    if (_step_data[i].cnt <= 1) {
-      _step_buf[i] = 0;
-      continue;
-    }
     double reduce_val = init;
-    for (size_t current_key = 0; current_key < key; current_key++) {
-      // skip first epoch
-      if (Engine::Get()->GetEpochFromKey(current_key) == 0) continue;
+    // skip first epoch
+    for (size_t current_key = _num_step; current_key < key; current_key++) {
       if (_step_data[i].bitmap[current_key] == false) continue;
       reduce_val = op(reduce_val, _step_data[i].vals[current_key]);
+    }
+    if (reduce_val == init) {
+      reduce_val = default_val;
     }
     _step_buf[i] = reduce_val;
   }

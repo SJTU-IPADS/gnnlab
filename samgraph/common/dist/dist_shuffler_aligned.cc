@@ -45,7 +45,7 @@ DistAlignedShuffler::DistAlignedShuffler(TensorPtr input, size_t num_epoch,
 
   size_t origin_num_data = input->Shape().front();
   // aligned to num_worker
-  _num_data = RoundUp(origin_num_data, num_worker);
+  _num_data = RoundUp(origin_num_data, num_worker * batch_size);
   _data = Tensor::Empty(input->Type(), {_num_data}, CPU(),
                         "DistAlignedShuffler data");
   Device::Get(CPU())->CopyDataFromTo(input->Data(), 0, _data->MutableData(), 0,
@@ -95,28 +95,39 @@ void DistAlignedShuffler::ReShuffle(StreamHandle stream) {
   // auto seed = std::chrono::system_clock::now().time_since_epoch().count();
   // let all samplers have the same seed
   auto seed = _cur_epoch;
-  void *data = _data->MutableData();
+  uint32_t* data_to_shuffle = _data->Ptr<uint32_t>() + _global_data_offset;
+  size_t num_to_shuffle = _num_local_data;
+  if (_cur_epoch == 0) {
+    data_to_shuffle = _data->Ptr<uint32_t>();
+    num_to_shuffle = _num_data;
+  } else {
+    data_to_shuffle = _data->Ptr<uint32_t>() + _global_data_offset;
+    num_to_shuffle = _num_local_data;
+  }
+
 
   auto g = std::default_random_engine(seed);
 
-  for (size_t i = 0; i < _num_data - 1; i++) {
-    std::uniform_int_distribution<size_t> d(i, _data->Shape().front() - 1);
-    size_t candidate = d(g);
-    switch (_data->Type()) {
-      case kI32:
-        std::swap((reinterpret_cast<int *>(data))[i],
-                  (reinterpret_cast<int *>(data))[candidate]);
-        break;
-      case kF32:
-      case kI8:
-      case kU8:
-      case kF16:
-      case kI64:
-      case kF64:
-      default:
-        CHECK(0);
-    }
-  }
+  std::shuffle(data_to_shuffle, data_to_shuffle + num_to_shuffle, g);
+
+  // for (size_t i = 0; i < _num_data - 1; i++) {
+  //   std::uniform_int_distribution<size_t> d(i, _data->Shape().front() - 1);
+  //   size_t candidate = d(g);
+  //   switch (_data->Type()) {
+  //     case kI32:
+  //       std::swap((reinterpret_cast<int *>(data))[i],
+  //                 (reinterpret_cast<int *>(data))[candidate]);
+  //       break;
+  //     case kF32:
+  //     case kI8:
+  //     case kU8:
+  //     case kF16:
+  //     case kI64:
+  //     case kF64:
+  //     default:
+  //       CHECK(0);
+  //   }
+  // }
 
   auto device = Device::Get(_gpu_data->Ctx());
   device->CopyDataFromTo(_data->Data(), sizeof(IdType) * _global_data_offset,
@@ -140,6 +151,12 @@ TensorPtr DistAlignedShuffler::GetBatch(StreamHandle stream) {
   CHECK(offset < _num_local_data);
   size_t size = (offset + _batch_size > _num_local_data) ? (_num_local_data - offset) : _batch_size;
 
+  if (_cur_local_step == 0 && _cur_epoch == 0) {
+    double scale_factor = DistEngine::Get()->GetGraphDataset()->scale_factor->CPtr<double>()[0];
+    size *= scale_factor;
+    size = RoundUp<size_t>(size, 8);
+    size = std::min((_num_local_data - offset), size);
+  }
   auto tensor =
       Tensor::Copy1D(_gpu_data, offset, {size}, "cuda_shuffler_batch", stream);
 

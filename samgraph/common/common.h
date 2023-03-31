@@ -47,6 +47,7 @@
 
 #include "logging.h"
 #include "constant.h"
+#include "coll_cache_lib/common.h"
 
 namespace samgraph {
 namespace common {
@@ -184,6 +185,10 @@ using StreamHandle = void*;
 class Tensor;
 using TensorPtr = std::shared_ptr<Tensor>;
 
+using coll_cache_lib::common::ExternelGPUMemoryHandler;
+using coll_cache_lib::common::EagerGPUMemoryHandler;
+using coll_cache_lib::common::MemHandle;
+
 size_t GetDataTypeBytes(DataType dtype);
 class Tensor {
  public:
@@ -212,6 +217,8 @@ class Tensor {
   void ForceScale(DataType dt, std::vector<size_t> shape, Context ctx, std::string name);
   void ReShape(std::vector<size_t> new_shape);
 
+  void ReadFromFile(std::string filepath);
+
   static TensorPtr Null();
 
   static TensorPtr CreateShm(std::string shm_path, DataType dtype,
@@ -236,6 +243,7 @@ class Tensor {
                             std::string name);
   static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream = nullptr, double scale = Constant::kAllocScale);
   static TensorPtr CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std::string name, double scale = Constant::kAllocScale);
+  static TensorPtr CopyToExternal(TensorPtr source, const std::function<MemHandle(size_t)> & allocator, Context ctx, StreamHandle stream = nullptr, double scale = Constant::kAllocScale);
   static TensorPtr CopyLine(TensorPtr source, size_t line_idx, Context ctx, StreamHandle stream = nullptr, double scale = Constant::kAllocScale);
   static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams = {});
   static TensorPtr UMCopyTo(TensorPtr source, std::vector<Context> ctxes, std::vector<StreamHandle> streams, std::string name);
@@ -252,6 +260,7 @@ class Tensor {
   std::vector<size_t> _shape;
 
   std::string _name;
+  MemHandle _external_mem_hanlder;
 };
 
 // Graph dataset that should be loaded from the disk using MMAP.
@@ -419,7 +428,7 @@ class Shuffler {
   virtual size_t NumEpoch() = 0;
   virtual size_t NumStep() = 0;
   virtual size_t NumLocalStep() { CHECK(false) << "Unimplemented"; return 0; };
-  virtual void Reset() {};
+  virtual void Reset() { CHECK(false) << "Unimplemented"; };
 };
 
 std::ostream& operator<<(std::ostream&, const SampleType);

@@ -80,11 +80,12 @@ class CollCacheMPMemHandle : public coll_cache_lib::common::ExternelGPUMemoryHan
  public:
   void* dev_ptr = nullptr;
   Context ctx;
-  size_t nbytes;
+  size_t _nbytes;
+  size_t nbytes() override { return _nbytes; }
   void* ptr() override {return dev_ptr;}
   ~CollCacheMPMemHandle() {
     auto device = Device::Get(ctx);
-    device->FreeWorkspace(ctx, dev_ptr, nbytes);
+    device->FreeWorkspace(ctx, dev_ptr, _nbytes);
   }
 };
 
@@ -98,6 +99,9 @@ class DistEngine : public Engine {
   void Start() override;
   void Shutdown() override;
   void RunSampleOnce() override;
+  void ResetProgress() override {
+    _shuffler->Reset();
+  }
   void SampleInit(int worker_id, Context ctx);
   void TrainInit(int worker_id, Context ctx, DistType dist_type);
   void UMSampleInit(int num_workers);

@@ -52,10 +52,13 @@ policy_str = {
   91: "part_rep_1",
   111: "rep_1",
   112: "rep_2",
+  114: "rep_4",
   131: "coll_cache_asymm_link_1",
   132: "coll_cache_asymm_link_2",
+  134: "coll_cache_asymm_link_4",
   151: "clique_part_1",
   152: "clique_part_2",
+  154: "clique_part_4",
   171: "clique_part_by_degree_1",
   172: "clique_part_by_degree_2",
   100: "no_cache",
@@ -88,10 +91,13 @@ policy_str_short = {
   91: "PartRep_1",
   111: "Rep_1",
   112: "Rep_2",
+  114: "Rep_4",
   131: "Coll_1",
   132: "Coll_2",
+  134: "Coll_4",
   151: "Cliq_1",
   152: "Cliq_2",
+  154: "Cliq_4",
   171: "CliqDeg_1",
   172: "CliqDeg_2",
   # 17: "presample_max",
@@ -146,6 +152,8 @@ def grep_from(fname, pattern, line_ctx=[0,0]):
         if p.match(lines[i]):
           ret_lines += lines[max(0, i - line_ctx[0]):min(len(lines), i + line_ctx[1] + 1)]
     return ret_lines
+  except FileNotFoundError as e:
+    return []
   except Exception as e:
     print("error when ", fname)
     print(traceback.format_exc())

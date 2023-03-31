@@ -107,16 +107,19 @@ class CachePolicy(Enum):
 
   rep_1 = 111
   rep_2 = 112
+  rep_4 = 114
   rep_10 = 120
   rep_max = 121
 
   coll_cache_asymm_link_1 = 131
   coll_cache_asymm_link_2 = 132
+  coll_cache_asymm_link_4 = 134
   coll_cache_asymm_link_10 = 140
   coll_cache_asymm_link_max = 141
 
   clique_part_1 = 151
   clique_part_2 = 152
+  clique_part_4 = 154
   clique_part_10 = 160
   clique_part_max = 161
 
@@ -303,6 +306,7 @@ class RunConfig:
     self.coll_cache_no_group = ""
     self.coll_cache_concurrent_link = ""
     self.rolling = 0
+    self.coll_cache_cpu_addup = ""
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -379,7 +383,12 @@ class RunConfig:
     assert(self.system is System.samgraph)
     self.preprocess_sample_type()
     cmd_line = ''
-    cmd_line += f'COLL_NUM_REPLICA={self.num_trainer} '
+    if self.multi_gpu:
+      cmd_line += f'COLL_NUM_REPLICA={self.num_trainer} '
+    elif self.multi_gpu_sgnn:
+      cmd_line += f'COLL_NUM_REPLICA={self.num_worker} '
+    if self.coll_cache_cpu_addup:
+      cmd_line += f'COLL_CACHE_CPU_ADDUP={self.coll_cache_cpu_addup}'
     cmd_line += f'CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking} '
     cmd_line += 'SAMGRAPH_LOG_NODE_ACCESS=0 '
     cmd_line += f'SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal} '
@@ -404,7 +413,10 @@ class RunConfig:
       else:
         cmd_line += f'python ../../example/samgraph/multi_gpu/train_{self.app.name}.py'
     elif self.multi_gpu_sgnn:
-      cmd_line += f'python ../../example/samgraph/sgnn/train_{self.app.name}.py'
+      if self.unsupervised:
+        cmd_line += f'python ../../example/samgraph/sgnn/unsupervised/train_{self.app.name}.py'
+      else:
+        cmd_line += f'python ../../example/samgraph/sgnn/train_{self.app.name}.py'
     elif self.unsupervised:
       cmd_line += f'python ../../example/samgraph/unsupervised/train_{self.app.name}.py'
     else:
@@ -419,6 +431,8 @@ class RunConfig:
       cmd_line += f' --num-train-worker {self.num_trainer} '
       if self.mps_mode != None:
         cmd_line += f' --mps-mode {self.mps_mode} '
+    elif self.multi_gpu_sgnn:
+      cmd_line += f' --num-worker {self.num_worker} '
 
     if self.amp:
       cmd_line += ' --amp '
@@ -470,6 +484,8 @@ class RunConfig:
       std_out_log += "report_optimal_"
     if self.unsupervised:
       std_out_log += "unsupervised_"
+    if self.multi_gpu_sgnn:
+      std_out_log += "sgnn_"
     std_out_log += '_'.join(
       [self.system.name]+self.cache_log_name() + self.pipe_log_name() +
       [self.app.name, self.sample_type.name, str(self.dataset), self.cache_policy.get_log_fname()] + 
@@ -494,21 +510,50 @@ class RunConfig:
     if self.coll_cache_concurrent_link != "":
       msg += f' concurrent_link={self.coll_cache_concurrent_link}'
     return datetime.datetime.now().strftime('[%H:%M:%S]') + msg
-    
-  def run(self, mock=False, durable_log=True, callback = None):
+
+  def run(self, mock=False, durable_log=True, callback = None, fail_only=False):
+    '''
+    fail_only: only run previously failed job. fail status is recorded in json file
+    '''
+    previous_succeed = False
+    if fail_only:
+      try:
+        with open(self.get_log_fname() + '.log', "r") as logf:
+          first_line = logf.readline().strip()
+        if first_line == "succeed=True":
+          previous_succeed = True
+      except Exception as e:
+        pass
+      if previous_succeed:
+        if callback != None:
+          callback(self)
+        return 0
+
     if mock:
       print(self.form_cmd(durable_log))
     else:
       print(self.beauty())
+
       if durable_log:
         os.system('mkdir -p {}'.format(self.logdir))
       status = os.system(self.form_cmd(durable_log))
       if os.WEXITSTATUS(status) != 0:
         print("FAILED!")
+        if durable_log:
+          self.prepend_log_succeed(False)
         return 1
+      else:
+        if durable_log:
+          self.prepend_log_succeed(True)
       if callback != None:
         callback(self)
     return 0
+  def prepend_log_succeed(self, succeed_bool):
+    with open(self.get_log_fname() + '.log', "r") as logf:
+      log_content = logf.readlines()
+    with open(self.get_log_fname() + '.log', "w") as logf:
+      print(f"succeed={succeed_bool}", file=logf)
+      print("".join(log_content), file=logf)
 
 def run_in_list(conf_list : list, mock=False, durable_log=True, callback = None):
   for conf in conf_list:
@@ -622,12 +667,12 @@ class ConfigList:
       raise Exception("Please construct fron runconfig or list of it")
     return ret
 
-  def run(self, mock=False, durable_log=True, callback = None):
+  def run(self, mock=False, durable_log=True, callback = None, fail_only=False):
     for conf in self.conf_list:
       conf : RunConfig
-      conf.run(mock, durable_log, callback)
+      conf.run(mock, durable_log, callback, fail_only=fail_only)
 
-  def run_stop_on_fail(self, mock=False, durable_log=True, callback = None):
+  def run_stop_on_fail(self, mock=False, durable_log=True, callback = None, fail_only=False):
     last_conf = None
     last_ret = None
     for conf in self.conf_list:
@@ -644,6 +689,6 @@ class ConfigList:
           continue
         if conf.cache_percent < last_conf.cache_percent and last_ret == 0 :
           continue
-      ret = conf.run(mock, durable_log, callback)
+      ret = conf.run(mock, durable_log, callback, fail_only=fail_only)
       last_conf = conf
       last_ret = ret

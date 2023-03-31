@@ -45,6 +45,12 @@
 namespace samgraph {
 namespace common {
 
+namespace {
+Context Priority(Context c1, Context c2) {
+  return (c1.device_type >= c2.device_type) ? c1 : c2;
+}
+};
+
 Context::Context(std::string name) {
   size_t delim_pos = name.find(':');
   CHECK_NE(delim_pos, std::string::npos);
@@ -70,6 +76,11 @@ Tensor::Tensor() : _data(nullptr) {}
 
 Tensor::~Tensor() {
   if (!_data) {
+    return;
+  }
+
+  if (_external_mem_hanlder != nullptr) {
+    _external_mem_hanlder = nullptr;
     return;
   }
 
@@ -151,11 +162,9 @@ TensorPtr Tensor::OpenShm(std::string shm_path, DataType dtype,
                           std::vector<size_t> shape, std::string name) {
   TensorPtr tensor = std::make_shared<Tensor>();
   size_t nbytes = GetTensorBytes(dtype, shape.begin(), shape.end());
-  int fd = cpu::MmapCPUDevice::OpenShm(shm_path);
 
-  struct stat st;
-  fstat(fd, &st);
-  size_t file_nbytes = st.st_size;
+  size_t file_nbytes;
+  int fd = cpu::MmapCPUDevice::OpenShm(shm_path, &file_nbytes);
 
   if (shape.size() == 0) {
     // auto infer shape, 1-D only
@@ -175,6 +184,24 @@ TensorPtr Tensor::OpenShm(std::string shm_path, DataType dtype,
   tensor->_name = name;
 
   return tensor;
+}
+
+void Tensor::ReadFromFile(std::string filepath) {
+  int fd = open(filepath.c_str(), O_RDONLY, 0);
+  CHECK_NE(fd, -1);
+  struct stat st;
+  fstat(fd, &st);
+  size_t file_nbytes = st.st_size;
+  // read huge file
+  size_t read_bytes = 0;
+  while (read_bytes < file_nbytes)
+  {
+    ssize_t res = read(fd, ((uint8_t*)this->_data) + read_bytes, file_nbytes - read_bytes);
+    CHECK_GT(res, 0);
+    read_bytes += res;
+  }
+  CHECK_EQ(read_bytes, file_nbytes) << "should read " << file_nbytes << ", actually read " << read_bytes;
+  close(fd);
 }
 
 TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
@@ -197,7 +224,10 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   void *data = Device::Get(ctx)->AllocDataSpace(ctx, nbytes, nbytes);
   ctx.device_id = device_id;
   CHECK_NE(data, (void *)-1);
-  
+
+  if (nbytes > 1024*1024*1024) {
+    LOG(ERROR) << "From MMAP reading disk " << ToReadableSize(nbytes);
+  }
   // read huge file
   size_t read_bytes = 0;
   while (read_bytes < nbytes)
@@ -209,6 +239,9 @@ TensorPtr Tensor::FromMmap(std::string filepath, DataType dtype,
   CHECK_EQ(read_bytes, nbytes) << "should read " << nbytes << ", actually read " << read_bytes;
   CHECK_EQ(mprotect(data, nbytes, PROT_READ), 0);
   close(fd);
+  if (nbytes > 1024*1024*1024) {
+    LOG(ERROR) << "From MMAP reading done";
+  }
 
   tensor->_dtype = dtype;
   tensor->_nbytes = nbytes;
@@ -447,6 +480,29 @@ TensorPtr Tensor::CopyTo(TensorPtr source, Context ctx, StreamHandle stream, std
 
   return tensor;
 }
+
+TensorPtr Tensor::CopyToExternal(TensorPtr source, const std::function<MemHandle(size_t)> & allocator, Context ctx, StreamHandle stream, double scale) {
+  CHECK(source && source->Defined());
+  std::vector<size_t> shape = source->Shape();
+  CHECK_GT(shape.size(), 0);
+
+  TensorPtr tensor = std::make_shared<Tensor>();
+  size_t nbytes = GetTensorBytes(source->_dtype, shape.begin(), shape.end());
+
+  tensor->_dtype = source->_dtype;
+  tensor->_shape = shape;
+  tensor->_nbytes = source->_nbytes;
+  tensor->_ctx = ctx;
+  tensor->_external_mem_hanlder = allocator(nbytes);
+  tensor->_data = tensor->_external_mem_hanlder->ptr();
+  tensor->_name = source->_name;
+  Context working_ctx = Priority(source->Ctx(), ctx);
+  Device::Get(working_ctx)->CopyDataFromTo(source->_data, 0, tensor->_data, 0,
+                                                nbytes, source->_ctx, tensor->_ctx, stream);
+  Device::Get(working_ctx)->StreamSync(working_ctx, stream);
+  return tensor;
+}
+
 TensorPtr Tensor::CopyLine(TensorPtr source, size_t line_idx, Context ctx, StreamHandle stream, double scale) {
   CHECK(source && source->Defined());
   const std::vector<size_t> & shape = source->_shape;

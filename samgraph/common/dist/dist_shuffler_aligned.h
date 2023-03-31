@@ -41,6 +41,11 @@ class DistAlignedShuffler : public Shuffler {
   size_t NumEpoch() override { return _num_epoch; }
   size_t NumStep() override { return _num_global_step; }
   size_t NumLocalStep() override { return _num_local_step; }
+  inline void Reset() override {
+    _cur_local_step = _num_local_step;
+    _cur_epoch = 0;
+    _initialized = false;
+  }
 
  private:
   bool _initialized;

@@ -62,6 +62,7 @@ dump_trace           = _basics.dump_trace
 train_barrier        = _basics.train_barrier
 forward_barrier      = _basics.forward_barrier
 wait_one_child       = _basics.wait_one_child
+reset_progress       = _basics.reset_progress
 log_step_by_key      = _basics.log_step_by_key
 get_log_step_value_by_key   = _basics.get_log_step_value_by_key
 print_memory_usage      = _basics.print_memory_usage

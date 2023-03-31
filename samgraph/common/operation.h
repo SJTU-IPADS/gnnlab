@@ -48,6 +48,8 @@ size_t samgraph_feat_dim();
 
 uint64_t samgraph_get_next_batch();
 
+void samgraph_unset_cur_batch();
+
 void samgraph_sample_once();
 
 size_t samgraph_get_graph_num_src(uint64_t key, int graph_id);
@@ -119,6 +121,8 @@ void samgraph_train_barrier();
 size_t samgraph_num_local_step();
 
 int samgraph_wait_one_child();
+
+void samgraph_reset_progress();
 
 void samgraph_print_memory_usage();
 }

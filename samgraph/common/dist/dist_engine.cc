@@ -205,7 +205,7 @@ void DistEngine::Init() {
     // handle step boundary
     _num_step = std::min(_num_step, RunConfig::step_max_boundary);
     _num_step = RoundUp(_num_step, RunConfig::num_sample_worker);
-    _num_local_step = _num_local_step / RunConfig::num_sample_worker;
+    _num_local_step = _num_step / RunConfig::num_sample_worker;
   }
   coll_cache_lib::RunConfig::num_global_step_per_epoch = _num_step;
 
@@ -246,7 +246,8 @@ void DistEngine::Init() {
   LOG(DEBUG) << "create sampler barrier with " << RunConfig::num_sample_worker << " samplers";
   _sampler_barrier = new DistSharedBarrier(RunConfig::num_sample_worker);
   _trainer_barrier = new DistSharedBarrier(RunConfig::num_train_worker);
-  _global_barrier = new DistSharedBarrier(RunConfig::num_train_worker + RunConfig::num_sample_worker);
+  _global_barrier = new DistSharedBarrier(RunConfig::num_worker);
+
   _collcache_barrier = std::make_shared<CollCacheMPBarrier>(RunConfig::num_train_worker);
 
   LOG(INFO) << "Pre-fork init done...";
@@ -269,7 +270,11 @@ void DistEngine::SampleDataCopy(Context sampler_ctx, StreamHandle stream) {
   // _dataset->test_set = Tensor::CopyTo(_dataset->test_set, CPU(), stream);
   if (sampler_ctx.device_type == kGPU) {
     _dataset->indptr = Tensor::CopyTo(_dataset->indptr, sampler_ctx, stream, Constant::kAllocNoScale);
-    _dataset->indices = Tensor::CopyTo(_dataset->indices, sampler_ctx, stream, Constant::kAllocNoScale);
+    if (RunConfig::option_place_graph_on_host) {
+      _dataset->indices = Tensor::CopyTo(_dataset->indices, CPU(), stream);
+    } else {
+      _dataset->indices = Tensor::CopyTo(_dataset->indices, sampler_ctx, stream, Constant::kAllocNoScale);
+    }
     if (RunConfig::sample_type == kWeightedKHop || RunConfig::sample_type == kWeightedKHopHashDedup) {
       _dataset->prob_table = Tensor::CopyTo(_dataset->prob_table, sampler_ctx, stream, Constant::kAllocNoScale);
       _dataset->alias_table = Tensor::CopyTo(_dataset->alias_table, sampler_ctx, stream, Constant::kAllocNoScale);
@@ -505,10 +510,30 @@ void DistEngine::SampleInit(int worker_id, Context ctx) {
       case kCollCache: {
         Timer tp;
         // currently we only allow single stream
-        if (worker_id == 0) {
+        if (worker_id == 0 && RunConfig::coll_ignore == false) {
           auto train_set = Tensor::CopyTo(_dataset->train_set, CPU(), nullptr);
           auto pre_sampler = new PreSampler(train_set, RunConfig::batch_size, _dataset->num_node);
+
+          auto indice_backup = _dataset->indices;
+          if (RunConfig::option_place_graph_on_host) {
+            // temp place graph back to gpu for faster presample
+            auto _eager_gpu_mem_allocator = [ctx](size_t nbytes)-> MemHandle{
+              std::shared_ptr<EagerGPUMemoryHandler> ret = std::make_shared<EagerGPUMemoryHandler>();
+              ret->dev_id_ = ctx.device_id;
+              ret->nbytes_ = nbytes;
+              CUDA_CALL(cudaSetDevice(ctx.device_id));
+              if (nbytes > 1<<21) {
+                nbytes = RoundUp(nbytes, (size_t)(1<<21));
+              }
+              CUDA_CALL(cudaMalloc(&ret->ptr_, nbytes));
+              return ret;
+            };
+            LOG(ERROR) << "worker 0 placing graph to gpu";
+            _dataset->indices = Tensor::CopyToExternal(indice_backup, _eager_gpu_mem_allocator, ctx, _sampler_copy_stream);
+          }
+
           pre_sampler->DoPreSample();
+          _dataset->indices = indice_backup;
           CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_list->MutableData(), _dataset->ranking_nodes_list->NumBytes(), cudaHostRegisterDefault));
           CUDA_CALL(cudaHostRegister(_dataset->ranking_nodes_freq_list->MutableData(), _dataset->ranking_nodes_freq_list->NumBytes(), cudaHostRegisterDefault));
           coll_cache::TensorView<IdType> ranking_nodes_view(_dataset->ranking_nodes_list);
@@ -709,19 +734,24 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
   // parallel initialization of sampler/trainer
   GetGlobalBarrier()->Wait();
   LOG(WARNING) << "Trainer[" << worker_id << "] building cache...";
-  _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
-  Profiler::Get().ReportStepAverage = [this](uint64_t epoch, uint64_t step){
-    _coll_cache_manager->_profiler->ReportStepAverage(epoch, step);
-  };
-  CHECK((int)(kNumLogStepItems) == (int)(coll_cache_lib::common::kNumLogStepItems));
-  Profiler::Get().LogStep = [this](uint64_t key, LogStepItem item, double val){
-    _coll_cache_manager->_profiler->LogStep(key, (coll_cache_lib::common::LogStepItem)item, val);
-  };
+  if (RunConfig::coll_ignore == false) {
+    _coll_cache_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
+    Profiler::Get().ReportStepAverage = [this](uint64_t epoch, uint64_t step){
+      _coll_cache_manager->_profiler->ReportStepAverage(epoch, step);
+    };
+    CHECK((int)(kNumLogStepItems) == (int)(coll_cache_lib::common::kNumLogStepItems));
+    Profiler::Get().LogStep = [this](uint64_t key, LogStepItem item, double val){
+      _coll_cache_manager->_profiler->LogStep(key, (coll_cache_lib::common::LogStepItem)item, val);
+    };
+    Profiler::Get().LogStepAdd = [this](uint64_t key, LogStepItem item, double val){
+      _coll_cache_manager->_profiler->LogStepAdd(key, (coll_cache_lib::common::LogStepItem)item, val);
+    };
+  }
   std::function<coll_cache_lib::common::MemHandle(size_t)> gpu_mem_allocator = [ctx](size_t nbytes) {
     auto device = Device::Get(ctx);
     std::shared_ptr<CollCacheMPMemHandle> handle = std::make_shared<CollCacheMPMemHandle>();
     handle->dev_ptr = device->AllocWorkspace(ctx, nbytes);
-    handle->nbytes = nbytes;
+    handle->_nbytes = nbytes;
     handle->ctx = ctx;
     return handle;
   };
@@ -740,17 +770,17 @@ void DistEngine::TrainInit(int worker_id, Context ctx, DistType dist_type) {
        RunConfig::cache_policy == kCliquePartByDegree || 
        RunConfig::cache_policy == kPartRepCache || 
        RunConfig::cache_policy == kRepCache || 
-       RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0) {
+       RunConfig::cache_policy == kPartitionCache) && RunConfig::cache_percentage != 0 && RunConfig::coll_ignore == false) {
     _coll_cache_manager->build_v2(worker_id, _dataset->ranking_nodes_list->Ptr<IdType>(), 
                           _dataset->ranking_nodes_freq_list->Ptr<IdType>(), _dataset->num_node, 
                           gpu_mem_allocator, _dataset->feat->MutableData(), 
                           static_cast<coll_cache_lib::common::DataType>(feat_dtype), feat_dim, 
                           RunConfig::cache_percentage, _trainer_copy_stream);
-  } else {
+  } else if (RunConfig::coll_ignore == false) {
     CHECK(false) << "Cache policy is unsupported by collcache lib";
   }
 
-  if (RunConfig::unsupervised_sample == false) {
+  if (RunConfig::unsupervised_sample == false && RunConfig::coll_ignore == false) {
     _coll_label_manager = std::make_shared<coll_cache_lib::CollCache>(nullptr, _collcache_barrier);
     _coll_label_manager->build_v2(worker_id, _dataset->ranking_nodes_list->Ptr<IdType>(), 
                       _dataset->ranking_nodes_freq_list->Ptr<IdType>(), _dataset->num_node, 

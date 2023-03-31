@@ -84,5 +84,8 @@ const std::string Constant::kCollCacheBuilderShmName = std::string("coll_cache_s
 const std::string Constant::kCollCachePlacementShmName = std::string("coll_cache_block_placement_") + std::string(std::getenv("USER"));
 const std::string Constant::kCollCacheAccessShmName = std::string("coll_cache_block_access_from_") + std::string(std::getenv("USER"));
 
+const std::string Constant::kProfilerValShmName    = std::string("coll_cache_val_shm_") + std::string(std::getenv("USER"));
+const std::string Constant::kProfilerBitmapShmName = std::string("coll_cache_bitmap_shm_") + std::string(std::getenv("USER"));
+
 }  // namespace common
 }  // namespace samgraph

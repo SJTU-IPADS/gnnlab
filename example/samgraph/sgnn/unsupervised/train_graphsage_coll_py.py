@@ -13,10 +13,10 @@ from torch.nn.parallel import DistributedDataParallel
 import sys
 import os
 import datetime
-import train_accuracy
 import samgraph.torch as sam
 from common_config import *
 
+import collcache.torch as co
 
 class SAGE(nn.Module):
     def __init__(self,
@@ -47,6 +47,20 @@ class SAGE(nn.Module):
                 h = self.dropout(h)
         return h
 
+class DotPredictor(nn.Module):
+    def forward(self, g, h):
+        if use_amp:
+            u, v = g.edges()
+            u=u.long()
+            v=v.long()
+            return (h[u] * h[v]).sum(1)
+        with g.local_scope():
+            g.ndata['h'] = h
+            # Compute a new edge feature named 'score' by a dot-product between the
+            # source node feature 'h' and destination node feature 'h'.
+            g.apply_edges(dgl.function.u_dot_v('h', 'h', 'score'))
+            # u_dot_v returns a 1-element vector for each edge so you need to squeeze it.
+            return g.edata['score'][:, 0]
 
 def parse_args(default_run_config):
     argparser = argparse.ArgumentParser("GraphSage Training")
@@ -74,6 +88,8 @@ def get_run_config():
     run_config['fanout'] = [25, 10]
     run_config['lr'] = 0.003
     run_config['dropout'] = 0.5
+    run_config['unsupervised'] = True
+    run_config['coll_ignore'] = True
 
     run_config.update(parse_args(run_config))
 
@@ -105,6 +121,7 @@ def run(worker_id, run_config):
     device = torch.device(ctx)
 
     if (run_config['report_acc'] != 0) and (worker_id == 0):
+        import train_accuracy
         dgl_graph, valid_set, test_set, feat, label = \
             train_accuracy.load_accuracy_data(run_config['dataset'], run_config['root_path'])
         # use sample device to speedup the sampling
@@ -112,6 +129,7 @@ def run(worker_id, run_config):
         acc_device = torch.device(run_config['workers'][0])
         accuracy = train_accuracy.Accuracy(dgl_graph, valid_set, test_set, feat, label,
                             run_config['fanout'], run_config['batch_size'], acc_device)
+
     train_device = torch.device(ctx)
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
@@ -132,6 +150,14 @@ def run(worker_id, run_config):
     sam.sample_init(worker_id, ctx)
     sam.train_init(worker_id, ctx)
 
+    ds_emb = sam.get_dataset_feat()
+    run_config['num_global_step_per_epoch'] = sam.num_local_step() * num_worker
+    run_config['num_device'] = num_worker
+    run_config['num_total_item'] = ds_emb.shape[0]
+
+    co.config(run_config)
+    co.coll_cache_record_init(worker_id)
+
     if num_worker > 1:
         dist_init_method = 'tcp://{master_ip}:{master_port}'.format(
             master_ip='127.0.0.1', master_port='12345')
@@ -149,13 +175,17 @@ def run(worker_id, run_config):
     model = SAGE(in_feat, run_config['num_hidden'], num_class,
                  num_layer, F.relu, run_config['dropout'])
     model = model.to(device)
+    predictor = DotPredictor().to(train_device)
     if num_worker > 1:
         model = DistributedDataParallel(
             model, device_ids=[device], output_device=device)
+        if len(list(predictor.parameters())) > 0:
+            predictor = DistributedDataParallel(predictor, device_ids=[train_device], output_device=train_device)
 
-    loss_fcn = nn.CrossEntropyLoss()
-    loss_fcn = loss_fcn.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=run_config['lr'])
+
+    # loss_fcn = nn.CrossEntropyLoss()
+    # loss_fcn = loss_fcn.to(device)
+    optimizer = optim.Adam(list(model.parameters()) + list(predictor.parameters()), lr=run_config['lr'])
 
     scaler = GradScaler()
 
@@ -187,6 +217,20 @@ def run(worker_id, run_config):
     run_start = time.time()
     run_acc_total = 0.0
 
+    presc_start = time.time()
+    print("presamping")
+    for step in range(worker_id, num_step * num_worker, num_worker):
+        sam.sample_once()
+        batch_key = sam.get_next_batch()
+        block_input_nodes = sam.get_graph_input_nodes(batch_key).to('cpu')
+        event_sync()
+        co.coll_torch_record(worker_id, block_input_nodes)
+    sam.reset_progress()
+    presc_stop = time.time()
+    print(f"presamping takes {presc_stop - presc_start}")
+
+    co.coll_torch_init_t(worker_id, worker_id, ds_emb, run_config["cache_percentage"])
+
     for epoch in range(num_epoch):
         # epoch start barrier
         global_barrier.wait()
@@ -197,36 +241,48 @@ def run(worker_id, run_config):
 
         for step in range(worker_id, num_step * num_worker, num_worker):
             optimizer.zero_grad(set_to_none=True)
-            t0 = time.time()
-            if not run_config['pipeline']:
-                sam.sample_once()
-            elif epoch + step == worker_id:
-                sam.extract_start(0)
-            batch_key = sam.get_next_batch()
-            t1 = time.time()
-            blocks, batch_input, batch_label = sam.get_dgl_blocks(
-                batch_key, num_layer)
-            t2 = time.time()
+            if True:
+                t0 = time.time()
+                if not run_config['pipeline']:
+                    sam.sample_once()
+                elif epoch + step == worker_id:
+                    sam.extract_start(0)
+                batch_key = sam.get_next_batch()
+                # if epoch == 0:
+                #     block_input_nodes = sam.get_graph_input_nodes(batch_key).to('cpu')
+                #     event_sync()
+                #     co.coll_torch_record(worker_id, block_input_nodes)
+                # else:
+                block_input_nodes = sam.get_graph_input_nodes(batch_key)
+                batch_input = co.coll_torch_lookup_key_t_val_ret(worker_id, block_input_nodes)
+                t1 = time.time()
+                blocks, _, batch_label = sam.get_dgl_blocks(
+                    batch_key, num_layer)
+                pair_graph = sam.get_dgl_unsupervised_pair_graph(batch_key)
+                t2 = time.time()
 
             # Compute loss and prediction
             if use_amp:
                 with autocast(enabled=use_amp):
                     batch_pred = model(blocks, batch_input)
-                    loss = loss_fcn(batch_pred, batch_label)
+                    score = predictor(pair_graph, batch_pred)
+                    loss = F.binary_cross_entropy_with_logits(score, batch_label)
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
             else:
                 batch_pred = model(blocks, batch_input)
-                loss = loss_fcn(batch_pred, batch_label)
+                score = predictor(pair_graph, batch_pred)
+                loss = F.binary_cross_entropy_with_logits(score, batch_label)
                 loss.backward()
                 optimizer.step()
 
             # wait for the train finish then we can free the data safely
             event_sync()
-            batch_input = None
-            batch_label = None
-            blocks = None
+            if True:
+                batch_input = None
+                batch_label = None
+                blocks = None
 
             t3 = time.time()
 
@@ -321,9 +377,9 @@ def run(worker_id, run_config):
     if worker_id == 0:
         print(torch.cuda.memory_summary())
         sam.print_memory_usage()
-        sam.report_step_average(num_epoch - 1, num_step - 1)
+        sam.report_step_average(num_epoch - 1, num_step * num_worker - 1)
         sam.report_init()
-
+        co.report_step_average(0)
         test_result = []
         test_result.append(('sample_time', np.mean(epoch_sample_times[1:])))
         test_result.append(

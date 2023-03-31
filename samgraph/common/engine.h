@@ -42,6 +42,8 @@ class Engine {
   virtual void Shutdown() = 0;
   virtual void RunSampleOnce() = 0;
 
+  virtual void ResetProgress() { LOG(FATAL) << "Unimplemented"; }
+
   std::vector<size_t> GetFanout() { return _fanout; }
   size_t NumEpoch() { return _num_epoch; }
   size_t NumStep() { return _num_step; }

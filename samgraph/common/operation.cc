@@ -104,6 +104,9 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
   CRC::cache_policy = static_cast<coll_cache_lib::common::CachePolicy>(RC::cache_policy);
   CRC::num_epoch = RC::num_epoch;
 
+  if (configs["coll_ignore"] == "True") {
+    RC::coll_ignore = true;
+  }
   if (configs["unsupervised"] == "True") {
     RC::unsupervised_sample = true;
   }
@@ -127,6 +130,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       CHECK(configs.count("num_train_worker"));
       RC::num_sample_worker = std::stoull(configs["num_sample_worker"]);
       RC::num_train_worker = std::stoull(configs["num_train_worker"]);
+      RC::num_worker = RC::num_sample_worker + RC::num_train_worker;
       CRC::cross_process = true;
       CRC::num_device = RC::num_train_worker;
       CRC::device_id_list.resize(CRC::num_device);
@@ -140,6 +144,7 @@ void samgraph_config_from_map(std::unordered_map<std::string, std::string>& conf
       CHECK(configs.count("num_worker"));
       RC::num_sample_worker = std::stoull(configs["num_worker"]);
       RC::num_train_worker = std::stoull(configs["num_worker"]);
+      RC::num_worker = std::stoull(configs["num_worker"]);
       CRC::cross_process = true;
       CRC::num_device = RC::num_train_worker;
       CRC::device_id_list.resize(CRC::num_device);
@@ -368,6 +373,10 @@ uint64_t samgraph_get_next_batch() {
   return key;
 }
 
+void samgraph_unset_cur_batch() {
+  Engine::Get()->SetGraphBatch(nullptr);
+}
+
 void samgraph_sample_once() { Engine::Get()->RunSampleOnce(); }
 
 size_t samgraph_get_graph_num_src(uint64_t key, int graph_id) {
@@ -571,6 +580,10 @@ int samgraph_wait_one_child() {
     LOG(ERROR) << "detect an abnormal terminated child, signal is " << strsignal(WTERMSIG(child_stat));
     return 1;
   } else return 0;
+}
+
+void samgraph_reset_progress() {
+  Engine::Get()->ResetProgress();
 }
 
 namespace {
