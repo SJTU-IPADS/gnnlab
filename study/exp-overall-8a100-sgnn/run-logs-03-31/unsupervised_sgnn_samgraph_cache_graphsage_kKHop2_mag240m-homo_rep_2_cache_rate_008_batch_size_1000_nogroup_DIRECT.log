@@ -1,0 +1,258 @@
+succeed=True
+config:eval_tsp="2023-03-30 16:27:34"
+config:arch=arch6
+config:num_worker=8
+config:sample_type=khop2
+config:root_path=/nvme/songxiaoniu/graph-learning/samgraph/
+config:dataset=mag240m-homo
+config:pipeline=False
+config:cache_policy=rep
+config:cache_percentage=0.08
+config:num_epoch=4
+config:batch_size=1000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=40
+config:unsupervised=True
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:max_num_step=1000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/songxiaoniu/graph-learning/samgraph/mag240m-homo
+config:workers=['cuda:0', 'cuda:1', 'cuda:2', 'cuda:3', 'cuda:4', 'cuda:5', 'cuda:6', 'cuda:7']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.SGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=25
+config:_arch=6
+config:_sample_type=5
+config:_cache_policy=12
+test_result:init:input_scale_factor=1.1336
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+0 :  {link #0 : 1}, {link #1 : 2}, {link #2 : 3}, {link #3 : 4}, {link #4 : 5}, {link #5 : 6}, {link #6 : 7},
+1 :  {link #0 : 2}, {link #1 : 3}, {link #2 : 4}, {link #3 : 5}, {link #4 : 6}, {link #5 : 7}, {link #6 : 0},
+2 :  {link #0 : 3}, {link #1 : 4}, {link #2 : 5}, {link #3 : 6}, {link #4 : 7}, {link #5 : 0}, {link #6 : 1},
+3 :  {link #0 : 4}, {link #1 : 5}, {link #2 : 6}, {link #3 : 7}, {link #4 : 0}, {link #5 : 1}, {link #6 : 2},
+4 :  {link #0 : 5}, {link #1 : 6}, {link #2 : 7}, {link #3 : 0}, {link #4 : 1}, {link #5 : 2}, {link #6 : 3},
+5 :  {link #0 : 6}, {link #1 : 7}, {link #2 : 0}, {link #3 : 1}, {link #4 : 2}, {link #5 : 3}, {link #6 : 4},
+6 :  {link #0 : 7}, {link #1 : 0}, {link #2 : 1}, {link #3 : 2}, {link #4 : 3}, {link #5 : 4}, {link #6 : 5},
+7 :  {link #0 : 0}, {link #1 : 1}, {link #2 : 2}, {link #3 : 3}, {link #4 : 4}, {link #5 : 5}, {link #6 : 6},
+coll_cache:optimal_rep_storage=0.08
+coll_cache:optimal_part_storage=0
+coll_cache:optimal_cpu_storage=0.92
+coll_cache:optimal_local_storage=0.08
+coll_cache:optimal_remote_storage=0
+coll_cache:optimal_local_rate=0.66263
+coll_cache:optimal_remote_rate=0
+coll_cache:optimal_cpu_rate=0.33737
+z=5763.3
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+test_result:init:feat_nbytes=375030526464
+test_result:init:cache_nbytes=30377472000
+[CUDA] cuda0: usage: 46.60 GB
+[SAM] cuda0 data alloc        : 38.84 MB
+[SAM] cuda0 workspace         : 15.39 GB
+[SAM] cuda0 workspace reserve : 819.92 MB
+[SAM] cuda0 total             : 15.43 GB
+    [Step(average) Profiler Level 1 E3 S999]
+        L1  sample           0.001191 | send           0.000000
+        L1  recv             0.000000 | copy           0.021321 | convert time 0.000329 | train  0.006581
+        L1  feature nbytes  709.24 MB | label nbytes    7.81 KB
+        L1  id nbytes      0.00 Bytes | graph nbytes 0.00 Bytes
+        L1  miss nbytes    0.00 Bytes | remote nbytes 0.00 Bytes
+        L1  num nodes          484177 | num samples      550544
+    [Step(average) Profiler Level 2 E3 S999]
+        L2  shuffle     0.000032 | core sample  0.000532 | id remap        0.000376
+        L2  graph copy  0.000000 | id copy      0.000000 | cache feat copy 0.020972
+        L2  last layer sample time 0.000293 | size 24933.579527
+    [Step(average) Profiler Level 3 E3 S999]
+        L3  khop sample coo  0.000293 | khop sort coo      0.000000 | khop count edge     0.000034 | khop compact edge 0.000152
+        L3  walk sample coo  0.000000 | walk topk total    0.000000 | walk topk step1     0.000000 | walk topk step2   0.000000
+        L3  walk topk step3  0.000000 | walk topk step4    0.000000 | walk topk step5     0.000000
+        L3  walk topk step6  0.000000 | walk topk step7    0.000000
+        L3  remap unique     0.000239 | remap populate     0.000308 | remap mapnode       0.000000 | remap mapedge     0.000084
+        L3  cache get_index  0.000185 | cache copy_index   0.000000 | cache extract_miss  0.000000
+        L3  cache copy_miss  0.000000 | cache combine_miss 0.000000 | cache combine cache 0.020785 | cache combine remote 0.000000
+        L3  label extract  0.000029
+    [Init Profiler Level 1]
+        L1  init     8.5723 | sampler init     9.1224 | trainer init 11.2245
+    [Init Profiler Level 2]
+        L2  load ds        11.3185 | init queue           0.0000
+        L2  presample       4.7937 | build interal ds     1.5828
+        L2  build cache    11.2197
+    [Init Profiler Level 3]
+        L3  load dataset: mmap     8.5714 | copy         0.0000
+        L3  dist queue: alloc      0.0000 | pin          0.0000 | push     0.0000
+        L3  presample: init        0.2852
+        L3  presample: sample      2.2881 | copy         0.1741
+        L3  presample: count       1.3402 | sort         0.3297
+        L3  presample: reset       0.0010 | get rank     0.0296
+        L3  internal: cuda ctx     0.0001 | cuda stream     0.0014
+[Worker 1/8] Started with PID 11299(NVIDIA A100-SXM4-80GB)
+worker 1 at process 11299
+[Worker 1] run for 4 epochs with 125 steps
+[Train  Worker 1] Avg Epoch 3.6864 | Sample 0.1482 | Copy 2.6689 | Train Total (Profiler) 0.8612
+[Worker 5/8] Started with PID 11312(NVIDIA A100-SXM4-80GB)
+worker 5 at process 11312
+[Worker 5] run for 4 epochs with 125 steps
+[Train  Worker 5] Avg Epoch 3.6865 | Sample 0.1509 | Copy 2.6608 | Train Total (Profiler) 0.8657
+[Worker 3/8] Started with PID 11306(NVIDIA A100-SXM4-80GB)
+worker 3 at process 11306
+[Worker 3] run for 4 epochs with 125 steps
+[Train  Worker 3] Avg Epoch 3.6865 | Sample 0.1495 | Copy 2.6625 | Train Total (Profiler) 0.8654
+[Worker 7/8] Started with PID 11318(NVIDIA A100-SXM4-80GB)
+worker 7 at process 11318
+[Worker 7] run for 4 epochs with 125 steps
+[Train  Worker 7] Avg Epoch 3.6864 | Sample 0.1459 | Copy 2.6731 | Train Total (Profiler) 0.8588
+[Worker 2/8] Started with PID 11303(NVIDIA A100-SXM4-80GB)
+worker 2 at process 11303
+[Worker 2] run for 4 epochs with 125 steps
+[Train  Worker 2] Avg Epoch 3.6864 | Sample 0.1480 | Copy 2.6684 | Train Total (Profiler) 0.8616
+[Worker 6/8] Started with PID 11315(NVIDIA A100-SXM4-80GB)
+worker 6 at process 11315
+[Worker 6] run for 4 epochs with 125 steps
+[Train  Worker 6] Avg Epoch 3.6866 | Sample 0.1496 | Copy 2.6600 | Train Total (Profiler) 0.8673
+[Worker 4/8] Started with PID 11309(NVIDIA A100-SXM4-80GB)
+worker 4 at process 11309
+[Worker 4] run for 4 epochs with 125 steps
+[Train  Worker 4] Avg Epoch 3.6864 | Sample 0.1515 | Copy 2.6603 | Train Total (Profiler) 0.8663
+[Worker 0/8] Started with PID 11297(NVIDIA A100-SXM4-80GB)
+worker 0 at process 11297
+[Worker 0] run for 4 epochs with 125 steps
+Epoch 00000 | Epoch Time 5.0963 | Sample 0.1690 | Copy 2.6812 | Total Train(Profiler) 2.2376
+Epoch 00001 | Epoch Time 3.6976 | Sample 0.1479 | Copy 2.6655 | Total Train(Profiler) 0.8758
+Epoch 00002 | Epoch Time 3.6900 | Sample 0.1477 | Copy 2.6692 | Total Train(Profiler) 0.8650
+Epoch 00003 | Epoch Time 3.6717 | Sample 0.1477 | Copy 2.6673 | Total Train(Profiler) 0.8488
+[Train  Worker 0] Avg Epoch 3.6864 | Sample 0.1478 | Copy 2.6673 | Train Total (Profiler) 0.8632
+|===========================================================================|
+|                  PyTorch CUDA memory summary, device ID 0                 |
+|---------------------------------------------------------------------------|
+|            CUDA OOMs: 0            |        cudaMalloc retries: 0         |
+|===========================================================================|
+|        Metric         | Cur Usage  | Peak Usage | Tot Alloc  | Tot Freed  |
+|---------------------------------------------------------------------------|
+| Allocated memory      |   22413 KB |  341210 KB |  461611 MB |  461589 MB |
+|       from large pool |   13699 KB |  338432 KB |  453909 MB |  453895 MB |
+|       from small pool |    8714 KB |   11031 KB |    7701 MB |    7693 MB |
+|---------------------------------------------------------------------------|
+| Active memory         |   22414 KB |  341210 KB |  461611 MB |  461589 MB |
+|       from large pool |   13699 KB |  338432 KB |  453909 MB |  453895 MB |
+|       from small pool |    8715 KB |   11031 KB |    7701 MB |    7693 MB |
+|---------------------------------------------------------------------------|
+| GPU reserved memory   |  421888 KB |  421888 KB |  421888 KB |       0 B  |
+|       from large pool |  407552 KB |  407552 KB |  407552 KB |       0 B  |
+|       from small pool |   14336 KB |   14336 KB |   14336 KB |       0 B  |
+|---------------------------------------------------------------------------|
+| Non-releasable memory |   71794 KB |  345935 KB |  432663 MB |  432593 MB |
+|       from large pool |   70269 KB |  343823 KB |  424339 MB |  424270 MB |
+|       from small pool |    1525 KB |    4853 KB |    8324 MB |    8322 MB |
+|---------------------------------------------------------------------------|
+| Allocations           |      43    |      62    |   72042    |   71999    |
+|       from large pool |       7    |      16    |   25503    |   25496    |
+|       from small pool |      36    |      47    |   46539    |   46503    |
+|---------------------------------------------------------------------------|
+| Active allocs         |      44    |      62    |   72042    |   71998    |
+|       from large pool |       7    |      16    |   25503    |   25496    |
+|       from small pool |      37    |      47    |   46539    |   46502    |
+|---------------------------------------------------------------------------|
+| GPU reserved segments |      14    |      14    |      14    |       0    |
+|       from large pool |       7    |       7    |       7    |       0    |
+|       from small pool |       7    |       7    |       7    |       0    |
+|---------------------------------------------------------------------------|
+| Non-releasable allocs |      19    |      27    |   30390    |   30371    |
+|       from large pool |       4    |      11    |   15674    |   15670    |
+|       from small pool |      15    |      20    |   14716    |   14701    |
+|---------------------------------------------------------------------------|
+| Oversize allocations  |       0    |       0    |       0    |       0    |
+|---------------------------------------------------------------------------|
+| Oversize GPU segments |       0    |       0    |       0    |       0    |
+|===========================================================================|
+
+test_result:sample_time=nan
+test_result:epoch_time:sample_total=0.1478
+test_result:epoch_time:copy_time=2.6673
+test_result:convert_time=0.0411
+test_result:train_time=0.8221
+test_result:epoch_time:train_total=0.8632
+test_result:cache_percentage=0.0800
+test_result:cache_hit_rate=1.0000
+test_result:epoch_time:total=3.6864
+test_result:run_time=16.1592
+
