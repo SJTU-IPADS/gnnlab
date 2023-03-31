@@ -306,6 +306,7 @@ class RunConfig:
     self.coll_cache_no_group = ""
     self.coll_cache_concurrent_link = ""
     self.rolling = 0
+    self.coll_cache_cpu_addup = ""
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -386,6 +387,8 @@ class RunConfig:
       cmd_line += f'COLL_NUM_REPLICA={self.num_trainer} '
     elif self.multi_gpu_sgnn:
       cmd_line += f'COLL_NUM_REPLICA={self.num_worker} '
+    if self.coll_cache_cpu_addup:
+      cmd_line += f'COLL_CACHE_CPU_ADDUP={self.coll_cache_cpu_addup}'
     cmd_line += f'CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking} '
     cmd_line += 'SAMGRAPH_LOG_NODE_ACCESS=0 '
     cmd_line += f'SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal} '
