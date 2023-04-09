@@ -307,6 +307,7 @@ class RunConfig:
     self.coll_cache_concurrent_link = ""
     self.rolling = 0
     self.coll_cache_cpu_addup = ""
+    self.coll_cache_scale = 0
 
   def cache_log_name(self):
     if self.cache_policy is CachePolicy.no_cache:
@@ -388,7 +389,9 @@ class RunConfig:
     elif self.multi_gpu_sgnn:
       cmd_line += f'COLL_NUM_REPLICA={self.num_worker} '
     if self.coll_cache_cpu_addup:
-      cmd_line += f'COLL_CACHE_CPU_ADDUP={self.coll_cache_cpu_addup}'
+      cmd_line += f'COLL_CACHE_CPU_ADDUP={self.coll_cache_cpu_addup} '
+    if self.coll_cache_scale != 0:
+      cmd_line += f'COLL_CACHE_SCALE={self.coll_cache_scale} '
     cmd_line += f'CUDA_LAUNCH_BLOCKING={self.cuda_launch_blocking} '
     cmd_line += 'SAMGRAPH_LOG_NODE_ACCESS=0 '
     cmd_line += f'SAMGRAPH_LOG_NODE_ACCESS_SIMPLE={self.report_optimal} '
@@ -496,6 +499,8 @@ class RunConfig:
       std_out_log += f'_nogroup_{self.coll_cache_no_group}'
     if self.coll_cache_concurrent_link != "":
       std_out_log += f'_concurrent_impl_{self.coll_cache_concurrent_link}'
+    if self.coll_cache_scale != 0:
+      std_out_log += f'_scale_nb_{self.coll_cache_scale}'
     return std_out_log
 
   def beauty(self):
@@ -509,6 +514,8 @@ class RunConfig:
       msg += f' nogroup={self.coll_cache_no_group}'
     if self.coll_cache_concurrent_link != "":
       msg += f' concurrent_link={self.coll_cache_concurrent_link}'
+    if self.coll_cache_scale != "":
+      msg += f' scale_nb={self.coll_cache_scale}'
     return datetime.datetime.now().strftime('[%H:%M:%S]') + msg
 
   def run(self, mock=False, durable_log=True, callback = None, fail_only=False):
