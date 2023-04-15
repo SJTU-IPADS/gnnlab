@@ -1,0 +1,121 @@
+succeed=False
+config:eval_tsp="2023-04-15 09:02:13"
+config:arch=arch5
+config:num_train_worker=3
+config:num_sample_worker=1
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=papers100M-undir
+config:pipeline=False
+config:cache_policy=coll_cache_asymm_link
+config:cache_percentage=0.2
+config:num_epoch=4
+config:batch_size=2000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=40
+config:unsupervised=True
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=1000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/papers100M-undir
+config:torch_thread_num=13
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2']
+config:sample_workers=['cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=25
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=13
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 40
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.1 build v9.5.1rc2 (linux64)
+Thread count: 40 physical cores, 80 logical processors, using up to 40 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 15222 rows, 7244 columns and 54315 nonzeros
+Model fingerprint: 0x1ad2a383
+Variable types: 4 continuous, 7240 integer (7240 binary)
+Coefficient statistics:
+  Matrix range     [5e-09, 6e+03]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+04]
+Warning: Model contains large matrix coefficient range
+         Consider reformulating model or setting NumericFocus parameter
+         to avoid numerical issues.
+Found heuristic solution: objective 48252.424411
+Presolve removed 8692 rows and 2 columns
+Presolve time: 0.09s
+Presolved: 6530 rows, 7242 columns, 31159 nonzeros
+Variable types: 1 continuous, 7241 integer (7240 binary)
+
+Root relaxation: objective 4.994520e+03, 7172 iterations, 0.15 seconds (0.14 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0 4994.52023    0   22 48252.4244 4994.52023  89.6%     -    0s
+H    0     0                    45860.790661 4994.52023  89.1%     -    0s
+H    0     0                    44925.515951 4994.52023  88.9%     -    0s
+     0     0 4994.52023    0   36 44925.5160 4994.52023  88.9%     -    1s
+H    0     0                    5008.0605828 4994.52023  0.27%     -    1s
+
+Cutting planes:
+  MIR: 1
+
+Explored 1 nodes (9227 simplex iterations) in 1.13 seconds (0.76 work units)
+Thread count was 40 (of 80 available processors)
+
+Solution count 4: 5008.06 44925.5 45860.8 48252.4 
+
+Optimal solution found (tolerance 5.00e-02)
+Best objective 5.008060582837e+03, best bound 4.994520234535e+03, gap 0.2704%
+coll_cache:optimal_local_rate=0.539443,0.539229,0.540542,
+coll_cache:optimal_remote_rate=0.405104,0.405317,0.404005,
+coll_cache:optimal_cpu_rate=0.0554533,0.0554533,0.0554533,
+z=5008.06
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11429402112
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11429402112
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11429402112
+

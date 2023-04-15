@@ -1,0 +1,133 @@
+succeed=False
+config:eval_tsp="2023-04-15 09:22:44"
+config:arch=arch5
+config:num_train_worker=3
+config:num_sample_worker=1
+config:sample_type=khop2
+config:root_path=/nvme/graph-learning-copy/samgraph/
+config:dataset=papers100M-undir
+config:pipeline=False
+config:cache_policy=coll_cache_asymm_link
+config:cache_percentage=0.21
+config:num_epoch=4
+config:batch_size=8000
+config:num_hidden=256
+config:max_sampling_jobs=1
+config:max_copying_jobs=1
+config:barriered_epoch=1
+config:presample_epoch=2
+config:omp_thread_num=40
+config:unsupervised=False
+config:amp=True
+config:rolling=0
+config:fanout=[25, 10]
+config:lr=0.003
+config:dropout=0.5
+config:single_gpu=False
+config:max_num_step=100000
+config:validate_configs=False
+config:report_acc=0
+config:dataset_path=/nvme/graph-learning-copy/samgraph/papers100M-undir
+config:torch_thread_num=13
+config:train_workers=['cuda:0', 'cuda:1', 'cuda:2']
+config:sample_workers=['cuda:3']
+config:num_fanout=2
+config:num_layer=2
+config:_run_mode=RunMode.FGNN
+config:_log_level=warn
+config:_profile_level=3
+config:_empty_feat=25
+config:_arch=5
+config:_sample_type=5
+config:_cache_policy=13
+test_result:init:input_scale_factor=1.1
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+Set parameter WLSAccessID
+Set parameter WLSSecret
+Set parameter LicenseID
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter LogFile to value "cppsolver.log"
+Set parameter Threads to value 40
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Gurobi Optimizer version 9.5.1 build v9.5.1rc2 (linux64)
+Thread count: 40 physical cores, 80 logical processors, using up to 40 threads
+Academic license - for non-commercial use only - registered to xiaoniu.sxn@sjtu.edu.cn
+Optimize a model with 15474 rows, 7364 columns and 55215 nonzeros
+Model fingerprint: 0x2d57fa1f
+Variable types: 4 continuous, 7360 integer (7360 binary)
+Coefficient statistics:
+  Matrix range     [5e-09, 2e+03]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 2e+03]
+Found heuristic solution: objective 6851.9071038
+Presolve removed 8833 rows and 2 columns
+Presolve time: 0.08s
+Presolved: 6641 rows, 7362 columns, 33796 nonzeros
+Variable types: 1 continuous, 7361 integer (7360 binary)
+
+Root relaxation: objective 2.964712e+02, 2212 iterations, 0.02 seconds (0.01 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0  296.47119    0   15 6851.90710  296.47119  95.7%     -    0s
+H    0     0                     296.5022886  296.47119  0.01%     -    0s
+
+Explored 1 nodes (2813 simplex iterations) in 0.17 seconds (0.12 work units)
+Thread count was 40 (of 80 available processors)
+
+Solution count 2: 296.502 6851.91 
+
+Optimal solution found (tolerance 5.00e-02)
+Best objective 2.965022885521e+02, best bound 2.964711900384e+02, gap 0.0105%
+coll_cache:optimal_local_rate=0.989023,0.989023,0.989023,
+coll_cache:optimal_remote_rate=5.40595e-10,5.40595e-10,5.85647e-10,
+coll_cache:optimal_cpu_rate=0.0109766,0.0109766,0.0109766,
+z=296.502
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11998028800
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11998028800
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+test_result:init:feat_nbytes=56862697472
+test_result:init:cache_nbytes=11998028800
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+0 :  {link #0 : 1}, {link #1 : 2},
+1 :  {link #0 : 2}, {link #1 : 0},
+2 :  {link #0 : 0}, {link #1 : 1},
+0 : local 72, cpu 8 {link #0 : g1 36}, {link #1 : g2 36},
+1 : local 72, cpu 8 {link #0 : g2 36}, {link #1 : g0 36},
+2 : local 72, cpu 8 {link #0 : g0 36}, {link #1 : g1 36},
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
+test_result:init:cache_nbytes=0
+
