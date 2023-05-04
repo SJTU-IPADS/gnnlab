@@ -41,6 +41,9 @@ DistAlignedShuffler::DistAlignedShuffler(TensorPtr input, size_t num_epoch,
   CHECK_EQ(input->Ctx(), CPU());
   CHECK_GT(batch_size, 0);
 
+  this->_worker_id = worker_id;
+  this->_num_worker = num_worker;
+
   _initialized = false;
 
   size_t origin_num_data = input->Shape().front();

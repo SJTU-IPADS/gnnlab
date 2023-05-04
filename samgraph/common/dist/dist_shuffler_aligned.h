@@ -37,7 +37,7 @@ class DistAlignedShuffler : public Shuffler {
 
   uint64_t Epoch() override { return _cur_epoch; }
   // Global step
-  uint64_t Step() override { return _global_step_offset + _cur_local_step; }
+  uint64_t Step() override { return _cur_local_step * _num_worker + _worker_id;}
   size_t NumEpoch() override { return _num_epoch; }
   size_t NumStep() override { return _num_global_step; }
   size_t NumLocalStep() override { return _num_local_step; }
@@ -69,6 +69,7 @@ class DistAlignedShuffler : public Shuffler {
   // the offset of train set for this sampler
   uint64_t _global_step_offset;
   size_t _global_data_offset;
+  int _worker_id, _num_worker;
 
   void ReShuffle(StreamHandle stream = nullptr);
 };

@@ -1,0 +1,209 @@
+[2023-04-15 16:37:55.633145: W /wholegraph/samgraph/samgraph/common/cpu/mmap_cpu_device.cc:113] mmap allocating space 13.46 GB
+[2023-04-15 16:37:55.633279: W /wholegraph/samgraph/samgraph/common/cpu/mmap_cpu_device.cc:118] mmap allocating space 13.46 GB done
+[2023-04-15 16:37:55.633318: E /wholegraph/samgraph/samgraph/common/common.cc:229] From MMAP reading disk 13.46 GB
+[2023-04-15 16:38:05.618906: E /wholegraph/samgraph/samgraph/common/common.cc:243] From MMAP reading done
+[2023-04-15 16:38:29.764735: W /wholegraph/samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 13.46 GB
+[2023-04-15 16:38:31.489740: E /wholegraph/samgraph/samgraph/common/engine.cc:277] Train set size 15.29 MB
+[2023-04-15 16:38:31.489891: W /wholegraph/samgraph/samgraph/common/cpu/mmap_cpu_device.cc:113] mmap allocating space 146.78 GB
+[2023-04-15 16:38:31.489926: W /wholegraph/samgraph/samgraph/common/cpu/mmap_cpu_device.cc:118] mmap allocating space 146.78 GB done
+/usr/lib/python3/dist-packages/requests/__init__.py:89: RequestsDependencyWarning: urllib3 (1.26.12) or chardet (3.0.4) doesn't match a supported version!
+  warnings.warn("urllib3 ({}) or chardet ({}) doesn't match a supported "
+[2023-04-15 16:38:32.162616: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:687] Trainer[0] initializing...
+[2023-04-15 16:38:32.343697: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:687] Trainer[1] initializing...
+[2023-04-15 16:38:32.984374: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:687] Trainer[2] initializing...
+[2023-04-15 16:38:33.148548: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:687] Trainer[3] initializing...
+[2023-04-15 16:38:33.334956: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:687] Trainer[4] initializing...
+[2023-04-15 16:38:33.363671: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:687] Trainer[5] initializing...
+[2023-04-15 16:38:35. 34456: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:691] Trainer[0] pin memory queue...
+[2023-04-15 16:38:35.160439: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:691] Trainer[1] pin memory queue...
+[2023-04-15 16:38:35.244526: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:691] Trainer[2] pin memory queue...
+[2023-04-15 16:38:35.372063: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:691] Trainer[3] pin memory queue...
+[2023-04-15 16:38:35.447054: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:691] Trainer[4] pin memory queue...
+[2023-04-15 16:38:35.455478: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:691] Trainer[5] pin memory queue...
+[2023-04-15 16:41:57.463677: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:57.464137: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:57.464676: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:57.464726: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:57.464775: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:57.464902: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:726] Trainer[0] register host memory...
+[2023-04-15 16:41:57.465382: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:726] Trainer[3] register host memory...
+[2023-04-15 16:41:57.465812: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc[:2023-04-15 16:41:57726.] 465829Trainer[4] register host memory...: 
+W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:726] Trainer[5] register host memory...
+[2023-04-15 16:41:57.465898: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:726] Trainer[1] register host memory...
+[2023-04-15 16:41:57.506742: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:57.506941: W /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:726] Trainer[2] register host memory...
+[2023-04-15 16:41:58.133758: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:58.133946: W /wholegraph/samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 15.29 MB
+[2023-04-15 16:41:58.135105: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:85] Running on V100
+[2023-04-15 16:41:58.148117: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 250.28 MB
+[2023-04-15 16:41:58.249479: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 13.46 GB
+[2023-04-15 16:42:01.754265: W /wholegraph/samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 19.12 MB
+[2023-04-15 16:42:01.770387: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 128.00 MB
+[2023-04-15 16:42:01.770701: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 13.09 MB
+[2023-04-15 16:42:01.771256: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 14.28 MB
+[2023-04-15 16:42:01.771353: W /wholegraph/samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 19.12 MB
+[2023-04-15 16:42:01.786209: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:41] Dist Presampler making shuffler...
+[2023-04-15 16:42:01.786273: W /wholegraph/samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 19.12 MB
+[2023-04-15 16:42:01.801397: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 19.12 MB
+[2023-04-15 16:42:01.801441: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:44] Dist Presampler making shuffler...Done
+[2023-04-15 16:42:01.801469: W /wholegraph/samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 500.55 MB
+[2023-04-15 16:42:02.100122: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 0
+[2023-04-15 16:42:02.250059: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 13.71 MB
+[2023-04-15 16:42:02.250545: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 13.71 MB
+[2023-04-15 16:42:02.250959: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 13.71 MB
+[2023-04-15 16:42:02.251394: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 13.71 MB
+[2023-04-15 16:42:02.262096: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[6] alloc cuda memory 12.95 MB
+[2023-04-15 16:42:02.263307: W /wholegraph/samgraph/samgraph/common/cpu/cpu_device.cc:39] WORKER[0] alloc host memory 11.38 MB
+[2023-04-15 16:42:21.292739: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 12.2067 on sample, 0.782935 on copy, 6.18145 on count
+[2023-04-15 16:42:21.292837: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:85] Dist Presampler doing presample epoch 1
+[2023-04-15 16:42:40.370160: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:129] presample spend 24.408 on sample, 1.55881 on copy, 12.2609 on count
+[2023-04-15 16:42:40.370262: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:136] max_num_inputs = 2395645, min_num_inputs = 2358119
+[2023-04-15 16:42:40.546536: E /wholegraph/samgraph/samgraph/common/dist/pre_sampler.cc:148] presample spend 0.176181 on sort freq.
+[2023-04-15 16:42:40.830450: E /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc:549] pre sample done, delete it
+[[[[[[2023-04-15 16:42:402023-04-15 16:42:402023-04-15 16:42:402023-04-15 16:42:402023-04-15 16:42:402023-04-15 16:42:40......904182904189904194904190904183904184: : : : : : WWWWWW      /wholegraph/samgraph/samgraph/common/dist/dist_engine.cc/wholegraph/samgraph/samgraph/common/dist/dist_engine.cc/wholegraph/samgraph/samgraph/common/dist/dist_engine.cc/wholegraph/samgraph/samgraph/common/dist/dist_engine.cc/wholegraph/samgraph/samgraph/common/dist/dist_engine.cc/wholegraph/samgraph/samgraph/common/dist/dist_engine.cc::::::736736736736736736] ] ] ] ] ] Trainer[3] building cache...Trainer[5] building cache...Trainer[2] building cache...Trainer[1] building cache...Trainer[0] building cache...Trainer[4] building cache...
+
+
+
+
+
+[[2023-04-15 16:42:402023-04-15 16:42:40..906070906070: [[: [E2023-04-15 16:42:402023-04-15 16:42:40E2023-04-15 16:42:40 .. ./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc906093906093/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc906093:: : :: 298[EE298E] 2023-04-15 16:42:40  ]  before scale, dtype is 0, dim is 256./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.ccbefore scale, dtype is 0, dim is 256/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+906173::
+:: 298298[298[E] ] 2023-04-15 16:42:40] 2023-04-15 16:42:40 before scale, dtype is 0, dim is 256before scale, dtype is 0, dim is 256.before scale, dtype is 0, dim is 256./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+
+906271
+906279:: [[: [298E2023-04-15 16:42:402023-04-15 16:42:40E2023-04-15 16:42:40]  .. .before scale, dtype is 0, dim is 256/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc906345906347/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc906354
+:: : :: 304E[E304E]  2023-04-15 16:42:40 ]  after scale, dtype is 7, new dim is 64/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.ccafter scale, dtype is 7, new dim is 64/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+:906433:
+:304: 304304] E] ] after scale, dtype is 7, new dim is 64 after scale, dtype is 7, new dim is 64after scale, dtype is 7, new dim is 64
+/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+
+:304] after scale, dtype is 7, new dim is 64
+[2023-04-15 16:42:40.909669: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:181] v100x8, slow pcie
+[2023-04-15 16:42:40.909704: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:207[] 2023-04-15 16:42:40assigning 0 to cpu.
+909715: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc:181] v100x8, slow pcie
+[2023-04-15 16:42:40[.2023-04-15 16:42:40909752.: 909755[E: 2023-04-15 16:42:40 E./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc 909764:/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc: [224:E2023-04-15 16:42:40] 207 .build asymm link desc with 6X Tesla V100-SXM2-32GB out of 8] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc909809
+assigning 0 to cpu:[: 
+[1812023-04-15 16:42:40E2023-04-15 16:42:40] . .v100x8, slow pcie909851[/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc909873
+[: 2023-04-15 16:42:40:: 2023-04-15 16:42:40[E.181E.2023-04-15 16:42:40 909899]  909903./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc: v100x8, slow pcie/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc: 909929:E
+:E: 181 225 [E] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc2023-04-15 16:42:40 v100x8, slow pcie:remote time is 9.21053:./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc
+224
+181910019:[] [] : 2072023-04-15 16:42:40build asymm link desc with 6X Tesla V100-SXM2-32GB out of 82023-04-15 16:42:40v100x8, slow pcieE] .
+.
+ assigning 0 to cpu910081910075/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[
+[: : :2023-04-15 16:42:402023-04-15 16:42:40EE207..  ] 910138[910139/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.ccassigning 0 to cpu: 2023-04-15 16:42:40: ::
+E.E226207 910184 ] ] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc[: /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cccpu time is 102.941assigning 0 to cpu:2023-04-15 16:42:40E:
+
+225. 207] 910261/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc] remote time is 9.21053: [:assigning 0 to cpu
+E[2023-04-15 16:42:40224
+ 2023-04-15 16:42:40[.] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc.2023-04-15 16:42:40910330build asymm link desc with 6X Tesla V100-SXM2-32GB out of 8:910336[.: 
+224: 2023-04-15 16:42:40910361E[] E.:  2023-04-15 16:42:40build asymm link desc with 6X Tesla V100-SXM2-32GB out of 8 910389E/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc.
+/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:  :910422:E/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc224[: 314 :] 2023-04-15 16:42:40E] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc226build asymm link desc with 6X Tesla V100-SXM2-32GB out of 8. registering cpu data with 32.00 GB:] 
+910469/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc
+224cpu time is 102.941: :[] 
+E2252023-04-15 16:42:40build asymm link desc with 6X Tesla V100-SXM2-32GB out of 8 ] .
+/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.ccremote time is 9.21053910536:
+: 225[[E] [2023-04-15 16:42:402023-04-15 16:42:40 remote time is 9.210532023-04-15 16:42:40../wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc
+.910579910585:910594[: : 225: 2023-04-15 16:42:40EE] E.  remote time is 9.21053 910637/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc
+/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc: :::E[314225226 2023-04-15 16:42:40] ] ] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc.registering cpu data with 32.00 GBremote time is 9.21053cpu time is 102.941:910702
+
+
+226: ] E[cpu time is 102.941 2023-04-15 16:42:40
+/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc.:910766[226: 2023-04-15 16:42:40] E.cpu time is 102.941[ 910790
+2023-04-15 16:42:40/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/asymm_link_desc.cc: .:E910814226 : ] [/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.ccEcpu time is 102.9412023-04-15 16:42:40: 
+.314/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc910861] :: registering cpu data with 32.00 GB314E
+]  registering cpu data with 32.00 GB/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc
+:314[] 2023-04-15 16:42:40registering cpu data with 32.00 GB.
+910923: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:314] registering cpu data with 32.00 GB
+[2023-04-15 16:42:49.583263: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:316] registering cpu data done.
+[2023-04-15 16:42:49.583493: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:316] registering cpu data done.
+[2023-04-15 16:42:49.584353: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:316] registering cpu data done.
+[2023-04-15 16:42:49.584603: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:316] registering cpu data done.
+[2023-04-15 16:42:49.585712: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:316] registering cpu data done.
+[2023-04-15 16:42:49.585773: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:109] creating solver
+[2023-04-15 16:42:49.585801: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:149] solver created. now build & solve
+[2023-04-15 16:42:49.598291: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:316] registering cpu data done.
+[2023-04-15 16:42:49.611821: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:154] solver built. now solve
+[2023-04-15 16:42:49.611879: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/coll_cache/optimal_solver_class.cc:1474] num_cached_nodes = 15746007
+[2023-04-15 16:42:49.776477: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:158] solver solved
+[2023-04-15 16:42:49.776645: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:326] 0 solved master
+[2023-04-15 16:42:49.776694: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:333] 0 solved
+[2023-04-15 16:42:49.776729: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:336] worker 0 thread 0 initing device 0
+[2023-04-15 16:42:49.787148: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:333] 5 solved
+[2023-04-15 16:42:49.787195: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:336] worker 5 thread 5 initing device 5
+[2023-04-15 16:42:49.787247: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:333] 1 solved
+[2023-04-15 16:42:49.787307: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:336] worker 1 thread 1 initing device 1
+[2023-04-15 16:42:49.787447: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:333] 3 solved
+[2023-04-15 16:42:49.787498: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc:336] worker 3 thread 3 initing device 3
+[[2023-04-15 16:42:492023-04-15 16:42:49..788400788408: : EE  /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc::333333] ] 4 solved2 solved
+
+[[2023-04-15 16:42:492023-04-15 16:42:49..788498788500: : EE  /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/facade.cc::336336] ] worker 4 thread 4 initing device 4worker 2 thread 2 initing device 2
+
+[2023-04-15 16:42:49.839150: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2320] Building Coll Cache with ... num gpu device is 6
+[[[[[2023-04-15 16:42:492023-04-15 16:42:492023-04-15 16:42:492023-04-15 16:42:492023-04-15 16:42:49.....839184839183839182839185839185[: : : : : 2023-04-15 16:42:49EEEEE.     839252/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu: :::::E23202320232023202320 ] ] ] ] ] /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cuhBuilding Coll Cache with ... num gpu device is 6Building Coll Cache with ... num gpu device is 6Building Coll Cache with ... num gpu device is 6Building Coll Cache with ... num gpu device is 6Building Coll Cache with ... num gpu device is 6:
+
+
+
+
+611] per src size local is 17320707
+[2023-04-15 16:42:49.927708: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:261] making a tensor with 0 num item
+[2023-04-15 16:42:49.927793: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2362] num cpu nodes is 49862359
+[2023-04-15 16:42:49.928007: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:261] making a tensor with 0 num item[
+2023-04-15 16:42:49.928042: [E2023-04-15 16:42:49 ./wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc928074:: 261E]  making a tensor with 0 num item/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu
+:2362] num cpu nodes is 49862359[
+2023-04-15 16:42:49.928112: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2362] num cpu nodes is 49862359
+[2023-04-15 16:42:49.929463: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:261] making a tensor with 0 num item
+[[2023-04-15 16:42:492023-04-15 16:42:49..929509929535: : EE  /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu::2612362] ] making a tensor with 0 num itemnum cpu nodes is 49862359
+
+[2023-04-15 16:42:49.929588: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2362] num cpu nodes is 49862359
+[2023-04-15 16:42:49.930584: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc:261] making a tensor with 0 num item
+[2023-04-15 16:42:49.930632: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2362] num cpu nodes is 49862359
+[2023-04-15 16:42:52.848748: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 15746007 possible elem, scale to 33554432
+[2023-04-15 16:42:52.848821: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 256.00 MB
+[2023-04-15 16:42:52.849964: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 15746007 possible elem, scale to 33554432
+[2023-04-15 16:42:52.850049: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360[] 2023-04-15 16:42:52SimpleHashTable allocating 256.00 MB.
+850049: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 15746007 possible elem, scale to 33554432
+[2023-04-15 16:42:52.850121: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 256.00 MB
+[2023-04-15 16:42:52.850475: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 15746007 possible elem, scale to 33554432
+[2023-04-15 16:42:52.850537: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 256.00 MB
+[2023-04-15 16:42:52.853447: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 15746007 possible elem, scale to 33554432
+[2023-04-15 16:42:52.853502: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:[3602023-04-15 16:42:52] .SimpleHashTable allocating 256.00 MB853497
+: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:355] create a hashtable with 15746007 possible elem, scale to 33554432
+[2023-04-15 16:42:52.853585: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cuda/cache_hashtable.cu:360] SimpleHashTable allocating 256.00 MB
+[[[[2023-04-15 16:42:522023-04-15 16:42:52[[2023-04-15 16:42:522023-04-15 16:42:52..2023-04-15 16:42:522023-04-15 16:42:52..870251870251..870251870251: : 870256870256: : EE: : EE  EE  /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc  /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc::/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc/wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/common.cc::107107::107107] ] 107107] ] too many mem allocated for forcescale?15811616->65609too many mem allocated for forcescale?15811616->65609] ] too many mem allocated for forcescale?15811616->65609too many mem allocated for forcescale?15811616->65609
+
+too many mem allocated for forcescale?15811616->65609too many mem allocated for forcescale?15811616->65609
+
+
+
+[2023-04-15 16:42:52.875987: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2440] Asymm Coll cache (policy: rep_cache) | local 15746007 / 65608366 nodes ( 24.00 %~24.00 %) | remote 0 / 65608366 nodes ( 0.00 %) | cpu 49862359 / 65608366 nodes ( 76.00 %) | 15.08 GB | 3.03658 secs 
+[2023-04-15 16:42:52.879665: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2440] Asymm Coll cache (policy: rep_cache) | local 15746007 / 65608366 nodes ( 24.00 %~24.00 %) | remote 0 / 65608366 nodes ( 0.00 %) | cpu 49862359 / 65608366 nodes ( 76.00 %) | 15.08 GB | 3.04026 secs 
+[2023-04-15 16:42:52.881953: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:[24402023-04-15 16:42:52] .Asymm Coll cache (policy: rep_cache) | local 15746007 / 65608366 nodes ( 24.00 %~24.00 %) | remote 0 / 65608366 nodes ( 0.00 %) | cpu 49862359 / 65608366 nodes ( 76.00 %) | 15.08 GB | 3.04255 secs 881987
+: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2440] Asymm Coll cache (policy: rep_cache) | local 15746007 / 65608366 nodes ( 24.00 %~24.00 %) | remote 0 / 65608366 nodes ( 0.00 %) | cpu 49862359 / 65608366 nodes ( 76.00 %) | 15.08 GB | 3.04258 secs 
+[2023-04-15 16:42:52.885026: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2440] Asymm Coll cache (policy: rep_cache) | local 15746007 / 65608366 nodes ( 24.00 %~24.00 %) | remote 0 / 65608366 nodes ( 0.00 %) | cpu 49862359 / 65608366 nodes ( 76.00 %) | 15.08 GB | 3.04562 secs 
+[2023-04-15 16:42:52.885357: E /wholegraph/samgraph/3rdparty/collcachelib/coll_cache_lib/cache_context.cu:2440] Asymm Coll cache (policy: rep_cache) | local 15746007 / 65608366 nodes ( 24.00 %~24.00 %) | remote 0 / 65608366 nodes ( 0.00 %) | cpu 49862359 / 65608366 nodes ( 76.00 %) | 15.08 GB | 3.04616 secs 
+[2023-04-15 16:42:55.584413: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.35 MB
+[2023-04-15 16:42:55.585120: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 14.16 MB
+[2023-04-15 16:42:55.585754: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 14.16 MB
+[2023-04-15 16:42:55.591599: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 2.47 GB
+[2023-04-15 16:42:55.592018: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.35 MB
+[2023-04-15 16:42:55.592391: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 24.70 MB
+[2023-04-15 16:42:55.592756: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.35 MB
+[2023-04-15 16:42:55.593144: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 24.70 MB
+[2023-04-15 16:42:55.655221: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 11.34 MB
+[2023-04-15 16:42:55.657251: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.87 MB
+[2023-04-15 16:42:55.658884: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.87 MB
+[2023-04-15 16:42:55.679157: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 2.47 GB
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+/usr/local/lib/python3.8/dist-packages/torch/nn/parallel/scatter_gather.py:9: UserWarning: is_namedtuple is deprecated, please use the python checks instead
+  warnings.warn("is_namedtuple is deprecated, please use the python checks instead")
+[2023-04-15 16:43:21.662955: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.85 MB
+[2023-04-15 16:43:21.665024: W /wholegraph/samgraph/samgraph/common/cuda/cuda_device.cc:49] GPU[0] alloc cuda memory 12.85 MB
