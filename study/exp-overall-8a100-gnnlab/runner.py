@@ -23,7 +23,7 @@ cur_common_base = (ConfigList()
   .override('multi_gpu', [True])
   .override('pipeline', [
     True,
-    # False,
+    False,
   ]))
 
 cfg_list_collector = ConfigList.Empty()
@@ -35,15 +35,15 @@ GraphSage
 cur_common_base = (cur_common_base.copy().override('app', [App.graphsage ]).override('sample_type', [SampleType.kKHop2]))
 cur_common_base = (cur_common_base.copy().override('unsupervised', [True]).override('max_num_step', [1000]))
 cur_common_base = (cur_common_base.copy().override('batch_size', [4000]).override('custom_env', [f'SAMGRAPH_MQ_SIZE={150*1024*1024}']))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', [0.52]))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', [0.50]).override('num_feat_dim_hack', [256]))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', [0.10, 0.18]).override('batch_size', [2000]).override('amp', [True]))
+cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', [0.52, 1]))
+cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', [0.50, 1]).override('num_feat_dim_hack', [256]))
+cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', [0.18]).override('batch_size', [2000]).override('amp', [True]))
 
 # 1.2 sup
 cur_common_base = (cur_common_base.copy().override('unsupervised', [False]).override('max_num_step', [100000]))
 cur_common_base = (cur_common_base.copy().override('batch_size', [8000]).override('custom_env', [f'SAMGRAPH_MQ_SIZE={55*1024*1024}']))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', [0.37]))
-cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', [0.50]).override('num_feat_dim_hack', [256]))
+cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.papers100M_undir, ]).override('cache_percent', [0.37, 1]))
+cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.friendster,       ]).override('cache_percent', [0.50, 1]).override('num_feat_dim_hack', [256]))
 cfg_list_collector.concat(cur_common_base.copy().override('dataset', [Dataset.mag240m_homo,     ]).override('cache_percent', [0.18]).override('amp', [True]))
 
 cfg_list_collector.hyper_override(
